@@ -7,7 +7,7 @@ pd.options.mode.chained_assignment = None  # default='warn'
 warnings.simplefilter(action='ignore', category=FutureWarning) # Turn off futurewarnings
 
 # Read in datasets
-filepath = '/Users/mattroth/Documents/DS Competitions/Earthquake/'
+filepath = '/Data/'
 
 test_vals = pd.read_csv(filepath + 'test_values.csv', index_col='building_id')
 train_vals = pd.read_csv(filepath + 'train_values.csv', index_col='building_id').sort_index()
