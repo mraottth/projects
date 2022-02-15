@@ -459,17 +459,4 @@ for curr_month in list(np.sort(df['date'].unique())):
         
     # plt.legend(fontsize=14, bbox_to_anchor=(1.01,1), borderaxespad=0)
     # plt.legend(fontsize=14, loc=2)
-    plt.savefig('/Users/mattroth/Desktop/Seattle IP Team/Charts/Full Pandemic History/Drilldown/Deaths/deaths' + str(curr_month)[0:10] + '_drilldown.jpeg', bbox_inches = "tight", dpi=150)
     plt.show()  
-
-
-import os
-import imageio
-
-jpeg_dir = '/Users/mattroth/Desktop/Seattle IP Team/Charts/Full Pandemic History/Drilldown/Deaths'
-images = []
-for file_name in sorted(os.listdir(jpeg_dir)):
-    if file_name.endswith('.jpeg'):
-        file_path = os.path.join(jpeg_dir, file_name)
-        images.append(imageio.imread(file_path))
-imageio.mimsave('/Users/mattroth/Desktop/Seattle IP Team/Charts/Full Pandemic History/Drilldown/Deaths/deaths_pandemic_history_drilldown.gif', images, duration = 1.25)
