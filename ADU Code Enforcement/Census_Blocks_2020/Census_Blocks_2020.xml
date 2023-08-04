@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?><metadata>
+    <idinfo>
+        <citation>
+            <citeinfo>
+                <origin/>
+                <pubdate>unknown</pubdate>
+                <title>Census Blocks 2020</title>
+                <onlink>https://public.gis.lacounty.gov/public/rest/services/LACounty_Dynamic/Demographics/MapServer/16</onlink>
+            </citeinfo>
+        </citation>
+        <descript>
+            <abstract>Blocks are typically bounded by streets, roads or creeks. In cities, a census block may correspond to a city block, but in rural areas where there are fewer roads, blocks may be limited by other features.The Census Bureau established blocks covering the entire nation for the first time in 1990.There are less number of Census Blocks within Los Angeles County in 2020 Census TIGER/Line Shapefiles, compared in 2010.UPDATED: March 2021How This Data is Created?This census geographic file was downloaded from Census Bureau website: https://www2.census.gov/geo/tiger/TIGER2020PL/STATE/06_CALIFORNIA/06037/ on February 2021 and customized for LA County. New data fields are added in the census blocks 2020 data and populated with city/community names, Census FIPs, LA County FIPS, 2011 Supervirorial Districts, zipcodes and some administrative boundary information such as 2012 Health Districts and 2012 Service Planning Areas are also added. Similarly, "Feat_Type" field is added and populated with water, ocean and land values. Remaining two fields "SUP21" and "Pop20" will be populated later. Note: This data includes 3 NM ocean. However, user can use a definition query to remove those. Data Fields:1. STATE (STATEFP20): State FIP, "06" for California2. COUNTY (COUNTYFP20): County FIP "037" for Los Angeles County3. CT20: (TRACTCE20): 6-digit census tract number 4. BG20: 7-digit block group number5. CB20 (BLOCKCE20): 4-digit census block number6. CTCB20: Combination of CT20 and CB207. FEAT_TYPE: Land use types such as water bodies, ocean (3 NM ocean) or land 8. FIP20: Los Angeles County FIP code9. BGFIP20: Combination of BG20 and FIP2010. CITY: Incorporated city name11. COMM: Unincorporated area community name and LA City neighborhood, also known as "CSA".12. CITYCOMM: City/Community name label13. ZCTA20: Parcel specific zipcodes14. HD12: 2012 Health District number15. HD_NAME: Health District name16. SPA12: 2012 Service Planning Area number17. SPA_NAME: Service Planning Area name18. SUP11: 2011 Supervisorial District number19. SUP_LABEL: Supervisorial District label20. SUP21: Supervisorial District 2021 (wil be populated later)21. POP20: 2020 Population (to be populated later)</abstract>
+            <purpose>Census blocks are the statistical area bounded by visible features and by nonvisible boundaries. A block is the smallest geographic unit used by the US Census Bureau for decennial census data tabulation.</purpose>
+        </descript>
+        <keywords>
+            <theme>
+                <themekt>None</themekt>
+                <themekey>Census</themekey>
+                <themekey>Census Blocks</themekey>
+                <themekey>Block</themekey>
+                <themekey>Demographic</themekey>
+                <themekey>Demography</themekey>
+            </theme>
+        </keywords>
+        <accconst>None</accconst>
+        <useconst>The data herein is for
+informational purposes and may not have been prepared for or be suitable for
+legal, engineering, or surveying intents. The County of Los Angeles reserves
+the right to change, restrict or discontinue access at any time. All users of
+the maps and data presented on https://lacounty.maps.arcgis.com or deriving
+from any LA County REST URLs, agree to follows Terms of Use as outlined on the
+County of LA Enterprise GIS (eGIS) Hub (https://egis-lacounty.hub.arcgis.com/pages/terms-of-use).&amp;lt;o:p&amp;gt;&amp;lt;/o:p&amp;gt;</useconst>
+        <datacred>Los Angeles County, US Census Bureau</datacred>
+    </idinfo>
+    <metainfo>
+        <metd>20210322</metd>
+        <metc>
+            <cntinfo>
+                <!--no contact person or organization name available-->
+            </cntinfo>
+        </metc>
+        <metstdn>FGDC Content Standard for Digital Geospatial Metadata</metstdn>
+        <metstdv>FGDC-STD-001-1998</metstdv>
+        <mettc>local time</mettc>
+    </metainfo>
+</metadata>
