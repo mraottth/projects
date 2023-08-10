@@ -36,7 +36,8 @@ making it easy to visualize the following insights in one simple view:
 
 Cases                      |  Deaths
 :-------------------------:|:-------------------------:
-![cases_pandemic_history_drilldown](https://github.com/mraottth/projects/assets/64610726/d6b292f6-4496-47d9-9620-56d1b3063491) | ![deaths_pandemic_history_drilldown](https://github.com/mraottth/projects/assets/64610726/0e65ef9c-2409-4375-b4e0-08161921a3bf)
+![cases_pandemic_history_drilldown](https://github.com/mraottth/projects/assets/64610726/950fce3f-3ecc-4f0b-a3cb-57b1ae354fa4) | ![deaths_pandemic_history_drilldown](https://github.com/mraottth/projects/assets/64610726/a5434bd8-25d5-4cd5-ac06-45876f562929)
+
 
 **Filetree:**
 ```
