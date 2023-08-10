@@ -9,7 +9,7 @@ disadvantaged communities
 
 Cases                      |  Deaths
 :-------------------------:|:-------------------------:
-![cases_pandemic_history_drilldown](https://github.com/mraottth/projects/assets/64610726/ee1598d0-6f24-4c48-a681-cddaafcc7261) | ![deaths_pandemic_history_drilldown](https://github.com/mraottth/projects/assets/64610726/63eace83-0884-4bfb-8a50-631daaa8d0b6)
+ ![cases_pandemic_history_drilldown](https://github.com/mraottth/projects/assets/64610726/21361065-8772-4f0e-ad5a-ff2e3ebcb800) | ![deaths_pandemic_history_drilldown](https://github.com/mraottth/projects/assets/64610726/e9608396-77b2-48be-a307-235910750634)
 
 
 **Filetree:**
