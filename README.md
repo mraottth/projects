@@ -7,11 +7,6 @@ Completed as part of the Stanford RegLab's analysis on whether municipal code en
 unpermitted accessory dwelling unit (ADU) construction disproportionately targets 
 disadvantaged communities 
 
-Cases                      |  Deaths
-:-------------------------:|:-------------------------:
- ![cases_pandemic_history_drilldown](https://github.com/mraottth/projects/assets/64610726/21361065-8772-4f0e-ad5a-ff2e3ebcb800) | ![deaths_pandemic_history_drilldown](https://github.com/mraottth/projects/assets/64610726/e9608396-77b2-48be-a307-235910750634)
-
-
 **Filetree:**
 ```
 ├── Census_Blocks_2020
@@ -32,6 +27,10 @@ ___
 
 **Description:**
 Abc
+
+Cases                      |  Deaths
+:-------------------------:|:-------------------------:
+![cases_pandemic_history_drilldown](https://github.com/mraottth/projects/assets/64610726/d6b292f6-4496-47d9-9620-56d1b3063491) | ![deaths_pandemic_history_drilldown](https://github.com/mraottth/projects/assets/64610726/0e65ef9c-2409-4375-b4e0-08161921a3bf)
 
 **Filetree:**
 ```
