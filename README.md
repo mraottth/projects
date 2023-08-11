@@ -88,6 +88,15 @@ Abc
 
 ___
 
+### Health Inspection Predictor
+
+**Description:**
+Abc
+
+<img width="1414" alt="Screenshot 2023-08-10 at 7 36 09 PM" src="https://github.com/mraottth/projects/assets/64610726/9af8dddc-0dbc-4dc3-b7e0-92ef64231c12">
+
+___
+
 ### OSCAR LDA
 
 **Description:**
@@ -100,16 +109,6 @@ Abc
 ```
 └── topic_modeling.ipynb
 ```
-
-___
-
-### Predicting Health Inspection Grades
-
-**Description:**
-Abc
-
-<img width="1414" alt="Screenshot 2023-08-10 at 7 36 09 PM" src="https://github.com/mraottth/projects/assets/64610726/9af8dddc-0dbc-4dc3-b7e0-92ef64231c12">
-
 
 **Filetree:**
 ```
