@@ -7,6 +7,9 @@ Completed as part of the Stanford RegLab's analysis on whether municipal code en
 unpermitted accessory dwelling unit (ADU) construction disproportionately targets 
 disadvantaged communities 
 
+<img width="1412" alt="Screenshot 2023-08-10 at 8 07 10 PM" src="https://github.com/mraottth/projects/assets/64610726/94f48e25-fe59-43ae-9f17-f13442398fbd">
+
+
 **Filetree:**
 ```
 ├── Census_Blocks_2020
