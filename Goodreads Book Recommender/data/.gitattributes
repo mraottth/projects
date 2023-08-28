@@ -1,0 +1,6 @@
+book_index_for_sparse_matrix.csv filter=lfs diff=lfs merge=lfs -text
+goodreads_books.csv filter=lfs diff=lfs merge=lfs -text
+goodreads_library_export.csv filter=lfs diff=lfs merge=lfs -text
+inferred_genres.csv filter=lfs diff=lfs merge=lfs -text
+user_index_for_sparse_matrix.csv filter=lfs diff=lfs merge=lfs -text
+user_reviews.npz filter=lfs diff=lfs merge=lfs -text
