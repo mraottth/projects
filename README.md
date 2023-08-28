@@ -91,6 +91,27 @@ predict the level of damage to buildings caused by the 2015 Nepal earthquake. Sc
 
 ___
 
+### Goodreads Book Recommender
+
+**Description:**
+Uses [goodreads data](https://sites.google.com/eng.ucsd.edu/ucsdbookgraph/home?authuser=0) scraped by Mengting Wan and Julian McAuley at UCSD to build a recommender system using collaborative filtering via KNN to suggest books and allow for filtering on genre, rating, and other features.
+
+**Filetree:**
+```
+├── data
+│   ├── book_index_for_sparse_matrix.csv
+|   ├── goodreads_books.csv
+|   ├── goodreads_library_export.csv
+|   ├── inferred_genres.csv
+|   ├── user_index_for_sparse_matrix.csv
+│   └── user_reviews.npz
+│── book_recommender.ipynb
+│── infer_genres.ipynb
+└── prep_goodreads_data.ipynb
+```
+
+___
+
 ### Health Inspection Predictor
 
 **Description:**
