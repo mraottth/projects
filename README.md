@@ -7,6 +7,9 @@ Completed as part of the Stanford RegLab's analysis on whether municipal code en
 unpermitted accessory dwelling unit (ADU) construction disproportionately targets 
 disadvantaged communities 
 
+<img width="1412" alt="Screenshot 2023-08-10 at 8 07 10 PM" src="https://github.com/mraottth/projects/assets/64610726/94f48e25-fe59-43ae-9f17-f13442398fbd">
+
+
 **Filetree:**
 ```
 ├── Census_Blocks_2020
@@ -56,7 +59,9 @@ ___
 ### Caixin Scraper
 
 **Description:**
-Abc
+This web scraper was written to assist a research project at Harvard's Belfer Center seeking to identify 
+cases of corruption in China that appear in the media before being officially announced by the 
+Central Commission for Discipline Inspection (typically, it is the other way around in China).
 
 **Filetree:**
 ```
@@ -72,7 +77,8 @@ ___
 ### Earthquake
 
 **Description:**
-Abc
+Entry to DrivenData's competition, [Richter's Predictor](https://www.drivendata.org/competitions/57/nepal-earthquake/page/134/), which tasks participants with creating a model to 
+predict the level of damage to buildings caused by the 2015 Nepal earthquake. Scored in top 2%.
 
 **Filetree:**
 ```
@@ -85,25 +91,10 @@ Abc
 
 ___
 
-### OSCAR LDA
+### Health Inspection Predictor
 
 **Description:**
-Abc
-
-<img width="921" alt="Screenshot 2023-08-10 at 6 26 54 PM" src="https://github.com/mraottth/projects/assets/64610726/a0641dae-b539-4071-82c5-c6e442d980bc">
-
-
-**Filetree:**
-```
-└── topic_modeling.ipynb
-```
-
-___
-
-### Predicting Health Inspection Grades
-
-**Description:**
-Abc
+Uses [public data](https://data.cityofnewyork.us/Transportation/Open-Restaurants-Inspections/4dx7-axux) on restaurant health inspections in New York City to predict the score a restaurant will receive on its next inspection.
 
 <img width="1414" alt="Screenshot 2023-08-10 at 7 36 09 PM" src="https://github.com/mraottth/projects/assets/64610726/9af8dddc-0dbc-4dc3-b7e0-92ef64231c12">
 
@@ -112,4 +103,19 @@ Abc
 ```
 ├── NYC Restaurant Inspection ML.pdf
 └── Predicting_Restaurant_Inspections.ipynb
+```
+
+___
+
+### OSCAR LDA
+
+**Description:**
+Topic modeling for an NLP project using BERT to summarize clinical articles. Full project [here](https://github.com/mlkimmins/OSCAR/tree/master)
+
+<img width="921" alt="Screenshot 2023-08-10 at 6 26 54 PM" src="https://github.com/mraottth/projects/assets/64610726/a0641dae-b539-4071-82c5-c6e442d980bc">
+
+
+**Filetree:**
+```
+└── topic_modeling.ipynb
 ```
