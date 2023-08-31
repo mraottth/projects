@@ -96,6 +96,10 @@ ___
 **Description:**
 Uses [goodreads data](https://sites.google.com/eng.ucsd.edu/ucsdbookgraph/home?authuser=0) scraped by Mengting Wan and Julian McAuley at UCSD to build a recommender system using collaborative filtering via KNN to suggest books and allow for filtering on genre, rating, and other features.
 
+* **00_prep_goodreads_data.ipynb** imports, cleans, and prepares the UCSD data for later steps
+* **01_infer_genres.ipynb** performs topic modeling via Latent Dirichlet Allocation (LDA) to infer genres based on each book's description text. These genres are used for making recommendations in the next step
+* **02_book_recommender.ipynb** generates book recommendations with user-user similarity via KNN and user-item rating predictions via matrix factorization
+
 **Filetree:**
 ```
 ├── data
