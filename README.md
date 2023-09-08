@@ -104,7 +104,7 @@ Scripts include:
 * **01_infer_genres.ipynb** - performs topic modeling via Latent Dirichlet Allocation (LDA) to infer genres based on each book's description text. These genres are used for making recommendations in the next step
 * **02_book_recommender.ipynb** - generates book recommendations with user-user similarity via KNN and user-item rating predictions via matrix factorization
 
-![output](https://github.com/mraottth/projects/assets/64610726/10eca5c0-75e3-4eb3-b56e-422fb79905b6)
+![output2](https://github.com/mraottth/projects/assets/64610726/02633d23-3938-4252-a409-92b5c7b519a5)
 
 
 **Filetree:**
