@@ -94,11 +94,17 @@ ___
 ### Goodreads Book Recommender
 
 **Description:**
-Uses [goodreads data](https://sites.google.com/eng.ucsd.edu/ucsdbookgraph/home?authuser=0) scraped by Mengting Wan and Julian McAuley at UCSD to build a recommender system using collaborative filtering via KNN to suggest books and allow for filtering on genre, rating, and other features.
+Uses [goodreads data](https://sites.google.com/eng.ucsd.edu/ucsdbookgraph/home?authuser=0) scraped by Mengting Wan and Julian McAuley at UCSD to build a recommender system using three methods:
+1. Collaborative filtering with KNN to suggest popular and highly rated books among a similar set of readers to the target reader
+2. Matrix Factorization with SVD of a user-rating matrix to predict ratings for unread books
+3. Matrix Factorization with gradient descent by alternating least squares (ALS) to predict ratings for unread books
 
-* **00_prep_goodreads_data.ipynb** imports, cleans, and prepares the UCSD data for later steps
-* **01_infer_genres.ipynb** performs topic modeling via Latent Dirichlet Allocation (LDA) to infer genres based on each book's description text. These genres are used for making recommendations in the next step
-* **02_book_recommender.ipynb** generates book recommendations with user-user similarity via KNN and user-item rating predictions via matrix factorization
+Scripts include:
+* **00_prep_goodreads_data.ipynb** - imports, cleans, and prepares the UCSD data for later steps
+* **01_infer_genres.ipynb** - performs topic modeling via Latent Dirichlet Allocation (LDA) to infer genres based on each book's description text. These genres are used for making recommendations in the next step
+* **02_book_recommender.ipynb** - generates book recommendations with user-user similarity via KNN and user-item rating predictions via matrix factorization
+
+![output](https://github.com/mraottth/projects/assets/64610726/c3358cbb-f532-435d-9e26-59bdd1bd071b)
 
 **Filetree:**
 ```
