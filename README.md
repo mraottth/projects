@@ -64,7 +64,7 @@ Central Commission for Discipline Inspection (typically, it is the other way aro
 
 **Filetree:**
 ```
-├── Data
+├── data
 │   ├── CCDI_Selected_Data.csv
 |   ├── keywords.csv
 │   └── scraped_results_0226.csv
