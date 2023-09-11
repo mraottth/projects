@@ -5,13 +5,18 @@ import requests
 import re
 import dateutil.parser as dparser
 from datetime import datetime, timedelta
+import os
+
 
 # xpath that points to proper place in pages
 xpath = '/html/body/div/div/div/div/div/ul[1]/li/div/span'
-        
+
+# Get working directory
+wd = os.getcwd()
+
 # Read in ccdi data and keywords
-sel_ccdi = pd.read_csv('CCDI_Selected_Data.csv')
-keywords = pd.read_csv('keywords.csv')
+sel_ccdi = pd.read_csv(wd + '/data/CCDI_Selected_Data.csv')
+keywords = pd.read_csv(wd + '/data/keywords.csv')
 
 # Format dates in sel_ccdi
 sel_ccdi['Date of Announcement'] = sel_ccdi['Date of Announcement'].apply(lambda x: dparser.parse(x, dayfirst=True, fuzzy=True).date())
@@ -94,7 +99,7 @@ for namedtuple in sel_ccdi.itertuples():
 final_results = pd.DataFrame(completed_scrapes)
 
 # Write to csv
-final_results.to_csv('scraped_results.csv', index=False, encoding='utf_8_sig')
+final_results.to_csv(wd + '/data/scraped_results.csv', index=False, encoding='utf_8_sig')
 
 print('Done!')
 print('Results CSV created: scraped_results.csv')  
