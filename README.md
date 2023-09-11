@@ -161,6 +161,7 @@ This project, completed as a master's thesis, uses drone orthomapping and comput
 
 <img width="1229" alt="Screenshot 2023-08-07 at 12 20 06 PM" src="https://github.com/mraottth/TrashBot/assets/64610726/907ce1ab-54a7-47b9-9e2e-6ae2eb73f3ee">
 
+ 
 <img width="1026" alt="Screenshot 2023-08-07 at 12 26 10 PM" src="https://github.com/mraottth/TrashBot/assets/64610726/a593f925-a390-4c49-8290-a93eff717181">
 
 **Filetree:**
