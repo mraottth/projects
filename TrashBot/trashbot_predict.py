@@ -13,13 +13,8 @@ from colour import Color
 def trashbot_predict(dataset, model, blur_factor=3):
 
     # Log in to huggingface hub
-<<<<<<< HEAD
     login("TOKEN GOES HERE")
     hf_username = "USERNAME GOES HERE"
-=======
-    login("#TOKEN GOES HERE")
-    hf_username = "#USERNAME GOES HERE"
->>>>>>> 49a2e2c14fdb94f56aac3eb2c7b99e620df23d2f
     hub_model_id = model
     dataset_name = dataset
 
