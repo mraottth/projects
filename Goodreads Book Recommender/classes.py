@@ -24,6 +24,7 @@ class Books():
         self.user_index = user_ind 
         self.book_index = book_ind        
         self.row_norms = None
+        self.target = reviews.shape[0] - 1
 
     def prep_data(self):
         """
@@ -88,9 +89,6 @@ class Books():
             _type_: _description_
         """
 
-        # Get index for target user
-        target = self.reviews.shape[0] - 1
-
         # Instantiate KNN
         nn_model = NearestNeighbors(
             metric="cosine",
@@ -103,7 +101,7 @@ class Books():
         nn_model.fit(self.reviews)
 
         # Feed in user and get neighbors and distances
-        reader = self.reviews[target,:].toarray()
+        reader = self.reviews[self.target,:].toarray()
         dists, neighbors = nn_model.kneighbors(reader, return_distance=True)
 
         similar_users = pd.DataFrame(
@@ -166,50 +164,98 @@ class Books():
 
         return neighbor_user_ratings, target_user_ratings, dists
 
+
+    def get_recs(self, neighborhood_ratings, target_user_ratings):
+        """
+        Abc
+        """
+
+        # Get unique users and books to slice reviews
+        neighbor_index = neighborhood_ratings["uid"].unique()
+        neighbor_index = np.append(neighbor_index, self.target)
+        neighbor_book_index = neighborhood_ratings["book_index"].unique()
+        neighbor_book_index = np.append(neighbor_book_index, target_user_ratings["book_index"].unique())
+
+        # Slice reviews to make User Ratings Matrix
+        R = self.reviews[:, neighbor_book_index]
+        R = R[neighbor_index, :]
+
+        # Decompose user ratings matrix R with SVD
+        U, sigma, Vt = svds(R, k=42)
+        sigma = np.diag(sigma)
+
+        # Convert to sparse matrix
+        U = sparse.csr_matrix(U)
+        sigma = sparse.csr_matrix(sigma)
+        Vt = sparse.csr_matrix(Vt)
+
+        # Get predictions
+        all_user_predicted_ratings = U.dot(sigma) @ Vt
+        df_preds = pd.DataFrame(
+                        all_user_predicted_ratings.toarray(), columns=neighbor_book_index, index=neighbor_index
+                    ).reset_index()
+        
+        target_pred_books = df_preds[df_preds["index"] == self.target].columns[1:]
+        target_pred_ratings = df_preds[df_preds["index"] == self.target].values[0][1:] * float(self.row_norms[self.target])
+
+        # Put into df with relevant info from df_books
+        top_preds = pd.DataFrame({"book_index":target_pred_books, "predicted_rating":target_pred_ratings})\
+                        .sort_values(by="predicted_rating", ascending=False)\
+                        .merge(self.book_index.reset_index(), left_on="book_index", right_on="index")\
+                        .merge(
+                            self.all_books[["book_id", "title", "avg_rating", "ratings_count", "year", "main_genre","url"]],
+                            on="book_id"
+                        )\
+                        .drop(columns=["index"])
+
+        # Filter out already read books
+        top_preds = top_preds[~top_preds["book_index"].isin(target_user_ratings["book_index"].unique())]
+        top_preds.drop(["book_index"], axis=1, inplace=True)
+
+        # Add predicted rating column
+        top_preds["predicted_rating"] = round(top_preds["predicted_rating"] + neighborhood_ratings["user_rating"].mean(), 2)
+
+        return top_preds[["title","avg_rating","predicted_rating","ratings_count","year","url"]]
     
-    def top_recs_by_genre(self, )
 
+    def neighbors_most_popular(self, others):
+        """
+        ABC
+        """
+        others = pd.merge(others.groupby("book_id")["user_rating"].mean()\
+                                .reset_index().rename(columns={"user_rating":"similar_usr_avg"}),
+                        others,
+                        on="book_id")
+        others["similar_usr_avg"] = others["similar_usr_avg"].round(2)
 
+        popular_recs = others.query("ratings_count > 100")\
+            .groupby(["title", "avg_rating", "similar_usr_avg", "ratings_count", "year", "url"])["book_id"]\
+            .count().reset_index().sort_values(by=["book_id", "avg_rating"], ascending=False)\
+            .rename(columns={"book_id":"%_similar_usr_read"})
 
-
-
-
-
-# Function to show top recs for each genre
-def top_recs_by_genre(target, others, preds, n_genres=5, min_score=3.5, min_ratings=100, n_recs=20):
-
-    genre_ranking = pd.DataFrame(target.loc[:, "Genre_1":].sum(axis=0).sort_values(ascending=False))
-    others_ratings = others.groupby("book_id")["user_rating"].mean()\
-                                                .reset_index()\
-                                                .rename(columns={"user_rating":"similar_usr_avg"})
-    genres = []
-    results = []
-    # Loop through genres in descending relevance order and print top recs
-    for genre in genre_ranking.index[0:n_genres]:        
+        popular_recs["%_similar_usr_read"] = (popular_recs["%_similar_usr_read"] / 
+                                                others["uid"].nunique()).map('{:.1%}'.format)
         
-        g = float(genre[6:])
-        highest_rated_recs_genre = preds.query("main_genre == @g").sort_values(by="predicted_rating", 
-                                                                                   ascending=False)                
-
-        highest_rated_recs_genre = highest_rated_recs_genre.query(
-                                        "ratings_count > @min_ratings & avg_rating > @min_score"
-                                    )
-        
-        highest_rated_recs_genre = pd.merge(highest_rated_recs_genre, others_ratings, how="left", on="book_id")
-        
-        highest_rated_recs_genre["similar_usr_avg"] = highest_rated_recs_genre["similar_usr_avg"].round(2)
-        
-        cols = ["title", "avg_rating", "similar_usr_avg", "ratings_count", "year", "url"]
-        highest_rated_recs_genre = highest_rated_recs_genre[cols]
-
-        # Print genre name and descriptor
-        for nt in genre_descriptors.itertuples():
-            genre_rep = genre.replace("_"," ")
-            if nt.genre_string[0:len(f"{genre}:")] == f"{genre_rep}:":
-                gs = (nt.genre_string)
-        
-        genres.append(gs)
-        results.append(highest_rated_recs_genre.head(50))
-
-        display(highest_rated_recs_genre.head(50))
+        return popular_recs[["title","avg_rating","similar_usr_avg", "ratings_count","year","%_similar_usr_read","url"]]
     
+    # Function to show top rated among similar readers
+    def neighbors_top_rated(self, others):
+        """
+        ABC
+        """
+        others = pd.merge(others.groupby("book_id")["user_rating"].mean()\
+                                .reset_index().rename(columns={"user_rating":"similar_usr_avg"}),
+                        others,
+                        on="book_id")
+        others["similar_usr_avg"] = others["similar_usr_avg"].round(2)
+        
+        min_neighbor_ratings = np.max([others["uid"].nunique() / 200, 5])
+
+        highest_rated_recs = others.query(
+                    "ratings_count > 100 & YA == 0")\
+            .groupby(["title", "avg_rating", "similar_usr_avg", "ratings_count", "year", "url"])["uid"]\
+            .count().reset_index().sort_values(by=["similar_usr_avg", "avg_rating", "uid"], ascending=False)\
+            .query("uid >= @min_neighbor_ratings")\
+            .drop(columns="uid")
+
+        return highest_rated_recs

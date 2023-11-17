@@ -34,3 +34,9 @@ books = books.prep_data()
 
 # Find neighborhood
 neighborhood_ratings, target_user_ratings, d = books.find_neighbors()
+
+# Get recommendations
+recs = books.get_recs(neighborhood_ratings, target_user_ratings)
+
+# Get similar readers' most popular books
+popular = neighbors_most_popular(neighborhood_ratings)
