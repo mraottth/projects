@@ -25,6 +25,7 @@ class Books():
         self.book_index = book_ind        
         self.row_norms = None
         self.target = reviews.shape[0] - 1
+        self.genre_ranking = None
 
     def prep_data(self):
         """
@@ -162,6 +163,9 @@ class Books():
                             )
         target_user_ratings = pd.merge(target_user_ratings, self.all_books, how="inner", on="book_id")    
 
+        # Get target user's top genres
+        self.genre_ranking = pd.DataFrame(target_user_ratings.loc[:, "Genre_1":].sum(axis=0).sort_values(ascending=False))
+
         return neighbor_user_ratings, target_user_ratings, dists
 
 
@@ -215,7 +219,10 @@ class Books():
         # Add predicted rating column
         top_preds["predicted_rating"] = round(top_preds["predicted_rating"] + neighborhood_ratings["user_rating"].mean(), 2)
 
-        return top_preds[["title","avg_rating","predicted_rating","ratings_count","year","url"]]
+        # Get genre descriptions
+        top_preds["genre"] = top_preds["main_genre"]
+
+        return top_preds[["title","avg_rating","predicted_rating","ratings_count","year","url","genre"]]
     
 
     def neighbors_most_popular(self, others):
@@ -238,6 +245,7 @@ class Books():
         
         return popular_recs[["title","avg_rating","similar_usr_avg", "ratings_count","year","%_similar_usr_read","url"]]
     
+
     # Function to show top rated among similar readers
     def neighbors_top_rated(self, others):
         """
@@ -259,3 +267,46 @@ class Books():
             .drop(columns="uid")
 
         return highest_rated_recs
+    
+
+
+
+
+
+
+
+
+    # Print genre name and descriptor
+    for nt in genre_descriptors.itertuples():
+        genre_rep = genre.replace("_"," ")
+        if nt.genre_string[0:len(f"{genre}:")] == f"{genre_rep}:":
+            gs = (nt.genre_string)
+    
+    genres.append(gs)
+    results.append(highest_rated_recs_genre.head(50))
+
+    genres = []
+    results = []
+    # Loop through genres in descending relevance order and print top recs
+    for genre in genre_ranking.index[0:n_genres]:        
+        
+        g = float(genre[6:])
+        if how == "KNN":
+            highest_rated_recs_genre = others.query("main_genre == @g")\
+                .groupby(["title", "avg_rating", "ratings_count", "year", "url", "book_id"])["uid"]\
+                .count().reset_index().sort_values(by=["avg_rating", "book_id"], ascending=False)
+        
+        elif how == "MF":
+            highest_rated_recs_genre = preds.query("main_genre == @g").sort_values(by="predicted_rating", 
+                                                                                   ascending=False)                
+
+        highest_rated_recs_genre = highest_rated_recs_genre.query(
+                                        "ratings_count > @min_ratings & avg_rating > @min_score"
+                                    )
+        
+        highest_rated_recs_genre = pd.merge(highest_rated_recs_genre, others_ratings, how="left", on="book_id")
+        
+        highest_rated_recs_genre["similar_usr_avg"] = highest_rated_recs_genre["similar_usr_avg"].round(2)
+        
+        cols = ["title", "avg_rating", "similar_usr_avg", "ratings_count", "year", "url"]
+        highest_rated_recs_genre = highest_rated_recs_genre[cols]
