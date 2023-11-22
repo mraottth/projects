@@ -1,3 +1,3 @@
-from classes import BookLoader, BookRecommender
+from recommender_classes import BookLoader, BookRecommender
 
 recommender = BookRecommender()
