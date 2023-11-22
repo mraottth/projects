@@ -256,7 +256,7 @@ class BookRecommender():
         top_preds.rename(columns={"genre_string":"genre_name"}, inplace=True)
         
         top_preds = top_preds[["book_id", "title","avg_rating","predicted_rating","ratings_count","year","url","genre", "genre_name"]]\
-                .query("avg_rating > @min_rating")
+                .query("avg_rating > @min_rating").sort_values(by="predicted_rating", ascending=False)
 
         self.recs = top_preds
         print("Recommendations ready!")
