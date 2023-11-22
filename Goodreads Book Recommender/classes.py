@@ -12,19 +12,33 @@ from skimage import io
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from matplotlib.ticker import AutoMinorLocator
 
+class BookLoader():
 
-class Books():
+    def __init__(self):
+        print("Loading book data...")
+        wd = os.getcwd()
+        self.books = pd.read_csv(wd + "/data/goodreads_books.csv")
+        self.genres = pd.read_csv(wd + "/data/inferred_genres.csv")
+        self.genre_descriptors = pd.read_csv(wd + "/data/inferred_genre_top_words.csv")
+        self.target_books = pd.read_csv(wd + "/data/goodreads_library_export.csv")
+        self.reviews = sparse.load_npz(wd + "/data/user_reviews.npz")
+        self.user_index = pd.read_csv(wd + "/data/user_index_for_sparse_matrix.csv").rename(columns={"0":"user_id"})
+        self.book_index = pd.read_csv(wd + "/data/book_index_for_sparse_matrix.csv").rename(columns={"0":"book_id"})        
 
-    def __init__(self, all_books, target_books, genres, genre_descriptors, reviews, user_ind, book_ind):
-        self.all_books = all_books
-        self.target_books = target_books
-        self.genres = genres
-        self.genre_descriptors = genre_descriptors
-        self.reviews = reviews 
-        self.user_index = user_ind 
-        self.book_index = book_ind        
+class BookRecommender():
+
+    def __init__(self):
+        
+        data = BookLoader()
+        self.all_books = data.books
+        self.target_books = data.target_books
+        self.genres = data.genres
+        self.genre_descriptors = data.genre_descriptors
+        self.reviews = data.reviews 
+        self.user_index = data.user_index 
+        self.book_index = data.book_index        
         self.row_norms = None
-        self.target = reviews.shape[0]
+        self.target = data.reviews.shape[0]
         self.genre_ranking = None
         self.target_user_ratings = None
         self.neighbor_user_ratings = None
@@ -33,7 +47,6 @@ class Books():
         self.prep_data()
         self.find_neighbors()
         self.get_recs()
-        self.neighbors_most_popular()
 
     def prep_data(self):
         """
@@ -91,7 +104,6 @@ class Books():
         self.reviews = norm.fit_transform(self.reviews) 
         self.all_books = df_books
 
-        print("Finished prepping!")
     
     def find_neighbors(self, n_neighbors=3000):
         """
@@ -102,7 +114,7 @@ class Books():
             _type_: _description_
         """
 
-        print("\nFinding similar readers...")
+        print("Finding similar readers...")
 
         # Instantiate KNN
         nn_model = NearestNeighbors(
@@ -183,14 +195,13 @@ class Books():
         self.target_user_ratings = target_user_ratings
         self.neighbor_user_ratings = neighbor_user_ratings
 
-        print("Finished finding similar readers!")
 
     def get_recs(self):
         """
         Abc
         """
 
-        print("\nGenerating recommendations!")
+        print("Generating recommendations...")
 
         # Get unique users and books to slice reviews
         neighbor_index = self.neighbor_user_ratings["uid"].unique()
@@ -240,14 +251,13 @@ class Books():
         # Get genre descriptions
         top_preds["genre"] = top_preds["main_genre"]
 
-        top_preds = top_preds[["title","avg_rating","predicted_rating","ratings_count","year","url"]]\
+        top_preds = top_preds[["book_id", "title","avg_rating","predicted_rating","ratings_count","year","url"]]\
                 .query("avg_rating > 3.9")
 
-        print("Finished generating!")
-
         self.recs = top_preds
+        print("Recommendations ready!")
 
-    def neighbors_most_popular(self):
+    def similar_readers_most_popular(self, n=10):
         """
         ABC
         """
@@ -266,11 +276,11 @@ class Books():
         popular_recs["%_similar_usr_read"] = (popular_recs["%_similar_usr_read"] / 
                                                 others["uid"].nunique()).map('{:.1%}'.format)
         
-        return popular_recs[["title","avg_rating","similar_usr_avg", "ratings_count","year","%_similar_usr_read","url"]]
+        return popular_recs[["title","avg_rating","similar_usr_avg", "ratings_count","year","%_similar_usr_read","url"]].head(n)
     
 
     # Function to show top rated among similar readers
-    def neighbors_top_rated(self):
+    def similar_readers_top_rated(self, n=10):
         """
         ABC
         """
@@ -290,7 +300,7 @@ class Books():
             .query("uid >= @min_neighbor_ratings")\
             .drop(columns="uid")
 
-        return highest_rated_recs
+        return highest_rated_recs.head(n)
     
 
     def find_similar_books_to(self, title, min_rating=3.75, n=20):
@@ -345,35 +355,70 @@ class Books():
         ].head(n)
 
         return similar_books
+    
 
+    def plot_top_books(self):
+        """
+        Plots book cover images for top recommendations in top 5 genres
 
+        Args:
+            preds: prediction df yielded by get_recs()
+            books: dataframe with all book info
+            target_ratings: target user's book ratings
 
-# Load df_books and genres
-wd = os.getcwd()
-df_books = pd.read_csv(wd + "/data/goodreads_books.csv")
-df_inferred_genres = pd.read_csv(wd + "/data/inferred_genres.csv")
-genre_descriptors = pd.read_csv(wd + "/data/inferred_genre_top_words.csv")
-# target_books = ########
-target_books = pd.read_csv(wd + "/data/goodreads_library_export.csv")
+        Returns:
+            None
+        """
+        # Get image_url for top preds
+        plot_pred = pd.merge(
+                        self.recs[["book_id", "predicted_rating"]], 
+                        self.all_books[["book_id", "image_url", "main_genre"]], 
+                        on="book_id"
+                    )
 
-# Load sparse_reviews from file
-df_reviews = sparse.load_npz(wd + "/data/user_reviews.npz")
+        # For each of the top 10 genres, get top 5 books
+        top_genres = pd.DataFrame(self.target_user_ratings.loc[:, "Genre_1":].sum(axis=0)\
+                                                .sort_values(ascending=False)).rename(columns={0:"target"})[0:5]
 
-# Load user (rows) and book (cols) indices
-user_index = pd.read_csv(wd + "/data/user_index_for_sparse_matrix.csv").rename(columns={"0":"user_id"})
-book_index = pd.read_csv(wd + "/data/book_index_for_sparse_matrix.csv").rename(columns={"0":"book_id"})
+        # Function to turn image url into image 
+        def getImage(path, zoom=0.3):
+            return OffsetImage(io.imread(path), zoom=zoom)
+
+        # Plot
+        fig, ax = plt.subplots(figsize=(13,7))
+        for i in range(len(top_genres)): # For each of top genres
+            genre = top_genres.index[i]
+            g = float(genre[6:]) # Get genre number
+            
+            # Slice plot pred to genre and valid image url
+            books_to_plot = plot_pred[ 
+                (plot_pred["main_genre"] == g) & (plot_pred["image_url"].str.contains("images.gr-"))
+                ].head(5)
+            
+            paths = [url for url in books_to_plot["image_url"]] # Get image urls
+            x = [i * 10 + 10 for x in range(5)] # Set genre bucket
+            y = [y for y in books_to_plot["predicted_rating"]] # get predicted rating as y
+
+            # Plot
+            ax.scatter(x,y,alpha=0) 
+
+            # Plot image at xy
+            for x0, y0, path in zip(x, y, paths):
+                ab = AnnotationBbox(getImage(path), (x0 + np.random.uniform(-3.5,3.5), y0), frameon=True, pad=0.3)
+                ax.add_artist(ab)
+            
+        plt.ylabel("Recommendation Strength", fontsize=12)
+        plt.xlabel("\nGenre Grouping", fontsize=12)
+        plt.title("Top Recommendations by Genre", y=1.02, fontsize=14)
+        plt.xlim((5, 55))
+        ax.spines[['right', 'top', 'left']].set_visible(False)
+        plt.tick_params(axis='x', which='both', bottom=True, top=False, labelbottom=False)
+        ax.yaxis.set_ticklabels([])
+        ax.yaxis.grid(True, alpha=0.3) # Create y gridlines
+        plt.gca().xaxis.set_minor_locator(AutoMinorLocator(2))
+        ax.xaxis.grid(which="minor", visible=True, alpha=0.8) # Create x gridlines
+        plt.show()
+
 
 # Instantiate Books
-books = Books(df_books, target_books, df_inferred_genres, genre_descriptors, df_reviews, user_index, book_index)
-
-# # Prep data
-# books.prep_data()
-
-# # Find neighborhood
-# books.find_neighbors()
-
-# # Get recommendations
-# recs = books.get_recs()
-
-# # Get similar readers' most popular books
-# popular = neighbors_most_popular()
+books = BookRecommender()
