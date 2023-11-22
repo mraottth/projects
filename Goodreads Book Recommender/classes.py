@@ -24,8 +24,16 @@ class Books():
         self.user_index = user_ind 
         self.book_index = book_ind        
         self.row_norms = None
-        self.target = reviews.shape[0] - 1
+        self.target = reviews.shape[0]
         self.genre_ranking = None
+        self.target_user_ratings = None
+        self.neighbor_user_ratings = None
+        self.recs = None
+
+        self.prep_data()
+        self.find_neighbors()
+        self.get_recs()
+        self.neighbors_most_popular()
 
     def prep_data(self):
         """
@@ -35,6 +43,8 @@ class Books():
         Returns:
             _type_: _description_
         """
+        print("Prepping data...")
+
         # Join genres to books
         df_books = pd.merge(self.all_books, self.genres, how="left", on="book_id")
 
@@ -72,14 +82,16 @@ class Books():
         my_books = np.array(my_books_4["rating"]).reshape(1,-1)
 
         # Add to sparse matrix
-        self.reviews = sparse.vstack([self.reviews, self.target_books])
+        self.reviews = sparse.vstack([self.reviews, my_books])
         self.reviews = sparse.csr_matrix(self.reviews)
 
         # Normalize reviews within readers
         norm = Normalizer()
         self.row_norms = np.sqrt(np.sum(self.reviews.power(2), axis=1)) # save row norms to un-normalzie later
         self.reviews = norm.fit_transform(self.reviews) 
-        
+        self.all_books = df_books
+
+        print("Finished prepping!")
     
     def find_neighbors(self, n_neighbors=3000):
         """
@@ -89,6 +101,8 @@ class Books():
         Returns:
             _type_: _description_
         """
+
+        print("\nFinding similar readers...")
 
         # Instantiate KNN
         nn_model = NearestNeighbors(
@@ -161,24 +175,28 @@ class Books():
                                 self.book_index.reset_index(), target_user_ratings,
                                 how="inner", left_on="index", right_on="book_index"
                             )
-        target_user_ratings = pd.merge(target_user_ratings, self.all_books, how="inner", on="book_id")    
+        target_user_ratings = pd.merge(target_user_ratings, self.all_books, how="inner", on="book_id")   
 
+        
         # Get target user's top genres
         self.genre_ranking = pd.DataFrame(target_user_ratings.loc[:, "Genre_1":].sum(axis=0).sort_values(ascending=False))
+        self.target_user_ratings = target_user_ratings
+        self.neighbor_user_ratings = neighbor_user_ratings
 
-        return neighbor_user_ratings, target_user_ratings, dists
+        print("Finished finding similar readers!")
 
-
-    def get_recs(self, neighborhood_ratings, target_user_ratings):
+    def get_recs(self):
         """
         Abc
         """
 
+        print("\nGenerating recommendations!")
+
         # Get unique users and books to slice reviews
-        neighbor_index = neighborhood_ratings["uid"].unique()
+        neighbor_index = self.neighbor_user_ratings["uid"].unique()
         neighbor_index = np.append(neighbor_index, self.target)
-        neighbor_book_index = neighborhood_ratings["book_index"].unique()
-        neighbor_book_index = np.append(neighbor_book_index, target_user_ratings["book_index"].unique())
+        neighbor_book_index = self.neighbor_user_ratings["book_index"].unique()
+        neighbor_book_index = np.append(neighbor_book_index, self.target_user_ratings["book_index"].unique())
 
         # Slice reviews to make User Ratings Matrix
         R = self.reviews[:, neighbor_book_index]
@@ -213,22 +231,27 @@ class Books():
                         .drop(columns=["index"])
 
         # Filter out already read books
-        top_preds = top_preds[~top_preds["book_index"].isin(target_user_ratings["book_index"].unique())]
+        top_preds = top_preds[~top_preds["book_index"].isin(self.target_user_ratings["book_index"].unique())]
         top_preds.drop(["book_index"], axis=1, inplace=True)
 
         # Add predicted rating column
-        top_preds["predicted_rating"] = round(top_preds["predicted_rating"] + neighborhood_ratings["user_rating"].mean(), 2)
+        top_preds["predicted_rating"] = round(top_preds["predicted_rating"] + self.neighbor_user_ratings["user_rating"].mean(), 2)
 
         # Get genre descriptions
         top_preds["genre"] = top_preds["main_genre"]
 
-        return top_preds[["title","avg_rating","predicted_rating","ratings_count","year","url","genre"]]
-    
+        top_preds = top_preds[["title","avg_rating","predicted_rating","ratings_count","year","url"]]\
+                .query("avg_rating > 3.9")
 
-    def neighbors_most_popular(self, others):
+        print("Finished generating!")
+
+        self.recs = top_preds
+
+    def neighbors_most_popular(self):
         """
         ABC
         """
+        others = self.neighbor_user_ratings
         others = pd.merge(others.groupby("book_id")["user_rating"].mean()\
                                 .reset_index().rename(columns={"user_rating":"similar_usr_avg"}),
                         others,
@@ -247,10 +270,11 @@ class Books():
     
 
     # Function to show top rated among similar readers
-    def neighbors_top_rated(self, others):
+    def neighbors_top_rated(self):
         """
         ABC
         """
+        others = self.neighbor_user_ratings
         others = pd.merge(others.groupby("book_id")["user_rating"].mean()\
                                 .reset_index().rename(columns={"user_rating":"similar_usr_avg"}),
                         others,
@@ -269,44 +293,87 @@ class Books():
         return highest_rated_recs
     
 
+    def find_similar_books_to(self, title, min_rating=3.75, n=20):
+        """
+        ABC
+        """
 
+        title_search = title.lower()
 
+        # Instantiate KNN
+        nn_model = NearestNeighbors(
+            metric="cosine",
+            algorithm="auto",
+            n_neighbors=200,
+            n_jobs=-1
+        )
 
+        # Fit to sparse matrix
+        nn_model.fit(self.reviews.T)
 
+        # Feed in book and get neighbors and distances
+        if self.all_books[self.all_books["title"].str.lower().str.contains(title_search)].shape[0] > 1:
+            print("Warning: more than 1 book matches title search. Returning results for top match")
+            
+        target_book_id = self.all_books[self.all_books["title"].str.lower().str.contains(title_search)]\
+                            .sort_values(by=["ratings_count", "avg_rating"], ascending=False).iloc[0,:]["book_id"]
+        target_book_index = self.book_index[self.book_index["book_id"]==target_book_id].index[0]
+        target_book = self.reviews.T[target_book_index,:].toarray()
 
+        dists, neighbors = nn_model.kneighbors(target_book, return_distance=True)
 
+        similar_books = pd.DataFrame(
+            [pd.Series(neighbors.reshape(-1)), pd.Series(dists.reshape(-1))]).T.rename(
+                columns={0:"book", 1:"distance"}
+        )
 
-    # Print genre name and descriptor
-    for nt in genre_descriptors.itertuples():
-        genre_rep = genre.replace("_"," ")
-        if nt.genre_string[0:len(f"{genre}:")] == f"{genre_rep}:":
-            gs = (nt.genre_string)
-    
-    genres.append(gs)
-    results.append(highest_rated_recs_genre.head(50))
+        similar_books = pd.merge(similar_books, self.book_index, left_on="book", right_index=True)
+        similar_books = similar_books[~similar_books["book_id"].isin(self.target_user_ratings["book_id"])]
+        similar_books = pd.merge(similar_books["book_id"], self.all_books, on="book_id")
 
-    genres = []
-    results = []
-    # Loop through genres in descending relevance order and print top recs
-    for genre in genre_ranking.index[0:n_genres]:        
+        # Filter out later volumes in series using regex pattern
+        regex1 = r"#(?:[2-9]|[1-9]\d+)"
+        regex2 = r"Vol. (?:[0-9]|[1-9]\d+)"
+        regex3 = r"Volume (?:[0-9]|[1-9]\d+)"
+        similar_books = similar_books[~similar_books["title"].str.contains(regex1)]
+        similar_books = similar_books[~similar_books["title"].str.contains(regex2)]
+        similar_books = similar_books[~similar_books["title"].str.contains(regex3)]
+        similar_books = similar_books[~similar_books["title"].str.contains("#1-")]
         
-        g = float(genre[6:])
-        if how == "KNN":
-            highest_rated_recs_genre = others.query("main_genre == @g")\
-                .groupby(["title", "avg_rating", "ratings_count", "year", "url", "book_id"])["uid"]\
-                .count().reset_index().sort_values(by=["avg_rating", "book_id"], ascending=False)
-        
-        elif how == "MF":
-            highest_rated_recs_genre = preds.query("main_genre == @g").sort_values(by="predicted_rating", 
-                                                                                   ascending=False)                
+        similar_books = similar_books.iloc[1:,:].query('avg_rating >= @min_rating & ratings_count > 1000')[
+            ["title","avg_rating", "ratings_count", "year", "url"]
+        ].head(n)
 
-        highest_rated_recs_genre = highest_rated_recs_genre.query(
-                                        "ratings_count > @min_ratings & avg_rating > @min_score"
-                                    )
-        
-        highest_rated_recs_genre = pd.merge(highest_rated_recs_genre, others_ratings, how="left", on="book_id")
-        
-        highest_rated_recs_genre["similar_usr_avg"] = highest_rated_recs_genre["similar_usr_avg"].round(2)
-        
-        cols = ["title", "avg_rating", "similar_usr_avg", "ratings_count", "year", "url"]
-        highest_rated_recs_genre = highest_rated_recs_genre[cols]
+        return similar_books
+
+
+
+# Load df_books and genres
+wd = os.getcwd()
+df_books = pd.read_csv(wd + "/data/goodreads_books.csv")
+df_inferred_genres = pd.read_csv(wd + "/data/inferred_genres.csv")
+genre_descriptors = pd.read_csv(wd + "/data/inferred_genre_top_words.csv")
+# target_books = ########
+target_books = pd.read_csv(wd + "/data/goodreads_library_export.csv")
+
+# Load sparse_reviews from file
+df_reviews = sparse.load_npz(wd + "/data/user_reviews.npz")
+
+# Load user (rows) and book (cols) indices
+user_index = pd.read_csv(wd + "/data/user_index_for_sparse_matrix.csv").rename(columns={"0":"user_id"})
+book_index = pd.read_csv(wd + "/data/book_index_for_sparse_matrix.csv").rename(columns={"0":"book_id"})
+
+# Instantiate Books
+books = Books(df_books, target_books, df_inferred_genres, genre_descriptors, df_reviews, user_index, book_index)
+
+# # Prep data
+# books.prep_data()
+
+# # Find neighborhood
+# books.find_neighbors()
+
+# # Get recommendations
+# recs = books.get_recs()
+
+# # Get similar readers' most popular books
+# popular = neighbors_most_popular()
