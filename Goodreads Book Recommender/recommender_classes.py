@@ -43,10 +43,14 @@ class BookRecommender():
         self.target_user_ratings = None
         self.neighbor_user_ratings = None
         self.recs = None
+        self.similar_readers_popular = None
+        self.similar_readers_highly_rated = None
 
         self.prep_data()
         self.find_neighbors()
         self.get_recs()
+        self.similar_readers_most_popular()
+        self.similar_readers_top_rated()
 
     def prep_data(self):
         """
@@ -261,7 +265,7 @@ class BookRecommender():
         self.recs = top_preds
         print("Recommendations ready!")
 
-    def similar_readers_most_popular(self, n=10):
+    def similar_readers_most_popular(self):
         """
         ABC
         """
@@ -280,7 +284,7 @@ class BookRecommender():
         popular_recs["%_similar_usr_read"] = (popular_recs["%_similar_usr_read"] / 
                                                 others["uid"].nunique()).map('{:.1%}'.format)
         
-        return popular_recs[["title","avg_rating","similar_usr_avg", "ratings_count","year","%_similar_usr_read","url"]].head(n)
+        self.similar_readers_popular = popular_recs[["title","avg_rating","similar_usr_avg", "ratings_count","year","%_similar_usr_read","url"]]
     
 
     # Function to show top rated among similar readers
@@ -304,7 +308,7 @@ class BookRecommender():
             .query("uid >= @min_neighbor_ratings")\
             .drop(columns="uid")
 
-        return highest_rated_recs.head(n)
+        self.similar_readers_highly_rated = highest_rated_recs
     
 
     def find_similar_books_to(self, title, min_rating=3.5, n=20):
