@@ -135,7 +135,7 @@ class BookRecommender():
             [pd.Series(neighbors.reshape(-1)), pd.Series(dists.reshape(-1))]).T.rename(
                 columns={0:"user", 1:"distance"}
         )
-
+        
         # Get all books read by similar users
         book_ind = []
         book_rat = []
@@ -196,7 +196,7 @@ class BookRecommender():
         self.neighbor_user_ratings = neighbor_user_ratings
 
 
-    def get_recs(self):
+    def get_recs(self, min_rating=3.5):
         """
         Abc
         """
@@ -212,7 +212,7 @@ class BookRecommender():
         # Slice reviews to make User Ratings Matrix
         R = self.reviews[:, neighbor_book_index]
         R = R[neighbor_index, :]
-
+        
         # Decompose user ratings matrix R with SVD
         U, sigma, Vt = svds(R, k=42)
         sigma = np.diag(sigma)
@@ -227,7 +227,6 @@ class BookRecommender():
         df_preds = pd.DataFrame(
                         all_user_predicted_ratings.toarray(), columns=neighbor_book_index, index=neighbor_index
                     ).reset_index()
-        
         target_pred_books = df_preds[df_preds["index"] == self.target].columns[1:]
         target_pred_ratings = df_preds[df_preds["index"] == self.target].values[0][1:] * float(self.row_norms[self.target])
 
@@ -251,8 +250,13 @@ class BookRecommender():
         # Get genre descriptions
         top_preds["genre"] = top_preds["main_genre"]
 
-        top_preds = top_preds[["book_id", "title","avg_rating","predicted_rating","ratings_count","year","url"]]\
-                .query("avg_rating > 3.9")
+        self.genre_descriptors["genre_num"] = self.genre_descriptors["genre_string"].apply(lambda x: int(x.split(":")[0].split(" ")[1]))
+
+        top_preds = pd.merge(top_preds, self.genre_descriptors, left_on="main_genre", right_on="genre_num")
+        top_preds.rename(columns={"genre_string":"genre_name"}, inplace=True)
+        
+        top_preds = top_preds[["book_id", "title","avg_rating","predicted_rating","ratings_count","year","url","genre", "genre_name"]]\
+                .query("avg_rating > @min_rating")
 
         self.recs = top_preds
         print("Recommendations ready!")
@@ -303,7 +307,7 @@ class BookRecommender():
         return highest_rated_recs.head(n)
     
 
-    def find_similar_books_to(self, title, min_rating=3.75, n=20):
+    def find_similar_books_to(self, title, min_rating=3.5, n=20):
         """
         ABC
         """
@@ -417,6 +421,74 @@ class BookRecommender():
         ax.yaxis.grid(True, alpha=0.3) # Create y gridlines
         plt.gca().xaxis.set_minor_locator(AutoMinorLocator(2))
         ax.xaxis.grid(which="minor", visible=True, alpha=0.8) # Create x gridlines
+        plt.show()
+
+
+    # Function to plot neighbors' and target's top genres
+    def plot_top_genres(self):
+        
+        others = self.neighbor_user_ratings
+        target = self.target_user_ratings
+
+        # Get genre rankings for target and neighbors
+        target_genre_ranking = pd.DataFrame(target.loc[:, "Genre_1":].sum(axis=0)\
+                                                .sort_values(ascending=False)).rename(columns={0:"target"})
+        target_genre_ranking = target_genre_ranking.div(target_genre_ranking.sum(axis=0), axis=1)
+
+        neighbor_genre_ranking = pd.DataFrame(others.loc[:, "Genre_1":].sum(axis=0)\
+                                                .sort_values(ascending=False)).rename(columns={0:"neighbor"})
+        neighbor_genre_ranking = neighbor_genre_ranking.div(neighbor_genre_ranking.sum(axis=0), axis=1)
+
+        genre_rankings = pd.merge(
+                target_genre_ranking, neighbor_genre_ranking, left_index=True, right_index=True
+                ).reset_index()
+
+        # Plot target genre pref
+        fig, ax = plt.subplots(figsize=(10,10))
+        sns.scatterplot(
+            data=genre_rankings,
+            y='index',
+            x='target',
+            s=150,
+            edgecolors='black',
+            color="mediumslateblue",
+            linewidths = 0.75,
+            label='You',
+            zorder=2,
+            )
+
+        # Plot neighbors genre pref
+        sns.scatterplot(
+            data=genre_rankings,
+            y='index',
+            x='neighbor',
+            label='Similar Readers',
+            color="darkgray",
+            s=150,
+            zorder=3
+            )
+
+        # Iterate through each genre and plot line connecting 2 points
+        for ind in list(genre_rankings['index']):
+        
+            # Plot line connecting points
+            plt.plot([genre_rankings[genre_rankings['index']==ind]['target'],
+                        genre_rankings[genre_rankings['index']==ind]['neighbor']],
+                        [ind, ind],
+                        color='#565A5C',
+                        alpha=0.2,                    
+                        # linestyle=(0, (1,1)),
+                        linewidth=6.5,
+                        zorder=1
+                        )
+
+        # Set chart details
+        plt.legend(bbox_to_anchor=(1,1), loc="upper left", borderpad=1)
+        ax.yaxis.grid(True, alpha=0.4) # Create y gridlines
+        ax.xaxis.grid(True, alpha=0.4) # Create x gridlines
+        plt.xlabel("Genre preference")
+        plt.ylabel(None)
+        plt.title('Your Top Genres Compared with Similar Readers', fontsize=14)
         plt.show()
 
 
