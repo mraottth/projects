@@ -37,14 +37,7 @@ class BookRecommender():
         self.reviews = data.reviews 
         self.user_index = data.user_index 
         self.book_index = data.book_index        
-        self.row_norms = None
         self.target = data.reviews.shape[0]
-        self.genre_ranking = None
-        self.target_user_ratings = None
-        self.neighbor_user_ratings = None
-        self.recs = None
-        self.similar_readers_popular = None
-        self.similar_readers_highly_rated = None
 
         self.prep_data()
         self.find_neighbors()
@@ -494,3 +487,6 @@ class BookRecommender():
         plt.ylabel(None)
         plt.title('Your Top Genres Compared with Similar Readers', fontsize=14)
         plt.show()
+
+
+recs = BookRecommender()
