@@ -487,6 +487,3 @@ class BookRecommender():
         plt.ylabel(None)
         plt.title('Your Top Genres Compared with Similar Readers', fontsize=14)
         plt.show()
-
-
-recs = BookRecommender()
