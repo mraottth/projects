@@ -1,0 +1,63 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Book Recommender</title>
+    </head>
+    <body>
+        <h1>Book Recommender</h1>
+        
+        <form id="uploadForm" enctype="multipart/form-data">
+            <input type="file" name="csvFile" accept=".csv">
+            <input type="submit" value="Get Recommendations">
+        </form>
+
+        <div id="resultTable"></div>
+
+        <script>
+            document.getElementById('uploadForm').addEventListener('submit', function (e) {
+                e.preventDefault();
+    
+                var formData = new FormData(this);
+    
+                fetch('/get_recommendations', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // Display the result in a dynamic table
+                    var tableHtml = '<table border="1">';
+    
+                    // Check if there is data
+                    if (data.data.length > 0) {
+                        // Use the ordered keys as table headers
+                        tableHtml += '<tr>';
+                        data.columns.forEach(key => {
+                            tableHtml += '<th>' + key + '</th>';
+                        });
+                        tableHtml += '</tr>';
+    
+                        // Iterate through data and create rows
+                        data.data.forEach(row => {
+                            tableHtml += '<tr>';
+                            // Use the ordered keys to create the columns
+                            data.columns.forEach(key => {
+                                tableHtml += '<td>' + row[key] + '</td>';
+                            });
+                            tableHtml += '</tr>';
+                        });
+                    } else {
+                        tableHtml += '<tr><td colspan="999">No data available</td></tr>';
+                    }
+    
+                    tableHtml += '</table>';
+    
+                    document.getElementById('resultTable').innerHTML = tableHtml;
+                })
+                .catch(error => console.error('Error:', error));
+            });
+        </script>
+    </body>
+</html>

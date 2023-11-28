@@ -14,22 +14,22 @@ from matplotlib.ticker import AutoMinorLocator
 
 class BookLoader():
 
-    def __init__(self):
+    def __init__(self, user_books):
         print("Loading book data...")
         wd = os.getcwd()
         self.books = pd.read_csv(wd + "/data/goodreads_books.csv")
         self.genres = pd.read_csv(wd + "/data/inferred_genres.csv")
         self.genre_descriptors = pd.read_csv(wd + "/data/inferred_genre_top_words.csv")
-        self.target_books = pd.read_csv(wd + "/data/goodreads_library_export.csv")
+        self.target_books = user_books
         self.reviews = sparse.load_npz(wd + "/data/user_reviews.npz")
         self.user_index = pd.read_csv(wd + "/data/user_index_for_sparse_matrix.csv").rename(columns={"0":"user_id"})
         self.book_index = pd.read_csv(wd + "/data/book_index_for_sparse_matrix.csv").rename(columns={"0":"book_id"})        
 
 class BookRecommender():
 
-    def __init__(self):
+    def __init__(self, user_books):
         
-        data = BookLoader()
+        data = BookLoader(user_books)
         self.all_books = data.books
         self.target_books = data.target_books
         self.genres = data.genres

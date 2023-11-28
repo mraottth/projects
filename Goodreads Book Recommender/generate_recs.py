@@ -1,4 +1,6 @@
-from recommender_classes import BookLoader, BookRecommender
-
-if __name__ == "__main__":
-    recs = BookRecommender()
+from recommender_classes import BookRecommender, BookLoader
+import pandas as pd 
+if __name__ == '__main__':
+    wd = os.getcwd()
+    df = pd.read_csv(wd + "/data/goodreads_library_export.csv")
+    recs = BookRecommender(df)
