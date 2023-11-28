@@ -4,6 +4,14 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Book Recommender</title>
+        
+        <!-- Load CSS libraries -->
+		<!-- <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-F3w7mX95PdgyTmZZMECAngseQB83DfGTowi0iMjiWaeVhAn4FJkqJByhZMI3AhiU" crossorigin="anonymous"> -->
+		<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+        <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+		<!-- GOOGLE FONTS -->
+		<link href='https://fonts.googleapis.com/css?family=Roboto:400,100,300,500,400italic,300italic' rel='stylesheet' type='text/css'>
     </head>
     <body>
         <h1>Book Recommender</h1>
@@ -13,11 +21,29 @@
             <input type="submit" value="Get Recommendations">
         </form>
 
+        <div class="loader" id="loader" style="display: none;"></div>
+
         <div id="resultTable"></div>
 
         <script>
             document.getElementById('uploadForm').addEventListener('submit', function (e) {
                 e.preventDefault();
+                
+                function removeFadeOut( el, speed ) {
+                    var seconds = speed/1000;
+                    el.style.transition = "opacity "+seconds+"s ease";
+
+                    el.style.opacity = 0;
+                    setTimeout(function() {
+                        el.parentNode.removeChild(el);
+                    }, speed);
+                }
+
+                // Hide upload form
+                removeFadeOut(document.getElementById('uploadForm'), 500);
+                
+                // Show the loader
+                document.getElementById('loader').style.display = 'block'; 
     
                 var formData = new FormData(this);
     
@@ -32,22 +58,38 @@
     
                     // Check if there is data
                     if (data.data.length > 0) {
-                        // Use the ordered keys as table headers
+                    // Use the ordered keys as table headers
+                    tableHtml += '<tr>';
+                    data.columns.forEach(key => {
+                        // replace snake case with title case
+                        var key_title = key.replace (/^[-_]*(.)/, (_, c) => c.toUpperCase())      
+                            .replace (/[-_]+(.)/g, (_, c) => ' ' + c.toUpperCase()) 
+                        
+                            if (key_title != "Url") {
+                                tableHtml += '<th>' + key_title + '</th>';
+                            }
+                    });
+                    tableHtml += '</tr>';
+
+                    // Iterate through data and create rows
+                    data.data.forEach(row => {
                         tableHtml += '<tr>';
+                        // Use the ordered keys to create the columns
                         data.columns.forEach(key => {
-                            tableHtml += '<th>' + key + '</th>';
+                            
+                            if (key === 'title') {
+                                // Make the value a clickable hyperlink
+                                tableHtml += '<td><a href="' + row['url'] + '" target="_blank">' + row[key] + '</a></td>';
+                            } else if (key === 'url') {
+                                // skip column
+                    
+                            } else {
+                                // Normal cell without a hyperlink
+                                tableHtml += '<td>' + row[key] + '</td>';
+                            }
                         });
                         tableHtml += '</tr>';
-    
-                        // Iterate through data and create rows
-                        data.data.forEach(row => {
-                            tableHtml += '<tr>';
-                            // Use the ordered keys to create the columns
-                            data.columns.forEach(key => {
-                                tableHtml += '<td>' + row[key] + '</td>';
-                            });
-                            tableHtml += '</tr>';
-                        });
+                    });
                     } else {
                         tableHtml += '<tr><td colspan="999">No data available</td></tr>';
                     }
@@ -55,9 +97,16 @@
                     tableHtml += '</table>';
     
                     document.getElementById('resultTable').innerHTML = tableHtml;
+
+                    // Hide the loader after displaying the results
+                    document.getElementById('loader').style.display = 'none';
                 })
                 .catch(error => console.error('Error:', error));
             });
         </script>
+    
+    <!-- embedding JS libraries -->
+	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.1/dist/js/bootstrap.bundle.min.js" integrity="sha384-/bQdsTh/da6pkI1MST/rWKFNjaCP5gBSY4sEBT38Q/9RBh9AH40zEOg7Hlq2THRZ" crossorigin="anonymous"></script>
+
     </body>
 </html>
