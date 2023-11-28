@@ -6,104 +6,69 @@
         <title>Book Recommender</title>
         
         <!-- Load CSS libraries -->
-		<!-- <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-F3w7mX95PdgyTmZZMECAngseQB83DfGTowi0iMjiWaeVhAn4FJkqJByhZMI3AhiU" crossorigin="anonymous"> -->
+		<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-F3w7mX95PdgyTmZZMECAngseQB83DfGTowi0iMjiWaeVhAn4FJkqJByhZMI3AhiU" crossorigin="anonymous">
 		<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+        
+        <!-- Load JS files -->
         <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 
 		<!-- GOOGLE FONTS -->
 		<link href='https://fonts.googleapis.com/css?family=Roboto:400,100,300,500,400italic,300italic' rel='stylesheet' type='text/css'>
     </head>
     <body>
-        <h1>Book Recommender</h1>
-        
-        <form id="uploadForm" enctype="multipart/form-data">
-            <input type="file" name="csvFile" accept=".csv">
-            <input type="submit" value="Get Recommendations">
-        </form>
 
-        <div class="loader" id="loader" style="display: none;"></div>
-
-        <div id="resultTable"></div>
-
-        <script>
-            document.getElementById('uploadForm').addEventListener('submit', function (e) {
-                e.preventDefault();
-                
-                function removeFadeOut( el, speed ) {
-                    var seconds = speed/1000;
-                    el.style.transition = "opacity "+seconds+"s ease";
-
-                    el.style.opacity = 0;
-                    setTimeout(function() {
-                        el.parentNode.removeChild(el);
-                    }, speed);
-                }
-
-                // Hide upload form
-                removeFadeOut(document.getElementById('uploadForm'), 500);
-                
-                // Show the loader
-                document.getElementById('loader').style.display = 'block'; 
+        <div class="container-fluid" style="border: thin solid grey; border-radius: 5px">
+            <div class="row justify-content-center" style="height: 16vh; background: #e4e4e4;">
+                <div class="align-self-center">
+                    <h1>Book Recommender</h1>
+                </div>
+            </div>
+            <div class="row" style="height: 70vh">
+                <div class="col-4" style="background: #e4e4e4">
+                    <div class="row justify-content-left" style="height: 100%">
+                        <div class="align-self-left">
+                            <div id="instructions">            
+                                <h5>Background:</h5>
+                                <p>
+                                    This tool uses your Goodreads ratings to create a list of book Recommendations
+                                    specially tailored to your tastes. Read more about how it works on 
+                                    <a href="https://github.com/mraottth/projects/tree/main/Goodreads%20Book%20Recommender" target="_blank">GitHub.</a>
+                                </p>
+                                <h5>Instructions:</h5>
+                                <p>
+                                    Download your Goodreads ratings by visiting the 
+                                    <a href="https://www.goodreads.com/review/import" target="_blank">Import/Export page</a>
+                                    and clicking <strong>Export Library.</strong> 
+                                    <br>Next, upload the file to this page. 
+                                    <br><br><span style="color: #686868"><strong>Note:</strong> Processing may take about a minute.</span>
+                                </p>
+                            </div>      
+                            <div id="filters" style="display: none;">
+                                <p>Lorem Ipsum</p>
+                                <input type="text" id="tableFilter" placeholder="Search Books">
+                            </div>                      
+                        </div>
+                    </div>
+                </div>
+                <div class="col-8" style="background: #e4e4e4">
+                    <div class="row justify-content-left" style="height: 90%">
+                        <div class="align-self-left">
+                            <div id="uploader"> 
+                                <form id="uploadForm" enctype="multipart/form-data">
+                                    <input type="file" name="csvFile" accept=".csv">
+                                    <input type="submit" value="Get Recommendations">
+                                </form>
+                                <div class="loader" id="loader" style="display: none;"></div>
+                                <div id="resultTable" style="height: 80vh; display: none;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>            
+        </div>
     
-                var formData = new FormData(this);
-    
-                fetch('/get_recommendations', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => response.json())
-                .then(data => {
-                    // Display the result in a dynamic table
-                    var tableHtml = '<table border="1">';
-    
-                    // Check if there is data
-                    if (data.data.length > 0) {
-                    // Use the ordered keys as table headers
-                    tableHtml += '<tr>';
-                    data.columns.forEach(key => {
-                        // replace snake case with title case
-                        var key_title = key.replace (/^[-_]*(.)/, (_, c) => c.toUpperCase())      
-                            .replace (/[-_]+(.)/g, (_, c) => ' ' + c.toUpperCase()) 
-                        
-                            if (key_title != "Url") {
-                                tableHtml += '<th>' + key_title + '</th>';
-                            }
-                    });
-                    tableHtml += '</tr>';
-
-                    // Iterate through data and create rows
-                    data.data.forEach(row => {
-                        tableHtml += '<tr>';
-                        // Use the ordered keys to create the columns
-                        data.columns.forEach(key => {
-                            
-                            if (key === 'title') {
-                                // Make the value a clickable hyperlink
-                                tableHtml += '<td><a href="' + row['url'] + '" target="_blank">' + row[key] + '</a></td>';
-                            } else if (key === 'url') {
-                                // skip column
-                    
-                            } else {
-                                // Normal cell without a hyperlink
-                                tableHtml += '<td>' + row[key] + '</td>';
-                            }
-                        });
-                        tableHtml += '</tr>';
-                    });
-                    } else {
-                        tableHtml += '<tr><td colspan="999">No data available</td></tr>';
-                    }
-    
-                    tableHtml += '</table>';
-    
-                    document.getElementById('resultTable').innerHTML = tableHtml;
-
-                    // Hide the loader after displaying the results
-                    document.getElementById('loader').style.display = 'none';
-                })
-                .catch(error => console.error('Error:', error));
-            });
-        </script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/filter_table.js') }}"></script>
     
     <!-- embedding JS libraries -->
 	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.1/dist/js/bootstrap.bundle.min.js" integrity="sha384-/bQdsTh/da6pkI1MST/rWKFNjaCP5gBSY4sEBT38Q/9RBh9AH40zEOg7Hlq2THRZ" crossorigin="anonymous"></script>

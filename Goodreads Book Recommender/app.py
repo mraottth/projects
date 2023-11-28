@@ -20,7 +20,7 @@ def get_recommendations_route():
         recs = recommendations.recs
         recs['year'] = recs['year'].fillna(0)
         recs = recs[["title", "avg_rating", "predicted_rating", "url", "genre_name"]]
-        recs.rename(columns={"avg_rating":"average_rating","genre_name":"genre"}, inplace=True)
+        recs.rename(columns={"avg_rating":"average","predicted_rating":"predicted","genre_name":"genre"}, inplace=True)
         
         # Create a dictionary that includes the order of columns
         result_dict = {
