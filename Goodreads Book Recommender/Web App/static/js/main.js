@@ -25,7 +25,7 @@ document.getElementById('uploadForm').addEventListener('submit', function (e) {
     }
     showLoader()
 
-    let statusUpdates = ["Uploading book data...", "Prepping data...", "Finding similar readers...", "Generating recommendations..."]
+    let statusUpdates = ["Uploading book data...", "Processing data...", "Finding similar readers...", "Generating recommendations..."]
     function printArrayWithDelay(array, delay) {
         let index = 0;
       
