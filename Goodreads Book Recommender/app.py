@@ -23,13 +23,13 @@ def get_recommendations_route():
         for d in [recs, popular, top_rated]:
             d['year'] = d['year'].fillna(0)
             
-        recs = recs[["title", "avg_rating", "predicted_rating", "url", "genre_name"]]
+        recs = recs[["title", "author", "avg_rating", "predicted_rating", "url", "genre_name"]]
         recs.rename(columns={"avg_rating":"average","predicted_rating":"predicted","genre_name":"genre"}, inplace=True)
         
-        popular = popular[["title", "avg_rating", "similar_usr_avg", "%_similar_usr_read", "url"]]
+        popular = popular[["title", "author", "avg_rating", "similar_usr_avg", "%_similar_usr_read", "url"]]
         popular.rename(columns={"avg_rating":"average","similar_usr_avg":"similarReadersAvg","%_similar_usr_read":"similarRead%"}, inplace=True)
         
-        top_rated = top_rated[["title", "avg_rating", "similar_usr_avg", "url"]]
+        top_rated = top_rated[["title", "author", "avg_rating", "similar_usr_avg", "url"]]
         top_rated.rename(columns={"avg_rating":"average","similar_usr_avg":"similarReadersAvg"}, inplace=True)
 
         # Create a dictionary that includes the order of columns

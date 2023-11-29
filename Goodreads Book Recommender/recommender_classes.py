@@ -232,7 +232,7 @@ class BookRecommender():
                         .sort_values(by="predicted_rating", ascending=False)\
                         .merge(self.book_index.reset_index(), left_on="book_index", right_on="index")\
                         .merge(
-                            self.all_books[["book_id", "title", "avg_rating", "ratings_count", "year", "main_genre","url"]],
+                            self.all_books[["book_id", "title", "avg_rating", "ratings_count", "year", "main_genre","url","author"]],
                             on="book_id"
                         )\
                         .drop(columns=["index"])
@@ -252,7 +252,7 @@ class BookRecommender():
         top_preds = pd.merge(top_preds, self.genre_descriptors, left_on="main_genre", right_on="genre_num")
         top_preds.rename(columns={"genre_string":"genre_name"}, inplace=True)
         
-        top_preds = top_preds[["book_id", "title","avg_rating","predicted_rating","ratings_count","year","url","genre", "genre_name"]]\
+        top_preds = top_preds[["book_id", "title","avg_rating","predicted_rating","ratings_count","year","url","genre", "genre_name","author"]]\
                 .query("avg_rating > @min_rating").sort_values(by="predicted_rating", ascending=False)
 
         self.recs = top_preds
@@ -270,14 +270,14 @@ class BookRecommender():
         others["similar_usr_avg"] = others["similar_usr_avg"].round(2)
 
         popular_recs = others.query("ratings_count > 100")\
-            .groupby(["title", "avg_rating", "similar_usr_avg", "ratings_count", "year", "url"])["book_id"]\
+            .groupby(["title", "avg_rating", "similar_usr_avg", "ratings_count", "year", "url", "author"])["book_id"]\
             .count().reset_index().sort_values(by=["book_id", "avg_rating"], ascending=False)\
             .rename(columns={"book_id":"%_similar_usr_read"})
 
         popular_recs["%_similar_usr_read"] = (popular_recs["%_similar_usr_read"] / 
                                                 others["uid"].nunique()).map('{:.1%}'.format)
         
-        self.similar_readers_popular = popular_recs[["title","avg_rating","similar_usr_avg", "ratings_count","year","%_similar_usr_read","url"]]
+        self.similar_readers_popular = popular_recs[["title","avg_rating","similar_usr_avg", "ratings_count","year","%_similar_usr_read","url","author"]]
     
 
     # Function to show top rated among similar readers
@@ -296,7 +296,7 @@ class BookRecommender():
 
         highest_rated_recs = others.query(
                     "ratings_count > 100 & YA == 0")\
-            .groupby(["title", "avg_rating", "similar_usr_avg", "ratings_count", "year", "url"])["uid"]\
+            .groupby(["title", "avg_rating", "similar_usr_avg", "ratings_count", "year", "url", "author"])["uid"]\
             .count().reset_index().sort_values(by=["similar_usr_avg", "avg_rating", "uid"], ascending=False)\
             .query("uid >= @min_neighbor_ratings")\
             .drop(columns="uid")
@@ -352,7 +352,7 @@ class BookRecommender():
         similar_books = similar_books[~similar_books["title"].str.contains("#1-")]
         
         similar_books = similar_books.iloc[1:,:].query('avg_rating >= @min_rating & ratings_count > 1000')[
-            ["title","avg_rating", "ratings_count", "year", "url"]
+            ["title","avg_rating", "ratings_count", "year", "url", "author"]
         ].head(n)
 
         return similar_books
