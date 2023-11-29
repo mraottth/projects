@@ -11,7 +11,3 @@ handlers:
   # the entire handlers section) when there are no static files defined.
 - url: /.*
   script: auto    
-
-libraries:
-  - name: ssl
-    version: latest
