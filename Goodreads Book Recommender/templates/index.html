@@ -8,9 +8,6 @@
         <!-- Load CSS libraries -->
 		<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-F3w7mX95PdgyTmZZMECAngseQB83DfGTowi0iMjiWaeVhAn4FJkqJByhZMI3AhiU" crossorigin="anonymous">
 		<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-        
-        <!-- Load JS files -->
-        <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 
 		<!-- GOOGLE FONTS -->
 		<link href='https://fonts.googleapis.com/css?family=Roboto:400,100,300,500,400italic,300italic' rel='stylesheet' type='text/css'>
@@ -46,7 +43,11 @@
                             <div id="filters" style="display: none;">
                                 <p>Lorem Ipsum</p>
                                 <input type="text" id="tableFilter" placeholder="Search Books">
-                            </div>                      
+                                <button type="button" id="recs" style="background-color:#294170; color:white;">Top Recommendations for You</button>
+                                <button type="button" id="popular" style="background-color:#0096AB; color:white;">Top Rated Among Similar Readers</button>
+                                <button type="button" id="topRated" style="background-color:#00BE9F; color:white;">Most Popular Among Similar Readers</button>                                
+                            </div>      
+                            
                         </div>
                     </div>
                 </div>

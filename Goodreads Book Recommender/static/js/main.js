@@ -1,10 +1,14 @@
+let myRecs;
+let myPopular;
+let myTopRated;
+let view;
+
 document.getElementById('uploadForm').addEventListener('submit', function (e) {
     e.preventDefault();
     
     function removeFadeOut( el, speed ) {
         var seconds = speed/1000;
         el.style.transition = "opacity "+seconds+"s ease";
-
         el.style.opacity = 0;
         setTimeout(function() {
             el.parentNode.removeChild(el);
@@ -28,29 +32,76 @@ document.getElementById('uploadForm').addEventListener('submit', function (e) {
     })
     .then(response => response.json())
     .then(data => {
-        // Display the result in a dynamic table
-        var tableHtml = '<table border="1">';
 
-        // Check if there is data
-        if (data.data.length > 0) {
+        myRecs = data[0]
+        myPopular = data[1]
+        myTopRated = data[2]
+
+        // Hide the loader after displaying the results
+        document.getElementById('loader').style.display = 'none';                    
+
+        // Hide instructions after displaying the results
+        document.getElementById('instructions').style.display = 'none';                    
+
+        // Show filters
+        document.getElementById('filters').style.display = 'block';
+        
+        updateTable(myRecs)
+    })
+    .catch(error => console.error('Error:', error));
+});
+
+// Button click listeners
+document.getElementById('recs').addEventListener('click', function () {
+    view = "recs"
+    updateTable(myRecs)
+});
+
+document.getElementById('popular').addEventListener('click', function () {
+    view = "pop"
+    updateTable(myPopular)
+});
+
+document.getElementById('topRated').addEventListener('click', function () {
+    view = "tr"
+    updateTable(myTopRated)
+});
+
+function updateTable (dataArray) {
+    
+    // Display the result in a dynamic table
+    var tableHtml = '<table border="1">';
+
+    // Check if there is data
+    if (dataArray.data.length > 0) {
+        
+        let color; 
+        if (view == "pop") {
+            color = "#0096AB"
+        } else if (view == "tr") {
+            color = "#00BE9F"
+        } else {
+            color = "#294170"
+        }
+
         // Use the ordered keys as table headers
         tableHtml += '<tr>';
-        data.columns.forEach(key => {
+        dataArray.columns.forEach(key => {
             // replace snake case with title case
             var key_title = key.replace (/^[-_]*(.)/, (_, c) => c.toUpperCase())      
                 .replace (/[-_]+(.)/g, (_, c) => ' ' + c.toUpperCase()) 
             
                 if (key_title != "Url") {
-                    tableHtml += '<th>' + key_title + '</th>';
+                    tableHtml += '<th style="background-color:'+ color + '">' + key_title + '</th>';
                 }
         });
         tableHtml += '</tr>';
 
         // Iterate through data and create rows
-        data.data.forEach(row => {
+        dataArray.data.forEach(row => {
             tableHtml += '<tr>';
             // Use the ordered keys to create the columns
-            data.columns.forEach(key => {
+            dataArray.columns.forEach(key => {
                 
                 if (key === 'title') {
                     // Make the value a clickable hyperlink
@@ -65,25 +116,15 @@ document.getElementById('uploadForm').addEventListener('submit', function (e) {
             });
             tableHtml += '</tr>';
         });
-        } else {
-            tableHtml += '<tr><td colspan="999">No data available</td></tr>';
-        }
+    } else {
+        tableHtml += '<tr><td colspan="999">No data available</td></tr>';
+    }
 
-        tableHtml += '</table>';
+    tableHtml += '</table>';
 
-        document.getElementById('resultTable').innerHTML = tableHtml;
+    document.getElementById('resultTable').innerHTML = tableHtml;
 
-        // Show table
-        document.getElementById('resultTable').style.display = 'block'; 
-
-        // Hide the loader after displaying the results
-        document.getElementById('loader').style.display = 'none';                    
-        
-        // Hide instructions after displaying the results
-        document.getElementById('instructions').style.display = 'none';                    
-
-        // Show filters
-        document.getElementById('filters').style.display = 'block'; 
-    })
-    .catch(error => console.error('Error:', error));
-});
+    // Show table
+    document.getElementById('resultTable').style.display = 'block'; 
+ 
+}
