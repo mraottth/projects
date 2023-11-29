@@ -50,7 +50,7 @@ document.getElementById('uploadForm').addEventListener('submit', function (e) {
     })
     .then(response => response.json())
     .then(data => {
-
+        
         myRecs = data[0]
         myPopular = data[1]
         myTopRated = data[2]
@@ -72,7 +72,7 @@ document.getElementById('uploadForm').addEventListener('submit', function (e) {
             Based on your past ratings, the recommender predicts you would rate these books highly";
         document.getElementById('tableTitle').innerHTML = "Top Recommendations For You";
         
-        // Populate table
+        // Populate table        
         updateTable(myRecs)
     })
     .catch(error => console.error('Error:', error));

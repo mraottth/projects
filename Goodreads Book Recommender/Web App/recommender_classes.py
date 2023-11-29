@@ -16,13 +16,13 @@ class BookLoader():
     def __init__(self, user_books):
         print("Loading book data...")
         wd = os.getcwd()
-        self.books = pd.read_csv(wd + "/Web App/data/goodreads_books.csv")
-        self.genres = pd.read_csv(wd + "/Web App/data/inferred_genres.csv")
-        self.genre_descriptors = pd.read_csv(wd + "/Web App/data/inferred_genre_top_words.csv")
+        self.books = pd.read_csv(wd + "/data/goodreads_books.csv")
+        self.genres = pd.read_csv(wd + "/data/inferred_genres.csv")
+        self.genre_descriptors = pd.read_csv(wd + "/data/inferred_genre_top_words.csv")
         self.target_books = user_books
-        self.reviews = sparse.load_npz(wd + "/Web App/data/user_reviews.npz")
-        self.user_index = pd.read_csv(wd + "/Web App/data/user_index_for_sparse_matrix.csv").rename(columns={"0":"user_id"})
-        self.book_index = pd.read_csv(wd + "/Web App/data/book_index_for_sparse_matrix.csv").rename(columns={"0":"book_id"})        
+        self.reviews = sparse.load_npz(wd + "/data/user_reviews.npz")
+        self.user_index = pd.read_csv(wd + "/data/user_index_for_sparse_matrix.csv").rename(columns={"0":"user_id"})
+        self.book_index = pd.read_csv(wd + "/data/book_index_for_sparse_matrix.csv").rename(columns={"0":"book_id"})        
 
 class BookRecommender():
 
