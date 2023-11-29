@@ -21,8 +21,26 @@ document.getElementById('uploadForm').addEventListener('submit', function (e) {
     // Show the loader
     function showLoader() {
         setTimeout(() => { document.getElementById('loader').style.display = 'block';  }, 510)
+        setTimeout(() => { document.getElementById('statusUpdate').style.display = 'block';  }, 510)
     }
     showLoader()
+
+    let statusUpdates = ["Uploading book data...", "Prepping data...", "Finding similar readers...", "Generating recommendations..."]
+    function printArrayWithDelay(array, delay) {
+        let index = 0;
+      
+        function printNextItem() {
+          if (index < array.length) {            
+            document.getElementById('statusUpdate').innerHTML = array[index];
+            index++;
+            setTimeout(printNextItem, delay);
+          }
+        }
+        // Start the printing process
+        printNextItem();
+      }
+      
+      printArrayWithDelay(statusUpdates, 6500);
 
     var formData = new FormData(this);
 
@@ -40,12 +58,21 @@ document.getElementById('uploadForm').addEventListener('submit', function (e) {
         // Hide the loader after displaying the results
         document.getElementById('loader').style.display = 'none';                    
 
+        // Hide status updates after displaying the results
+        document.getElementById('statusUpdate').style.display = 'none';                    
+
         // Hide instructions after displaying the results
         document.getElementById('instructions').style.display = 'none';                    
 
         // Show filters
         document.getElementById('filters').style.display = 'block';
         
+        // Set title and description
+        document.getElementById('pageDescription').innerHTML = "<strong>Top Recommendations For You:</strong> \
+            Based on your past ratings, the recommender predicts you would rate these books highly";
+        document.getElementById('tableTitle').innerHTML = "Top Recommendations For You";
+        
+        // Populate table
         updateTable(myRecs)
     })
     .catch(error => console.error('Error:', error));
@@ -54,16 +81,25 @@ document.getElementById('uploadForm').addEventListener('submit', function (e) {
 // Button click listeners
 document.getElementById('recs').addEventListener('click', function () {
     view = "recs"
+    document.getElementById('tableTitle').innerHTML = "Top Recommendations for You";
+    document.getElementById('pageDescription').innerHTML = "<strong>Top Recommendations For You:</strong> \
+        Based on your past ratings, the recommender predicts you would rate these books highly";
     updateTable(myRecs)
 });
 
 document.getElementById('popular').addEventListener('click', function () {
     view = "pop"
+    document.getElementById('pageDescription').innerHTML = "<strong>Most Popular Among Similar Readers:</strong>\
+        These books are most popular among readers with similar tastes to yours";
+    document.getElementById('tableTitle').innerHTML = "Most Popular Among Similar Readers";
     updateTable(myPopular)
 });
 
 document.getElementById('topRated').addEventListener('click', function () {
     view = "tr"
+    document.getElementById('pageDescription').innerHTML = "<strong>Top Rated Among Similar Readers:</strong>\
+        These books are the most highly rated among readers with similar tastes to yours";
+    document.getElementById('tableTitle').innerHTML = "Top Rated Among Similar Readers";
     updateTable(myTopRated)
 });
 

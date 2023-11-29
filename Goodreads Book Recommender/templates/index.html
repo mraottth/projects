@@ -37,15 +37,15 @@
                                     <a href="https://www.goodreads.com/review/import" target="_blank">Import/Export page</a>
                                     and clicking <strong>Export Library.</strong> 
                                     <br>Next, upload the file to this page. 
-                                    <br><br><span style="color: #686868"><strong>Note:</strong> Processing may take about a minute.</span>
+                                    <br><br><span style="color: #686868"><strong>Note:</strong> Processing should take about a minute</span>
                                 </p>
                             </div>      
-                            <div id="filters" style="display: none;">
-                                <p>Lorem Ipsum</p>
-                                <input type="text" id="tableFilter" placeholder="Search Books">
-                                <button type="button" id="recs" style="background-color:#294170; color:white;">Top Recommendations for You</button>
+                            <div id="filters" style="display: none;">        
+                                <p id="pageDescription" style="color: #686868"></p>
+                                <input type="text" id="tableFilter" placeholder="Search by title, author, or genre">
+                                <button type="button" id="recs" style="background-color:#294170; color:white;">Top Recommendations For You</button>
                                 <button type="button" id="topRated" style="background-color:#0096AB; color:white;">Top Rated Among Similar Readers</button>
-                                <button type="button" id="popular" style="background-color:#00BE9F; color:white;">Most Popular Among Similar Readers</button>                                
+                                <button type="button" id="popular" style="background-color:#00BE9F; color:white;">Most Popular Among Similar Readers</button>                                                                
                             </div>      
                             
                         </div>
@@ -59,8 +59,12 @@
                                     <input type="file" name="csvFile" accept=".csv">
                                     <input type="submit" value="Get Recommendations">
                                 </form>
-                                <div class="loader" id="loader" style="display: none;"></div>
-                                <div id="resultTable" style="height: 80vh; display: none;"></div>
+                                <div class="container">
+                                    <p id="statusUpdate" style="color: #7a7878; display: none;"></p>
+                                    <div class="loader" id="loader" style="display: none;"></div>                                
+                                </div>
+                                <h4 id="tableTitle"></h4>
+                                <div id="resultTable" style="height: 78vh; display: none;"></div>
                             </div>
                         </div>
                     </div>

@@ -17,8 +17,8 @@ def get_recommendations_route():
         df = pd.read_csv(csv_file)
 
         recommendations = BookRecommender(df)
-        recs = recommendations.recs.head(3000)
-        popular = recommendations.similar_readers_popular.head(3000)
+        recs = recommendations.recs.head(3500)
+        popular = recommendations.similar_readers_popular.head(1000)
         top_rated = recommendations.similar_readers_highly_rated.head(3000)
         for d in [recs, popular, top_rated]:
             d['year'] = d['year'].fillna(0)
