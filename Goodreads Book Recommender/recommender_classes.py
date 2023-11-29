@@ -6,7 +6,6 @@ import os
 from scipy import sparse
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import Normalizer
-from IPython.display import display
 from scipy.sparse.linalg import svds
 from skimage import io
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
