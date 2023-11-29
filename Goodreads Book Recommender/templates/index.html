@@ -1,0 +1,82 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Book Recommender</title>
+        
+        <!-- Load CSS libraries -->
+		<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-F3w7mX95PdgyTmZZMECAngseQB83DfGTowi0iMjiWaeVhAn4FJkqJByhZMI3AhiU" crossorigin="anonymous">
+		<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+		<!-- GOOGLE FONTS -->
+		<link href='https://fonts.googleapis.com/css?family=Roboto:400,100,300,500,400italic,300italic' rel='stylesheet' type='text/css'>
+    </head>
+    <body>
+
+        <div class="container-fluid" style="border: thin solid grey; border-radius: 5px">
+            <div class="row justify-content-center" style="height: 16vh; background: #e4e4e4;">
+                <div class="align-self-center">
+                    <h1>Book Recommender</h1>
+                </div>
+            </div>
+            <div class="row" style="height: 70vh">
+                <div class="col-4" style="background: #e4e4e4">
+                    <div class="row justify-content-left" style="height: 100%">
+                        <div class="align-self-left">
+                            <div id="instructions">            
+                                <h5>Background:</h5>
+                                <p>
+                                    This tool uses your Goodreads ratings to create a list of book Recommendations
+                                    specially tailored to your tastes. Read more about how it works on 
+                                    <a href="https://github.com/mraottth/projects/tree/main/Goodreads%20Book%20Recommender" target="_blank">GitHub.</a>
+                                </p>
+                                <h5>Instructions:</h5>
+                                <p>
+                                    Download your Goodreads ratings by visiting the 
+                                    <a href="https://www.goodreads.com/review/import" target="_blank">Import/Export page</a>
+                                    and clicking <strong>Export Library.</strong> 
+                                    <br>Next, upload the file to this page. 
+                                    <br><br><span style="color: #686868"><strong>Note:</strong> Processing should take about a minute</span>
+                                </p>
+                            </div>      
+                            <div id="filters" style="display: none;">        
+                                <p id="pageDescription" style="color: #686868"></p>
+                                <input type="text" id="tableFilter" placeholder="Search by title, author, or genre">
+                                <button type="button" id="recs" style="background-color:#294170; color:white;">Top Recommendations For You</button>
+                                <button type="button" id="topRated" style="background-color:#0096AB; color:white;">Top Rated Among Similar Readers</button>
+                                <button type="button" id="popular" style="background-color:#00BE9F; color:white;">Most Popular Among Similar Readers</button>                                                                
+                            </div>      
+                            
+                        </div>
+                    </div>
+                </div>
+                <div class="col-8" style="background: #e4e4e4">
+                    <div class="row justify-content-left" style="height: 90%">
+                        <div class="align-self-left">
+                            <div id="uploader"> 
+                                <form id="uploadForm" enctype="multipart/form-data">
+                                    <input type="file" name="csvFile" accept=".csv">
+                                    <input type="submit" value="Get Recommendations">
+                                </form>
+                                <div class="container">
+                                    <p id="statusUpdate" style="color: #7a7878; display: none;"></p>
+                                    <div class="loader" id="loader" style="display: none;"></div>                                
+                                </div>
+                                <h4 id="tableTitle"></h4>
+                                <div id="resultTable" style="height: 78vh; display: none;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>            
+        </div>
+    
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/filter_table.js') }}"></script>
+    
+    <!-- embedding JS libraries -->
+	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.1/dist/js/bootstrap.bundle.min.js" integrity="sha384-/bQdsTh/da6pkI1MST/rWKFNjaCP5gBSY4sEBT38Q/9RBh9AH40zEOg7Hlq2THRZ" crossorigin="anonymous"></script>
+
+    </body>
+</html>
