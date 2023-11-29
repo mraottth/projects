@@ -76,9 +76,9 @@ function updateTable (dataArray) {
     if (dataArray.data.length > 0) {
         
         let color; 
-        if (view == "pop") {
+        if (view == "tr") {
             color = "#0096AB"
-        } else if (view == "tr") {
+        } else if (view == "pop") {
             color = "#00BE9F"
         } else {
             color = "#294170"
