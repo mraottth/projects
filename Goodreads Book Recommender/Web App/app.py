@@ -8,7 +8,7 @@ app = Flask(__name__)
 def index():
     return render_template('index.html')
 
-@app.route('/get_recommendations', methods=['POST'])
+@app.route('/', methods=['POST'])
 def get_recommendations_route():
     try:
         csv_file = request.files['csvFile']

@@ -25,7 +25,7 @@ document.getElementById('uploadForm').addEventListener('submit', function (e) {
     }
     showLoader()
 
-    let statusUpdates = ["Uploading book data...", "Processing data...", "Finding similar readers...", "Generating recommendations..."]
+    let statusUpdates = ["Uploading file...", "Processing data...", "Finding similar readers...", "Generating recommendations..."]
     function printArrayWithDelay(array, delay) {
         let index = 0;
       
@@ -44,7 +44,7 @@ document.getElementById('uploadForm').addEventListener('submit', function (e) {
 
     var formData = new FormData(this);
 
-    fetch('/get_recommendations', {
+    fetch('/', {
         method: 'POST',
         body: formData
     })
