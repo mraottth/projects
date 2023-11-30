@@ -10,6 +10,7 @@ from scipy.sparse.linalg import svds
 from skimage import io
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from matplotlib.ticker import AutoMinorLocator
+from sparse_dot_mkl import dot_product_mkl
 
 class BookLoader():
 
@@ -92,7 +93,7 @@ class BookRecommender():
 
         # Add to sparse matrix
         self.reviews = sparse.vstack([self.reviews, my_books])
-        self.reviews = sparse.csr_matrix(self.reviews)
+        self.reviews = sparse.csc_matrix(self.reviews)
 
         # Normalize reviews within readers
         norm = Normalizer()
@@ -216,13 +217,13 @@ class BookRecommender():
         # Convert to sparse matrix
         U = sparse.csr_matrix(U)
         sigma = sparse.csr_matrix(sigma)
-        Vt = sparse.csr_matrix(Vt)
+        Vt = sparse.csc_matrix(Vt)
 
-        # Get predictions
-        all_user_predicted_ratings = U.dot(sigma) @ Vt
+        # Get prediction
+        all_user_predicted_ratings = dot_product_mkl(dot_product_mkl(U, sigma, dense=False), Vt, dense=True)
         df_preds = pd.DataFrame(
-                        all_user_predicted_ratings.toarray(), columns=neighbor_book_index, index=neighbor_index
-                    ).reset_index()
+                        all_user_predicted_ratings, columns=neighbor_book_index, index=neighbor_index
+                        ).reset_index()
         target_pred_books = df_preds[df_preds["index"] == self.target].columns[1:]
         target_pred_ratings = df_preds[df_preds["index"] == self.target].values[0][1:] * float(self.row_norms[self.target])
 

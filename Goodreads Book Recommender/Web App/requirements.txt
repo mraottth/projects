@@ -6,3 +6,4 @@ seaborn
 scipy
 scikit-learn
 scikit-image
+sparse_dot_mkl
