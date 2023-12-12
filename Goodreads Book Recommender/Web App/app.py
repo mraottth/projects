@@ -26,11 +26,11 @@ def get_recommendations_route():
         recs = recs[["title", "author", "avg_rating", "predicted_rating", "url", "genre_name"]]
         recs.rename(columns={"avg_rating":"average","predicted_rating":"predicted","genre_name":"genre"}, inplace=True)
         
-        popular = popular[["title", "author", "avg_rating", "similar_usr_avg", "%_similar_usr_read", "url"]]
-        popular.rename(columns={"avg_rating":"average","similar_usr_avg":"similarReadersAvg","%_similar_usr_read":"similarRead%"}, inplace=True)
+        popular = popular[["title", "author", "avg_rating", "similar_usr_avg", "%_similar_usr_read", "url", "genre_name"]]
+        popular.rename(columns={"avg_rating":"average","similar_usr_avg":"similarReadersAvg","%_similar_usr_read":"similarRead%","genre_name":"genre"}, inplace=True)
         
-        top_rated = top_rated[["title", "author", "avg_rating", "similar_usr_avg", "url"]]
-        top_rated.rename(columns={"avg_rating":"average","similar_usr_avg":"similarReadersAvg"}, inplace=True)
+        top_rated = top_rated[["title", "author", "avg_rating", "similar_usr_avg", "url", "genre_name"]]
+        top_rated.rename(columns={"avg_rating":"average","similar_usr_avg":"similarReadersAvg","genre_name":"genre"}, inplace=True)
 
         # Create a dictionary that includes the order of columns
         recs_dict = {

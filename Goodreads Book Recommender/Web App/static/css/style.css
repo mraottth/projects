@@ -92,8 +92,8 @@ a:hover {
 }
 
 .loader {
-    border: 20px solid #efefef; 
-    border-top: 20px solid #294170; 
+    border: 18px solid #efefef; 
+    border-top: 18px solid #294170d1; 
     border-radius: 50%;
     width: 300px;
     height: 300px;
@@ -114,17 +114,17 @@ a:hover {
     border-radius: 4px;
     cursor: pointer; 
     margin-top: 10px;
-    width: 85%;
+    width: 90%;
 }
 
 #tableFilter {
-    width: 85%;
+    width: 90%;
     margin-top: 5px;
     margin-bottom: 10px;
 }
 
 #pageDescription {
-    width: 85%;
+    width: 90%;
 }
 
 #statusUpdate {

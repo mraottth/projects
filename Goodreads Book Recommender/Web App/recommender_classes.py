@@ -245,14 +245,12 @@ class BookRecommender():
         top_preds["predicted_rating"] = round(top_preds["predicted_rating"] + self.neighbor_user_ratings["user_rating"].mean(), 2)
 
         # Get genre descriptions
-        top_preds["genre"] = top_preds["main_genre"]
-
         self.genre_descriptors["genre_num"] = self.genre_descriptors["genre_string"].apply(lambda x: int(x.split(":")[0].split(" ")[1]))
 
         top_preds = pd.merge(top_preds, self.genre_descriptors, left_on="main_genre", right_on="genre_num")
         top_preds.rename(columns={"genre_string":"genre_name"}, inplace=True)
         
-        top_preds = top_preds[["book_id", "title","avg_rating","predicted_rating","ratings_count","year","url","genre", "genre_name","author"]]\
+        top_preds = top_preds[["book_id", "title","avg_rating","predicted_rating","ratings_count","year","url", "genre_name","author"]]\
                 .query("avg_rating > @min_rating").sort_values(by="predicted_rating", ascending=False)
 
         self.recs = top_preds
@@ -270,14 +268,20 @@ class BookRecommender():
         others["similar_usr_avg"] = others["similar_usr_avg"].round(2)
 
         popular_recs = others.query("ratings_count > 100")\
-            .groupby(["title", "avg_rating", "similar_usr_avg", "ratings_count", "year", "url", "author"])["book_id"]\
-            .count().reset_index().sort_values(by=["book_id", "avg_rating"], ascending=False)\
+            .groupby(["title", "avg_rating", "similar_usr_avg", "ratings_count", "year", "url", "author", "main_genre"])["book_id"]\
+            .count().reset_index()\
             .rename(columns={"book_id":"%_similar_usr_read"})
 
         popular_recs["%_similar_usr_read"] = (popular_recs["%_similar_usr_read"] / 
                                                 others["uid"].nunique()).map('{:.1%}'.format)
         
-        self.similar_readers_popular = popular_recs[["title","avg_rating","similar_usr_avg", "ratings_count","year","%_similar_usr_read","url","author"]]
+        # Get genre descriptions
+        self.genre_descriptors["genre_num"] = self.genre_descriptors["genre_string"].apply(lambda x: int(x.split(":")[0].split(" ")[1]))
+
+        popular_recs = pd.merge(popular_recs, self.genre_descriptors, left_on="main_genre", right_on="genre_num")
+        popular_recs.rename(columns={"genre_string":"genre_name"}, inplace=True)
+        
+        self.similar_readers_popular = popular_recs[["title","avg_rating","similar_usr_avg", "ratings_count","year","%_similar_usr_read","url","author","genre_name"]].sort_values(by=["%_similar_usr_read","avg_rating"], ascending=False)
     
 
     # Function to show top rated among similar readers
@@ -292,16 +296,22 @@ class BookRecommender():
                         on="book_id")
         others["similar_usr_avg"] = others["similar_usr_avg"].round(2)
         
-        min_neighbor_ratings = np.max([others["uid"].nunique() / 200, 5])
+        min_neighbor_ratings = np.max([others["uid"].nunique() / 300, 5])
 
         highest_rated_recs = others.query(
                     "ratings_count > 100 & YA == 0")\
-            .groupby(["title", "avg_rating", "similar_usr_avg", "ratings_count", "year", "url", "author"])["uid"]\
-            .count().reset_index().sort_values(by=["similar_usr_avg", "avg_rating", "uid"], ascending=False)\
+            .groupby(["title", "avg_rating", "similar_usr_avg", "ratings_count", "year", "url", "author", "main_genre"])["uid"]\
+            .count().reset_index()\
             .query("uid >= @min_neighbor_ratings")\
             .drop(columns="uid")
+        
+        # Get genre descriptions
+        self.genre_descriptors["genre_num"] = self.genre_descriptors["genre_string"].apply(lambda x: int(x.split(":")[0].split(" ")[1]))
 
-        self.similar_readers_highly_rated = highest_rated_recs
+        highest_rated_recs = pd.merge(highest_rated_recs, self.genre_descriptors, left_on="main_genre", right_on="genre_num")
+        highest_rated_recs.rename(columns={"genre_string":"genre_name"}, inplace=True)
+
+        self.similar_readers_highly_rated = highest_rated_recs.sort_values(by=["similar_usr_avg", "avg_rating"], ascending=False)
     
 
     def find_similar_books_to(self, title, min_rating=3.5, n=20):
