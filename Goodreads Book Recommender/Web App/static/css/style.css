@@ -46,7 +46,8 @@ form input[type="file"] {
 }
 
 #resultTable {
-    height: 85vh;       
+    height: 85vh;
+    width: 98%;       
     overflow: auto;    
     border: 0.5px solid rgb(112, 112, 112); 
 }
