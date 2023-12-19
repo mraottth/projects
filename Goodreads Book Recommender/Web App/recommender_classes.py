@@ -314,7 +314,7 @@ class BookRecommender():
         self.similar_readers_highly_rated = highest_rated_recs.sort_values(by=["similar_usr_avg", "avg_rating"], ascending=False)
     
 
-    def find_similar_books_to(self, title, min_rating=3.5, n=20):
+    def find_similar_books_to(self, title, min_rating=3.5, n=25):
         """
         ABC
         """
@@ -325,7 +325,7 @@ class BookRecommender():
         nn_model = NearestNeighbors(
             metric="cosine",
             algorithm="auto",
-            n_neighbors=200,
+            n_neighbors=n,
             n_jobs=-1
         )
 
@@ -361,9 +361,9 @@ class BookRecommender():
         similar_books = similar_books[~similar_books["title"].str.contains(regex3)]
         similar_books = similar_books[~similar_books["title"].str.contains("#1-")]
         
-        similar_books = similar_books.iloc[1:,:].query('avg_rating >= @min_rating & ratings_count > 1000')[
-            ["title","avg_rating", "ratings_count", "year", "url", "author"]
-        ].head(n)
+        similar_books = similar_books.iloc[1:,:].query('avg_rating >= @min_rating & ratings_count > 500`')[
+            ["title","author","avg_rating", "ratings_count", "year", "url"]
+        ]
 
         return similar_books
     
