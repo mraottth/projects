@@ -1,6 +1,6 @@
 ### Goodreads Book Recommender
 
-[Click here to use the web app]([https://sites.google.com/eng.ucsd.edu/ucsdbookgraph/home?authuser=0](https://book-recommender-406619.ue.r.appspot.com/))
+[Click here to use the web app](https://book-recommender-406619.ue.r.appspot.com/)
 
 **Description:**
 Uses [goodreads data](https://sites.google.com/eng.ucsd.edu/ucsdbookgraph/home?authuser=0) scraped by Mengting Wan and Julian McAuley at UCSD to build a recommender system using three methods:
