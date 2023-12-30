@@ -71,8 +71,7 @@ def process_recs(rec):
         my_ratings_dict = {
             'columns': list(my_ratings.columns),
             'data': my_ratings.to_dict(orient='records')
-        }
-        print(my_ratings_dict)
+        }        
         
         # Return the result to the front-end
         return (recs_dict, popular_dict, top_rated_dict, my_ratings_dict)

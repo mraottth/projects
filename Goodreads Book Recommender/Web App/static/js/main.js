@@ -56,8 +56,7 @@ document.getElementById('uploadForm').addEventListener('submit', function (e) {
         myRecs = data[0]
         myPopular = data[1]
         myTopRated = data[2]
-        myRatings = data[3]
-        console.log(data)
+        myRatings = data[3]        
 
         // Hide the loader after displaying the results
         document.getElementById('loader').style.display = 'none';                    
@@ -120,8 +119,7 @@ document.getElementById('resultTable').addEventListener('click', function(event)
     // Check if the clicked element has the desired class
     if (event.target.classList.contains('similarButton')) {        
         view = "sim"
-        var title = event.target.id;  
-        console.log(title)      
+        var title = event.target.id;             
 
         getSimilarBooksTo(title).then(function(bookInfo) {                                  
             similarBooksResult = bookInfo;
@@ -130,7 +128,7 @@ document.getElementById('resultTable').addEventListener('click', function(event)
             console.error(error);
         });
 
-        document.getElementById('pageDescription').innerHTML = "<strong>Most Similar Books To: " + title + "</strong>\
+        document.getElementById('pageDescription').innerHTML = "<strong>Most Similar Books to " + title + ": </strong>\
             These books are the most similar to the one you selected based on users' rating and book selection patterns";
         document.getElementById('tableTitle').innerHTML = "Most Similar Books To: " + title;        
                         
@@ -173,7 +171,7 @@ function updateTable (dataArray) {
         });
 
         // Column for similar books button
-        tableHtml += '<th style="background-color:'+ color + '">' + "SimilarBooks" + '</th>';
+        tableHtml += '<th style="background-color:'+ color + '">' + "FindSimilarBooks" + '</th>';
         tableHtml += '</tr>';
 
         // Iterate through data and create rows
