@@ -186,8 +186,13 @@ function updateTable (dataArray) {
                 } else if (key === 'url') {
                     // skip column
                 } else {
+                    if (key === "genre") {
+                        fontsize = "small"
+                    } else {
+                        fontsize = "medium"
+                    }
                     // Normal cell without a hyperlink
-                    tableHtml += '<td>' + row[key] + '</td>';
+                    tableHtml += '<td style="font-size:'+ fontsize + ';">' + row[key] + '</td>';
                 }
             });
             
