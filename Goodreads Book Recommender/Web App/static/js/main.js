@@ -1,6 +1,8 @@
 let myRecs;
 let myPopular;
 let myTopRated;
+let myRatings;
+let similarBooksResult;
 let view;
 
 document.getElementById('uploadForm').addEventListener('submit', function (e) {
@@ -44,7 +46,7 @@ document.getElementById('uploadForm').addEventListener('submit', function (e) {
 
     var formData = new FormData(this);
 
-    fetch('/', {
+    fetch('/upload_csv', {
         method: 'POST',
         body: formData
     })
@@ -54,6 +56,8 @@ document.getElementById('uploadForm').addEventListener('submit', function (e) {
         myRecs = data[0]
         myPopular = data[1]
         myTopRated = data[2]
+        myRatings = data[3]
+        console.log(data)
 
         // Hide the loader after displaying the results
         document.getElementById('loader').style.display = 'none';                    
@@ -103,8 +107,40 @@ document.getElementById('topRated').addEventListener('click', function () {
     updateTable(myTopRated)
 });
 
+document.getElementById('myRatings').addEventListener('click', function () {
+    view = "my"
+    document.getElementById('pageDescription').innerHTML = "<strong>My Ratings</strong>\
+        These are the books you have rated taht are used to make recommendations. Note:\
+        Only books published before 2020 are included";
+    document.getElementById('tableTitle').innerHTML = "My Ratings:";
+    updateTable(myRatings)
+});
+
+document.getElementById('resultTable').addEventListener('click', function(event) {
+    // Check if the clicked element has the desired class
+    if (event.target.classList.contains('similarButton')) {        
+        view = "sim"
+        var title = event.target.id;  
+        console.log(title)      
+
+        getSimilarBooksTo(title).then(function(bookInfo) {                                  
+            similarBooksResult = bookInfo;
+            updateTable(similarBooksResult) 
+        }).catch(function(error) {
+            console.error(error);
+        });
+
+        document.getElementById('pageDescription').innerHTML = "<strong>Most Similar Books To: " + title + "</strong>\
+            These books are the most similar to the one you selected based on users' rating and book selection patterns";
+        document.getElementById('tableTitle').innerHTML = "Most Similar Books To: " + title;        
+                        
+    }
+});
+
 function updateTable (dataArray) {
     
+    document.getElementById('resultTable').innerHTML = "";
+
     // Display the result in a dynamic table
     var tableHtml = '<table border="1">';
 
@@ -116,6 +152,10 @@ function updateTable (dataArray) {
             color = "#0096AB"
         } else if (view == "pop") {
             color = "#00BE9F"
+        } else if (view == "sim") {
+            color = "#505188"
+        } else if (view == "my") {
+            color = "#636670"
         } else {
             color = "#294170"
         }
@@ -131,6 +171,9 @@ function updateTable (dataArray) {
                     tableHtml += '<th style="background-color:'+ color + '">' + key_title + '</th>';
                 }
         });
+
+        // Column for similar books button
+        tableHtml += '<th style="background-color:'+ color + '">' + "SimilarBooks" + '</th>';
         tableHtml += '</tr>';
 
         // Iterate through data and create rows
@@ -144,12 +187,14 @@ function updateTable (dataArray) {
                     tableHtml += '<td><a href="' + row['url'] + '" target="_blank">' + row[key] + '</a></td>';
                 } else if (key === 'url') {
                     // skip column
-        
                 } else {
                     // Normal cell without a hyperlink
                     tableHtml += '<td>' + row[key] + '</td>';
                 }
             });
+            
+            // Create button to make similar books button
+            tableHtml += '<td><button class="similarButton" id="' + row['title'] + '" color="#967EB5">Generate</button></td>';
             tableHtml += '</tr>';
         });
     } else {
@@ -163,4 +208,25 @@ function updateTable (dataArray) {
     // Show table
     document.getElementById('resultTable').style.display = 'block'; 
  
+}
+
+
+function getSimilarBooksTo(title) {
+    // Use AJAX to send the title to Flask endpoint and handle the response
+    return new Promise(function(resolve, reject) {
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", "/similar_books", true);
+        xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4) {
+                if (xhr.status === 200) {
+                    var bookInfo = JSON.parse(xhr.responseText);
+                    resolve(bookInfo);                    
+                } else {
+                    reject("Error: " + xhr.statusText);
+                }
+            }
+        };
+        xhr.send(JSON.stringify(title));
+    });
 }

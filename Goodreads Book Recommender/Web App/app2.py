@@ -14,12 +14,11 @@ def index():
 @app.route('/upload_csv', methods=['POST'])
 def upload_csv():
     csv_file = request.files['csvFile']
+    make_recs(csv_file)          
+    recs_dict, popular_dict, top_rated_dict, my_ratings_dict = process_recs(recs_obj[0])     
     
-    if csv_file.filename.endswith('.csv'):        
-        make_recs(csv_file)      
-        process_recs(recs_obj[0])  
-    else:
-        return jsonify({'error': 'Invalid file format'})    
+    return jsonify([recs_dict, popular_dict, top_rated_dict, my_ratings_dict]) 
+       
 
 def make_recs(csv):    
     try:        
@@ -34,7 +33,9 @@ def process_recs(rec):
         recs = rec.recs.head(3500)
         popular = rec.similar_readers_popular.head(1000)
         top_rated = rec.similar_readers_highly_rated.head(3000)
-        for d in [recs, popular, top_rated]:
+        my_ratings = rec.target_user_ratings
+
+        for d in [recs, popular, top_rated, my_ratings]:
             d['year'] = d['year'].fillna(0)
             
         recs = recs[["title", "author", "avg_rating", "predicted_rating", "url", "genre_name"]]
@@ -46,6 +47,11 @@ def process_recs(rec):
         top_rated = top_rated[["title", "author", "avg_rating", "similar_usr_avg", "url", "genre_name"]]
         top_rated.rename(columns={"avg_rating":"average","similar_usr_avg":"similarReadersAvg","genre_name":"genre"}, inplace=True)
 
+        my_ratings = my_ratings[["title", "author", "avg_rating", "user_rating", "url"]]
+        my_ratings["user_rating"] = my_ratings["user_rating"] * (5 / my_ratings["user_rating"].max())
+        my_ratings.sort_values(by=["user_rating","avg_rating"], ascending=False, inplace=True)
+        my_ratings.rename(columns={"avg_rating":"average", "user_rating":"myRating"}, inplace=True)
+        
         # Create a dictionary that includes the order of columns
         recs_dict = {
             'columns': list(recs.columns),
@@ -61,20 +67,38 @@ def process_recs(rec):
             'columns': list(top_rated.columns),
             'data': top_rated.to_dict(orient='records')
         }
+
+        my_ratings_dict = {
+            'columns': list(my_ratings.columns),
+            'data': my_ratings.to_dict(orient='records')
+        }
+        print(my_ratings_dict)
         
         # Return the result to the front-end
-        return jsonify([recs_dict, popular_dict, top_rated_dict])
+        return (recs_dict, popular_dict, top_rated_dict, my_ratings_dict)
 
     except Exception as e:
         return jsonify({'error': str(e)})
     
     
 @app.route('/similar_books', methods=["POST"])
-def similar_books(rec):
-    try:
-        title = request.get_json()        
-        similar_books = rec.find_similar_books_to(title) 
-        return jsonify(similar_books)
+def similar_books():
+    try:        
+        recs = recs_obj[0]        
+        title = request.get_json()                
+        
+        similar_books = recs.find_similar_books_to(title) 
+        
+        similar_books.drop(columns=["ratings_count", "year"], inplace=True)        
+        similar_books.rename(columns={"avg_rating":"average"}, inplace=True)
+        
+        similar_books_dict = {
+            'columns': list(similar_books.columns),
+            'data': similar_books.to_dict(orient='records')
+        }
+
+        return jsonify(similar_books_dict)
+    
     except Exception as e:
         return jsonify({'error': str(e)})
 

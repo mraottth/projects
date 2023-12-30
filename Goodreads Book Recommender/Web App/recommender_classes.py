@@ -1,15 +1,15 @@
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
+# import matplotlib.pyplot as plt
+# import seaborn as sns
 import os
 from scipy import sparse
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import Normalizer
 from scipy.sparse.linalg import svds
-from skimage import io
-from matplotlib.offsetbox import OffsetImage, AnnotationBbox
-from matplotlib.ticker import AutoMinorLocator
+# from skimage import io
+# from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+# from matplotlib.ticker import AutoMinorLocator
 from sparse_dot_mkl import dot_product_mkl
 
 class BookLoader():
@@ -319,8 +319,6 @@ class BookRecommender():
         ABC
         """
 
-        title_search = title.lower()
-
         # Instantiate KNN
         nn_model = NearestNeighbors(
             metric="cosine",
@@ -332,11 +330,8 @@ class BookRecommender():
         # Fit to sparse matrix
         nn_model.fit(self.reviews.T)
 
-        # Feed in book and get neighbors and distances
-        if self.all_books[self.all_books["title"].str.lower().str.contains(title_search)].shape[0] > 1:
-            print("Warning: more than 1 book matches title search. Returning results for top match")
-            
-        target_book_id = self.all_books[self.all_books["title"].str.lower().str.contains(title_search)]\
+        # Feed in book and get neighbors and distances            
+        target_book_id = self.all_books[self.all_books["title"] == title]\
                             .sort_values(by=["ratings_count", "avg_rating"], ascending=False).iloc[0,:]["book_id"]
         target_book_index = self.book_index[self.book_index["book_id"]==target_book_id].index[0]
         target_book = self.reviews.T[target_book_index,:].toarray()
@@ -368,138 +363,138 @@ class BookRecommender():
         return similar_books.head(n)
     
 
-    def plot_top_books(self):
-        """
-        Plots book cover images for top recommendations in top 5 genres
+#     def plot_top_books(self):
+#         """
+#         Plots book cover images for top recommendations in top 5 genres
 
-        Args:
-            preds: prediction df yielded by get_recs()
-            books: dataframe with all book info
-            target_ratings: target user's book ratings
+#         Args:
+#             preds: prediction df yielded by get_recs()
+#             books: dataframe with all book info
+#             target_ratings: target user's book ratings
 
-        Returns:
-            None
-        """
-        # Get image_url for top preds
-        plot_pred = pd.merge(
-                        self.recs[["book_id", "predicted_rating"]], 
-                        self.all_books[["book_id", "image_url", "main_genre"]], 
-                        on="book_id"
-                    )
+#         Returns:
+#             None
+#         """
+#         # Get image_url for top preds
+#         plot_pred = pd.merge(
+#                         self.recs[["book_id", "predicted_rating"]], 
+#                         self.all_books[["book_id", "image_url", "main_genre"]], 
+#                         on="book_id"
+#                     )
 
-        # For each of the top 10 genres, get top 5 books
-        top_genres = pd.DataFrame(self.target_user_ratings.loc[:, "Genre_1":].sum(axis=0)\
-                                                .sort_values(ascending=False)).rename(columns={0:"target"})[0:5]
+#         # For each of the top 10 genres, get top 5 books
+#         top_genres = pd.DataFrame(self.target_user_ratings.loc[:, "Genre_1":].sum(axis=0)\
+#                                                 .sort_values(ascending=False)).rename(columns={0:"target"})[0:5]
 
-        # Function to turn image url into image 
-        def getImage(path, zoom=0.3):
-            return OffsetImage(io.imread(path), zoom=zoom)
+#         # Function to turn image url into image 
+#         def getImage(path, zoom=0.3):
+#             return OffsetImage(io.imread(path), zoom=zoom)
 
-        # Plot
-        fig, ax = plt.subplots(figsize=(13,7))
-        for i in range(len(top_genres)): # For each of top genres
-            genre = top_genres.index[i]
-            g = float(genre[6:]) # Get genre number
+#         # Plot
+#         fig, ax = plt.subplots(figsize=(13,7))
+#         for i in range(len(top_genres)): # For each of top genres
+#             genre = top_genres.index[i]
+#             g = float(genre[6:]) # Get genre number
             
-            # Slice plot pred to genre and valid image url
-            books_to_plot = plot_pred[ 
-                (plot_pred["main_genre"] == g) & (plot_pred["image_url"].str.contains("images.gr-"))
-                ].head(5)
+#             # Slice plot pred to genre and valid image url
+#             books_to_plot = plot_pred[ 
+#                 (plot_pred["main_genre"] == g) & (plot_pred["image_url"].str.contains("images.gr-"))
+#                 ].head(5)
             
-            paths = [url for url in books_to_plot["image_url"]] # Get image urls
-            x = [i * 10 + 10 for x in range(5)] # Set genre bucket
-            y = [y for y in books_to_plot["predicted_rating"]] # get predicted rating as y
+#             paths = [url for url in books_to_plot["image_url"]] # Get image urls
+#             x = [i * 10 + 10 for x in range(5)] # Set genre bucket
+#             y = [y for y in books_to_plot["predicted_rating"]] # get predicted rating as y
 
-            # Plot
-            ax.scatter(x,y,alpha=0) 
+#             # Plot
+#             ax.scatter(x,y,alpha=0) 
 
-            # Plot image at xy
-            for x0, y0, path in zip(x, y, paths):
-                ab = AnnotationBbox(getImage(path), (x0 + np.random.uniform(-3.5,3.5), y0), frameon=True, pad=0.3)
-                ax.add_artist(ab)
+#             # Plot image at xy
+#             for x0, y0, path in zip(x, y, paths):
+#                 ab = AnnotationBbox(getImage(path), (x0 + np.random.uniform(-3.5,3.5), y0), frameon=True, pad=0.3)
+#                 ax.add_artist(ab)
             
-        plt.ylabel("Recommendation Strength", fontsize=12)
-        plt.xlabel("\nGenre Grouping", fontsize=12)
-        plt.title("Top Recommendations by Genre", y=1.02, fontsize=14)
-        plt.xlim((5, 55))
-        ax.spines[['right', 'top', 'left']].set_visible(False)
-        plt.tick_params(axis='x', which='both', bottom=True, top=False, labelbottom=False)
-        ax.yaxis.set_ticklabels([])
-        ax.yaxis.grid(True, alpha=0.3) # Create y gridlines
-        plt.gca().xaxis.set_minor_locator(AutoMinorLocator(2))
-        ax.xaxis.grid(which="minor", visible=True, alpha=0.8) # Create x gridlines
-        plt.show()
+#         plt.ylabel("Recommendation Strength", fontsize=12)
+#         plt.xlabel("\nGenre Grouping", fontsize=12)
+#         plt.title("Top Recommendations by Genre", y=1.02, fontsize=14)
+#         plt.xlim((5, 55))
+#         ax.spines[['right', 'top', 'left']].set_visible(False)
+#         plt.tick_params(axis='x', which='both', bottom=True, top=False, labelbottom=False)
+#         ax.yaxis.set_ticklabels([])
+#         ax.yaxis.grid(True, alpha=0.3) # Create y gridlines
+#         plt.gca().xaxis.set_minor_locator(AutoMinorLocator(2))
+#         ax.xaxis.grid(which="minor", visible=True, alpha=0.8) # Create x gridlines
+#         plt.show()
 
 
-    # Function to plot neighbors' and target's top genres
-    def plot_top_genres(self):
+#     # Function to plot neighbors' and target's top genres
+#     def plot_top_genres(self):
         
-        others = self.neighbor_user_ratings
-        target = self.target_user_ratings
+#         others = self.neighbor_user_ratings
+#         target = self.target_user_ratings
 
-        # Get genre rankings for target and neighbors
-        target_genre_ranking = pd.DataFrame(target.loc[:, "Genre_1":].sum(axis=0)\
-                                                .sort_values(ascending=False)).rename(columns={0:"target"})
-        target_genre_ranking = target_genre_ranking.div(target_genre_ranking.sum(axis=0), axis=1)
+#         # Get genre rankings for target and neighbors
+#         target_genre_ranking = pd.DataFrame(target.loc[:, "Genre_1":].sum(axis=0)\
+#                                                 .sort_values(ascending=False)).rename(columns={0:"target"})
+#         target_genre_ranking = target_genre_ranking.div(target_genre_ranking.sum(axis=0), axis=1)
 
-        neighbor_genre_ranking = pd.DataFrame(others.loc[:, "Genre_1":].sum(axis=0)\
-                                                .sort_values(ascending=False)).rename(columns={0:"neighbor"})
-        neighbor_genre_ranking = neighbor_genre_ranking.div(neighbor_genre_ranking.sum(axis=0), axis=1)
+#         neighbor_genre_ranking = pd.DataFrame(others.loc[:, "Genre_1":].sum(axis=0)\
+#                                                 .sort_values(ascending=False)).rename(columns={0:"neighbor"})
+#         neighbor_genre_ranking = neighbor_genre_ranking.div(neighbor_genre_ranking.sum(axis=0), axis=1)
 
-        genre_rankings = pd.merge(
-                target_genre_ranking, neighbor_genre_ranking, left_index=True, right_index=True
-                ).reset_index()
+#         genre_rankings = pd.merge(
+#                 target_genre_ranking, neighbor_genre_ranking, left_index=True, right_index=True
+#                 ).reset_index()
 
-        # Plot target genre pref
-        fig, ax = plt.subplots(figsize=(10,10))
-        sns.scatterplot(
-            data=genre_rankings,
-            y='index',
-            x='target',
-            s=150,
-            edgecolors='black',
-            color="mediumslateblue",
-            linewidths = 0.75,
-            label='You',
-            zorder=2,
-            )
+#         # Plot target genre pref
+#         fig, ax = plt.subplots(figsize=(10,10))
+#         sns.scatterplot(
+#             data=genre_rankings,
+#             y='index',
+#             x='target',
+#             s=150,
+#             edgecolors='black',
+#             color="mediumslateblue",
+#             linewidths = 0.75,
+#             label='You',
+#             zorder=2,
+#             )
 
-        # Plot neighbors genre pref
-        sns.scatterplot(
-            data=genre_rankings,
-            y='index',
-            x='neighbor',
-            label='Similar Readers',
-            color="darkgray",
-            s=150,
-            zorder=3
-            )
+#         # Plot neighbors genre pref
+#         sns.scatterplot(
+#             data=genre_rankings,
+#             y='index',
+#             x='neighbor',
+#             label='Similar Readers',
+#             color="darkgray",
+#             s=150,
+#             zorder=3
+#             )
 
-        # Iterate through each genre and plot line connecting 2 points
-        for ind in list(genre_rankings['index']):
+#         # Iterate through each genre and plot line connecting 2 points
+#         for ind in list(genre_rankings['index']):
         
-            # Plot line connecting points
-            plt.plot([genre_rankings[genre_rankings['index']==ind]['target'],
-                        genre_rankings[genre_rankings['index']==ind]['neighbor']],
-                        [ind, ind],
-                        color='#565A5C',
-                        alpha=0.2,                    
-                        # linestyle=(0, (1,1)),
-                        linewidth=6.5,
-                        zorder=1
-                        )
+#             # Plot line connecting points
+#             plt.plot([genre_rankings[genre_rankings['index']==ind]['target'],
+#                         genre_rankings[genre_rankings['index']==ind]['neighbor']],
+#                         [ind, ind],
+#                         color='#565A5C',
+#                         alpha=0.2,                    
+#                         # linestyle=(0, (1,1)),
+#                         linewidth=6.5,
+#                         zorder=1
+#                         )
 
-        # Set chart details
-        plt.legend(bbox_to_anchor=(1,1), loc="upper left", borderpad=1)
-        ax.yaxis.grid(True, alpha=0.4) # Create y gridlines
-        ax.xaxis.grid(True, alpha=0.4) # Create x gridlines
-        plt.xlabel("Genre preference")
-        plt.ylabel(None)
-        plt.title('Your Top Genres Compared with Similar Readers', fontsize=14)
-        plt.show()
+#         # Set chart details
+#         plt.legend(bbox_to_anchor=(1,1), loc="upper left", borderpad=1)
+#         ax.yaxis.grid(True, alpha=0.4) # Create y gridlines
+#         ax.xaxis.grid(True, alpha=0.4) # Create x gridlines
+#         plt.xlabel("Genre preference")
+#         plt.ylabel(None)
+#         plt.title('Your Top Genres Compared with Similar Readers', fontsize=14)
+#         plt.show()
 
 
-if __name__ == "__main__":
-    wd = os.getcwd()    
-    df = pd.read_csv(wd + "/data/goodreads_library_export.csv")
-    recs = BookRecommender(df)
+# if __name__ == "__main__":
+#     wd = os.getcwd()    
+#     df = pd.read_csv(wd + "/data/goodreads_library_export.csv")
+#     recs = BookRecommender(df)
