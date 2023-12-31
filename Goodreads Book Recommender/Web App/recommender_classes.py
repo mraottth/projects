@@ -66,6 +66,9 @@ class BookRecommender():
         self.book_index = self.book_index[in_df_books].reset_index().drop("index", axis=1)
         self.reviews = self.reviews[:, in_df_books]
 
+        # Change rating to 4.5 for books in 45 shelf
+        self.target_books.loc[self.target_books['Bookshelves'] == "45", 'My Rating'] = 4.5        
+
         # Filter to books target user has rated
         self.target_books = self.target_books[["Book Id", "My Rating", "Title"]]\
             .rename(columns={"Book Id":"book_id", "My Rating":"rating", "Title":"title"}).query("rating > 0")
