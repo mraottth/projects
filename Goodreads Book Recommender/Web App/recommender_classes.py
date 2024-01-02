@@ -24,6 +24,7 @@ class BookLoader():
         self.reviews = sparse.load_npz(wd + "/data/user_reviews.npz")
         self.user_index = pd.read_csv(wd + "/data/user_index_for_sparse_matrix.csv").rename(columns={"0":"user_id"})
         self.book_index = pd.read_csv(wd + "/data/book_index_for_sparse_matrix.csv").rename(columns={"0":"book_id"})        
+        self.dim_reduced_reviews = None
 
 class BookRecommender():
 
@@ -38,6 +39,7 @@ class BookRecommender():
         self.user_index = data.user_index 
         self.book_index = data.book_index        
         self.target = data.reviews.shape[0]
+        self.dim_reduced_reviews = None
 
         self.prep_data()
         self.find_neighbors()
@@ -322,6 +324,10 @@ class BookRecommender():
         ABC
         """
 
+        if self.dim_reduced_reviews is None:
+            wd = os.getcwd()
+            self.dim_reduced_reviews = np.load(wd + "/data/reviews_reduced.npy")        
+
         # Instantiate KNN
         nn_model = NearestNeighbors(
             metric="cosine",
@@ -330,15 +336,14 @@ class BookRecommender():
             n_jobs=-1
         )
 
-        # Fit to sparse matrix
-        nn_model.fit(self.reviews.T)
+        # Fit to sparse matrix        
+        nn_model.fit(self.dim_reduced_reviews)
 
         # Feed in book and get neighbors and distances            
         target_book_id = self.all_books[self.all_books["title"] == title]\
                             .sort_values(by=["ratings_count", "avg_rating"], ascending=False).iloc[0,:]["book_id"]
         target_book_index = self.book_index[self.book_index["book_id"]==target_book_id].index[0]
-        target_book = self.reviews.T[target_book_index,:].toarray()
-
+        target_book = self.dim_reduced_reviews[target_book_index,:].reshape(-1,self.dim_reduced_reviews.shape[1])        
         dists, neighbors = nn_model.kneighbors(target_book, return_distance=True)
 
         similar_books = pd.DataFrame(
@@ -364,7 +369,6 @@ class BookRecommender():
         ]
 
         return similar_books.head(n)
-    
 
 #     def plot_top_books(self):
 #         """
