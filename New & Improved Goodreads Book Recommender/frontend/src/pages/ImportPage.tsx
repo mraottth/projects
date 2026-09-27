@@ -9,6 +9,8 @@ export function ImportPage({ go }: { go: (v: "recs") => void }) {
   const [error, setError] = useState<string | null>(null);
   const [res, setRes] = useState<ImportResult | null>(null);
   const [drag, setDrag] = useState(false);
+  const [kept, setKept] = useState(0);              // books rated on this site that survived the re-import
+  const [replaced, setReplaced] = useState(false);
 
   const upload = async (file: File | undefined) => {
     if (!file) return;
@@ -16,7 +18,10 @@ export function ImportPage({ go }: { go: (v: "recs") => void }) {
     try {
       const r = await api.importCsv(file);
       setRes(r);
-      shelf.applyImport(r, shelf.count > 0 ? "merge" : "replace");
+      // Re-importing replaces the previous import (clearing any stale matches) but keeps books rated here.
+      setKept(Object.values(shelf.ratings).filter((v) => v.source === "manual" && !r.rated.some((x) => x.id === v.book.id)).length);
+      setReplaced(false);
+      shelf.applyImport(r, "update");
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -47,7 +52,15 @@ export function ImportPage({ go }: { go: (v: "recs") => void }) {
           <p>
             <strong>{res.rated.length}</strong> rated, <strong>{res.read_unrated.length}</strong> read without a rating,{" "}
             <strong>{res.to_read.length}</strong> on your to-read shelf.
-            {shelf.count > res.rated.length && " Merged with the books you had already rated here."}
+            {" "}Anything from a previous import was replaced.
+            {kept > 0 && !replaced && (
+              <> {kept} book{kept === 1 ? "" : "s"} you rated on this site {kept === 1 ? "was" : "were"} kept.{" "}
+                <button type="button" className="link" onClick={() => { shelf.applyImport(res, "replace"); setReplaced(true); }}>
+                  Replace my whole shelf instead
+                </button>
+              </>
+            )}
+            {replaced && " Your shelf now contains only this import."}
           </p>
           <div className="cover-strip">
             {res.rated.slice(0, 24).map((b) => (

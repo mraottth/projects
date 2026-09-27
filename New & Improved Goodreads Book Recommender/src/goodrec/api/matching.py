@@ -3,7 +3,7 @@
 Order (extends the old app's Book Id -> title matching):
   1. Book Id -> edition -> work (covers every edition of every catalog work)
   2. ISBN13, then ISBN (export wraps them as ="..."), including ISBN10 -> 13 conversion
-  3. normalized title + author last name (ties -> most-rated work)
+  3. normalized title + an author last name that must match (ties -> most-rated work)
 Shelves: My Rating > 0 -> rating; Exclusive Shelf 'read' with rating 0 -> read-unrated;
 'to-read' -> to_read (re-ranked separately; never used as a signal).
 """
@@ -32,7 +32,9 @@ def match_row(cat: Catalog, row: dict) -> tuple[int | None, str | None]:
                     return idx, "isbn"
     tkey = titlekey(row.get("Title") or "")
     if tkey:
-        idx = cat.by_titlekey(tkey, author_key(row.get("Author") or ""))
+        # Any credited author may be the one the catalog lists (co-authors, editors, translators).
+        names = [row.get("Author") or "", row.get("Author l-f") or "", *(row.get("Additional Authors") or "").split(",")]
+        idx = cat.by_titlekey(tkey, {author_key(n.strip()) for n in names})
         if idx is not None:
             return idx, "title"
     return None, None

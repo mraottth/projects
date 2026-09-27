@@ -13,8 +13,17 @@ import orjson
 from goodrec.core.textnorm import ascii_fold, titlekey
 
 BOOK_COLS = ("work_idx", "work_id", "title", "base_title", "author", "author_id", "year", "avg_rating",
-             "ratings_count", "cover_url", "isbn", "url", "series_name", "series_pos", "parent_genre", "tags")
+             "ratings_count", "cover_url", "isbn", "url", "series_name", "series_pos", "parent_genre", "tags", "description")
 _TOKEN = re.compile(r"[a-z0-9]+")
+
+
+def _clean_description(text: str | None) -> str | None:
+    """Description with whitespace collapsed; marks text that was truncated at ingest (1200 chars)."""
+    if not text:
+        return None
+    truncated = len(text) >= 1200
+    text = " ".join(text.split())
+    return text[:text.rfind(" ")].rstrip(",.;:") + "…" if truncated and " " in text else text
 
 
 def _cover_large(url: str | None) -> str | None:
@@ -58,6 +67,7 @@ class Catalog:
             "url": d["url"], "series": d["series_name"],
             "series_pos": d["series_pos"] if d["series_pos"] is None else float(d["series_pos"]),
             "genre": d["parent_genre"], "tags": orjson.loads(d["tags"] or "[]"),
+            "description": _clean_description(d["description"]),
         }
 
     def detail(self, idx: int) -> dict | None:
@@ -130,13 +140,13 @@ class Catalog:
         r = self._con().execute("SELECT work_idx FROM isbns WHERE isbn=?", (isbn,)).fetchone()
         return r[0] if r else None
 
-    def by_titlekey(self, tkey: str, akey: str) -> int | None:
-        con = self._con()
-        r = con.execute("SELECT work_idx FROM titlekeys WHERE titlekey=? AND author_key=? "
-                        "ORDER BY ratings_count DESC LIMIT 1", (tkey, akey)).fetchone()
-        if r is None and akey:
-            # Author mismatch (e.g. translators, pen names): accept a unique title match only.
-            rows = con.execute("SELECT DISTINCT work_idx FROM titlekeys WHERE titlekey=? LIMIT 2",
-                               (tkey,)).fetchall()
-            r = rows[0] if len(rows) == 1 else None
+    def by_titlekey(self, tkey: str, akeys: set[str]) -> int | None:
+        """Title match that also requires an author match. Titles alone are too ambiguous: a post-2017
+        book missing from the catalog would otherwise latch onto an older book with the same title."""
+        akeys = {a for a in akeys if a}
+        if not tkey or not akeys:
+            return None
+        q = (f"SELECT work_idx FROM titlekeys WHERE titlekey=? AND author_key IN ({','.join('?' * len(akeys))}) "
+             "ORDER BY ratings_count DESC LIMIT 1")
+        r = self._con().execute(q, (tkey, *akeys)).fetchone()
         return r[0] if r else None

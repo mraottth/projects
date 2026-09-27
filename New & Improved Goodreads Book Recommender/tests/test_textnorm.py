@@ -9,6 +9,12 @@ def test_parse_series():
     assert parse_series("The Assassin's Blade (Throne of Glass, #0.1-0.5)")[3] is True
     assert parse_series("Saga, Volume 3")[2] == 3.0
     assert parse_series("Gone Girl") == ("Gone Girl", None, None, False)
+    # trailing text after the number: split editions and multi-number collections
+    assert parse_series("A Storm of Swords: Blood and Gold (A Song of Ice and Fire, #3: Part 2 of 2)")[1:] == (
+        "A Song of Ice and Fire", 3.0, True)
+    assert parse_series("Raising Steam (Discworld, #40, Moist von Lipwig #3 )")[1:3] == ("Discworld", 40.0)
+    assert parse_series("Happily Ever After (The Selection, #0.4, 0.5, 2.5, 2.6)")[3] is True
+    assert parse_series("The Oedipus Cycle (The Theban Plays, #1\u20133)")[3] is True
 
 
 def test_is_boxset():

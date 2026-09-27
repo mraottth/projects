@@ -73,6 +73,37 @@ def build_meta(cat: pl.DataFrame, R: sparse.csr_matrix, Read: sparse.csr_matrix,
     return meta, {"genres": PARENTS, "tags": list(tag_vocab)}
 
 
+def population_stats(cat: pl.DataFrame, meta: dict, names: dict) -> dict:
+    """Reader-population distributions for the "Your books" insights.
+
+    books_read: per reader, catalog books rated or marked read (the same basis as a user's matched shelf).
+    harshness:  per reader with >= 10 ratings, mean(rating - item mean) using the Bayesian item mean
+                (the baseline the predicted rating uses); negative = tougher than typical.
+    genres:     mean rating and count of all ratings per parent genre.
+    """
+    widx = cat.select("work_id", "work_idx")
+    r = pl.scan_parquet(INTERIM_DIR / "ratings.parquet").join(widx.lazy(), on="work_id").select(
+        "user_idx", "work_idx", "rating").collect()
+    counts = r.group_by("user_idx").len()["len"].to_numpy()
+    vals, freq = np.unique(counts, return_counts=True)
+    cum = np.cumsum(freq) / freq.sum()
+    rated = r.filter(pl.col("rating") > 0)
+    widx_arr = rated["work_idx"].to_numpy()
+    rated = rated.with_columns(item_mean=pl.Series(meta["bayes"][widx_arr].astype(np.float64)),
+                               genre=pl.Series(meta["parent_genre"][widx_arr].astype(np.int64)))
+    bias = (rated.group_by("user_idx").agg(pl.len().alias("n"), (pl.col("rating") - pl.col("item_mean")).mean().alias("b"))
+                 .filter(pl.col("n") >= 10)["b"].to_numpy())
+    by_genre = rated.filter(pl.col("genre") >= 0).group_by("genre").agg(pl.len().alias("n"), pl.col("rating").mean().alias("avg"))
+    return {
+        "books_read": {"values": vals.tolist(), "cum_frac": np.round(cum, 6).tolist(), "n_readers": int(len(counts)),
+                       "median": float(np.median(counts)), "p90": float(np.percentile(counts, 90))},
+        "harshness": {"quantiles": np.round(np.quantile(bias, np.linspace(0, 1, 1001)), 4).tolist(),
+                      "n_readers": int(len(bias)), "median": float(np.median(bias))},
+        "genres": {names["genres"][int(k)]: {"avg": round(float(a), 3), "n_ratings": int(n)}
+                   for k, n, a in by_genre.iter_rows()},
+    }
+
+
 def starter_shelf(cat: pl.DataFrame, meta: dict, per_genre: int = 5, max_genres: int = 16) -> list[int]:
     """Most-read standalone/first-in-series adult books, round-robin across the biggest genres."""
     ok = (~meta["is_boxset"] & ~meta["is_children"] & ~meta["is_comic"]
@@ -108,6 +139,8 @@ def main(force: bool = False) -> None:
     readers = (R + Read.multiply(READ_UNRATED)).tocsr()[rows].astype(np.int8)
     readers.sort_indices()
     sparse.save_npz(ARTIFACTS_DIR / "readers_csr.npz", readers)
+
+    (ARTIFACTS_DIR / "population_stats.json").write_bytes(orjson.dumps(population_stats(cat, meta, names)))
 
     starter = starter_shelf(cat, meta)
     (ARTIFACTS_DIR / "starter_shelf.json").write_bytes(orjson.dumps(starter))

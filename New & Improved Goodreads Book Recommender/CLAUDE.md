@@ -37,17 +37,22 @@ PYTHONPATH=src uv run python -m goodrec.eval.tune_als --users 800       # ALS hy
 - `src/goodrec/core/` is shared by the API **and** eval, so eval always exercises serving code:
   - `artifacts.py` loads everything.
   - `scoring.py` has fold-in, item-item scoring, blend `a(n)=n/(n+k_a)`, filters, series rules and explanations.
+  - `predict_ratings` (predicted stars shown on every card) is a separate baseline + item-item residual model, not the blend score. The rank and the predicted rating can disagree by design; `make eval` reports its RMSE. `sort="predicted"` re-orders the whole blend candidate pool by prediction (ties by blend score) before paging. `readers_avg`/`readers_n` on each book come from `similar_readers()` (`item_avg`/`item_n`) and only exist once a user has at least 5 ratings.
   - `similar_readers.py` does nearest users in ALS space, then aggregates their actual shelves from `readers_csr.npz`.
   - Serving needs numpy/scipy only. `implicit`, polars and anthropic are pipeline-only dependency groups.
 - `src/goodrec/api/`: FastAPI.
   - **Public ids are Goodreads `work_id`s**, mapped to `work_idx` in `catalog.py`, so browser-stored ratings survive rebuilds.
   - Per-user model scores are LRU-cached by ratings hash (`main.py`), so filter/tab changes only re-filter.
-  - CSV import matching (`matching.py`): Book Id → edition table, then ISBN, then normalized title + author last name (`core/textnorm.py`).
+  - CSV import matching (`matching.py`): Book Id → edition table, then ISBN, then normalized title + author last name (`core/textnorm.py`). Title matches **must** also match an author (main or additional). A title-only fallback matched post-2017 books to unrelated same-titled books, e.g. *The Anarchy* (Dalrymple) → *Anarchy* (Jaymin Eve).
+  - `/api/browse` (Explore page) reuses `filter_mask` with an empty user; the Explore filter set is separate from Recommendations' in `useUrlState.ts` and defaults to showing everything.
 - `frontend/`: React + Vite + TS, no UI library.
+  - Pages: Recommendations (list or map), Rate books, Import, Explore (`/api/browse`), Your books (`/api/books/batch` fills in full details for shelf ids), About (`pages/AboutPage.tsx`, holds `REPO_URL`).
   - The user's shelf lives in localStorage (`store.tsx`). View, tab and filters live in the URL query string (`useUrlState.ts`).
   - Genre colors are 8 validated family hues (`genres.ts`); text labels always carry identity.
 
 ## Gotchas
+
+- About-page code links come from `scripts/code_links.py` (run by `make frontend`), which writes `frontend/src/codeLinks.json` with the current line of each linked function. It fails if a linked symbol is renamed or moved; update its `LINKS` table when that happens. Links target `main` on GitHub (`CODE_BASE` in `AboutPage.tsx`).
 
 - Changing `blend`/`als` params in `config/pipeline.yaml` affects serving immediately (`Params.from_config`). ALS factor params require re-running s08 onward.
 - Popular Goodreads titles embed series as `"Title (Series, #N)"`. `textnorm.parse_series` drives the "hide later volumes / show next in series" rule.

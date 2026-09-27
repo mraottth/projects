@@ -100,7 +100,7 @@ def main(force: bool = False) -> None:
         is_children=pl.col("is_children").fill_null(False),
         is_comic=pl.col("is_comic").fill_null(False),
         author=pl.col("author").fill_null(""),
-    ).sort("n_raters", descending=True).with_row_index("work_idx")
+    ).sort(["n_raters", "work_id"], descending=[True, False]).with_row_index("work_idx")  # deterministic order
 
     cat = cat.select(
         pl.col("work_idx").cast(pl.Int32), "work_id", "book_id", "title", "base_title", "author", "author_id",

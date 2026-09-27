@@ -7,9 +7,15 @@ it generalizes the old app's regex filters (`#2+`, `Vol. N`, `Volume N`, `#1-`).
 import re
 import unicodedata
 
+# "(Series, #N)", "(Series, #1-3)", and variants with trailing text such as "#3: Part 2 of 2" or
+# "#0.4, 0.5, 2.5" (collections). A trailing number marks a range/collection or a split edition.
 _SERIES_RE = re.compile(
-    r"\s*\((?P<name>[^()]*?),?\s*#(?P<pos>\d+(?:\.\d+)?)(?:\s*-\s*(?P<end>\d+(?:\.\d+)?))?\)\s*$"
+    r"\s*\((?P<name>[^()#]*?),?\s*#(?P<pos>\d+(?:\.\d+)?)(?:\s*[-\u2013]\s*(?P<end>\d+(?:\.\d+)?))?"
+    r"(?P<rest>[^()]*)\)\s*$"
 )
+# Trailing text that makes it a collection ("#0.4, 0.5") or a split edition ("#3: Part 2 of 2"),
+# as opposed to a second series ("#40, Moist von Lipwig #3").
+_RANGE_REST_RE = re.compile(r"^\s*(?:[,;&]\s*\d|[:,]?\s*part\s+\d)", re.I)
 _VOLUME_RE = re.compile(r"\b(?:vol\.?|volume)\s*(\d+)\b", re.I)
 _BOXSET_RE = re.compile(
     r"\b(box(?:ed)?\s*set|boxset|omnibus|collection\b.*#|complete\s+series|books?\s+\d+\s*-\s*\d+)", re.I
@@ -32,7 +38,8 @@ def parse_series(title: str) -> tuple[str, str | None, float | None, bool]:
     m = _SERIES_RE.search(title or "")
     if m:
         name = m.group("name").strip() or None
-        return title[: m.start()].strip(), name, float(m.group("pos")), m.group("end") is not None
+        is_range = m.group("end") is not None or bool(_RANGE_REST_RE.match(m.group("rest") or ""))
+        return title[: m.start()].strip(), name, float(m.group("pos")), is_range
     v = _VOLUME_RE.search(title or "")
     if v:
         return (title or "").strip(), None, float(v.group(1)), False

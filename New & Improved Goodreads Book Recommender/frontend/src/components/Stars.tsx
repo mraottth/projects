@@ -34,6 +34,17 @@ export function AvgRating({ value, count }: { value: number; count?: number }) {
   );
 }
 
+/** Read-only fractional star display (e.g. 4.3 = four full stars and 30% of the fifth). */
+export function StarBar({ value }: { value: number }) {
+  const pct = Math.max(0, Math.min(100, (value / 5) * 100));
+  return (
+    <span className="star-bar" role="img" aria-label={`${value.toFixed(1)} out of 5 stars`}>
+      <span className="star-bar-bg">★★★★★</span>
+      <span className="star-bar-fg" style={{ width: `${pct}%` }}>★★★★★</span>
+    </span>
+  );
+}
+
 export function formatCount(n: number): string {
   if (n >= 1e6) return `${(n / 1e6).toFixed(1).replace(/\.0$/, "")}M`;
   if (n >= 1e3) return `${Math.round(n / 1e3)}k`;

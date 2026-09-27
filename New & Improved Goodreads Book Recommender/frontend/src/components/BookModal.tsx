@@ -46,7 +46,7 @@ export function BookModal({ id, onClose, onOpen }: { id: number; onClose: () => 
                   <Stars value={shelf.ratings[book.id]?.rating ?? 0}
                          onChange={(v) => (v ? shelf.rate(book, v) : shelf.unrate(book.id))} />
                 </div>
-                {book.description && <p className="description">{book.description}{book.description.length >= 600 ? "…" : ""}</p>}
+                {book.description && <p className="description">{book.description}{book.description.length >= 1200 ? "…" : ""}</p>}
                 <a href={book.url} target="_blank" rel="noreferrer">View on Goodreads ↗</a>
               </div>
             </div>

@@ -20,7 +20,7 @@ from goodrec.config import ARTIFACTS_DIR, INTERIM_DIR
 from goodrec.core.textnorm import author_key, clean_isbn, isbn10_to_13, titlekey
 from goodrec.pipeline.io import skip_if_done
 
-SNIPPET = 600
+SNIPPET = 1200  # = s01 DESC_MAX: keep everything we ingested
 
 SCHEMA = """
 CREATE TABLE works (

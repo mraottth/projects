@@ -313,16 +313,26 @@ def predict_ratings(art: Artifacts, user: UserInput, items, shrink: float = 0.5,
 
 
 def recommend(art: Artifacts, user: UserInput, f: Filters, p: Params, limit: int = 40, offset: int = 0,
-              raw: RawScores | None = None) -> dict:
-    """Full ranking for one user. Pass `raw` (from a cache) to skip model scoring."""
+              raw: RawScores | None = None, sort: str = "match") -> dict:
+    """Full ranking for one user. Pass `raw` (from a cache) to skip model scoring.
+
+    sort="match" orders by the blend score; sort="predicted" re-orders the same candidate pool by
+    predicted star rating (ties broken by blend score) before paging.
+    """
     raw = raw or raw_scores(art, user, p)
     nxt = next_in_series(art, user)
     mask = filter_mask(art, user, f, allow=nxt)
     items, scores, source = blend(art, raw, mask, p)
+    preds = None
+    if sort == "predicted" and len(items):
+        preds = predict_ratings(art, user, items)
+        order = np.lexsort((-scores, -np.round(preds, 1)))  # ties on the shown value -> best match first
+        items, scores, source, preds = items[order], scores[order], source[order], preds[order]
     page = slice(offset, offset + limit)
     items, scores, source = items[page], scores[page], source[page]
     return {
         "items": items, "scores": scores, "source": source,
+        "predicted": preds[page] if preds is not None else predict_ratings(art, user, items),
         "because": explain(art, raw, items), "next_in_series": [int(i) in nxt for i in items],
         "total": int(mask.sum()), "alpha": raw.n / (raw.n + p.k_a) if raw.n else 0.0,
     }

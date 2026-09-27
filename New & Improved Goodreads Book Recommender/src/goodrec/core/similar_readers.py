@@ -61,8 +61,10 @@ def similar_readers(art: Artifacts, u: np.ndarray | None, mask: np.ndarray, limi
     return {
         "n_neighbors": int(m),
         "popular": [{"idx": int(i), "pct_read": round(float(pct_read[i]) * 100, 1)} for i in pop_idx],
-        "top_rated": [{"idx": int(i), "neighbor_avg": round(float(raw_avg[i]), 2), "n_raters": int(n_rated[i])}
-                      for i in tr_idx],
+        "top_rated": [{"idx": int(i)} for i in tr_idx],
+        # Per-book average rating among these neighbors (all N books), for display on every card.
+        "item_avg": raw_avg.astype(np.float32),
+        "item_n": n_rated.astype(np.int32),
         "genre_share": _genre_share(art, read, w),
     }
 

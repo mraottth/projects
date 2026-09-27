@@ -15,6 +15,10 @@ export interface Book {
   series_pos: number | null;
   genre: string | null;
   tags: string[];
+  description?: string | null;
+  predicted_rating?: number;
+  readers_avg?: number | null;   // average rating among readers like you
+  readers_n?: number;            // how many of them rated it
 }
 
 export interface RecBook extends Book {
@@ -26,14 +30,15 @@ export interface RecBook extends Book {
 
 export interface ReaderBook extends Book {
   pct_read?: number;
-  neighbor_avg?: number;
-  neighbor_raters?: number;
 }
 
 export interface BookDetail extends Book {
   description: string | null;
   similar: Book[];
 }
+
+export type SortKey = "match" | "predicted";
+export type BrowseSort = "popular" | "rating" | "newest" | "oldest" | "title";
 
 export interface Filters {
   genres: string[];
@@ -65,7 +70,7 @@ export interface RecResponse {
     top_rated: ReaderBook[];
     genres: { genre: string; you: number; similar_readers: number }[];
   };
-  meta: { n_ratings: number; alpha: number; total_candidates: number; min_ratings_for_readers: number; ms: number };
+  meta: { n_ratings: number; sort: SortKey; your_avg: number | null; books_avg: number | null; alpha: number; total_candidates: number; min_ratings_for_readers: number; ms: number };
 }
 
 export interface ImportResult {
@@ -74,6 +79,13 @@ export interface ImportResult {
   to_read: number[];
   unmatched: { title: string; author: string; year: string | null }[];
   stats: { rows: number; matched: number; match_rate: number; unmatched_rated_or_read: number };
+}
+
+export interface Insights {
+  books: { n: number; percentile: number; median: number; p90: number; n_readers: number };
+  harshness: null | { bias: number; harsher_than: number; median_bias: number; n_readers: number };
+  genres: { genre: string; books: number; rated: number; your_avg: number | null; goodreads_avg: number | null;
+            readers_genre_avg: number | null }[];
 }
 
 export interface Author { id: number; name: string; ratings_count: number; n_books: number }
@@ -94,6 +106,14 @@ export const api = {
     fetch(`/api/authors?q=${encodeURIComponent(q)}&limit=8`, { signal }).then(json<Author[]>),
   authorNames: (ids: number[]) =>
     fetch(`/api/authors/names?${ids.map((i) => `ids=${i}`).join("&")}`).then(json<Record<string, string>>),
+  booksBatch: (ids: number[]) =>
+    fetch("/api/books/batch", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids }),
+    }).then(json<Book[]>),
+  insights: (body: object, signal?: AbortSignal) =>
+    fetch("/api/insights", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal,
+    }).then(json<Insights>),
   genres: () => fetch("/api/genres").then(json<{ name: string; books: number }[]>),
   starter: () => fetch("/api/starter").then(json<Book[]>),
   book: (id: number) => fetch(`/api/books/${id}`).then(json<BookDetail>),
@@ -102,6 +122,10 @@ export const api = {
     body.append("file", file);
     return fetch("/api/import", { method: "POST", body }).then(json<ImportResult>);
   },
+  browse: (body: object, signal?: AbortSignal) =>
+    fetch("/api/browse", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal,
+    }).then(json<{ books: Book[]; total: number; ms: number }>),
   recommend: (body: object, signal?: AbortSignal) =>
     fetch("/api/recommend", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal,

@@ -35,7 +35,8 @@ test:
 serve:           ## API (serves frontend/dist if built) on http://localhost:8000
 	uv run uvicorn goodrec.api.main:app --reload --port 8000
 
-frontend:
+frontend:        ## code-link anchors for the About page, then build the React app
+	python3 scripts/code_links.py
 	cd frontend && npm install && npm run build
 
 dev:             ## frontend dev server with API proxy (run `make serve` in another shell)
