@@ -81,7 +81,7 @@ def evaluate(art, cases, buckets, k, methods: dict[str, Params], log_every=500, 
                 "top_rated": idx[np.argsort(-m.bayes[idx])[:k]],
             }
             for name, p in methods.items():
-                ranked[name] = blend(art, raw, _floored(art, user, mask, p, prior), p)[0][:k]
+                ranked[name] = blend(art, raw, _floored(art, user, mask, p, prior), p, user)[0][:k]
             for name, top in ranked.items():
                 r, nd = metrics(top, relevant, k)
                 cell = res[name][n]
@@ -142,6 +142,7 @@ def main(users: int | None = None, grid: bool = False) -> None:
         "item-item only": Params.from_config(a_override=0.0, beta_pop=0.0, gamma_quality=0.0, pred_floor_offset=None),
         "ALS only": Params.from_config(a_override=1.0, beta_pop=0.0, gamma_quality=0.0, pred_floor_offset=None),
         "blend, no prediction floor": Params.from_config(pred_floor_offset=None),
+        "blend, no prediction boost": Params.from_config(delta_pred=0.0),
         "blend, floor at avg - 0.25": Params.from_config(pred_floor_offset=0.25),
     }
     if grid:

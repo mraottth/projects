@@ -35,6 +35,7 @@ LINKS = {
     # blend
     "blend": ("src/goodrec/core/scoring.py", "blend"),
     "prediction_floor": ("src/goodrec/core/scoring.py", "prediction_floor"),
+    "fame_weight": ("src/goodrec/core/scoring.py", "fame_weight"),
     "filter_mask": ("src/goodrec/core/scoring.py", "filter_mask"),
     "next_in_series": ("src/goodrec/core/scoring.py", "next_in_series"),
     "recommend": ("src/goodrec/core/scoring.py", "recommend"),
