@@ -22,7 +22,7 @@ from pydantic import BaseModel, Field
 
 from goodrec.api.schemas import FilterSpec, InsightsRequest, Rating, RecommendRequest
 from goodrec.config import load_config
-from goodrec.core.scoring import predict_ratings, similar_books
+from goodrec.core.scoring import similar_books
 
 router = APIRouter()
 
@@ -249,7 +249,7 @@ class Toolbox:
         preds = {}
         if self.user.ratings and idxs:
             raw = api._raw(self.user)
-            shown = api._shown(self.user, predict_ratings(api.state["art"], self.user, idxs), raw)
+            shown = api._shown(self.user, idxs, raw)
             preds = {b["id"]: round(float(p), 2) for b, p in zip(hits, shown)}
         out, seen = [], []
         for b in self.cat.books(idxs):

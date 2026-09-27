@@ -166,7 +166,7 @@ export function AboutPage({ go }: { go: (v: "rate" | "import" | "recs") => void 
                 coverage, which is why β is interpolated rather than fixed. A Bayesian quality prior (γ) didn&apos;t help and is
                 off. The last term is the prediction boost: <TeX>{String.raw`\hat r`}</TeX> is your predicted rating, δ = 0.75,
                 and the fame weight <em>f</em> goes from 0 at 10k Goodreads ratings to 1 at about 316k. The 50 best
-                fame-weighted predictions are also added to the candidate pool. On held-out users it costs about 5.6% of
+                fame-weighted predictions are also added to the candidate pool. On held-out users it costs about 4% of
                 full-history NDCG@20 (about 2% with 10 ratings); without the fame gate the same boost cost about 14%.
                 &ldquo;Sort by predicted rating&rdquo; re-orders the same candidate pool. Series rule: hide{" "}
                 <code>series_pos &gt; 1</code> unless it&apos;s the lowest unread volume after the furthest one you&apos;ve read.
@@ -218,21 +218,23 @@ export function AboutPage({ go }: { go: (v: "rate" | "import" | "recs") => void 
           <dt>Predicted rating</dt>
           <dd>
             A separate estimate of the stars you&apos;d give a book: its average, adjusted for how tough or generous a
-            rater you are, plus a correction from similar books you&apos;ve rated. It&apos;s then spread out to match how
-            you actually rate: if you give 5 stars to 15% of your books, roughly your top 15% of predictions land
-            between 4.5 and 5.0, without piling up at a perfect 5.
+            rater you are, plus a correction from similar books you&apos;ve rated. It&apos;s then spread out toward how
+            you actually rate, in proportion to how much of the prediction comes from your own ratings: books closely
+            tied to ones you&apos;ve rated can reach the top of your scale, while a book with no connection to your
+            reading stays near its average adjusted for you, rather than having small differences between book
+            averages blown up.
             <Tech>
               <p>A baseline plus a neighborhood residual (a classic item-kNN predictor), separate from the ranking blend:</p>
-              <TeX block>{String.raw`\begin{aligned}\mu_j&=\dfrac{n_j\,\bar r_j+50\,\mu}{n_j+50}&&\text{Bayesian item mean (training data)}\\[4pt] b_u&=\dfrac{\sum_i\,(r_{ui}-\mu_i)}{n+5}&&\text{user bias, shrunk}\\[4pt] \hat r_{uj}&=\operatorname{clip}_{[1,5]}\!\left(\mu_j+b_u+\dfrac{\sum_i s_{ij}\,(r_{ui}-\mu_i-b_u)}{\sum_i|s_{ij}|+0.5}\right)\end{aligned}`}</TeX>
+              <TeX block>{String.raw`\begin{aligned}\mu_j&=\dfrac{n_j\,\bar r_j+50\,g_j}{n_j+50}&&\text{dataset mean, shrunk toward the Goodreads average }g_j\\[4pt] b_u&=\dfrac{\sum_i\,(r_{ui}-\mu_i)}{n+5}&&\text{user bias, shrunk}\\[4pt] \hat r_{uj}&=\operatorname{clip}_{[1,5]}\!\left(\mu_j+b_u+\dfrac{\sum_i s_{ij}\,(r_{ui}-\mu_i-b_u)}{\sum_i|s_{ij}|+0.5}\right)\end{aligned}`}</TeX>
               <p>The sum runs over your rated books linked to <em>j</em> in either direction of the top-50 neighbor lists, using
                 the larger similarity. Accuracy of this raw prediction on held-out ratings (RMSE in stars, lower is better)
                 improves as you rate more:</p>
               <table className="viz-table about-table">
                 <thead><tr><th>Visible ratings</th><th>1</th><th>3</th><th>5</th><th>10</th><th>25</th><th>all</th></tr></thead>
                 <tbody>
-                  <tr><td>Predicted rating</td><td>0.954</td><td>0.931</td><td>0.918</td><td>0.898</td><td>0.885</td><td><strong>0.864</strong></td></tr>
-                  <tr><td>Book&apos;s dataset mean</td><td colSpan={6}>0.966 (doesn&apos;t use your ratings)</td></tr>
-                  <tr><td>Goodreads average</td><td colSpan={6}>0.981</td></tr>
+                  <tr><td>Predicted rating</td><td>0.935</td><td>0.910</td><td>0.900</td><td>0.883</td><td>0.869</td><td><strong>0.852</strong></td></tr>
+                  <tr><td>Book mean <TeX>{String.raw`\mu_j`}</TeX></td><td colSpan={6}>0.953 (doesn&apos;t use your ratings)</td></tr>
+                  <tr><td>Goodreads average alone</td><td colSpan={6}>0.971</td></tr>
                 </tbody>
               </table>
               <p>
@@ -241,16 +243,17 @@ export function AboutPage({ go }: { go: (v: "rate" | "import" | "recs") => void 
                 the time). The displayed value is therefore quantile-matched to your own ratings. Take raw predictions for the
                 books you rated as the reference distribution <TeX>{String.raw`F_{\mathrm{ref}}`}</TeX>, and your star histogram,
                 shrunk toward the dataset&apos;s with the weight of 10 ratings, as the target, with each star spread uniformly
-                over a band (5★ = [4.5, 5], 4★ = [3.5, 4.5], …):
+                over a band (5★ = [4.5, 5], 4★ = [3.5, 4.5], …). Each book moves toward that map only in proportion to its
+                evidence <TeX>{String.raw`e_j`}</TeX>, the share of its prediction that rests on similar books you rated:
               </p>
-              <TeX block>{String.raw`\tilde r_{uj}=w\,Q_{\mathrm{you}}\!\big(F_{\mathrm{ref}}(\hat r_{uj})\big)+(1-w)\,\hat r_{uj},\qquad w=\frac{n}{n+10}`}</TeX>
+              <TeX block>{String.raw`\tilde r_{uj}=\hat r_{uj}+e_j\,w\Big(Q_{\mathrm{you}}\!\big(F_{\mathrm{ref}}(\hat r_{uj})\big)-\hat r_{uj}\Big),\qquad w=\frac{n}{n+10},\qquad e_j=\frac{\sum_i|s_{ij}|}{\sum_i|s_{ij}|+0.1}`}</TeX>
               <p>
-                Beyond the reference range the map approaches 1 and 5 exponentially, so nothing is pinned at 5. The map is
-                monotone, so it never changes an ordering (sort by predicted rating uses the raw value). On 1,200 held-out
-                users the calibrated share of predictions at or above 4.5 is 29% vs. 33% actual 5★, and below 2.5 is 9.6%
-                vs. 9.4% actual 1–2★. The cost is accuracy: RMSE rises from 0.86 to 0.99, because a spread-out prediction
-                is, by construction, further from the mean. It&apos;s a deliberate trade for predictions that read like your
-                own ratings. Below 5 ratings the raw value is shown.
+                Beyond the reference range the map approaches 1 and 5 exponentially, so nothing is pinned at 5. Because the
+                stretch varies by book, sort by predicted rating uses the displayed value. Stretching everything fully spread
+                predictions like your ratings but amplified noise: two books with no link to your reading could land a full
+                star apart just because their averages differed by 0.25, and RMSE rose from 0.86 to 0.99. With the
+                evidence weighting, on 1,200 held-out users, the displayed RMSE is 0.87, and 22% of predictions reach 4.5
+                or more (vs. 35% actual 5★), mostly books tied to your own ratings. Below 5 ratings the raw value is shown.
               </p>
               <CodeRefs items={[["predict_ratings", "predict_ratings()"], ["calibration", "calibration()"], ["rating_metrics", "rating_metrics()"]]} />
             </Tech>

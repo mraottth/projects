@@ -50,11 +50,12 @@ blend:
   # Best match: + a(n) * delta_pred * fame * z(predicted rating). fame = 0 at 10^lo Goodreads ratings, 1 at 10^hi,
   # so well-known books you'd likely love move up while obscure high-average books don't.
   # Eval 2026-09-27 (993 users, NDCG@20 full history): 0.75/5.5 -> -5.6%; 0.75/6 -> -4.0%; 1.0/6 -> -6.9%; 1.0/5.5 -> -7.9%
+  # Re-run after Goodreads-shrunk item means + evidence-gated calibration: 0.75/5.5 -> -4.1%; 1.0/5.5 -> -6.4%
   delta_pred: 0.75
   pred_fame_lo: 4.0         # 10k ratings
   pred_fame_hi: 5.5         # ~316k ratings
   pred_pool: 50             # famous high-prediction books added to the candidate pool
-  bayes_m: 50
+  bayes_m: 50               # item mean = dataset average shrunk toward the Goodreads-wide average by this many ratings (s10)
 
 similar_readers:
   n_neighbors: 300
