@@ -32,6 +32,10 @@ def test_search_prefers_title_matches(client):
     assert _first(client, "sapiens")["title"].startswith("Sapiens")
     assert _first(client, "harry potter sorc")["title"].startswith("Harry Potter and the Sorcerer")
     assert _first(client, "gone girl")["author"] == "Gillian Flynn"
+    # Box sets rank below the books in them.
+    for q, expect in [("mistborn", "The Final Empire"), ("harry potter", "Harry Potter and the Sorcerer"),
+                      ("hunger games", "The Hunger Games")]:
+        assert _first(client, q)["title"].startswith(expect), q
 
 
 def test_import_fixture(client):

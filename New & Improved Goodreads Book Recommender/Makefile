@@ -4,7 +4,7 @@ export PYTHONPATH := src
 PY := uv run python -m
 P := goodrec.pipeline
 
-.PHONY: data artifacts genres-draft genres search-db package eval test serve frontend dev docker
+.PHONY: data artifacts genres-draft genres search-db package eval test serve frontend dev docker deploy
 
 data:            ## download + parse raw UCSD data into data/interim
 	$(PY) $(P).s00_download
@@ -44,3 +44,15 @@ dev:             ## frontend dev server with API proxy (run `make serve` in anot
 
 docker:
 	docker build -t goodrec .
+
+# ---- Cloud Run (scale to zero). Needs `gcloud auth login`; builds remotely with Cloud Build, no local Docker.
+GCP_PROJECT ?= v2-book-recommender
+GCP_REGION  ?= us-central1
+IMAGE       := $(GCP_REGION)-docker.pkg.dev/$(GCP_PROJECT)/goodrec/app
+
+deploy:          ## build the image in Cloud Build and deploy to Cloud Run (uploads artifacts/)
+	python3 scripts/code_links.py
+	gcloud builds submit --project $(GCP_PROJECT) --region $(GCP_REGION) --tag $(IMAGE) .
+	gcloud run deploy goodrec --project $(GCP_PROJECT) --region $(GCP_REGION) --image $(IMAGE) \
+	  --memory 1Gi --cpu 1 --cpu-boost --min-instances 0 --max-instances 3 --concurrency 20 \
+	  --allow-unauthenticated

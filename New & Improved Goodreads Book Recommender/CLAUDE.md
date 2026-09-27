@@ -19,6 +19,7 @@ make test            # pytest (API tests skip unless artifacts/ is built)
 make serve           # uvicorn on :8000; serves frontend/dist if built
 make frontend        # npm install + build frontend/dist
 make dev             # Vite dev server (proxies /api to :8000); run `make serve` alongside
+make deploy          # Cloud Build + Cloud Run (project v2-book-recommender, us-central1, scale to zero); uploads artifacts/ via .gcloudignore
 
 PYTHONPATH=src uv run pytest tests/test_api.py::test_filters -q         # single test
 PYTHONPATH=src uv run python -m goodrec.pipeline.s07_item_knn --force   # re-run one stage (stages skip if outputs exist)

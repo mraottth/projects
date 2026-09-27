@@ -90,7 +90,7 @@ class Catalog:
         if not fts:
             return []
         rows = self._con().execute(
-            """SELECT w.work_idx, w.base_title, w.author, w.ratings_count, bm25(works_fts, 8.0, 3.0, 2.0)
+            """SELECT w.work_idx, w.base_title, w.author, w.ratings_count, bm25(works_fts, 8.0, 3.0, 2.0), w.is_boxset
                FROM works_fts JOIN works w ON w.work_idx = works_fts.rowid
                WHERE works_fts MATCH ? ORDER BY bm25(works_fts, 8.0, 3.0, 2.0) LIMIT 200""", (fts,)).fetchall()
         # Compare with titlekey() normalization so "hunger games" fully matches "The Hunger Games".
@@ -98,7 +98,7 @@ class Catalog:
         qtok = _TOKEN.findall(ql)
 
         def score(r):
-            _, title, author, cnt, bm = r
+            _, title, author, cnt, bm, boxset = r
             t = titlekey(title or "")
             ttok = _TOKEN.findall(t)
             s = -bm + 2.5 * math.log10(max(cnt or 1, 1))
@@ -108,6 +108,8 @@ class Catalog:
                 s += 8
             if all(any(w.startswith(tk) for w in ttok) for tk in qtok):
                 s += 3  # every query token matches the title (not just the author)
+            if boxset:
+                s -= 10  # box sets / omnibus / split editions below the individual books
             return s
 
         best = sorted(rows, key=score, reverse=True)[:limit]
