@@ -21,6 +21,7 @@ class FilterSpec(BaseModel):
     text: str = ""
     include_children: bool = False
     include_comics: bool = False
+    include_ya: bool = False
     include_series_continuations: bool = False
 
 

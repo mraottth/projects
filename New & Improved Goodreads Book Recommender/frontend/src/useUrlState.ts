@@ -18,12 +18,12 @@ export interface UrlState {
 
 /** Explore browses the whole catalog, so nothing is hidden by default. */
 export const EXPLORE_DEFAULTS: Filters = {
-  ...EMPTY_FILTERS, include_children: true, include_comics: true, include_series_continuations: true,
+  ...EMPTY_FILTERS, include_children: true, include_comics: true, include_series_continuations: true, include_ya: true,
 };
 
 const NUM_KEYS = ["year_min", "year_max", "min_avg_rating", "min_ratings_count", "max_ratings_count"] as const;
 const LIST_KEYS = ["authors_include", "authors_exclude"] as const;
-const BOOL_KEYS = ["include_children", "include_comics", "include_series_continuations"] as const;
+const BOOL_KEYS = ["include_children", "include_comics", "include_series_continuations", "include_ya"] as const;
 const BROWSE_SORTS: BrowseSort[] = ["popular", "rating", "newest", "oldest", "title"];
 
 function parseFilters(p: URLSearchParams, defaults: Filters): Filters {

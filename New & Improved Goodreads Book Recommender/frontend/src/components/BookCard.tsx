@@ -26,7 +26,7 @@ export function BookCard({ book, onOpen, rank, onFilter }: Props) {
 
   return (
     <article className="rank-card">
-      {rank != null && <div className={`rank-num${rank <= 3 ? " top" : ""}`} aria-label={`Rank ${rank}`}>{rank}</div>}
+      {rank != null && <div className={`rank-num${rank <= 3 ? " top" : ""}${rank >= 100 ? ` d${Math.min(String(rank).length, 4)}` : ""}`} aria-label={`Rank ${rank}`}>{rank}</div>}
 
       <div className="rank-cover">
         <Cover book={book} onClick={() => onOpen(book.id)} />

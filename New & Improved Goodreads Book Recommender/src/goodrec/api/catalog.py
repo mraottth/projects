@@ -134,6 +134,12 @@ class Catalog:
 
     # -------------------------------------------------------------- import matching lookups
 
+    def by_title_author(self, title: str, author: str) -> int | None:
+        """Most-read work with exactly this title (series suffix ignored) and an author containing `author`."""
+        r = self._con().execute("SELECT work_idx FROM works WHERE lower(base_title) = lower(?) AND author LIKE ? "
+                                "ORDER BY n_raters DESC LIMIT 1", (title, f"%{author}%")).fetchone()
+        return r[0] if r else None
+
     def by_edition(self, book_id: int) -> int | None:
         r = self._con().execute("SELECT work_idx FROM editions WHERE book_id=?", (book_id,)).fetchone()
         return r[0] if r else None

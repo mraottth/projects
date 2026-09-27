@@ -94,7 +94,8 @@ export function AboutPage({ go }: { go: (v: "rate" | "import" | "recs") => void 
       <p className="note">
         <strong>Limits:</strong> nothing published after 2017 is included, so newer books in an upload can&apos;t be matched.
         The data also reflects the people who rate and review on Goodreads, who read more young adult and romance than
-        the population at large.
+        the population at large. Young adult books (about 11% of the catalog, flagged by genre and readers&apos; shelves)
+        are left out of recommendations unless you tick <em>Include young adult books</em> in the filters.
       </p>
 
       <h2>How recommendations are made</h2>
@@ -151,7 +152,8 @@ export function AboutPage({ go }: { go: (v: "rate" | "import" | "recs") => void 
           <dd>
             With a few ratings the ranking leans on similar books; as you rate more, it shifts toward the taste model.
             A small popularity adjustment helps new users and is dialed down for people with long histories, so heavy
-            readers don&apos;t just get bestsellers. Later volumes of a series are hidden unless you&apos;ve read the one before.
+            readers don&apos;t just get bestsellers. Books we predict you&apos;d rate noticeably below your own average are
+            left out of For you, and later volumes of a series are hidden unless you&apos;ve read the one before.
             <Tech>
               <p>Candidates are the union of each model&apos;s top 300 after filters. Each signal is z-scored within that
                 candidate set and combined with weights that depend on the number of ratings <em>n</em>:</p>
@@ -163,7 +165,24 @@ export function AboutPage({ go }: { go: (v: "rate" | "import" | "recs") => void 
                 off. &ldquo;Sort by predicted rating&rdquo; re-orders the same candidate pool. Series rule: hide{" "}
                 <code>series_pos &gt; 1</code> unless it&apos;s the lowest unread volume after the furthest one you&apos;ve read.
               </p>
-              <CodeRefs items={[["blend", "blend()"], ["filter_mask", "filter_mask()"], ["next_in_series", "next_in_series()"], ["recommend", "recommend()"]]} />
+              <p>
+                <strong>Prediction floor.</strong> Once you have 5+ ratings, For you excludes books whose calibrated predicted
+                rating is below your average rating minus 0.25★, before the candidate pool is built (so the pool refills
+                with books above the floor). Ranking on the blend alone sometimes put a book the rating model expects you to
+                dislike near the top, because the blend also rewards what readers like you read. The floor costs accuracy
+                on the held-out metric, which rewards finding books you&apos;d read <em>and</em> love (NDCG@20, 1,200 users):
+              </p>
+              <table className="viz-table about-table">
+                <thead><tr><th>Visible ratings</th><th>5</th><th>10</th><th>25</th><th>all</th></tr></thead>
+                <tbody>
+                  <tr><td>No floor</td><td>0.082</td><td>0.106</td><td>0.126</td><td>0.144</td></tr>
+                  <tr><td><strong>Floor at average − 0.25 (used)</strong></td><td>0.076</td><td>0.102</td><td>0.120</td><td>0.139</td></tr>
+                  <tr><td>Floor at average</td><td>0.063</td><td>0.093</td><td>0.113</td><td>0.131</td></tr>
+                </tbody>
+              </table>
+              <p>The −0.25 margin keeps most of the benefit for about a 4% cost, versus about 10% for a floor exactly at the
+                average. The Popular, Top rated and To-read lists aren&apos;t floored.</p>
+              <CodeRefs items={[["blend", "blend()"], ["prediction_floor", "prediction_floor()"], ["filter_mask", "filter_mask()"], ["next_in_series", "next_in_series()"], ["recommend", "recommend()"]]} />
             </Tech>
           </dd>
         </div>
@@ -193,13 +212,15 @@ export function AboutPage({ go }: { go: (v: "rate" | "import" | "recs") => void 
           <dt>Predicted rating</dt>
           <dd>
             A separate estimate of the stars you&apos;d give a book: its average, adjusted for how tough or generous a
-            rater you are, plus a correction from similar books you&apos;ve rated. It&apos;s on your personal scale. If you
-            tend to give 3 stars, a 3.7 is a strong prediction.
+            rater you are, plus a correction from similar books you&apos;ve rated. It&apos;s then spread out to match how
+            you actually rate: if you give 5 stars to 15% of your books, roughly your top 15% of predictions land
+            between 4.5 and 5.0, without piling up at a perfect 5.
             <Tech>
               <p>A baseline plus a neighborhood residual (a classic item-kNN predictor), separate from the ranking blend:</p>
               <TeX block>{String.raw`\begin{aligned}\mu_j&=\dfrac{n_j\,\bar r_j+50\,\mu}{n_j+50}&&\text{Bayesian item mean (training data)}\\[4pt] b_u&=\dfrac{\sum_i\,(r_{ui}-\mu_i)}{n+5}&&\text{user bias, shrunk}\\[4pt] \hat r_{uj}&=\operatorname{clip}_{[1,5]}\!\left(\mu_j+b_u+\dfrac{\sum_i s_{ij}\,(r_{ui}-\mu_i-b_u)}{\sum_i|s_{ij}|+0.5}\right)\end{aligned}`}</TeX>
               <p>The sum runs over your rated books linked to <em>j</em> in either direction of the top-50 neighbor lists, using
-                the larger similarity. Accuracy on held-out ratings (RMSE in stars, lower is better) improves as you rate more:</p>
+                the larger similarity. Accuracy of this raw prediction on held-out ratings (RMSE in stars, lower is better)
+                improves as you rate more:</p>
               <table className="viz-table about-table">
                 <thead><tr><th>Visible ratings</th><th>1</th><th>3</th><th>5</th><th>10</th><th>25</th><th>all</th></tr></thead>
                 <tbody>
@@ -208,7 +229,24 @@ export function AboutPage({ go }: { go: (v: "rate" | "import" | "recs") => void 
                   <tr><td>Goodreads average</td><td colSpan={6}>0.981</td></tr>
                 </tbody>
               </table>
-              <CodeRefs items={[["predict_ratings", "predict_ratings()"], ["rating_metrics", "rating_metrics()"]]} />
+              <p>
+                <strong>Calibration.</strong> A least-squares predictor regresses toward your mean, so a tough grader almost
+                never sees a 4.5 (0.2% of held-out predictions for raters averaging under 3.6★, who actually give 5★ 14% of
+                the time). The displayed value is therefore quantile-matched to your own ratings. Take raw predictions for the
+                books you rated as the reference distribution <TeX>{String.raw`F_{\mathrm{ref}}`}</TeX>, and your star histogram,
+                shrunk toward the dataset&apos;s with the weight of 10 ratings, as the target, with each star spread uniformly
+                over a band (5★ = [4.5, 5], 4★ = [3.5, 4.5], …):
+              </p>
+              <TeX block>{String.raw`\tilde r_{uj}=w\,Q_{\mathrm{you}}\!\big(F_{\mathrm{ref}}(\hat r_{uj})\big)+(1-w)\,\hat r_{uj},\qquad w=\frac{n}{n+10}`}</TeX>
+              <p>
+                Beyond the reference range the map approaches 1 and 5 exponentially, so nothing is pinned at 5. The map is
+                monotone, so it never changes an ordering (sort by predicted rating uses the raw value). On 1,200 held-out
+                users the calibrated share of predictions at or above 4.5 is 29% vs. 33% actual 5★, and below 2.5 is 9.6%
+                vs. 9.4% actual 1–2★. The cost is accuracy: RMSE rises from 0.86 to 0.99, because a spread-out prediction
+                is, by construction, further from the mean. It&apos;s a deliberate trade for predictions that read like your
+                own ratings. Below 5 ratings the raw value is shown.
+              </p>
+              <CodeRefs items={[["predict_ratings", "predict_ratings()"], ["calibration", "calibration()"], ["rating_metrics", "rating_metrics()"]]} />
             </Tech>
           </dd>
         </div>

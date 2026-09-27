@@ -16,6 +16,7 @@ catalog:
   min_raters: 20            # tune: distinct raters per work (after edition collapse)
   languages: ["", "eng", "en-US", "en-GB", "en-CA"]
   min_user_ratings: 3       # users kept in the training matrix
+  ya_min_share: 0.22        # YA flag: parent genre Young Adult, or >= this share of UCSD genre votes are "young-adult"
 
 eval:
   n_test_users: 10000
@@ -45,6 +46,7 @@ blend:
   beta_pop: 0.0             # tuned: popularity weight for new users (interpolated by a(n))...
   beta_pop_many: -0.3       # ...toward this for heavy raters (penalty raised NDCG at n=all + coverage)
   gamma_quality: 0.0        # tuned (quality prior did not help NDCG)
+  pred_floor_offset: 0.25   # For you drops books predicted below (your average - 0.25); null = off. Eval: -4% NDCG full history (vs -10% at 0.0)
   bayes_m: 50
 
 similar_readers:

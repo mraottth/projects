@@ -124,7 +124,7 @@ def test_filters(client):
 
 
 def test_series_continuations(client):
-    hg = _first(client, "hunger games")
+    hg = _first(client, "mistborn final empire")
     res = client.post("/api/recommend", json={"ratings": [{"id": hg["id"], "rating": 5}], "limit": 40}).json()
     nxt = [b for b in res["for_you"] if b["next_in_series"]]
     assert nxt and nxt[0]["series"] == hg["series"] and nxt[0]["series_pos"] == 2.0
@@ -138,6 +138,10 @@ def test_book_detail_and_starter(client):
     assert d["description"] and len(d["similar"]) == 20
     starter = client.get("/api/starter").json()
     assert len(starter) >= 40 and len({b["genre"] for b in starter}) >= 8
+    from goodrec.api.main import state
+    wall = client.get("/api/home_wall").json()
+    assert len(wall) == 48 and len({b["id"] for b in wall}) == 48      # every config entry resolved, no repeats
+    assert not any(state["art"].meta.is_ya[state["cat"].idx_of[b["id"]]] for b in wall)
 
 
 def test_predicted_ratings(client):
@@ -261,3 +265,145 @@ def test_book_personal(client):
     assert few["predicted_rating"] is not None and few["readers_n"] is None       # readers need >= 5 ratings
     assert client.post(f"/api/books/{wor}/personal", json={}).json()["predicted_rating"] is None
     assert client.post("/api/books/999999999/personal", json={}).status_code == 404
+
+
+def test_ranks_are_stable_under_filters(client):
+    base = {"ratings": _fantasy_reader(client), "limit": 200}
+    for sort in ("match", "predicted"):
+        full = client.post("/api/recommend", json={**base, "sort": sort}).json()
+        rank_of = {b["id"]: b["rank"] for b in full["for_you"]}
+        assert [b["rank"] for b in full["for_you"]] == list(range(1, 201))          # unfiltered = 1..n
+        filt = client.post("/api/recommend", json={**base, "sort": sort, "filters": {"genres": ["Science Fiction"]}}).json()
+        ranks = [b["rank"] for b in filt["for_you"]]
+        assert ranks == sorted(ranks) and ranks[0] >= 1                                # original numbers, in order
+        assert any(r > i + 1 for i, r in enumerate(ranks))                            # gaps where other books were
+        for b in filt["for_you"]:
+            if b["id"] in rank_of:
+                assert b["rank"] == rank_of[b["id"]], (sort, b["title"])
+        # readers-like-you tabs keep their numbers too
+        for tab in ("popular", "top_rated"):
+            full_t = {b["id"]: b["rank"] for b in full["similar_readers"][tab]}
+            for b in filt["similar_readers"][tab]:
+                assert b["genre"] == "Science Fiction"
+                if b["id"] in full_t:
+                    assert b["rank"] == full_t[b["id"]]
+    match = client.post("/api/recommend", json={**base, "limit": 50}).json()["for_you"]
+    pred = client.post("/api/recommend", json={**base, "limit": 50, "sort": "predicted"}).json()["for_you"]
+    assert [b["id"] for b in match] != [b["id"] for b in pred]                        # separate rankings
+
+
+def test_vectorized_predictions_match_reference():
+    """predict_ratings (sparse, vectorized) == the original per-pair loop."""
+    import numpy as np
+
+    from goodrec.api.main import state
+    from goodrec.core.scoring import UserInput, predict_ratings
+
+    art = state["art"]
+    m = art.meta
+
+    def reference(user, items, shrink=0.5, user_shrink=5.0):
+        ri = np.fromiter(user.ratings, dtype=np.int64)
+        rv = np.fromiter(user.ratings.values(), dtype=np.float64)
+        b_u = (rv - m.bayes[ri]).sum() / (len(ri) + user_shrink)
+        resid = dict(zip(ri.tolist(), (rv - (m.bayes[ri] + b_u)).tolist()))
+        rated = set(ri.tolist())
+        out = []
+        for j in items:
+            pairs = {int(i): float(s) for i, s in zip(art.nbr_idx[j], art.nbr_sim[j]) if i in rated}
+            for i in ri:
+                hit = np.flatnonzero(art.nbr_idx[i] == j)
+                if len(hit):
+                    pairs[int(i)] = max(pairs.get(int(i), 0.0), float(art.nbr_sim[i][hit[0]]))
+            num = sum(s * resid[i] for i, s in pairs.items())
+            den = sum(abs(s) for s in pairs.values())
+            out.append(np.clip(m.bayes[j] + b_u + num / (den + shrink), 1, 5))
+        return np.array(out)
+
+    rng = np.random.default_rng(1)
+    for n in (1, 5, 40):
+        user = UserInput(ratings={int(i): int(rng.integers(1, 6)) for i in rng.choice(3000, n, replace=False)})
+        items = rng.choice(m.n, 150, replace=False)
+        assert np.allclose(predict_ratings(art, user, items), reference(user, items), atol=1e-5)
+
+
+def test_prediction_calibration():
+    import numpy as np
+
+    from goodrec.api.main import state
+    from goodrec.core.scoring import UserInput, apply_calibration, calibration, predict_ratings
+
+    art, prior = state["art"], state["population"]["rating_dist"]
+    rng = np.random.default_rng(3)
+    # A tough grader: mostly 2-3 stars, but ~15% 5-stars.
+    books = rng.choice(20000, 80, replace=False)
+    stars = rng.choice([2, 3, 3, 3, 4, 5], size=80, p=[0.2, 0.2, 0.2, 0.15, 0.1, 0.15])
+    user = UserInput(ratings={int(b): int(s) for b, s in zip(books, stars)})
+    cal = calibration(art, user, prior)
+    raw = predict_ratings(art, user, np.arange(art.meta.n))
+    shown = apply_calibration(raw, cal)
+    order = np.argsort(raw)
+    assert np.all(np.diff(shown[order]) >= -1e-6)                  # monotone: never changes an ordering
+    assert shown.max() < 5.0 and shown.min() >= 1.0                 # asymptotic tails: nothing pinned at 5
+    assert (shown >= 4.5).mean() > 5 * max((raw >= 4.5).mean(), 1e-4)   # a tough grader's 5s show up
+    assert (shown >= 4.95).mean() < 0.05                            # ...without piling up at the ceiling
+    few = UserInput(ratings=dict(list(user.ratings.items())[:3]))
+    assert calibration(art, few, prior) is None                     # too few ratings: raw predictions
+
+
+def test_predictions_two_decimals(client):
+    res = client.post("/api/recommend", json={"ratings": _fantasy_reader(client), "limit": 20}).json()
+    vals = [b["predicted_rating"] for b in res["for_you"]]
+    assert all(round(v, 2) == v for v in vals) and any(round(v, 1) != v for v in vals)
+
+
+def test_prediction_floor(client):
+    from goodrec.api.main import state
+    from goodrec.core.scoring import Filters, Params, UserInput, recommend
+
+    ratings = _fantasy_reader(client)                    # 6 ratings, average 4.0
+    avg = sum(r["rating"] for r in ratings) / len(ratings)
+    offset = state["params"].pred_floor_offset
+    for sort in ("match", "predicted"):
+        res = client.post("/api/recommend", json={"ratings": ratings, "limit": 100, "sort": sort}).json()
+        assert all(b["predicted_rating"] >= avg - offset - 0.005 for b in res["for_you"]), sort
+        # filters can't bring floored books back in as unranked extras
+        filt = client.post("/api/recommend", json={"ratings": ratings, "limit": 100, "sort": sort,
+                                                   "filters": {"include_series_continuations": True}}).json()
+        assert all(b["predicted_rating"] >= avg - offset - 0.005 for b in filt["for_you"])
+        # readers-like-you tabs are not floored
+        assert any(b["predicted_rating"] < avg - offset for b in res["similar_readers"]["popular"])
+
+    # Fewer than 5 ratings: no calibration, so no floor -> identical to the unfloored ranking.
+    art, prior = state["art"], state["population"]["rating_dist"]
+    idx = state["cat"].idx_of
+    few = UserInput(ratings={idx[r["id"]]: r["rating"] for r in ratings[:3]})
+    with_floor = recommend(art, few, Filters(), Params.from_config(), limit=40, prior=prior)["items"]
+    without = recommend(art, few, Filters(), Params.from_config(pred_floor_offset=None), limit=40)["items"]
+    assert list(with_floor) == list(without)
+
+
+def test_young_adult_hidden_by_default(client):
+    from goodrec.api.main import state
+
+    m, idx = state["art"].meta, state["cat"].idx_of
+    is_ya = lambda b: bool(m.is_ya[idx[b["id"]]])  # noqa: E731
+    assert is_ya(_first(client, "hunger games")) and is_ya(_first(client, "six of crows"))
+    assert not is_ya(_first(client, "ender's game")) and not is_ya(_first(client, "the martian"))
+
+    base = {"ratings": _fantasy_reader(client), "limit": 100}
+    for sort in ("match", "predicted"):
+        off = client.post("/api/recommend", json={**base, "sort": sort}).json()
+        on = client.post("/api/recommend", json={**base, "sort": sort, "filters": {"include_ya": True}}).json()
+        for books in (off["for_you"], off["similar_readers"]["popular"], off["similar_readers"]["top_rated"]):
+            assert not any(is_ya(b) for b in books)
+        assert any(is_ya(b) for b in on["for_you"])
+        # Including YA re-ranks: consecutive numbers 1..n over the larger universe, not gaps.
+        assert [b["rank"] for b in on["for_you"]] == list(range(1, 101))
+        assert any(is_ya(b) for b in on["similar_readers"]["popular"])
+    # Choosing the Young Adult genre implies including YA books.
+    ya = client.post("/api/recommend", json={**base, "filters": {"genres": ["Young Adult"]}}).json()
+    assert ya["for_you"] and all(b["genre"] == "Young Adult" for b in ya["for_you"])
+    for flag in (False, True):
+        browse = client.post("/api/browse", json={"filters": {"include_ya": flag}, "limit": 200}).json()["books"]
+        assert any(is_ya(b) for b in browse) == flag
