@@ -407,3 +407,24 @@ def test_young_adult_hidden_by_default(client):
     for flag in (False, True):
         browse = client.post("/api/browse", json={"filters": {"include_ya": flag}, "limit": 200}).json()["books"]
         assert any(is_ya(b) for b in browse) == flag
+
+
+def test_prediction_boost_favors_famous_books(client):
+    """The Best-match boost lifts well-known books with high predictions, not obscure ones."""
+    from goodrec.api.main import state
+    import numpy as np
+
+    from goodrec.core.scoring import Params, UserInput, fame_weight, ranking, raw_scores
+
+    art, idx, prior = state["art"], state["cat"].idx_of, state["population"]["rating_dist"]
+    user = UserInput(ratings={idx[r["id"]]: r["rating"] for r in _fantasy_reader(client)})
+    fame = fame_weight(art, Params.from_config())
+    orders = {}
+    for d in (0.0, 1.0):
+        p = Params.from_config(delta_pred=d)
+        rk = ranking(art, raw_scores(art, user, p), user, p, "match", prior)
+        orders[d] = rk["order"][:40]
+        preds = rk["preds"]
+    assert np.nanmean(preds[orders[1.0]]) > np.nanmean(preds[orders[0.0]])      # higher predicted ratings on top
+    new = np.setdiff1d(orders[1.0], orders[0.0])
+    assert len(new) and fame[new].mean() > 0.5                                   # and the newcomers are well known

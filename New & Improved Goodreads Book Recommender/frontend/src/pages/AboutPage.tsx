@@ -152,17 +152,23 @@ export function AboutPage({ go }: { go: (v: "rate" | "import" | "recs") => void 
           <dd>
             With a few ratings the ranking leans on similar books; as you rate more, it shifts toward the taste model.
             A small popularity adjustment helps new users and is dialed down for people with long histories, so heavy
-            readers don&apos;t just get bestsellers. Books we predict you&apos;d rate noticeably below your own average are
+            readers don&apos;t just get bestsellers. Well-known books we predict you&apos;d rate highly get a boost, so a
+            widely loved classic you&apos;d probably enjoy isn&apos;t buried; obscure books don&apos;t get it, because their high
+            predictions mostly just reflect a high average. Books we predict you&apos;d rate noticeably below your own average are
             left out of For you, and later volumes of a series are hidden unless you&apos;ve read the one before.
             <Tech>
               <p>Candidates are the union of each model&apos;s top 300 after filters. Each signal is z-scored within that
                 candidate set and combined with weights that depend on the number of ratings <em>n</em>:</p>
-              <TeX block>{String.raw`\begin{gathered}\mathrm{final}=a\,z(\mathrm{als})+(1-a)\,z(\mathrm{ii})+\beta\,z\big(\log(1+\mathrm{readers})\big)\\[4pt] a(n)=\frac{n}{n+20},\qquad \beta(n)=(1-a)\cdot 0+a\cdot(-0.3)\end{gathered}`}</TeX>
+              <TeX block>{String.raw`\begin{gathered}\mathrm{final}=a\,z(\mathrm{als})+(1-a)\,z(\mathrm{ii})+\beta\,z\big(\log(1+\mathrm{readers})\big)+a\,\delta\,f\,z(\hat r)\\[4pt] a(n)=\frac{n}{n+20},\qquad \beta(n)=(1-a)\cdot 0+a\cdot(-0.3),\qquad f=\mathrm{clip}\Big(\frac{\log_{10}\mathrm{ratings}-4}{1.5},0,1\Big)\end{gathered}`}</TeX>
               <p>
                 k<sub>a</sub> = 20 came from a grid search. Popularity helped cold-start users slightly and hurt users with full
                 histories; a penalty of β = −0.3 raised full-history NDCG@20 from 0.128 to 0.132 and increased catalog
                 coverage, which is why β is interpolated rather than fixed. A Bayesian quality prior (γ) didn&apos;t help and is
-                off. &ldquo;Sort by predicted rating&rdquo; re-orders the same candidate pool. Series rule: hide{" "}
+                off. The last term is the prediction boost: <TeX>{String.raw`\hat r`}</TeX> is your predicted rating, δ = 0.75,
+                and the fame weight <em>f</em> goes from 0 at 10k Goodreads ratings to 1 at about 316k. The 50 best
+                fame-weighted predictions are also added to the candidate pool. On held-out users it costs about 5.6% of
+                full-history NDCG@20 (about 2% with 10 ratings); without the fame gate the same boost cost about 14%.
+                &ldquo;Sort by predicted rating&rdquo; re-orders the same candidate pool. Series rule: hide{" "}
                 <code>series_pos &gt; 1</code> unless it&apos;s the lowest unread volume after the furthest one you&apos;ve read.
               </p>
               <p>
@@ -182,7 +188,7 @@ export function AboutPage({ go }: { go: (v: "rate" | "import" | "recs") => void 
               </table>
               <p>The −0.25 margin keeps most of the benefit for about a 4% cost, versus about 10% for a floor exactly at the
                 average. The Popular, Top rated and To-read lists aren&apos;t floored.</p>
-              <CodeRefs items={[["blend", "blend()"], ["prediction_floor", "prediction_floor()"], ["filter_mask", "filter_mask()"], ["next_in_series", "next_in_series()"], ["recommend", "recommend()"]]} />
+              <CodeRefs items={[["blend", "blend()"], ["fame_weight", "fame_weight()"], ["prediction_floor", "prediction_floor()"], ["filter_mask", "filter_mask()"], ["next_in_series", "next_in_series()"], ["recommend", "recommend()"]]} />
             </Tech>
           </dd>
         </div>

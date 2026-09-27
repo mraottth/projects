@@ -65,13 +65,19 @@ class Params:
     beta_pop_many: float = 0.0        # popularity weight for a user with many ratings (interpolated by a(n))
     a_override: float | None = None   # force the ALS weight (eval: 0 = item-item only, 1 = ALS only)
     pred_floor_offset: float | None = None  # For you: drop books predicted below (user average - offset)
+    delta_pred: float = 0.0           # Best match: weight on z(predicted rating), scaled by a(n) and fame (config: 0.75)
+    pred_fame_lo: float = 4.0         # log10 Goodreads ratings count where fame weight starts (10k)...
+    pred_fame_hi: float = 6.0         # ...and where it reaches 1 (1M)
+    pred_pool: int = 50               # famous high-prediction books added to the candidate pool
 
     @classmethod
     def from_config(cls, **overrides) -> "Params":
         cfg = load_config()
         b, a = cfg["blend"], cfg["als"]
         p = dict(k_a=b["k_a"], beta_pop=b["beta_pop"], beta_pop_many=b.get("beta_pop_many", b["beta_pop"]), gamma_quality=b["gamma_quality"],
-                 pred_floor_offset=b.get("pred_floor_offset"),
+                 pred_floor_offset=b.get("pred_floor_offset"), delta_pred=b.get("delta_pred", 0.0),
+                 pred_fame_lo=b.get("pred_fame_lo", 4.0), pred_fame_hi=b.get("pred_fame_hi", 6.0),
+                 pred_pool=b.get("pred_pool", 50),
                  candidates=b["candidates"], alpha=a["alpha"], regularization=a["regularization"],
                  confidence={int(k): float(v) for k, v in a["confidence"].items()})
         p.update(overrides)
@@ -257,25 +263,59 @@ def _z_with(x: np.ndarray, ref: np.ndarray) -> np.ndarray:
     return (x - ref.mean()) / sd if sd > 1e-9 else np.zeros_like(x, dtype=np.float64)
 
 
-def score_all(art: Artifacts, raw: RawScores, cand: np.ndarray, a: float, beta: float, p: Params) -> np.ndarray:
+def fame_weight(art: Artifacts, p: Params) -> np.ndarray:
+    """0..1 by Goodreads ratings count (log scale): how well known a book is. Gates the prediction boost so
+    obscure books with high predictions (driven mostly by their average) don't jump up the ranking."""
+    lc = np.log10(np.maximum(art.meta.ratings_count, 1).astype(np.float64))
+    return np.clip((lc - p.pred_fame_lo) / (p.pred_fame_hi - p.pred_fame_lo), 0.0, 1.0)
+
+
+def add_pred_candidates(art: Artifacts, cand: np.ndarray, mask: np.ndarray, preds: np.ndarray, p: Params) -> np.ndarray:
+    """Add the best fame-weighted predictions to the pool, so well-known books the user would likely rate
+    highly can be ranked even when neither model put them in its top-C."""
+    if not p.delta_pred or not p.pred_pool:
+        return cand
+    idx = np.flatnonzero(mask & ~np.isnan(preds))
+    if not len(idx):
+        return cand
+    return np.union1d(cand, _top(preds * fame_weight(art, p), idx, p.pred_pool))
+
+
+def score_all(art: Artifacts, raw: RawScores, cand: np.ndarray, a: float, beta: float, p: Params,
+              preds: np.ndarray | None = None) -> np.ndarray:
     """Blend score for every book, normalized with the candidate pool's statistics.
 
     Within the pool this orders books exactly as blend() does; outside it the same formula extends
-    the ranking to the rest of the catalog (used to give every book a stable rank).
+    the ranking to the rest of the catalog (used to give every book a stable rank). With `preds`
+    (raw predicted ratings, NaN where unknown) and p.delta_pred, adds a(n) * delta * fame * z(pred).
     """
     m = art.meta
     if raw.n == 0:
         return _z_with(m.log_pop, m.log_pop[cand]) + _z_with(m.bayes, m.bayes[cand])
-    return (a * _z_with(raw.s_als, raw.s_als[cand]) + (1 - a) * _z_with(raw.s_ii, raw.s_ii[cand])
-            + beta * _z_with(m.log_pop, m.log_pop[cand]) + p.gamma_quality * _z_with(m.bayes, m.bayes[cand]))
+    s = (a * _z_with(raw.s_als, raw.s_als[cand]) + (1 - a) * _z_with(raw.s_ii, raw.s_ii[cand])
+         + beta * _z_with(m.log_pop, m.log_pop[cand]) + p.gamma_quality * _z_with(m.bayes, m.bayes[cand]))
+    if p.delta_pred and preds is not None:
+        zp = np.nan_to_num(_z_with(preds, preds[cand]), nan=0.0)
+        s = s + a * p.delta_pred * fame_weight(art, p) * zp
+    return s
 
 
-def blend(art: Artifacts, raw: RawScores, mask: np.ndarray, p: Params) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Return (items sorted best-first, their scores, source codes: 1=ii, 2=als, 3=both)."""
+def blend(art: Artifacts, raw: RawScores, mask: np.ndarray, p: Params,
+          user: UserInput | None = None) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Return (items sorted best-first, their scores, source codes: 1=ii, 2=als, 3=both).
+    Pass `user` to apply the predicted-rating boost (p.delta_pred), as ranking() does."""
     if not mask.any():
         return np.zeros(0, np.int64), np.zeros(0, np.float32), np.zeros(0, np.int8)
     cand, top_ii, top_als, a, beta = _pool(art, raw, mask, p)
-    s = score_all(art, raw, cand, a, beta, p)[cand]
+    preds = None
+    if p.delta_pred and user is not None and raw.n:
+        # Score the fame-weighted pool additions (the most popular books) plus the model pool.
+        famous = np.flatnonzero(mask & (fame_weight(art, p) > 0))
+        scope = np.union1d(cand, famous)
+        preds = np.full(art.meta.n, np.nan, np.float32)
+        preds[scope] = predict_ratings(art, user, scope)
+        cand = add_pred_candidates(art, cand, mask, preds, p)
+    s = score_all(art, raw, cand, a, beta, p, preds)[cand]
     source = np.isin(cand, top_ii).astype(np.int8) + 2 * np.isin(cand, top_als).astype(np.int8)
     order = np.argsort(-s)
     return cand[order], s[order].astype(np.float32), source[order]
@@ -397,7 +437,10 @@ def ranking(art: Artifacts, raw: RawScores, user: UserInput, p: Params, sort: st
         keep[known] = prediction_floor(user, preds_all[known], raw.cache["calib"], p.pred_floor_offset)
     base = base_default & keep
     cand, top_ii, top_als, a, beta = _pool(art, raw, base, p)
-    s_all = score_all(art, raw, cand, a, beta, p).astype(np.float32)
+    boost = raw.n > 0 and p.delta_pred
+    if boost:
+        cand = add_pred_candidates(art, cand, base, preds_all, p)
+    s_all = score_all(art, raw, cand, a, beta, p, preds_all if boost else None).astype(np.float32)
     in_pool = np.zeros(art.meta.n, dtype=bool)
     in_pool[cand] = True
     rest = np.flatnonzero(base & ~in_pool)
