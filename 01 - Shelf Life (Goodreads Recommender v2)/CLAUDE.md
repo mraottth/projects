@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Goodreads book recommender (web app) built on the UCSD Book Graph data (Wan & McAuley; ratings through 2017). Users either upload a Goodreads library export CSV or search and star-rate books. They get "For you" recommendations (item-item neighbors blended with ALS fold-in), "readers like you" lists (popular / top rated among nearest users), genre filters and a book detail view with similar books. This folder lives inside the larger `projects` portfolio repo; `../Goodreads Book Recommender` is the original 2023 version and is unrelated code.
+Goodreads book recommender (web app) built on the UCSD Book Graph data (Wan & McAuley; ratings through 2017). Users either upload a Goodreads library export CSV or search and star-rate books. They get "For you" recommendations (item-item neighbors blended with ALS fold-in), "readers like you" lists (popular / top rated among nearest users), genre filters and a book detail view with similar books. The app is branded "Shelf Life". This folder lives inside the larger `projects` portfolio repo, whose top-level folders are number-prefixed to set their order on GitHub; `../03 - Goodreads Recommender (2023 original)` is the original 2023 version and is unrelated code. The About page's GitHub links (`REPO_URL`, `CODE_BASE` in `AboutPage.tsx`) encode this folder's name, so update them if it's renamed.
 
 ## Commands
 

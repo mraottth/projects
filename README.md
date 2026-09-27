@@ -1,96 +1,59 @@
 # Projects
 
-### ADU Code Enforcement
+### Shelf Life: Goodreads Book Recommender
+
+**[Try the live app →](https://goodrec-137926939938.us-central1.run.app)**
 
 **Description:**
-Completed as part of the Stanford RegLab's analysis on whether municipal code enforcement of 
-unpermitted accessory dwelling unit (ADU) construction disproportionately targets 
-disadvantaged communities 
+A web app that recommends books from your Goodreads history. Upload your Goodreads library export (or search and rate a few books), and it ranks ~105,000 books for you, predicts the stars you'd give each one, and explains every pick ("because you liked…"). Built on the UCSD Book Graph: 15.7M ratings from 465k readers.
 
-<img width="1412" alt="Screenshot 2023-08-10 at 8 07 10 PM" src="https://github.com/mraottth/projects/assets/64610726/94f48e25-fe59-43ae-9f17-f13442398fbd">
+* **Hybrid recommender:** item-item similarity blended with an implicit-feedback ALS taste model, folded in for each new user at request time. The blend shifts from one to the other as you rate more books.
+* **Measured offline:** tuned on 9,906 held-out readers no model saw (NDCG@20 of 0.139 with a full history, vs. 0.036 for "most popular").
+* **Personal predicted ratings:** calibrated to your own rating scale, stretched only as far as your ratings support.
+* **Assistant tab:** a Claude-powered reading assistant (Haiku for quick questions, Sonnet for harder ones) that calls the recommender as tools, finds post-2017 books via web search, and talks books like a book club.
+* **Engineering:** an offline pipeline (11 stages) produces the models; a FastAPI + React/TypeScript app serves recommendations in tens of milliseconds, deployed on Google Cloud Run. It replaces the 2023 version below, which took about a minute per request.
 
+![Shelf Life homepage](01%20-%20Shelf%20Life%20%28Goodreads%20Recommender%20v2%29/docs/screenshot-home.png)
 
 **Filetree:**
 ```
-├── Census_Blocks_2020
-│   ├── Census_Blocks_2020.dbf
-|   ├── Census_Blocks_2020.shx
-│   └── Census_Blocks_2020.xml
-├── Census_Tracts_2020
-│   ├── Census_Tracts_2020.cpg
-|   ├── Census_Tracts_2020.dbf
-|   ├── Census_Tracts_2020.prj
-|   ├── Census_Tracts_2020.shx
-│   └── Census_Tracts_2020.xml
-└── LA_ADU_EDA_V2.ipynb
+├── config/          pipeline settings, genre map, homepage picks
+├── src/goodrec/
+│   ├── pipeline/    s00_download … s10_package (offline)
+│   ├── core/        scoring, similar readers, predictions (shared by the API and eval)
+│   ├── api/         FastAPI app, CSV import matching, Assistant (chat)
+│   └── eval/        offline evaluation
+├── frontend/        React + Vite + TypeScript
+└── tests/
 ```
+See the [project README](01%20-%20Shelf%20Life%20%28Goodreads%20Recommender%20v2%29/README.md) for details.
+
 ___
 
-### COVID Visualizations
+### The TrashBot Project: Using drones and computer vision to find, map, and clean unregulated dumpsites in The Gambia
+
+Full Report: https://drive.google.com/file/d/1KwQvrzWQVAILF3BFSnOUfve1DKAJXGcg/view?usp=sharing
 
 **Description:**
-These data visualizations were created for the City of Seattle's vaccine distribution task force with the goal of 
-making it easy to visualize the following insights in one simple view:
+This project, completed as a master's thesis, uses drone orthomapping and computer vision to assist Kanifing Municipality in finding and measuring unregulated dumpsites so that they can be cleaned and regulated before causing harm to residents' health and the environment. 
 
-1. What is the current state of COVID cases and deaths in Seattle and other cities?
-2. How does the current state of the pandemic compare to recent months?
-3. How does the current state of the pandemic compare to all prior months?
+<img width="1229" alt="Screenshot 2023-08-07 at 12 20 06 PM" src="https://github.com/mraottth/TrashBot/assets/64610726/907ce1ab-54a7-47b9-9e2e-6ae2eb73f3ee">
 
-
-Cases                      |  Deaths
-:-------------------------:|:-------------------------:
-![cases_pandemic_history_drilldown](https://github.com/mraottth/projects/assets/64610726/950fce3f-3ecc-4f0b-a3cb-57b1ae354fa4) | ![deaths_pandemic_history_drilldown](https://github.com/mraottth/projects/assets/64610726/a5434bd8-25d5-4cd5-ac06-45876f562929)
-
+ 
+<img width="1026" alt="Screenshot 2023-08-07 at 12 26 10 PM" src="https://github.com/mraottth/TrashBot/assets/64610726/a593f925-a390-4c49-8290-a93eff717181">
 
 **Filetree:**
 ```
-├── Figures
-│   └── Cases
-│       └── ...
-│   └── Deaths
-│       └── ...
-├── cases_interactive.py
-├── full_pandemic_history_cases_drilldown.py
-└── full_pandemic_history_deaths_drilldown.py
-```
-___
-
-### Caixin Scraper
-
-**Description:**
-This web scraper was written to assist a research project at Harvard's Belfer Center seeking to identify 
-cases of corruption in China that appear in the media before being officially announced by the 
-Central Commission for Discipline Inspection (typically, it is the other way around in China).
-
-**Filetree:**
-```
-├── data
-│   ├── CCDI_Selected_Data.csv
-|   ├── keywords.csv
-│   └── scraped_results_0226.csv
-└── caixin_webscraper.py
+├── train_trashbot.ipynb
+└── trashbot_predict.py
 ```
 
 ___
 
-### Earthquake
+### Goodreads Book Recommender (2023 original)
 
-**Description:**
-Entry to DrivenData's competition, [Richter's Predictor](https://www.drivendata.org/competitions/57/nepal-earthquake/page/134/), which tasks participants with creating a model to 
-predict the level of damage to buildings caused by the 2015 Nepal earthquake. Scored in top 2%.
+*Superseded by [Shelf Life](#shelf-life-goodreads-book-recommender), the 2026 rebuild above.*
 
-**Filetree:**
-```
-├── Data
-│   ├── test_values.csv
-|   ├── train_labels.csv
-│   └── train_values.csv
-└── earthquake_model.py
-```
-
-___
-
-### Goodreads Book Recommender
 
 **Description:**
 Uses [goodreads data](https://sites.google.com/eng.ucsd.edu/ucsdbookgraph/home?authuser=0) scraped by Mengting Wan and Julian McAuley at UCSD to build a recommender system using three methods:
@@ -138,6 +101,63 @@ Uses [public data](https://data.cityofnewyork.us/Transportation/Open-Restaurants
 
 ___
 
+### COVID Visualizations
+
+**Description:**
+These data visualizations were created for the City of Seattle's vaccine distribution task force with the goal of 
+making it easy to visualize the following insights in one simple view:
+
+1. What is the current state of COVID cases and deaths in Seattle and other cities?
+2. How does the current state of the pandemic compare to recent months?
+3. How does the current state of the pandemic compare to all prior months?
+
+
+Cases                      |  Deaths
+:-------------------------:|:-------------------------:
+![cases_pandemic_history_drilldown](https://github.com/mraottth/projects/assets/64610726/950fce3f-3ecc-4f0b-a3cb-57b1ae354fa4) | ![deaths_pandemic_history_drilldown](https://github.com/mraottth/projects/assets/64610726/a5434bd8-25d5-4cd5-ac06-45876f562929)
+
+
+**Filetree:**
+```
+├── Figures
+│   └── Cases
+│       └── ...
+│   └── Deaths
+│       └── ...
+├── cases_interactive.py
+├── full_pandemic_history_cases_drilldown.py
+└── full_pandemic_history_deaths_drilldown.py
+```
+
+___
+
+### ADU Code Enforcement
+
+**Description:**
+Completed as part of the Stanford RegLab's analysis on whether municipal code enforcement of 
+unpermitted accessory dwelling unit (ADU) construction disproportionately targets 
+disadvantaged communities 
+
+<img width="1412" alt="Screenshot 2023-08-10 at 8 07 10 PM" src="https://github.com/mraottth/projects/assets/64610726/94f48e25-fe59-43ae-9f17-f13442398fbd">
+
+
+**Filetree:**
+```
+├── Census_Blocks_2020
+│   ├── Census_Blocks_2020.dbf
+|   ├── Census_Blocks_2020.shx
+│   └── Census_Blocks_2020.xml
+├── Census_Tracts_2020
+│   ├── Census_Tracts_2020.cpg
+|   ├── Census_Tracts_2020.dbf
+|   ├── Census_Tracts_2020.prj
+|   ├── Census_Tracts_2020.shx
+│   └── Census_Tracts_2020.xml
+└── LA_ADU_EDA_V2.ipynb
+```
+
+___
+
 ### OSCAR LDA
 
 **Description:**
@@ -150,22 +170,50 @@ Topic modeling for an NLP project using BERT to summarize clinical articles. Ful
 ```
 └── topic_modeling.ipynb
 ```
+
 ___
 
-### The TrashBot Project: Using drones and computer vision to find, map, and clean unregulated dumpsites in The Gambia
-
-Full Report: https://drive.google.com/file/d/1KwQvrzWQVAILF3BFSnOUfve1DKAJXGcg/view?usp=sharing
+### MD Unemployment Insurance Analysis
 
 **Description:**
-This project, completed as a master's thesis, uses drone orthomapping and computer vision to assist Kanifing Municipality in finding and measuring unregulated dumpsites so that they can be cleaned and regulated before causing harm to residents' health and the environment. 
-
-<img width="1229" alt="Screenshot 2023-08-07 at 12 20 06 PM" src="https://github.com/mraottth/TrashBot/assets/64610726/907ce1ab-54a7-47b9-9e2e-6ae2eb73f3ee">
-
- 
-<img width="1026" alt="Screenshot 2023-08-07 at 12 26 10 PM" src="https://github.com/mraottth/TrashBot/assets/64610726/a593f925-a390-4c49-8290-a93eff717181">
+Explores and forecasts Maryland unemployment insurance activity from July 2008 to April 2013 ([Maryland Open Data Portal](https://opendata.maryland.gov/Business-and-Economy/Unemployment-Insurance-Data-July-2008-to-April-201/3x6e-7i3k/about_data)): new claims, people drawing benefits, dollars paid, and first vs. final checks issued. Seasonal decomposition and auto-ARIMA models (pmdarima) forecast each series.
 
 **Filetree:**
 ```
-├── train_trashbot.ipynb
-└── trashbot_predict.py
+└── md-ds-roth.ipynb
+```
+
+___
+
+### Caixin Scraper
+
+**Description:**
+This web scraper was written to assist a research project at Harvard's Belfer Center seeking to identify 
+cases of corruption in China that appear in the media before being officially announced by the 
+Central Commission for Discipline Inspection (typically, it is the other way around in China).
+
+**Filetree:**
+```
+├── data
+│   ├── CCDI_Selected_Data.csv
+|   ├── keywords.csv
+│   └── scraped_results_0226.csv
+└── caixin_webscraper.py
+```
+
+___
+
+### Earthquake
+
+**Description:**
+Entry to DrivenData's competition, [Richter's Predictor](https://www.drivendata.org/competitions/57/nepal-earthquake/page/134/), which tasks participants with creating a model to 
+predict the level of damage to buildings caused by the 2015 Nepal earthquake. Scored in top 2%.
+
+**Filetree:**
+```
+├── Data
+│   ├── test_values.csv
+|   ├── train_labels.csv
+│   └── train_values.csv
+└── earthquake_model.py
 ```
