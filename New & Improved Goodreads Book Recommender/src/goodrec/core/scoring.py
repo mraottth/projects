@@ -353,7 +353,7 @@ def explain(art: Artifacts, raw: RawScores, items: np.ndarray, max_because: int 
 
 
 def predict_ratings(art: Artifacts, user: UserInput, items, shrink: float = 0.5,
-                    user_shrink: float = 5.0) -> np.ndarray:
+                    user_shrink: float = 5.0, return_evidence: bool = False):
     """Predicted star rating (1-5) for each item: baseline + item-item residual.
 
         baseline(u, j) = item_mean(j) + b_u,  b_u = sum(r_i - item_mean(i)) / (n + user_shrink)
@@ -361,13 +361,18 @@ def predict_ratings(art: Artifacts, user: UserInput, items, shrink: float = 0.5,
     over rated books i linked to j in either direction of the neighbor lists (the larger similarity if
     both). item_mean is the Bayesian-shrunk mean from the training data; `shrink` pulls sparse-evidence
     residuals to 0. Vectorized as a sparse (items x rated) similarity matrix, so it scales to the catalog.
+
+    With return_evidence, also returns each item's evidence weight den / (den + CALIB_EVIDENCE_K) in [0, 1):
+    how much its prediction rests on the user's own ratings of similar books (den = summed similarity to
+    them). apply_calibration stretches each prediction in proportion to it.
     """
     m = art.meta
     items = np.asarray(items, dtype=np.int64)
     if len(items) == 0:
-        return np.zeros(0, np.float32)
+        return (np.zeros(0, np.float32), np.zeros(0, np.float32)) if return_evidence else np.zeros(0, np.float32)
     if not user.ratings:
-        return np.clip(m.bayes[items], 1, 5).astype(np.float32)
+        base = np.clip(m.bayes[items], 1, 5).astype(np.float32)
+        return (base, np.zeros(len(items), np.float32)) if return_evidence else base
     uniq, inv = np.unique(items, return_inverse=True)
     ri = np.fromiter(user.ratings, dtype=np.int64)
     rv = np.fromiter(user.ratings.values(), dtype=np.float64)
@@ -393,10 +398,14 @@ def predict_ratings(art: Artifacts, user: UserInput, items, shrink: float = 0.5,
     num = P @ resid
     den = np.asarray(P.sum(axis=1)).ravel()
     pred = m.bayes[uniq] + b_u + num / (den + shrink)
-    return np.clip(pred, 1, 5).astype(np.float32)[inv]
+    out = np.clip(pred, 1, 5).astype(np.float32)[inv]
+    if return_evidence:
+        return out, (den / (den + CALIB_EVIDENCE_K)).astype(np.float32)[inv]
+    return out
 
 
-def prediction_floor(user: UserInput, raw_pred: np.ndarray, cal, offset: float | None) -> np.ndarray:
+def prediction_floor(user: UserInput, raw_pred: np.ndarray, cal, offset: float | None,
+                     evidence: np.ndarray | None = None) -> np.ndarray:
     """Keep-mask: books whose calibrated predicted rating is >= the user's average rating - offset.
 
     Off (keep everything) when offset is None or there's no calibration yet (< CALIB_MIN_RATINGS).
@@ -404,7 +413,7 @@ def prediction_floor(user: UserInput, raw_pred: np.ndarray, cal, offset: float |
     if offset is None or cal is None or not user.ratings:
         return np.ones(len(raw_pred), dtype=bool)
     avg = float(np.mean(list(user.ratings.values())))
-    return apply_calibration(raw_pred, cal) >= avg - offset
+    return apply_calibration(raw_pred, cal, evidence) >= avg - offset
 
 
 def ranking(art: Artifacts, raw: RawScores, user: UserInput, p: Params, sort: str = "match",
@@ -426,15 +435,21 @@ def ranking(art: Artifacts, raw: RawScores, user: UserInput, p: Params, sort: st
     if "preds_unread" not in raw.cache:
         unread = np.flatnonzero(filter_mask(art, base_user, Filters.none()))
         pa = np.full(art.meta.n, np.nan, np.float32)
-        pa[unread] = predict_ratings(art, user, unread)
-        raw.cache["preds_unread"] = pa
-    preds_all = raw.cache["preds_unread"]
-    keep = np.ones(art.meta.n, dtype=bool)
-    if prior is not None and p.pred_floor_offset is not None:
+        ev = np.zeros(art.meta.n, np.float32)
+        pa[unread], ev[unread] = predict_ratings(art, user, unread, return_evidence=True)
+        raw.cache["preds_unread"], raw.cache["evidence_unread"] = pa, ev
+    preds_all, ev_all = raw.cache["preds_unread"], raw.cache["evidence_unread"]
+    cal = None
+    if prior is not None:
         if "calib" not in raw.cache:
             raw.cache["calib"] = calibration(art, user, prior)
+        cal = raw.cache["calib"]
+    # What the user sees (calibrated in proportion to evidence); used for the floor and the predicted sort.
+    shown_all = apply_calibration(preds_all, cal, ev_all) if cal is not None else preds_all
+    keep = np.ones(art.meta.n, dtype=bool)
+    if cal is not None and p.pred_floor_offset is not None:
         known = ~np.isnan(preds_all)
-        keep[known] = prediction_floor(user, preds_all[known], raw.cache["calib"], p.pred_floor_offset)
+        keep[known] = prediction_floor(user, preds_all[known], cal, p.pred_floor_offset, ev_all[known])
     base = base_default & keep
     cand, top_ii, top_als, a, beta = _pool(art, raw, base, p)
     boost = raw.n > 0 and p.delta_pred
@@ -445,14 +460,14 @@ def ranking(art: Artifacts, raw: RawScores, user: UserInput, p: Params, sort: st
     in_pool[cand] = True
     rest = np.flatnonzero(base & ~in_pool)
     if sort == "predicted":
-        key_fn = lambda ix: np.lexsort((-s_all[ix], -preds_all[ix]))  # noqa: E731  (calibration is monotone)
+        key_fn = lambda ix: np.lexsort((-s_all[ix], -shown_all[ix]))  # noqa: E731
     else:
         key_fn = lambda ix: np.argsort(-s_all[ix], kind="stable")  # noqa: E731
     order = np.concatenate([cand[key_fn(cand)], rest[key_fn(rest)]])
     source = np.zeros(art.meta.n, np.int8)
     source[top_ii] += 1
     source[top_als] += 2
-    out = {"order": order, "score": s_all, "source": source, "preds": preds_all, "alpha": a,
+    out = {"order": order, "score": s_all, "source": source, "preds": preds_all, "shown": shown_all, "alpha": a,
            "base": base, "base_default": base_default, "keep": keep, "sort": sort}
     raw.cache[key] = out
     return out
@@ -482,6 +497,10 @@ _STAR_BANDS = [(1.0, 1.5), (1.5, 2.5), (2.5, 3.5), (3.5, 4.5), (4.5, 5.0)]
 CALIB_PRIOR_WEIGHT = 10     # the dataset-wide distribution counts as this many ratings
 CALIB_MIN_RATINGS = 5       # below this, show the raw prediction
 CALIB_TAIL = 0.35           # raw-star scale of the asymptotic approach to 1 / 5 outside the reference range
+# Evidence gate: a book gets den / (den + K) of the calibration stretch, den = its summed similarity to the
+# user's rated books. Eval 2026-09-27 (1,000 held-out users, displayed-rating RMSE): full stretch 0.998,
+# K=0.1 0.879, K=0.5 0.866 (but top picks then never reach 4.5). 0.1 keeps most of the gain and the spread.
+CALIB_EVIDENCE_K = 0.1
 _CALIB_Q = np.linspace(0.02, 0.98, 25)
 
 
@@ -517,7 +536,12 @@ def calibration(art: Artifacts, user: UserInput, prior: np.ndarray) -> tuple[np.
     return x, y, n / (n + CALIB_PRIOR_WEIGHT)
 
 
-def apply_calibration(raw_pred: np.ndarray, cal: tuple[np.ndarray, np.ndarray, float] | None) -> np.ndarray:
+def apply_calibration(raw_pred: np.ndarray, cal: tuple[np.ndarray, np.ndarray, float] | None,
+                      evidence: np.ndarray | None = None) -> np.ndarray:
+    """Map raw predictions onto the user's rating scale. With `evidence` (predict_ratings' evidence weights),
+    each book moves only that fraction of the way: a book linked to many of the user's ratings gets the full
+    stretch, while one with no link stays at its raw value (book average adjusted for the user's harshness),
+    so noise in book averages isn't amplified. Without `evidence` the map is monotone in raw."""
     if cal is None:
         return raw_pred
     x, y, w = cal
@@ -527,37 +551,46 @@ def apply_calibration(raw_pred: np.ndarray, cal: tuple[np.ndarray, np.ndarray, f
     # Outside the reference range, approach 5 (or 1) asymptotically: no pile-up at the ceiling.
     mapped[hi] = y[-1] + (5.0 - y[-1]) * (1 - np.exp(-(r[hi] - x[-1]) / CALIB_TAIL))
     mapped[lo] = y[0] - (y[0] - 1.0) * (1 - np.exp(-(x[0] - r[lo]) / CALIB_TAIL))
-    return np.clip(w * mapped + (1 - w) * r, 1, 5).astype(np.float32)
+    out = w * mapped + (1 - w) * r
+    if evidence is not None:
+        out = r + np.asarray(evidence, dtype=np.float64) * (out - r)
+    return np.clip(out, 1, 5).astype(np.float32)
+
+
+def shown_predictions(art: Artifacts, user: UserInput, items, cal) -> np.ndarray:
+    """Predicted ratings as displayed: raw prediction, calibrated in proportion to the personal evidence."""
+    raw_pred, ev = predict_ratings(art, user, items, return_evidence=True)
+    return apply_calibration(raw_pred, cal, ev)
 
 
 def display_ratings(art: Artifacts, user: UserInput, items, prior: np.ndarray | None,
                     cal: tuple | None | str = "compute") -> np.ndarray:
     """Predicted ratings as shown to the user: raw predictions calibrated to their rating distribution."""
-    raw_pred = predict_ratings(art, user, items)
     if prior is None:
-        return raw_pred
+        return predict_ratings(art, user, items)
     if isinstance(cal, str):
         cal = calibration(art, user, prior)
-    return apply_calibration(raw_pred, cal)
+    return shown_predictions(art, user, items, cal)
 
 
 def recommend(art: Artifacts, user: UserInput, f: Filters, p: Params, limit: int = 40, offset: int = 0,
               raw: RawScores | None = None, sort: str = "match", prior: np.ndarray | None = None) -> dict:
     """Recommendations for one page. Ranks come from the unfiltered ranking for `sort`, so applying
     filters narrows the list without renumbering it. Pass `raw` (from a cache) to skip model scoring,
-    and `prior` (dataset rating distribution) to enable calibration and the prediction floor."""
+    and `prior` (dataset rating distribution) to enable calibration and the prediction floor.
+    `predicted` holds displayed predictions (evidence-gated calibration; raw without `prior`)."""
     raw = raw or raw_scores(art, user, p)
     rk = ranking(art, raw, user, p, sort, prior, include_ya=f.include_ya or _asks_for_ya(art.meta, f))
     nxt = next_in_series(art, user)
     mask = filter_mask(art, user, f, allow=nxt) & rk["keep"]      # the floor also applies to filter extras
     extra_key = (rk["score"] if sort != "predicted"
-                 else np.nan_to_num(rk["preds"], nan=0.0) * 1e3 + rk["score"])
+                 else np.nan_to_num(rk["shown"], nan=0.0) * 1e3 + rk["score"])
     items, ranks = apply_ranking(rk["order"], mask, extra_key, user.dismissed)
     page = slice(offset, offset + limit)
     items, ranks = items[page], ranks[page]
-    preds = rk["preds"][items] if rk["preds"] is not None else None
-    if preds is None or np.isnan(preds).any():
-        preds = predict_ratings(art, user, items)
+    preds = rk["shown"][items]                                   # displayed (calibrated when prior is given)
+    if np.isnan(preds).any():
+        preds = shown_predictions(art, user, items, raw.cache.get("calib"))
     return {
         "items": items, "ranks": ranks, "scores": rk["score"][items], "source": rk["source"][items],
         "predicted": preds, "because": explain(art, raw, items), "next_in_series": [int(i) in nxt for i in items],

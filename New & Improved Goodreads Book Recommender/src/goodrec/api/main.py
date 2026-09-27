@@ -20,9 +20,8 @@ from goodrec.api.matching import parse_export
 from goodrec.api.schemas import BooksBatchRequest, BrowseRequest, FilterSpec, InsightsRequest, RecommendRequest
 from goodrec.config import ARTIFACTS_DIR, CONFIG_DIR, ROOT
 from goodrec.core.artifacts import load_artifacts
-from goodrec.core.scoring import Filters, Params, RawScores, UserInput, apply_calibration, apply_ranking, calibration, \
-    next_in_series, predict_ratings, \
-    ranking, raw_scores, recommend, \
+from goodrec.core.scoring import Filters, Params, RawScores, UserInput, apply_ranking, calibration, shown_predictions, \
+    next_in_series, ranking, raw_scores, recommend, \
     similar_books, filter_mask, zscore
 from goodrec.core.similar_readers import similar_readers, user_genre_share
 
@@ -112,15 +111,16 @@ def _raw(user: UserInput) -> RawScores:
     return raw
 
 
-def _shown(user: UserInput, raw_pred: np.ndarray, raw: RawScores | None = None) -> np.ndarray:
-    """Raw predicted ratings -> what the user sees: calibrated to their own rating distribution
-    (scoring.calibration), cached per user. Monotone, so it never changes an ordering."""
+def _shown(user: UserInput, items, raw: RawScores | None = None) -> np.ndarray:
+    """Predicted ratings as the user sees them (scoring.shown_predictions): calibrated to their own rating
+    distribution in proportion to the personal evidence behind each book. Calibration is cached per user.
+    Not monotone in the raw prediction, so sort by these values, not raw ones."""
     prior = state["population"]["rating_dist"]
     if raw is None:
-        return apply_calibration(np.asarray(raw_pred), calibration(state["art"], user, prior))
+        return shown_predictions(state["art"], user, items, calibration(state["art"], user, prior))
     if "calib" not in raw.cache:
         raw.cache["calib"] = calibration(state["art"], user, prior)
-    return apply_calibration(np.asarray(raw_pred), raw.cache["calib"])
+    return shown_predictions(state["art"], user, items, raw.cache["calib"])
 
 
 def _decorate(idxs, extra: list[dict] | None = None) -> list[dict]:
@@ -282,7 +282,7 @@ def book_personal(work_id: int, req: InsightsRequest):
         return {"predicted_rating": None, "readers_avg": None, "readers_n": None}
     user = UserInput(ratings=ratings, read={cat.idx_of[i] for i in req.read if i in cat.idx_of})
     raw = _raw(user)
-    shown = _shown(user, predict_ratings(art, user, [idx]), raw)[0]
+    shown = _shown(user, [idx], raw)[0]
     out = {"predicted_rating": round(float(shown), 2), "readers_avg": None, "readers_n": None}
     if len(ratings) >= MIN_RATINGS_FOR_READERS and raw.u is not None:
         sr = similar_readers(art, raw.u, np.ones(art.meta.n, dtype=bool), limit=1)
@@ -344,7 +344,7 @@ def browse(req: BrowseRequest):
     if req.ratings:
         idx_of = cat.idx_of
         user = UserInput(ratings={idx_of[r.id]: r.rating for r in req.ratings if r.id in idx_of})
-        for b, pr in zip(books, _shown(user, predict_ratings(art, user, page), _raw(user) if user.ratings else None)):
+        for b, pr in zip(books, _shown(user, page, _raw(user) if user.ratings else None)):
             b["predicted_rating"] = round(float(pr), 2)
     return {"books": books, "total": int(len(idx)), "ms": round((time.time() - t) * 1000, 1)}
 
@@ -367,22 +367,21 @@ def recommend_route(req: RecommendRequest):
          "because": [{"id": id_of[i], "title": because_titles.get(id_of[i], "")} for i in b],
          "next_in_series": nx, "predicted_rating": round(float(pr), 2), "rank": int(rk) or None}
         for s, src, b, nx, pr, rk in zip(res["scores"], res["source"], res["because"], res["next_in_series"],
-                                         _shown(user, res["predicted"], raw), res["ranks"])])
+                                         res["predicted"], res["ranks"])])
 
     # To-read picks: the user's own to-read shelf, ordered by blended model score (or predicted rating).
     to_read = [i for i in _to_idx(req.to_read) if i not in user.seen]
     to_read_picks = []
     if to_read and raw.n:
         tr = np.asarray(to_read)
-        preds = predict_ratings(art, user, tr)
+        shown = _shown(user, tr, raw)
         if by_predicted:
-            order = np.argsort(-preds, kind="stable")
+            order = np.argsort(-shown, kind="stable")
         else:
             a = res["alpha"]
             s = a * zscore(raw.s_als[tr]) + (1 - a) * zscore(raw.s_ii[tr]) if raw.u is not None else zscore(raw.s_ii[tr])
             order = np.argsort(-s)
         order = order[:req.limit]
-        shown = _shown(user, preds, raw)
         to_read_picks = _decorate(tr[order], [{"predicted_rating": round(float(shown[k]), 2), "rank": r + 1}
                                               for r, k in enumerate(order)])
 
@@ -408,14 +407,14 @@ def recommend_route(req: RecommendRequest):
             if key not in raw.cache:
                 universe = np.flatnonzero(base & eligible)
                 if by_predicted:
-                    pr = predict_ratings(art, user, universe)
+                    pr = _shown(user, universe, raw)
                     universe = universe[np.lexsort((-score[universe], -pr))]
                 else:
                     universe = universe[np.argsort(-score[universe], kind="stable")]
                 raw.cache[key] = universe
             items, ranks = apply_ranking(raw.cache[key], mask & eligible, score, user.dismissed)
             items, ranks = items[:req.limit], ranks[:req.limit]
-            preds = _shown(user, predict_ratings(art, user, items), raw)
+            preds = _shown(user, items, raw)
             extra = [{"predicted_rating": round(float(pr), 2), "rank": int(rk) or None}
                      | ({"pct_read": round(float(sr["pct_read_all"][i]) * 100, 1)} if kind == "popular" else {})
                      for i, pr, rk in zip(items, preds, ranks)]

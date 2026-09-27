@@ -371,8 +371,9 @@ def test_prediction_floor(client):
         filt = client.post("/api/recommend", json={"ratings": ratings, "limit": 100, "sort": sort,
                                                    "filters": {"include_series_continuations": True}}).json()
         assert all(b["predicted_rating"] >= avg - offset - 0.005 for b in filt["for_you"])
-        # readers-like-you tabs are not floored
-        assert any(b["predicted_rating"] < avg - offset for b in res["similar_readers"]["popular"])
+        # readers-like-you tabs are not floored (visible in match order; the predicted sort puts the highest first)
+        if sort == "match":
+            assert any(b["predicted_rating"] < avg - offset for b in res["similar_readers"]["popular"])
 
     # Fewer than 5 ratings: no calibration, so no floor -> identical to the unfloored ranking.
     art, prior = state["art"], state["population"]["rating_dist"]
@@ -428,3 +429,24 @@ def test_prediction_boost_favors_famous_books(client):
     assert np.nanmean(preds[orders[1.0]]) > np.nanmean(preds[orders[0.0]])      # higher predicted ratings on top
     new = np.setdiff1d(orders[1.0], orders[0.0])
     assert len(new) and fame[new].mean() > 0.5                                   # and the newcomers are well known
+
+
+def test_calibration_scales_with_evidence(client):
+    """Books with no link to the user's ratings keep their raw prediction; linked books get the stretch."""
+    import numpy as np
+
+    from goodrec.api.main import state
+    from goodrec.core.scoring import UserInput, apply_calibration, calibration, predict_ratings
+
+    art, prior, idx = state["art"], state["population"]["rating_dist"], state["cat"].idx_of
+    user = UserInput(ratings={idx[r["id"]]: r["rating"] for r in _fantasy_reader(client)})
+    cal = calibration(art, user, prior)
+    items = np.arange(art.meta.n)
+    raw, ev = predict_ratings(art, user, items, return_evidence=True)
+    shown = apply_calibration(raw, cal, ev)
+    full = apply_calibration(raw, cal)
+    none, strong = ev == 0, ev > 0.5
+    assert none.any() and strong.any()
+    assert np.allclose(shown[none], raw[none])                             # no evidence: unstretched
+    assert np.allclose(shown[strong], raw[strong] + ev[strong] * (full[strong] - raw[strong]), atol=1e-5)
+    assert ((ev >= 0) & (ev < 1)).all()

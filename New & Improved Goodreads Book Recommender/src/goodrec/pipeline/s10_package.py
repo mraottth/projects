@@ -60,12 +60,18 @@ def build_meta(cat: pl.DataFrame, R: sparse.csr_matrix, Read: sparse.csr_matrix,
         ids.extend(tag_vocab.setdefault(t, len(tag_vocab)) for t in (tags or []))
         indptr.append(len(ids))
 
+    # Item mean ("bayes"): the dataset readers' average, shrunk toward the book's Goodreads-wide average
+    # (not a single global mean) by bayes_m pseudo-ratings. Eval 2026-09-27: held-out prediction RMSE
+    # 0.8642 -> 0.8607 (full history); using the Goodreads average outright was worse (0.8757).
+    gr_avg = cat["avg_rating"].fill_null(0).to_numpy().astype(np.float32)
+    prior = np.where(gr_avg > 0, gr_avg, mu)
+
     meta = dict(
         year=cat["year"].fill_null(0).to_numpy().astype(np.int32),
         avg_rating=cat["avg_rating"].fill_null(0).to_numpy().astype(np.float32),
         ratings_count=cat["ratings_count"].fill_null(0).to_numpy().astype(np.int64),
         n_raters=n_raters.astype(np.int32),
-        bayes=((data_avg * n_raters + bayes_m * mu) / (n_raters + bayes_m)).astype(np.float32),
+        bayes=((data_avg * n_raters + bayes_m * prior) / (n_raters + bayes_m)).astype(np.float32),
         log_pop=np.log1p(readers).astype(np.float32),
         reader_rate=(readers / n_users).astype(np.float32),
         author_id=cat["author_id"].fill_null(-1).to_numpy().astype(np.int64),

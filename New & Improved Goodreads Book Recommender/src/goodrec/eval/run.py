@@ -57,7 +57,8 @@ def _floored(art, user, mask, p: Params, prior) -> np.ndarray:
         return mask
     idx = np.flatnonzero(mask)
     out = np.zeros_like(mask)
-    out[idx[prediction_floor(user, predict_ratings(art, user, idx), cal, p.pred_floor_offset)]] = True
+    raw_pred, ev = predict_ratings(art, user, idx, return_evidence=True)
+    out[idx[prediction_floor(user, raw_pred, cal, p.pred_floor_offset, ev)]] = True
     return out
 
 
