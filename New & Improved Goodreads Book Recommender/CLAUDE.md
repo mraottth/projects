@@ -19,6 +19,7 @@ make test            # pytest (API tests skip unless artifacts/ is built)
 make serve           # uvicorn on :8000; serves frontend/dist if built
 make frontend        # npm install + build frontend/dist
 make dev             # Vite dev server (proxies /api to :8000); run `make serve` alongside
+make chat-secret     # once: store $ANTHROPIC_API_KEY in Secret Manager (make deploy mounts it if present)
 make deploy          # Cloud Build + Cloud Run (project v2-book-recommender, us-central1, scale to zero); uploads artifacts/ via .gcloudignore
 
 PYTHONPATH=src uv run pytest tests/test_api.py::test_filters -q         # single test
@@ -47,6 +48,8 @@ PYTHONPATH=src uv run python -m goodrec.eval.tune_als --users 800       # ALS hy
   - **Public ids are Goodreads `work_id`s**, mapped to `work_idx` in `catalog.py`, so browser-stored ratings survive rebuilds.
   - Per-user model scores are LRU-cached by ratings hash (`main.py`), so filter/tab changes only re-filter.
   - CSV import matching (`matching.py`): Book Id → edition table, then ISBN, then normalized title + author last name (`core/textnorm.py`). Title matches **must** also match an author (main or additional). A title-only fallback matched post-2017 books to unrelated same-titled books, e.g. *The Anarchy* (Dalrymple) → *Anarchy* (Jaymin Eve).
+  - `/api/chat` (`chat.py`, Assistant tab): Claude in a server-side tool loop, two tiers (`chat.models` in `pipeline.yaml`: Haiku for simple messages, Sonnet for complex ones; starter buttons carry a fixed tier, typed messages are labeled by a quick Haiku call in `choose_tier()`, and a conversation that reaches Sonnet stays there) streamed as SSE (`status`/`text`/`books`/`done`/`error`). Tools call the route functions directly (`recommend_route`, `insights`, `book_personal`, `Catalog.search`), so answers match the UI; plus Anthropic's server-side web search. The system prompt holds a library digest (ratings by star, to-read, out-of-catalog reads) and is prompt-cached. Catalog books come back as `[[book:<work_id>]]` markers that `ChatPage.tsx` renders as cover cards. Stateless: the browser sends shelf + transcript each turn (transcript in localStorage `goodrec.chat.v1`). Caps are in-memory per instance (`Limits`). `chat.py` reaches `main` through a lazy proxy (`api`) because `main` mounts the router. Tests use a fake Anthropic client (`tests/test_chat.py`); no test calls the real API.
+  - Import keeps review text (`My Review`, HTML stripped, 1,500 chars) and unmatched rows with rating/shelf; the store keeps them as `reviews` / `outside` for the Assistant only.
   - `/api/browse` (Explore page) reuses `filter_mask` with an empty user; the Explore filter set is separate from Recommendations' in `useUrlState.ts` and defaults to showing everything.
 - `frontend/`: React + Vite + TS, no UI library.
   - Pages: Recommendations (list or map), Rate books, Import, Explore (`/api/browse`), Your books (`/api/books/batch` fills in full details for shelf ids), About (`pages/AboutPage.tsx`, holds `REPO_URL`).

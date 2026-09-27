@@ -302,11 +302,32 @@ export function AboutPage({ go }: { go: (v: "rate" | "import" | "recs") => void 
         <CodeRefs items={[["package", "s10_package.main()"], ["load_artifacts", "load_artifacts()"], ["api_recommend", "recommend_route()"], ["api_search", "Catalog.search()"], ["csv_matching", "match_row()"], ["shelf_store", "ShelfProvider"]]} />
       </Tech>
 
+      <h2>The Assistant</h2>
+      <p>
+        The Assistant is powered by Claude (Anthropic). It doesn&apos;t replace the recommender; it uses it. When
+        you ask for a book, it pulls your For you list (with any filters it needs), what readers like you read and loved,
+        your to-read list, or details about a specific book, then chooses and explains picks in plain language. It also
+        knows books published after 2017, which aren&apos;t in the dataset, and can search the web for them. Those books have
+        no cover card or predicted rating, since the recommender has never seen them. It can also just talk about books.
+      </p>
+      <Tech>
+        <p>
+          <strong>How it&apos;s wired:</strong> a quick Claude Haiku call sorts each message into simple or complex; simple ones are answered by Haiku 4.5 and complex ones (newer books, taste analysis, book discussion) by Sonnet 5. Either way, the model runs a tool-use loop on the server. The tools call the same
+          functions as the rest of the app, so ranks and predicted ratings match what you see elsewhere. The system prompt
+          carries a digest of your library (every rated book by star, your to-read list, and books from your Goodreads
+          export that aren&apos;t in the catalog) and is prompt-cached, so follow-up messages are cheap. Replies stream to the
+          page as server-sent events; catalog books come back as markers the page turns into cover cards. Each visitor has
+          a daily message cap.
+        </p>
+        <CodeRefs items={[["chat_tools", "Toolbox"], ["chat_loop", "run_chat()"], ["chat_digest", "library_digest()"]]} />
+      </Tech>
+
       <h2>Privacy</h2>
       <p>
         There are no accounts. Your ratings are saved only in this browser and sent with each request so the server
         can score books; nothing is stored on the server. An uploaded Goodreads file is read to match your books and
-        then discarded. &ldquo;Clear my shelf&rdquo; at the bottom of any page erases everything.
+        then discarded. &ldquo;Clear my shelf&rdquo; at the bottom of any page erases everything. If you use the Assistant, your
+        ratings, reviews and shelves are sent to Anthropic along with each message to generate the reply.
       </p>
 
       <h2>Credits</h2>

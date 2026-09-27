@@ -11,10 +11,12 @@ import { useUrlState, type UrlState } from "./useUrlState";
 
 // About (with KaTeX) is loaded on demand so the math library isn't in the main bundle.
 const AboutPage = lazy(() => import("./pages/AboutPage").then((m) => ({ default: m.AboutPage })));
+const ChatPage = lazy(() => import("./pages/ChatPage").then((m) => ({ default: m.ChatPage })));
 
 export function App() {
   const [url, update] = useUrlState();
   const [openId, setOpenId] = useState<number | null>(null);
+  const [chatSeed, setChatSeed] = useState<string | null>(null);   // "Chat about this book" from a pop-up
   const shelf = useShelf();
   const go = useCallback((view: UrlState["view"]) => update({ view }, true), [update]);
   const onOpen = useCallback((id: number) => setOpenId(id), []);
@@ -32,6 +34,7 @@ export function App() {
           <button type="button" className={url.view === "yours" ? "on" : ""} aria-current={url.view === "yours" ? "page" : undefined} onClick={() => go("yours")}>
             Your books{shelfSize ? <span className="count" aria-label={`${shelfSize} books`}>{shelfSize}</span> : null}
           </button>
+          <button type="button" className={url.view === "chat" ? "on" : ""} aria-current={url.view === "chat" ? "page" : undefined} onClick={() => go("chat")}>Assistant 🤖</button>
           <button type="button" className={url.view === "rate" ? "on" : ""} aria-current={url.view === "rate" ? "page" : undefined} onClick={() => go("rate")}>Rate books</button>
           <button type="button" className={url.view === "import" ? "on" : ""} aria-current={url.view === "import" ? "page" : undefined} onClick={() => go("import")}>Import</button>
           <button type="button" className={url.view === "about" ? "on" : ""} aria-current={url.view === "about" ? "page" : undefined} onClick={() => go("about")}>About</button>
@@ -48,6 +51,11 @@ export function App() {
                     setFilters={(filters) => update({ filters })} go={go} onOpen={onOpen} />
         )}
         {url.view === "yours" && <YourBooksPage go={go} onOpen={onOpen} />}
+        {url.view === "chat" && (
+          <Suspense fallback={<div className="spinner" />}>
+            <ChatPage go={go} onOpen={onOpen} seed={chatSeed} clearSeed={() => setChatSeed(null)} />
+          </Suspense>
+        )}
         {url.view === "about" && <Suspense fallback={<div className="spinner" />}><AboutPage go={go} /></Suspense>}
         {url.view === "explore" && (
           <ExplorePage filters={url.explore} setFilters={(explore) => update({ explore })}
@@ -63,7 +71,8 @@ export function App() {
         )}
       </footer>
 
-      {openId != null && <BookModal id={openId} onClose={() => setOpenId(null)} onOpen={onOpen} />}
+      {openId != null && <BookModal id={openId} onClose={() => setOpenId(null)} onOpen={onOpen}
+                                       onAsk={(title) => { setOpenId(null); setChatSeed(`Let's talk about ${title}.`); go("chat"); }} />}
     </>
   );
 }

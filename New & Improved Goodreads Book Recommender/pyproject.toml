@@ -12,6 +12,7 @@ dependencies = [
     "orjson>=3.10",
     "python-multipart>=0.0.9",
     "pyyaml>=6.0",
+    "anthropic>=1.8",     # "Ask" tab (api/chat.py)
 ]
 
 [dependency-groups]
@@ -21,7 +22,6 @@ pipeline = [
     "requests>=2.32",
     "tqdm>=4.66",
     "implicit>=0.7.2",
-    "anthropic>=0.40",
 ]
 dev = [
     "pytest>=8",
@@ -40,6 +40,7 @@ default-groups = ["pipeline", "dev"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]      # tests/test_chat.py reuses fixtures from tests/test_api.py
 
 [tool.ruff]
 line-length = 110

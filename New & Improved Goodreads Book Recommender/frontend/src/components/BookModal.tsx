@@ -6,7 +6,9 @@ import { GenreChip, Tag } from "./GenreChip";
 import { ScorePanel } from "./ScorePanel";
 import { AvgRating, Stars } from "./Stars";
 
-export function BookModal({ id, onClose, onOpen }: { id: number; onClose: () => void; onOpen: (id: number) => void }) {
+export function BookModal({ id, onClose, onOpen, onAsk }: {
+  id: number; onClose: () => void; onOpen: (id: number) => void; onAsk?: (title: string) => void;
+}) {
   const [book, setBook] = useState<BookDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const shelf = useShelf();
@@ -57,7 +59,10 @@ export function BookModal({ id, onClose, onOpen }: { id: number; onClose: () => 
                          onChange={(v) => (v ? shelf.rate(book, v) : shelf.unrate(book.id))} />
                 </div>
                 {book.description && <p className="description">{book.description}{book.description.length >= 1200 ? "…" : ""}</p>}
-                <a href={book.url} target="_blank" rel="noreferrer">View on Goodreads ↗</a>
+                <div className="modal-links">
+                  <a href={book.url} target="_blank" rel="noreferrer">View on Goodreads ↗</a>
+                  {onAsk && <button type="button" className="link" onClick={() => onAsk(`${book.title} by ${book.author}`)}>Chat about this book →</button>}
+                </div>
               </div>
               {personal?.predicted_rating != null && (
                 <div className="modal-score">

@@ -76,11 +76,27 @@ export interface RecResponse {
   meta: { n_ratings: number; sort: SortKey; your_avg: number | null; books_avg: number | null; alpha: number; total_candidates: number; min_ratings_for_readers: number; ms: number };
 }
 
+/** A book from the Goodreads export that isn't in the catalog (mostly published after 2017). */
+export interface OutsideBook { title: string; author: string; year: string | null; rating: number | null; shelf: string; review?: string }
+
+export type ChatBook = Pick<Book, "id" | "title" | "author" | "year" | "cover_url" | "cover_url_small" | "isbn" | "genre">;
+export type ChatEvent =
+  | { type: "text"; data: string }
+  | { type: "status"; data: string }
+  | { type: "model"; data: { tier: ChatTier; label: string } }
+  | { type: "books"; data: ChatBook[] }
+  | { type: "done"; data: { usage: Record<string, number> } }
+  | { type: "error"; data: string };
+export type ChatTier = "simple" | "complex";
+export interface ChatStatus { enabled: boolean; models: Record<ChatTier, string>; per_visitor_daily: number; max_turns: number }
+
 export interface ImportResult {
   rated: (Book & { rating: number; match: string })[];
   read_unrated: number[];
   to_read: number[];
-  unmatched: { title: string; author: string; year: string | null }[];
+  unmatched: OutsideBook[];
+  unmatched_to_read: OutsideBook[];
+  reviews: Record<string, string>;     // work_id -> the user's review text
   stats: { rows: number; matched: number; match_rate: number; unmatched_rated_or_read: number };
 }
 
@@ -122,6 +138,28 @@ export const api = {
   genres: () => fetch("/api/genres").then(json<{ name: string; books: number }[]>),
   starter: () => fetch("/api/starter").then(json<Book[]>),
   homeWall: () => fetch("/api/home_wall").then(json<Book[]>),
+  chatStatus: () => fetch("/api/chat/status").then(json<ChatStatus>),
+  /** POST /api/chat and feed its server-sent events to onEvent until the stream ends. */
+  chatStream: async (body: object, onEvent: (e: ChatEvent) => void, signal?: AbortSignal) => {
+    const res = await fetch("/api/chat", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal,
+    });
+    if (!res.ok || !res.body) return json<never>(res);
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i: number;
+      while ((i = buf.indexOf("\n\n")) >= 0) {
+        const chunk = buf.slice(0, i);
+        buf = buf.slice(i + 2);
+        if (chunk.startsWith("data: ")) onEvent(JSON.parse(chunk.slice(6)) as ChatEvent);
+      }
+    }
+  },
   book: (id: number) => fetch(`/api/books/${id}`).then(json<BookDetail>),
   bookPersonal: (id: number, body: object, signal?: AbortSignal) =>
     fetch(`/api/books/${id}/personal`, {

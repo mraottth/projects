@@ -57,6 +57,9 @@ LINKS = {
     "api_search": ("src/goodrec/api/catalog.py", "search"),
     "csv_matching": ("src/goodrec/api/matching.py", "match_row"),
     "shelf_store": ("frontend/src/store.tsx", "ShelfProvider"),
+    "chat_tools": ("src/goodrec/api/chat.py", "Toolbox"),
+    "chat_loop": ("src/goodrec/api/chat.py", "run_chat"),
+    "chat_digest": ("src/goodrec/api/chat.py", "library_digest"),
 }
 
 
