@@ -29,6 +29,7 @@ const BROWSE_SORTS: BrowseSort[] = ["popular", "rating", "newest", "oldest", "ti
 function parseFilters(p: URLSearchParams, defaults: Filters): Filters {
   const f: Filters = { ...defaults };
   f.genres = p.getAll("genre");
+  f.tags = p.getAll("tag");
   f.text = p.get("q") ?? "";
   for (const k of NUM_KEYS) f[k] = p.has(k) ? Number(p.get(k)) : null;
   for (const k of LIST_KEYS) f[k] = p.getAll(k).map(Number).filter(Number.isFinite);
@@ -38,6 +39,7 @@ function parseFilters(p: URLSearchParams, defaults: Filters): Filters {
 
 function writeFilters(p: URLSearchParams, f: Filters, defaults: Filters) {
   f.genres.forEach((g) => p.append("genre", g));
+  f.tags.forEach((t) => p.append("tag", t));
   if (f.text) p.set("q", f.text);
   for (const k of NUM_KEYS) if (f[k] != null) p.set(k, String(f[k]));
   for (const k of LIST_KEYS) f[k].forEach((v) => p.append(k, String(v)));

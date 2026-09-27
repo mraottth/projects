@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { api, type Book, type BrowseSort, type Filters } from "../api";
 import { BookCard } from "../components/BookCard";
+import { ActiveFilters } from "../components/ActiveFilters";
 import { FilterBar } from "../components/FilterBar";
+import { applyFilterClick } from "../filterClick";
 import { useShelf } from "../store";
 import { EXPLORE_DEFAULTS } from "../useUrlState";
 
@@ -87,9 +89,12 @@ export function ExplorePage({ filters, setFilters, sort, setSort, onOpen }: Prop
               from hundreds of thousands.
             </p>
           )}
+          <ActiveFilters filters={filters} defaults={EXPLORE_DEFAULTS} onChange={setFilters} />
           {error && <p className="error">{error}</p>}
           <ol className={`rank-list${loading && books.length === 0 ? " loading" : ""}`}>
-            {books.map((b, i) => <li key={b.id}><BookCard book={b} rank={i + 1} onOpen={onOpen} /></li>)}
+            {books.map((b, i) => (
+              <li key={b.id}><BookCard book={b} rank={i + 1} onOpen={onOpen} onFilter={(f) => setFilters(applyFilterClick(filters, f))} /></li>
+            ))}
           </ol>
           {total === 0 && !loading && <p className="muted">No books match these filters — try loosening them.</p>}
           {loading && books.length === 0 && <div className="spinner" />}

@@ -12,6 +12,8 @@ export function GenreChip({ genre, active, onClick, count }: { genre: string; ac
   );
 }
 
-export function Tag({ children }: { children: string }) {
-  return <span className="tag">{children}</span>;
+export function Tag({ children, onClick }: { children: string; onClick?: () => void }) {
+  return onClick
+    ? <button type="button" className="tag clickable" onClick={onClick} title={`Show only “${children}”`}>{children}</button>
+    : <span className="tag">{children}</span>;
 }

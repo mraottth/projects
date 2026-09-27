@@ -10,6 +10,7 @@ class Rating(BaseModel):
 
 class FilterSpec(BaseModel):
     genres: list[str] = []
+    tags: list[str] = []            # subgenre tags, e.g. "Epic Fantasy"
     authors_include: list[int] = []
     authors_exclude: list[int] = []
     year_min: int | None = None

@@ -54,6 +54,7 @@ async def lifespan(app: FastAPI):
     art = load_artifacts(ARTIFACTS_DIR)
     state.update(art=art, cat=Catalog(art.db_path), params=Params.from_config(), cache=RawCache(),
                  genre_idx={g: i for i, g in enumerate(art.meta.genre_names)},
+                 tag_idx={t: i for i, t in enumerate(art.meta.tag_names)},
                  starter=orjson.loads((ARTIFACTS_DIR / "starter_shelf.json").read_bytes()),
                  population=orjson.loads((ARTIFACTS_DIR / "population_stats.json").read_bytes()))
     print(f"artifacts loaded in {time.time() - t:.1f}s: {art.meta.n:,} books")
@@ -78,9 +79,10 @@ def _user(req: RecommendRequest) -> UserInput:
 
 
 def _filters(f: FilterSpec) -> Filters:
-    gi = state["genre_idx"]
+    gi, ti = state["genre_idx"], state["tag_idx"]
     return Filters(
-        genres=[gi[g] for g in f.genres if g in gi], authors_include=f.authors_include,
+        genres=[gi[g] for g in f.genres if g in gi], tags=[ti[t] for t in f.tags if t in ti] or ([-1] if f.tags else []),
+        authors_include=f.authors_include,
         authors_exclude=f.authors_exclude, year_min=f.year_min, year_max=f.year_max,
         min_avg_rating=f.min_avg_rating, min_ratings_count=f.min_ratings_count,
         max_ratings_count=f.max_ratings_count, text=f.text, include_children=f.include_children,
@@ -144,6 +146,14 @@ def genres():
     return [{"name": g, "books": int(c)} for g, c in zip(art.meta.genre_names, counts)]
 
 
+@app.get("/api/tags")
+def tags():
+    """Subgenre tags with how many books carry each (for the Tags filter)."""
+    m = state["art"].meta
+    counts = np.bincount(m.tag_ids, minlength=len(m.tag_names))
+    return sorted(({"name": t, "books": int(c)} for t, c in zip(m.tag_names, counts) if c), key=lambda d: -d["books"])
+
+
 @app.get("/api/starter")
 def starter():
     return _decorate(state["starter"])
@@ -197,9 +207,20 @@ def insights(req: InsightsRequest):
             "goodreads_avg": round(d["gr_sum"] / d["rated"], 2) if d["rated"] else None,   # same books, all Goodreads readers
             "readers_genre_avg": round(pg["avg"], 2) if pg else None,                      # typical rating in this genre
         })
+    # Genre mix: share of your liked books per parent genre vs. what your nearest readers read.
+    genre_mix = []
+    if len(ratings) >= MIN_RATINGS_FOR_READERS:
+        user = UserInput(ratings=ratings, read=books - set(ratings))
+        raw = _raw(user)
+        sr = similar_readers(art, raw.u, np.ones(m.n, dtype=bool), limit=1) if raw.u is not None else None
+        if sr:
+            you = user_genre_share(art, ratings)
+            order = np.argsort(-(you + sr["genre_share"]))[:8]
+            genre_mix = [{"genre": names[g], "you": round(float(you[g]), 3),
+                          "similar_readers": round(float(sr["genre_share"][g]), 3)} for g in order]
     return {
         "books": {"n": n, "percentile": round(books_pct, 4), "median": br["median"], "p90": br["p90"], "n_readers": br["n_readers"]},
-        "harshness": harsh, "genres": genres,
+        "harshness": harsh, "genres": genres, "genre_mix": genre_mix,
     }
 
 
@@ -218,6 +239,27 @@ def book(work_id: int):
     detail = cat.detail(idx)
     detail["similar"] = _decorate(similar_books(state["art"], idx, 20))
     return detail
+
+
+@app.post("/api/books/{work_id}/personal")
+def book_personal(work_id: int, req: InsightsRequest):
+    """Predicted rating and readers-like-you average for one book (the book pop-up's score box)."""
+    art, cat = state["art"], state["cat"]
+    idx = cat.idx_of.get(work_id)
+    if idx is None:
+        raise HTTPException(404, "book not in catalog")
+    ratings = {cat.idx_of[r.id]: r.rating for r in req.ratings if r.id in cat.idx_of}
+    if not ratings:
+        return {"predicted_rating": None, "readers_avg": None, "readers_n": None}
+    user = UserInput(ratings=ratings, read={cat.idx_of[i] for i in req.read if i in cat.idx_of})
+    out = {"predicted_rating": round(float(predict_ratings(art, user, [idx])[0]), 1), "readers_avg": None, "readers_n": None}
+    raw = _raw(user)
+    if len(ratings) >= MIN_RATINGS_FOR_READERS and raw.u is not None:
+        sr = similar_readers(art, raw.u, np.ones(art.meta.n, dtype=bool), limit=1)
+        if sr:
+            n = int(sr["item_n"][idx])
+            out.update(readers_n=n, readers_avg=round(float(sr["item_avg"][idx]), 2) if n else None)
+    return out
 
 
 @app.post("/api/import")

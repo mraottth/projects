@@ -1,5 +1,6 @@
 import type React from "react";
 import codeLinks from "../codeLinks.json";
+import { TeX } from "../components/TeX";
 
 /** About: what this is, the data, how recommendations are made, how well it works, privacy, credits. */
 export const REPO_URL =
@@ -107,17 +108,17 @@ export function AboutPage({ go }: { go: (v: "rate" | "import" | "recs") => void 
             works well even from a handful of ratings, and it&apos;s where each &ldquo;Because you liked…&rdquo; comes from.
             <Tech>
               <p>Adjusted cosine similarity on user-mean-centered ratings, shrunk by co-rating support:</p>
-              <pre>{`sim(i, j) = cos(r'ᵢ, r'ⱼ) · nᵢⱼ / (nᵢⱼ + 25)      r'ᵤᵢ = rᵤᵢ − r̄ᵤ,  requires nᵢⱼ ≥ 5 co-raters`}</pre>
+              <TeX block>{String.raw`\mathrm{sim}(i,j)=\cos(\mathbf{r}'_i,\mathbf{r}'_j)\cdot\frac{n_{ij}}{n_{ij}+25},\qquad r'_{ui}=r_{ui}-\bar r_u,\quad n_{ij}\ge 5`}</TeX>
               <p>
                 The top 50 neighbors per book are kept (int32 indices plus float16 similarities, about 32 MB). Computing them
-                takes 3.3 minutes on a laptop: sparse <code>Xᵀ X</code> products in blocks of 500 books, with a 1.7 GB peak.
-                At request time each rated book votes with weight <code>wᵢ = rᵢ − b̃ᵤ</code>, where{" "}
-                <code>b̃ᵤ = (Σr + 3·5) / (n + 5)</code> is the user&apos;s mean shrunk toward 3★. So a single 5★ rating
+                takes 3.3 minutes on a laptop: sparse <TeX>{String.raw`X^{\top}X`}</TeX> products in blocks of 500 books, with a 1.7 GB peak.
+                At request time each rated book votes with weight <TeX>{String.raw`w_i=r_i-\tilde b_u`}</TeX>, where{" "}
+                <TeX>{String.raw`\tilde b_u=\frac{\sum r\,+\,3\cdot 5}{n+5}`}</TeX> is the user&apos;s mean shrunk toward 3★. So a single 5★ rating
                 still counts as a strong positive, and a 1–2★ rating pushes its neighbors down.
               </p>
-              <pre>{`score_ii(j) = Σᵢ∈rated wᵢ · sim(i, j)`}</pre>
+              <TeX block>{String.raw`\mathrm{score}_{\mathrm{ii}}(j)=\sum_{i\,\in\,\mathrm{rated}} w_i\,\mathrm{sim}(i,j)`}</TeX>
               <p>&ldquo;Because you liked&rdquo; lists the liked books in <em>j</em>&apos;s own neighbor list with the largest{" "}
-                <code>wᵢ · sim</code>, falling back to the nearest liked book in ALS space.</p>
+                <TeX>{String.raw`w_i\cdot\mathrm{sim}`}</TeX>, falling back to the nearest liked book in ALS space.</p>
               <CodeRefs items={[["item_knn", "item_knn()"], ["ii_weights", "item_item_weights()"], ["ii_scores", "item_item_scores()"], ["explain", "explain()"]]} />
             </Tech>
           </dd>
@@ -133,13 +134,12 @@ export function AboutPage({ go }: { go: (v: "rate" | "import" | "recs") => void 
                 Implicit-feedback ALS (Hu, Koren &amp; Volinsky 2008) via the <code>implicit</code> library: 64 factors,
                 λ = 1.0, 15 iterations, trained on 9.64M nonzeros in 36 s. Ratings become preferences with graded confidence:
               </p>
-              <pre>{`pᵤᵢ = 1 if rated ≥ 3★ or read,  cᵤᵢ = 1 + α·g(r),  α = 30
-g(5★) = 1.0,  g(4★) = 0.7,  g(3★) = 0.3,  g(read, unrated) = 0.2   (1–2★ are not positives)`}</pre>
+              <TeX block>{String.raw`\begin{gathered}p_{ui}=\begin{cases}1 & \text{rated} \ge 3\text{★ or read}\\ 0 & \text{otherwise}\end{cases}\qquad c_{ui}=1+\alpha\,g(r_{ui}),\quad \alpha=30\\[4pt] g(5\text{★})=1.0,\quad g(4\text{★})=0.7,\quad g(3\text{★})=0.3,\quad g(\text{read, unrated})=0.2\quad(1\text{–}2\text{★ are not positives})\end{gathered}`}</TeX>
               <p>A new user is <strong>folded in</strong> without retraining: with item factors <em>Y</em> fixed, the user vector
                 is the exact least-squares solution (the same as <code>implicit</code>&apos;s <code>recalculate_user</code>). That&apos;s a
                 64×64 solve, under a millisecond:</p>
-              <pre>{`u = (YᵀY + Yᵀ(Cᵤ − I)Y + λI)⁻¹ Yᵀ Cᵤ pᵤ        score_als(j) = yⱼ · u`}</pre>
-              <p><code>YᵀY</code> is precomputed. Hyperparameters were picked from a sweep over factors × λ × α. The blended
+              <TeX block>{String.raw`\mathbf{u}=\left(Y^{\top}Y+Y^{\top}(C_u-I)\,Y+\lambda I\right)^{-1}Y^{\top}C_u\,\mathbf{p}_u,\qquad \mathrm{score}_{\mathrm{als}}(j)=\mathbf{y}_j^{\top}\mathbf{u}`}</TeX>
+              <p><TeX>{String.raw`Y^{\top}Y`}</TeX> is precomputed. Hyperparameters were picked from a sweep over factors × λ × α. The blended
                 NDCG barely moved across settings (0.1212–0.1220), while ALS-only NDCG favored α = 30, λ = 1.0, which also
                 sharpens the user vectors behind &ldquo;readers like you.&rdquo;</p>
               <CodeRefs items={[["als_confidence", "confidence_matrix()"], ["als_train", "train_als()"], ["fold_in", "fold_in()"], ["als_sweep", "tune_als.py"]]} />
@@ -155,8 +155,7 @@ g(5★) = 1.0,  g(4★) = 0.7,  g(3★) = 0.3,  g(read, unrated) = 0.2   (1–2�
             <Tech>
               <p>Candidates are the union of each model&apos;s top 300 after filters. Each signal is z-scored within that
                 candidate set and combined with weights that depend on the number of ratings <em>n</em>:</p>
-              <pre>{`final = a·z(als) + (1 − a)·z(ii) + β·z(log(1 + readers))
-a(n) = n / (n + 20)          β(n) = (1 − a)·0.0 + a·(−0.3)`}</pre>
+              <TeX block>{String.raw`\begin{gathered}\mathrm{final}=a\,z(\mathrm{als})+(1-a)\,z(\mathrm{ii})+\beta\,z\big(\log(1+\mathrm{readers})\big)\\[4pt] a(n)=\frac{n}{n+20},\qquad \beta(n)=(1-a)\cdot 0+a\cdot(-0.3)\end{gathered}`}</TeX>
               <p>
                 k<sub>a</sub> = 20 came from a grid search. Popularity helped cold-start users slightly and hurt users with full
                 histories; a penalty of β = −0.3 raised full-history NDCG@20 from 0.128 to 0.132 and increased catalog
@@ -182,8 +181,7 @@ a(n) = n / (n + 20)          β(n) = (1 − a)·0.0 + a·(−0.3)`}</pre>
                 The top M = 300 by cosine <em>s<sub>v</sub></em> are kept, and their actual shelves are read from a users × books
                 int8 matrix (27 MB).
               </p>
-              <pre>{`popular(j)   = reach(j) / globalRate(j)^0.5,   reach(j) = Σᵥ sᵥ·1[v read j] / Σᵥ sᵥ
-top_rated(j) = (Σᵥ sᵥ·rᵥⱼ + 5·μⱼ) / (Σᵥ sᵥ + 5),  shown if ≥ max(5, M/100) neighbors rated j`}</pre>
+              <TeX block>{String.raw`\begin{gathered}\mathrm{popular}(j)=\frac{\mathrm{reach}(j)}{\mathrm{globalRate}(j)^{0.5}},\qquad \mathrm{reach}(j)=\frac{\sum_v s_v\,\mathbb{1}[v\text{ read }j]}{\sum_v s_v}\\[6pt] \mathrm{topRated}(j)=\frac{\sum_v s_v\,r_{vj}+5\,\mu_j}{\sum_v s_v+5},\quad\text{shown if}\ \ge\max(5,\,M/100)\ \text{neighbors rated } j\end{gathered}`}</TeX>
               <p>The &ldquo;% of similar readers read it&rdquo; and the &ldquo;Readers like you&rdquo; average on each card are
                 unweighted over the 300 neighbors, so they&apos;re easy to interpret. The damping exponent keeps universally read
                 books from filling the popular list.</p>
@@ -199,9 +197,7 @@ top_rated(j) = (Σᵥ sᵥ·rᵥⱼ + 5·μⱼ) / (Σᵥ sᵥ + 5),  shown if �
             tend to give 3 stars, a 3.7 is a strong prediction.
             <Tech>
               <p>A baseline plus a neighborhood residual (a classic item-kNN predictor), separate from the ranking blend:</p>
-              <pre>{`μⱼ   = (nⱼ·r̄ⱼ + 50·μ) / (nⱼ + 50)                         Bayesian item mean (training data)
-bᵤ   = Σᵢ (rᵤᵢ − μᵢ) / (n + 5)                                user bias, shrunk
-r̂ᵤⱼ = clip₁⁵( μⱼ + bᵤ + Σᵢ sᵢⱼ·(rᵤᵢ − μᵢ − bᵤ) / (Σᵢ |sᵢⱼ| + 0.5) )`}</pre>
+              <TeX block>{String.raw`\begin{aligned}\mu_j&=\dfrac{n_j\,\bar r_j+50\,\mu}{n_j+50}&&\text{Bayesian item mean (training data)}\\[4pt] b_u&=\dfrac{\sum_i\,(r_{ui}-\mu_i)}{n+5}&&\text{user bias, shrunk}\\[4pt] \hat r_{uj}&=\operatorname{clip}_{[1,5]}\!\left(\mu_j+b_u+\dfrac{\sum_i s_{ij}\,(r_{ui}-\mu_i-b_u)}{\sum_i|s_{ij}|+0.5}\right)\end{aligned}`}</TeX>
               <p>The sum runs over your rated books linked to <em>j</em> in either direction of the top-50 neighbor lists, using
                 the larger similarity. Accuracy on held-out ratings (RMSE in stars, lower is better) improves as you rate more:</p>
               <table className="viz-table about-table">

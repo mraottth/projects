@@ -1,6 +1,5 @@
-import { useCallback, useState } from "react";
+import { lazy, Suspense, useCallback, useState } from "react";
 import { BookModal } from "./components/BookModal";
-import { AboutPage } from "./pages/AboutPage";
 import { Home } from "./pages/Home";
 import { ExplorePage } from "./pages/ExplorePage";
 import { ImportPage } from "./pages/ImportPage";
@@ -10,26 +9,32 @@ import { YourBooksPage } from "./pages/YourBooksPage";
 import { useShelf } from "./store";
 import { useUrlState, type UrlState } from "./useUrlState";
 
+// About (with KaTeX) is loaded on demand so the math library isn't in the main bundle.
+const AboutPage = lazy(() => import("./pages/AboutPage").then((m) => ({ default: m.AboutPage })));
+
 export function App() {
   const [url, update] = useUrlState();
   const [openId, setOpenId] = useState<number | null>(null);
   const shelf = useShelf();
   const go = useCallback((view: UrlState["view"]) => update({ view }, true), [update]);
   const onOpen = useCallback((id: number) => setOpenId(id), []);
+  const shelfSize = new Set([...Object.keys(shelf.ratings).map(Number), ...shelf.read]).size;
 
   return (
     <>
       <header className="topbar">
         <button type="button" className="brand" onClick={() => go("home")}>📚 Shelf Life</button>
         <nav>
-          <button type="button" className={url.view === "recs" ? "on" : ""} onClick={() => go("recs")}>
-            Recommendations{shelf.count ? <span className="count">{shelf.count}</span> : null}
+          <button type="button" className={url.view === "recs" ? "on" : ""} aria-current={url.view === "recs" ? "page" : undefined} onClick={() => go("recs")}>
+            Recommendations
           </button>
-          <button type="button" className={url.view === "explore" ? "on" : ""} onClick={() => go("explore")}>Explore</button>
-          <button type="button" className={url.view === "yours" ? "on" : ""} onClick={() => go("yours")}>Your books</button>
-          <button type="button" className={url.view === "rate" ? "on" : ""} onClick={() => go("rate")}>Rate books</button>
-          <button type="button" className={url.view === "import" ? "on" : ""} onClick={() => go("import")}>Import</button>
-          <button type="button" className={url.view === "about" ? "on" : ""} onClick={() => go("about")}>About</button>
+          <button type="button" className={url.view === "explore" ? "on" : ""} aria-current={url.view === "explore" ? "page" : undefined} onClick={() => go("explore")}>Explore</button>
+          <button type="button" className={url.view === "yours" ? "on" : ""} aria-current={url.view === "yours" ? "page" : undefined} onClick={() => go("yours")}>
+            Your books{shelfSize ? <span className="count" aria-label={`${shelfSize} books`}>{shelfSize}</span> : null}
+          </button>
+          <button type="button" className={url.view === "rate" ? "on" : ""} aria-current={url.view === "rate" ? "page" : undefined} onClick={() => go("rate")}>Rate books</button>
+          <button type="button" className={url.view === "import" ? "on" : ""} aria-current={url.view === "import" ? "page" : undefined} onClick={() => go("import")}>Import</button>
+          <button type="button" className={url.view === "about" ? "on" : ""} aria-current={url.view === "about" ? "page" : undefined} onClick={() => go("about")}>About</button>
         </nav>
       </header>
 
@@ -43,7 +48,7 @@ export function App() {
                     setFilters={(filters) => update({ filters })} go={go} onOpen={onOpen} />
         )}
         {url.view === "yours" && <YourBooksPage go={go} onOpen={onOpen} />}
-        {url.view === "about" && <AboutPage go={go} />}
+        {url.view === "about" && <Suspense fallback={<div className="spinner" />}><AboutPage go={go} /></Suspense>}
         {url.view === "explore" && (
           <ExplorePage filters={url.explore} setFilters={(explore) => update({ explore })}
                        sort={url.browseSort} setSort={(browseSort) => update({ browseSort })} onOpen={onOpen} />

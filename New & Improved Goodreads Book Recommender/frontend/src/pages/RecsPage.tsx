@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { api, type Filters, type RecBook, type RecResponse, type SortKey } from "../api";
-import { BookCard } from "../components/BookCard";
+import { api, EMPTY_FILTERS, type Filters, type RecBook, type RecResponse, type SortKey } from "../api";
+import { BookCard, type FilterClick } from "../components/BookCard";
+import { ActiveFilters } from "../components/ActiveFilters";
 import { FilterBar } from "../components/FilterBar";
-import { GenreChart } from "../components/GenreChart";
 import { RecMap } from "../components/RecMap";
+import { applyFilterClick } from "../filterClick";
 import { useShelf } from "../store";
 import type { UrlState } from "../useUrlState";
 
@@ -63,11 +64,6 @@ export function RecsPage({ tab, sort, setSort, layout, setLayout, filters, setTa
   }
 
   const sr = data?.similar_readers;
-  const m = data?.meta;
-  const diff = m && m.your_avg != null && m.books_avg != null ? m.your_avg - m.books_avg : 0;
-  const scaleNote = m && m.your_avg != null && Math.abs(diff) >= 0.25
-    ? `You average ${m.your_avg.toFixed(1)}★, ${Math.abs(diff).toFixed(1)}★ ${diff < 0 ? "below" : "above"} the typical rating for the same books, so predictions are on your scale.`
-    : null;
   const minReaders = data?.meta.min_ratings_for_readers ?? 5;
   const tabs: { key: UrlState["tab"]; label: string; show: boolean }[] = [
     { key: "for-you", label: "For you", show: true },
@@ -80,12 +76,6 @@ export function RecsPage({ tab, sort, setSort, layout, setLayout, filters, setTa
       : tab === "popular" ? sr?.popular
         : tab === "top-rated" ? sr?.top_rated
           : data?.to_read_picks;
-  const blurb = {
-    "for-you": "Predicted from your ratings: books that readers who liked what you liked also rated highly.",
-    "popular": "What your nearest readers (by taste) have read most, adjusted so bestsellers don't crowd out everything else.",
-    "top-rated": "The highest-rated books among your nearest readers, requiring several of them to have rated it.",
-    "to-read": "Your Goodreads to-read shelf, ordered by how much the model thinks you'll like each book.",
-  }[tab];
 
   return (
     <div className="recs-page">
@@ -109,14 +99,6 @@ export function RecsPage({ tab, sort, setSort, layout, setLayout, filters, setTa
 
       <div className="recs-layout">
         <section className="recs-main">
-          <p className="muted small tab-blurb">
-            {blurb} <span className="legend-note">{sort === "match"
-              ? <>Ranked by <strong>best match</strong> (how strongly we recommend it). The <strong>predicted rating</strong> is
-                the number of stars we expect you'd give it.</>
-              : <>Ranked by <strong>predicted rating</strong>, the number of stars we expect you'd give each book;
-                ties go to the better match.</>}</span>
-            {scaleNote && <span className="legend-note">{scaleNote}</span>}
-          </p>
           <div className="sort-row">
             <span className="flabel">Sort by</span>
             <div className="seg" role="group" aria-label="Sort by">
@@ -131,6 +113,7 @@ export function RecsPage({ tab, sort, setSort, layout, setLayout, filters, setTa
               <button type="button" className={layout === "map" ? "on" : ""} onClick={() => setLayout("map")}>Map</button>
             </div>
           </div>
+          <ActiveFilters filters={filters} defaults={EMPTY_FILTERS} onChange={setFilters} />
           {error && <p className="error">{error}</p>}
 
           {(tab === "popular" || tab === "top-rated") && !sr && data && (
@@ -146,15 +129,24 @@ export function RecsPage({ tab, sort, setSort, layout, setLayout, filters, setTa
             </div>
           ) : (
             <ol className={`rank-list${loading ? " loading" : ""}`}>
-              {list?.map((b, i) => <li key={b.id}><BookCard book={b} rank={i + 1} onOpen={onOpen} /></li>)}
+              {list?.map((b, i) => (
+                <li key={b.id}><BookCard book={b} rank={i + 1} onOpen={onOpen} onFilter={(f) => setFilters(applyFilterClick(filters, f))} /></li>
+              ))}
             </ol>
           )}
-          {list && list.length === 0 && !loading && <p className="muted">Nothing matches these filters — try loosening them.</p>}
+          {list && list.length === 0 && !loading && (
+            <p className="muted">
+              {filters.text
+                ? <>No recommendations match &ldquo;{filters.text}&rdquo;. This box searches within your recommendations (title,
+                  author, genre and tags), so books you&apos;ve already read are hidden, and the catalog ends in 2017. To look up
+                  any book, use <strong>Explore</strong>.</>
+                : "Nothing matches these filters. Try loosening them."}
+            </p>
+          )}
           {!data && loading && <div className="spinner" />}
           {layout === "list" && tab === "for-you" && data && data.for_you.length >= limit && limit < 200 && (
             <p className="center"><button type="button" className="ghost" onClick={() => setLimit((l) => l + PAGE)}>Show more</button></p>
           )}
-          {sr && sr.genres.length > 0 && <div className="mobile-only"><GenreChart rows={sr.genres.slice(0, 6)} /></div>}
         </section>
 
         <aside className="recs-side">
@@ -163,17 +155,19 @@ export function RecsPage({ tab, sort, setSort, layout, setLayout, filters, setTa
             <summary>Filters</summary>
             <FilterBar filters={filters} onChange={setFilters} genres={genres} />
           </details>
-          {sr && sr.genres.length > 0 && <div className="desktop-only"><GenreChart rows={sr.genres.slice(0, 6)} /></div>}
         </aside>
       </div>
 
-      {selected && <CardPopover book={selected.book} rank={selected.rank} onClose={() => setSelected(null)} onOpen={onOpen} />}
+      {selected && <CardPopover book={selected.book} rank={selected.rank} onClose={() => setSelected(null)} onOpen={onOpen}
+                                onFilter={(f) => { setSelected(null); setFilters(applyFilterClick(filters, f)); }} />}
     </div>
   );
 }
 
 /** The full recommendation card for a book clicked on the map. */
-function CardPopover({ book, rank, onClose, onOpen }: { book: RecBook; rank: number; onClose: () => void; onOpen: (id: number) => void }) {
+function CardPopover({ book, rank, onClose, onOpen, onFilter }: {
+  book: RecBook; rank: number; onClose: () => void; onOpen: (id: number) => void; onFilter: (f: FilterClick) => void;
+}) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
@@ -183,7 +177,7 @@ function CardPopover({ book, rank, onClose, onOpen }: { book: RecBook; rank: num
     <div className="modal-backdrop" onClick={onClose}>
       <div className="card-popover" role="dialog" aria-modal="true" aria-label={book.title} onClick={(e) => e.stopPropagation()}>
         <button type="button" className="modal-close" onClick={onClose} aria-label="Close">×</button>
-        <BookCard book={book} rank={rank} onOpen={(id) => { onClose(); onOpen(id); }} />
+        <BookCard book={book} rank={rank} onOpen={(id) => { onClose(); onOpen(id); }} onFilter={onFilter} />
       </div>
     </div>
   );

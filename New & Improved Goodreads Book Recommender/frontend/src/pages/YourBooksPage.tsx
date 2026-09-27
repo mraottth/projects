@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { api, type Book, type Insights } from "../api";
 import { Cover } from "../components/Cover";
 import { GenreChip } from "../components/GenreChip";
 import { GoodreadsLink } from "../components/GoodreadsLink";
+import { GenreChart } from "../components/GenreChart";
 import { GenreTable, InsightTiles } from "../components/Insights";
 import { formatCount, Stars } from "../components/Stars";
 import { useShelf } from "../store";
@@ -36,6 +37,20 @@ export function YourBooksPage({ go, onOpen }: { go: (v: "rate" | "import") => vo
     const t = setTimeout(() => api.insights(JSON.parse(insightsBody), ctl.signal).then(setInsights).catch(() => {}), 250);
     return () => { clearTimeout(t); ctl.abort(); };
   }, [insightsBody]);
+
+  // Genre row: the mix chart matches the height of the collapsed genre table.
+  const [allGenres, setAllGenres] = useState(false);
+  const tableRef = useRef<HTMLDivElement>(null);
+  const [chartHeight, setChartHeight] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const el = tableRef.current;
+    if (!el || allGenres) return;
+    const measure = () => setChartHeight(Math.round(el.getBoundingClientRect().height));
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [allGenres, insights]);
 
   // Fetch full details (averages, counts, tags, links) for any shelf book we don't have yet.
   const ids = useMemo(() => [...new Set([...Object.keys(shelf.ratings).map(Number), ...shelf.read])], [shelf.ratings, shelf.read]);
@@ -99,10 +114,7 @@ export function YourBooksPage({ go, onOpen }: { go: (v: "rate" | "import") => vo
       <section className="yours-stats">
         {insights && <InsightTiles data={insights} />}
         <figure className="viz-root dist-chart" aria-label="Your ratings distribution">
-          <figcaption className="stat-label">
-            Your {rated.length} ratings{yourAvg != null && grAvg != null && <> · avg ★ {yourAvg.toFixed(2)} (Goodreads readers gave
-            the same books {grAvg.toFixed(2)})</>} · click a bar to filter
-          </figcaption>
+          <span className="tile-title">Your ratings</span>
           {dist.map((d) => (
             <button key={d.stars} type="button" className={`dist-row${rating === d.stars ? " on" : ""}`}
                     aria-pressed={rating === d.stars} title={`${d.n} book${d.n === 1 ? "" : "s"} rated ${d.stars}★`}
@@ -112,10 +124,32 @@ export function YourBooksPage({ go, onOpen }: { go: (v: "rate" | "import") => vo
               <span className="dist-n">{d.n}</span>
             </button>
           ))}
+          <figcaption className="dist-caption">
+            {rated.length} ratings{yourAvg != null && grAvg != null && <> · your average ★ {yourAvg.toFixed(2)}; Goodreads readers
+            gave the same books {grAvg.toFixed(2)}</>} · click a bar to filter
+          </figcaption>
         </figure>
       </section>
 
-      {insights && <GenreTable data={insights} active={genre} onGenre={(g) => setGenre(genre === g ? null : g)} />}
+      {insights && insights.genres.length > 0 && (
+        <section className="genre-section">
+          <h2>By genre</h2>
+          <p className="muted small">
+            Your average vs. what all Goodreads readers gave <em>the same books</em>, and the typical rating across the whole
+            genre. Click a genre to filter your list.
+          </p>
+          <div className={`yours-genre-row${insights.genre_mix.length ? "" : " single"}`}>
+            <GenreTable data={insights} active={genre} onGenre={(g) => setGenre(genre === g ? null : g)}
+                        all={allGenres} setAll={setAllGenres} tableRef={tableRef} />
+            {insights.genre_mix.length > 0 && (
+              // Same height as the collapsed table, even while the table is expanded.
+              <div className="genre-mix-card" style={chartHeight ? { height: chartHeight } : undefined}>
+                <GenreChart rows={insights.genre_mix} />
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       <section className="yours-controls">
         <input className="search-within" type="search" placeholder="Search your books (title, author, tag)…" value={q}
@@ -154,8 +188,16 @@ export function YourBooksPage({ go, onOpen }: { go: (v: "rate" | "import") => vo
                   <button type="button" className="card-title" onClick={() => onOpen(book.id)}>{book.title}</button>
                   <GoodreadsLink url={book.url} title={book.title} />
                 </div>
-                <div className="card-author">{book.author}{book.year ? <span className="muted"> · {book.year}</span> : null}</div>
-                {book.genre && <div className="card-tags"><GenreChip genre={book.genre} /></div>}
+                <div className="card-author">
+                  <button type="button" className="filter-link" title={`Show only books by ${book.author}`}
+                          onClick={() => { setQ(book.author); window.scrollTo({ top: 0, behavior: "smooth" }); }}>{book.author}</button>
+                  {book.year ? <span className="muted"> · {book.year}</span> : null}
+                </div>
+                {book.genre && (
+                  <div className="card-tags">
+                    <GenreChip genre={book.genre} active={genre === book.genre} onClick={() => setGenre(genre === book.genre ? null : book.genre)} />
+                  </div>
+                )}
               </div>
               <div className="yours-rating">
                 <Stars value={mine} size="sm" label={`Your rating for ${book.title}`}

@@ -42,6 +42,7 @@ export type BrowseSort = "popular" | "rating" | "newest" | "oldest" | "title";
 
 export interface Filters {
   genres: string[];
+  tags: string[];
   authors_include: number[];
   authors_exclude: number[];
   year_min: number | null;
@@ -56,7 +57,7 @@ export interface Filters {
 }
 
 export const EMPTY_FILTERS: Filters = {
-  genres: [], authors_include: [], authors_exclude: [], year_min: null, year_max: null,
+  genres: [], tags: [], authors_include: [], authors_exclude: [], year_min: null, year_max: null,
   min_avg_rating: null, min_ratings_count: null, max_ratings_count: null, text: "",
   include_children: false, include_comics: false, include_series_continuations: false,
 };
@@ -86,6 +87,7 @@ export interface Insights {
   harshness: null | { bias: number; harsher_than: number; median_bias: number; n_readers: number };
   genres: { genre: string; books: number; rated: number; your_avg: number | null; goodreads_avg: number | null;
             readers_genre_avg: number | null }[];
+  genre_mix: { genre: string; you: number; similar_readers: number }[];
 }
 
 export interface Author { id: number; name: string; ratings_count: number; n_books: number }
@@ -114,9 +116,14 @@ export const api = {
     fetch("/api/insights", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal,
     }).then(json<Insights>),
+  tags: () => fetch("/api/tags").then(json<{ name: string; books: number }[]>),
   genres: () => fetch("/api/genres").then(json<{ name: string; books: number }[]>),
   starter: () => fetch("/api/starter").then(json<Book[]>),
   book: (id: number) => fetch(`/api/books/${id}`).then(json<BookDetail>),
+  bookPersonal: (id: number, body: object, signal?: AbortSignal) =>
+    fetch(`/api/books/${id}/personal`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal,
+    }).then(json<{ predicted_rating: number | null; readers_avg: number | null; readers_n: number | null }>),
   importCsv: (file: File) => {
     const body = new FormData();
     body.append("file", file);

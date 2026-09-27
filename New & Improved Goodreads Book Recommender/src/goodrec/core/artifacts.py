@@ -13,6 +13,7 @@ import orjson
 from scipy import sparse
 
 from goodrec.config import ARTIFACTS_DIR
+from goodrec.core.textnorm import ascii_fold
 
 
 @dataclass
@@ -35,7 +36,8 @@ class ItemMeta:
     tag_indptr: np.ndarray      # CSR over tag vocab: tags of item i = tag_ids[tag_indptr[i]:tag_indptr[i+1]]
     tag_ids: np.ndarray
     tag_names: list[str]
-    search_text: np.ndarray     # object array: lowercased "title author tags" for result filtering
+    search_text: np.ndarray     # object array: accent-folded lowercase "title author genre tags" for result filtering
+    tag_owner: np.ndarray = None  # item index for each entry of tag_ids (inverse of tag_indptr)
 
     @property
     def n(self) -> int:
@@ -64,14 +66,15 @@ def load_meta(root: Path) -> ItemMeta:
     names = orjson.loads((root / "item_meta_names.json").read_bytes())
     con = sqlite3.connect(root / "catalog.db")
     text = np.empty(len(z["year"]), dtype=object)
-    for idx, title, author, tags in con.execute("SELECT work_idx, title, author, tags FROM works"):
-        text[idx] = f"{title} {author} {' '.join(orjson.loads(tags or '[]'))}".lower()
+    for idx, title, author, genre, tags in con.execute("SELECT work_idx, title, author, parent_genre, tags FROM works"):
+        text[idx] = ascii_fold(f"{title} {author} {genre or ''} {' '.join(orjson.loads(tags or '[]'))}").lower()
     con.close()
     return ItemMeta(
         **{k: z[k] for k in ("year", "avg_rating", "ratings_count", "n_raters", "bayes", "log_pop", "reader_rate",
                              "author_id", "is_boxset", "is_children", "is_comic", "series_id", "series_pos",
                              "parent_genre", "tag_indptr", "tag_ids")},
         genre_names=names["genres"], tag_names=names["tags"], search_text=text,
+        tag_owner=np.repeat(np.arange(len(z["year"]), dtype=np.int32), np.diff(z["tag_indptr"])),
     )
 
 

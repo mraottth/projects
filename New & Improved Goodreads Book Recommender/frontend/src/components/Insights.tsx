@@ -1,4 +1,4 @@
-import { useState } from "react";
+import type React from "react";
 import type { Insights as InsightsData } from "../api";
 import { GenreChip } from "./GenreChip";
 
@@ -24,56 +24,48 @@ export function InsightTiles({ data }: { data: InsightsData }) {
   return (
     <>
       <div className="stat-tile insight">
-        <span className="stat-label">Books read</span>
-        <span className="stat-value">{b.n.toLocaleString()}</span>
-        <span className="insight-line">
-          More than <strong>{pct(b.percentile)}</strong> of the {b.n_readers.toLocaleString()} readers in the dataset
-        </span>
+        <span className="tile-title">{b.n.toLocaleString()} books read</span>
+        <span className="insight-line">More than <strong>{pct(b.percentile)}</strong> of the {b.n_readers.toLocaleString()} readers in the dataset</span>
         <PercentileTrack value={b.percentile} left="fewer books" right="more books" label={`${pct(b.percentile)} percentile`} />
-        <span className="muted tiny">
-          Typical reader: {b.median} books; top 10%: {Math.round(b.p90)}+. Dataset readers are counted by the books they
-          reviewed through 2017, which undercounts their reading, so this is a rough comparison.
-        </span>
       </div>
 
       <div className="stat-tile insight">
-        <span className="stat-label">How harsh a critic are you?</span>
         {h ? (
           <>
-            <span className="stat-value">{h.harsher_than >= 0.5 ? `Harsher than ${pct(h.harsher_than)}` : `Kinder than ${pct(1 - h.harsher_than)}`}</span>
-            <span className="insight-line">
-              of {h.n_readers.toLocaleString()} readers. You rate books <strong>{signed(h.bias)}★</strong> vs. their average,
-              compared with {signed(h.median_bias)}★ for the typical reader.
+            <span className="tile-title one-line">
+              {h.harsher_than >= 0.5 ? `Harsher than ${pct(h.harsher_than)} of readers` : `Kinder than ${pct(1 - h.harsher_than)} of readers`}
             </span>
+            <span className="insight-line">You rate books <strong>{signed(h.bias)}★</strong> vs. their average.</span>
             <PercentileTrack value={h.harsher_than} left="more generous" right="harsher" label={`harsher than ${pct(h.harsher_than)} of readers`} />
-            <span className="muted tiny">Compares each of your ratings with the book&apos;s average rating in the dataset.</span>
           </>
         ) : (
-          <span className="insight-line muted">Rate at least 5 books to see this.</span>
+          <>
+            <span className="tile-title">How harsh a critic are you?</span>
+            <span className="insight-line muted">Rate at least 5 books to see this.</span>
+          </>
         )}
       </div>
     </>
   );
 }
 
-export function GenreTable({ data, onGenre, active }: { data: InsightsData; onGenre: (g: string) => void; active: string | null }) {
-  const [all, setAll] = useState(false);
-  const rows = all ? data.genres : data.genres.slice(0, 8);
+export const GENRE_ROWS_COLLAPSED = 8;
+
+export function GenreTable({ data, onGenre, active, all, setAll, tableRef }: {
+  data: InsightsData; onGenre: (g: string) => void; active: string | null;
+  all: boolean; setAll: (v: boolean) => void; tableRef?: React.Ref<HTMLDivElement>;
+}) {
+  const rows = all ? data.genres : data.genres.slice(0, GENRE_ROWS_COLLAPSED);
   const maxBooks = Math.max(1, ...data.genres.map((g) => g.books));
   if (!data.genres.length) return null;
   return (
     <section className="genre-insights">
-      <h2>By genre</h2>
-      <p className="muted small">
-        Your average vs. what all Goodreads readers gave <em>the same books</em>, and the typical rating across the whole
-        genre. Click a genre to filter your list.
-      </p>
-      <div className="table-scroll">
+      <div className="table-scroll" ref={tableRef}>
         <table className="viz-table genre-table">
           <thead>
             <tr>
-              <th>Genre</th><th>Books</th><th className="num">Your avg</th><th className="num">Goodreads avg<br /><span className="th-sub">same books</span></th>
-              <th className="num">You vs. Goodreads</th><th className="num">Typical in genre</th>
+              <th>Genre</th><th>Books</th><th className="num">Your avg</th><th className="num">Goodreads<br /><span className="th-sub">same books</span></th>
+              <th className="num">Difference</th><th className="num">Genre avg<br /><span className="th-sub">all readers</span></th>
             </tr>
           </thead>
           <tbody>
@@ -98,8 +90,8 @@ export function GenreTable({ data, onGenre, active }: { data: InsightsData; onGe
           </tbody>
         </table>
       </div>
-      {data.genres.length > 8 && (
-        <button type="button" className="link small" onClick={() => setAll((a) => !a)}>
+      {data.genres.length > GENRE_ROWS_COLLAPSED && (
+        <button type="button" className="link small" onClick={() => setAll(!all)}>
           {all ? "Show fewer genres" : `Show all ${data.genres.length} genres`}
         </button>
       )}

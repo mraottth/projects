@@ -523,3 +523,151 @@ button.chip:hover { background: #f1f0eb; }
 .code-link { text-decoration: none; }
 .code-link code { color: var(--accent-ink); background: #eef4fc !important; }
 .code-link:hover code { text-decoration: underline; }
+
+/* ---------- nav: prominent selected tab */
+.topbar nav { gap: 6px; }
+.topbar nav button { font-weight: 500; transition: background 0.15s, color 0.15s; }
+.topbar nav button:hover:not(.on) { background: #efeee9; color: var(--ink); }
+.topbar nav button.on { background: var(--accent-ink); color: #fff; font-weight: 700; box-shadow: 0 2px 8px rgba(28, 92, 171, 0.3); }
+.topbar nav button.on .count { background: #fff; color: var(--accent-ink); }
+
+/* click-to-filter affordances on cards */
+.filter-link { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer;
+  text-decoration: underline dotted; text-decoration-color: var(--axis); text-underline-offset: 3px; }
+.filter-link:hover { color: var(--accent-ink); text-decoration: underline; }
+.tag.clickable { border: 0; cursor: pointer; font: inherit; font-size: 0.75rem; }
+.tag.clickable:hover { background: #e4e2d9; color: var(--ink); }
+
+/* ---------- nav: accented underline for the current page (replaces the filled pill) */
+.topbar nav button { position: relative; }
+.topbar nav button.on { background: none; color: var(--accent-ink); font-weight: 700; box-shadow: none; }
+.topbar nav button.on::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: -11px; height: 3px;
+  border-radius: 3px 3px 0 0; background: var(--accent); }
+.topbar nav button.on .count { background: var(--accent); color: #fff; }
+@media (max-width: 640px) { .topbar nav button.on::after { bottom: -8px; } }
+
+/* ---------- your books tiles: bold title line on every card */
+.tile-title { font-size: 1.15rem; font-weight: 800; line-height: 1.25; color: var(--ink); }
+.dist-chart .tile-title { margin-bottom: 4px; }
+.dist-caption { margin-top: 6px; font-size: 0.75rem; color: var(--ink-2); line-height: 1.4; }
+.yours-page .genre-chart { margin: 4px 0 18px; }
+
+/* ---------- sliders */
+.slider-label { display: flex; justify-content: space-between; align-items: baseline; }
+.slider-value { font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.single-range { width: 100%; accent-color: var(--accent); margin: 4px 0 0; }
+.range-ends { position: relative; height: 14px; font-size: 0.68rem; color: var(--muted); }
+.range-ends span { position: absolute; }
+.range-ends span:nth-child(1) { left: 0; }
+.range-ends span:nth-child(2) { left: 5.3%; }
+.range-ends span:nth-child(3) { right: 0; }
+/* one track, two thumbs: stacked range inputs; only the thumbs take pointer events */
+.dual-range { position: relative; height: 22px; margin: 4px 0 2px; }
+.dual-track, .dual-fill { position: absolute; top: 9px; height: 4px; border-radius: 4px; }
+.dual-track { left: 0; right: 0; background: #dcdad3; }
+.dual-fill { background: var(--accent); }
+.dual-range input[type="range"] { position: absolute; left: 0; top: 0; width: 100%; height: 22px; margin: 0; background: none;
+  pointer-events: none; -webkit-appearance: none; appearance: none; }
+.dual-range input[type="range"]::-webkit-slider-runnable-track { background: none; height: 22px; }
+.dual-range input[type="range"]::-moz-range-track { background: none; }
+.dual-range input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; pointer-events: auto; width: 16px; height: 16px;
+  margin-top: 3px; border-radius: 50%; background: var(--card); border: 2px solid var(--accent); cursor: pointer; }
+.dual-range input[type="range"]::-moz-range-thumb { pointer-events: auto; width: 14px; height: 14px; border-radius: 50%;
+  background: var(--card); border: 2px solid var(--accent); cursor: pointer; }
+.dual-range input[type="range"]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px rgba(42, 120, 214, 0.3); }
+
+/* KaTeX math on the About page */
+.tex-block { margin: 10px 0; padding: 10px 12px; background: #f6f5f1; border-radius: 6px; overflow-x: auto; overflow-y: hidden; color: var(--ink); }
+.tex-block .katex-display { margin: 0; }
+.tex-block .katex { font-size: 1.02em; }
+.tex-inline .katex { font-size: 1.02em; }
+.range-ends span:nth-child(2) { left: auto; right: 0; }
+.yours-stats { align-items: start; }
+
+/* ---------- active-filter bar above book lists */
+.active-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: -2px 0 14px; padding: 8px 12px;
+  background: #eef4fc; border: 1px solid #d3e3f7; border-radius: 12px; }
+.af-label { font-size: 0.78rem; font-weight: 700; color: var(--accent-ink); margin-right: 2px; }
+.af-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 4px 3px 10px; border-radius: 999px; background: var(--card);
+  border: 1px solid #c3d8f3; font-size: 0.8rem; color: var(--ink); }
+.af-chip button { width: 18px; height: 18px; border-radius: 50%; border: 0; background: none; color: var(--muted); line-height: 1; padding: 0; }
+.af-chip button:hover { background: #e4e2dc; color: var(--ink); }
+.active-filters .link { margin-left: 4px; }
+
+/* ---------- tag list: scroll through the top 50 */
+.typeahead-list.scrollable { max-height: 280px; overflow-y: auto; overscroll-behavior: contain; }
+
+/* ---------- your books: equal-height tiles, tracks aligned at the bottom */
+.yours-stats { align-items: stretch; }
+.stat-tile.insight .ptrack { margin-top: auto; }
+/* second row: genre mix chart | by-genre table */
+.yours-genre-row { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.3fr); gap: 16px; align-items: start; margin: 4px 0 22px; }
+.yours-genre-row.single { grid-template-columns: 1fr; }
+.yours-genre-row .genre-chart, .yours-genre-row .genre-insights { margin: 0; }
+.yours-genre-row .genre-chart .db-row { grid-template-columns: 150px 1fr; }
+.yours-genre-row .genre-chart figcaption .small { display: block; }
+.yours-genre-row .genre-table th, .yours-genre-row .genre-table td { padding: 6px 8px; }
+.yours-genre-row .count-track { width: 56px; }
+.yours-genre-row .count-cell { min-width: 0; }
+@media (max-width: 980px) { .yours-genre-row { grid-template-columns: 1fr; } }
+/* genre row: give the table room */
+.yours-genre-row { grid-template-columns: 360px minmax(0, 1fr); }
+.yours-genre-row .genre-table .chip { white-space: nowrap; font-size: 0.74rem; }
+.yours-genre-row .count-track { display: none; }
+.yours-genre-row .genre-table th { font-size: 0.72rem; white-space: nowrap; }
+.yours-genre-row .genre-insights h2 { margin-top: 2px; }
+.stat-tile.insight .ptrack { margin-top: 6px; }
+
+/* ---------- your books: genre section (header spans table + chart; chart on the right, table-height) */
+.genre-section { margin: 6px 0 22px; }
+.genre-section > h2 { margin: 0 0 2px; }
+.genre-section > p { margin: 0 0 10px; }
+.yours-genre-row { grid-template-columns: minmax(0, 1fr) 360px; align-items: start; margin: 0; }
+.yours-genre-row .genre-insights { margin: 0; }
+.yours-genre-row .genre-table { margin: 0; }
+.genre-mix-card { min-height: 0; display: flex; }
+.genre-mix-card .genre-chart { flex: 1; display: flex; flex-direction: column; margin: 0; padding: 12px 14px 8px; min-height: 0; }
+.genre-mix-card .genre-chart figcaption { font-size: 0.95rem; }
+.genre-mix-card .genre-chart figcaption .small { display: block; font-size: 0.74rem; line-height: 1.35; }
+.genre-mix-card .viz-legend { margin: 4px 0 2px; }
+.genre-mix-card .dumbbell { flex: 1; justify-content: space-between; min-height: 0; }
+.genre-mix-card .db-row { min-height: 22px; grid-template-columns: 124px 1fr; }
+.genre-mix-card .db-track { height: 22px; margin-right: 8px; }
+.genre-mix-card .db-line { top: 10px; }
+.genre-mix-card .db-dot { top: 6px; }
+.genre-mix-card .db-label { font-size: 0.75rem; }
+
+/* ---------- your books: tighter histogram, fuller insight tiles */
+.yours-stats { gap: 12px; margin: 14px 0 18px; }
+.stat-tile.insight { padding: 16px 18px; gap: 8px; justify-content: space-between; }
+.stat-tile.insight .tile-title { font-size: 1.3rem; }
+.stat-tile.insight .insight-line { font-size: 0.95rem; }
+.ptrack { margin: 2px 0 0; }
+.stat-tile.insight .ptrack { margin-top: 4px; }
+.ptrack-bar { height: 14px; background: linear-gradient(to right, #dbe7f7, #b7d3f6); }
+.ptrack-tick { top: -3px; height: 20px; background: rgba(28, 92, 171, 0.35); }
+.ptrack-dot { width: 22px; height: 22px; margin: -11px 0 0 -11px; box-shadow: 0 0 0 3px var(--card), 0 1px 4px rgba(0, 0, 0, 0.2); }
+.ptrack-ends { font-size: 0.75rem; margin-top: 6px; }
+.dist-chart { padding: 12px 16px; gap: 1px; }
+.dist-chart .tile-title { font-size: 1.15rem; margin-bottom: 2px; }
+.dist-row { padding: 1px 4px; }
+.dist-track { height: 10px; }
+.dist-caption { margin-top: 4px; }
+@media (max-width: 980px) { .yours-genre-row { grid-template-columns: 1fr; } .genre-mix-card { height: auto !important; } }
+.yours-genre-row { grid-template-columns: minmax(0, 1fr) 384px; }
+.genre-mix-card .db-row { grid-template-columns: 140px 1fr; }
+.genre-mix-card .db-row { grid-template-columns: 152px 1fr; }
+.yours-genre-row { grid-template-columns: minmax(0, 1fr) 392px; }
+.tile-title.one-line { white-space: nowrap; }
+@media (max-width: 760px) { .tile-title.one-line { white-space: normal; } }
+
+/* book pop-up: score box on the right of the details */
+.modal-score { flex: 0 0 196px; align-self: flex-start; }
+.modal-info { flex: 1; }
+@media (max-width: 760px) {
+  .modal-head { flex-wrap: wrap; }
+  .modal-score { flex: 1 1 100%; order: -1; }
+  .modal-score .predicted { flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 10px; }
+  .modal-score .compare { border-top: 0; border-left: 1px solid #d3e3f7; margin: 0; padding: 0 0 0 10px; width: auto; }
+}
+.modal-score { margin-top: 26px; }

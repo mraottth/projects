@@ -11,6 +11,7 @@ import numpy as np
 
 from goodrec.config import load_config
 from goodrec.core.artifacts import Artifacts
+from goodrec.core.textnorm import ascii_fold
 
 
 @dataclass
@@ -27,6 +28,7 @@ class UserInput:
 @dataclass
 class Filters:
     genres: list[int] = field(default_factory=list)          # parent genre ids (any-of)
+    tags: list[int] = field(default_factory=list)            # subgenre tag ids (all-of: each click narrows)
     authors_include: list[int] = field(default_factory=list)
     authors_exclude: list[int] = field(default_factory=list)
     year_min: int | None = None
@@ -184,8 +186,12 @@ def filter_mask(art: Artifacts, user: UserInput, f: Filters, allow: set[int] = f
         mask &= m.ratings_count >= f.min_ratings_count
     if f.max_ratings_count is not None:
         mask &= m.ratings_count <= f.max_ratings_count
+    for t in f.tags:
+        has = np.zeros(m.n, dtype=bool)
+        has[m.tag_owner[m.tag_ids == t]] = True
+        mask &= has
     if f.text.strip():
-        terms = f.text.lower().split()
+        terms = ascii_fold(f.text).lower().split()
         idx = np.flatnonzero(mask)
         keep = [i for i in idx if all(t in m.search_text[i] for t in terms)]
         mask[:] = False

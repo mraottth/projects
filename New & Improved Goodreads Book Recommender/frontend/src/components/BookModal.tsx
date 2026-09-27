@@ -3,12 +3,22 @@ import { api, type BookDetail } from "../api";
 import { useShelf } from "../store";
 import { Cover } from "./Cover";
 import { GenreChip, Tag } from "./GenreChip";
+import { ScorePanel } from "./ScorePanel";
 import { AvgRating, Stars } from "./Stars";
 
 export function BookModal({ id, onClose, onOpen }: { id: number; onClose: () => void; onOpen: (id: number) => void }) {
   const [book, setBook] = useState<BookDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const shelf = useShelf();
+  const [personal, setPersonal] = useState<{ predicted_rating: number | null; readers_avg: number | null; readers_n: number | null } | null>(null);
+
+  // Personal scores (same blue box as the recommendation cards); refreshes if the user rates in the modal.
+  const personalBody = JSON.stringify({ ratings: shelf.requestBody().ratings, read: shelf.read });
+  useEffect(() => {
+    const ctl = new AbortController();
+    api.bookPersonal(id, JSON.parse(personalBody), ctl.signal).then(setPersonal).catch(() => {});
+    return () => ctl.abort();
+  }, [id, personalBody]);
 
   useEffect(() => {
     setBook(null);
@@ -49,6 +59,12 @@ export function BookModal({ id, onClose, onOpen }: { id: number; onClose: () => 
                 {book.description && <p className="description">{book.description}{book.description.length >= 1200 ? "…" : ""}</p>}
                 <a href={book.url} target="_blank" rel="noreferrer">View on Goodreads ↗</a>
               </div>
+              {personal?.predicted_rating != null && (
+                <div className="modal-score">
+                  <ScorePanel predicted={personal.predicted_rating} avgRating={book.avg_rating} ratingsCount={book.ratings_count}
+                              readersAvg={personal.readers_avg} readersN={personal.readers_n} />
+                </div>
+              )}
             </div>
             {book.similar.length > 0 && (
               <>

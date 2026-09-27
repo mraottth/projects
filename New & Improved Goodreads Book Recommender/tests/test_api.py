@@ -227,3 +227,33 @@ def test_insights(client):
     assert g["Fantasy"]["books"] >= 3 and g["Fantasy"]["your_avg"] == 2.0 and g["Fantasy"]["readers_genre_avg"] > 3.5
     few = client.post("/api/insights", json={"ratings": tough[:2]}).json()
     assert few["harshness"] is None
+
+
+def test_tag_filter_and_accent_folded_search(client):
+    base = {"ratings": _fantasy_reader(client), "limit": 30}
+    res = client.post("/api/recommend", json={**base, "filters": {"tags": ["Epic Fantasy"]}}).json()["for_you"]
+    assert res and all("Epic Fantasy" in b["tags"] for b in res)
+    both = client.post("/api/recommend", json={**base, "filters": {"tags": ["Epic Fantasy", "Dragons"]}}).json()["for_you"]
+    assert all({"Epic Fantasy", "Dragons"} <= set(b["tags"]) for b in both)   # tags narrow (all-of)
+    assert client.post("/api/recommend", json={**base, "filters": {"tags": ["No Such Tag"]}}).json()["for_you"] == []
+    br = client.post("/api/browse", json={"filters": {"text": "bronte jane eyre"}}).json()["books"]
+    assert br and br[0]["author"].startswith("Charlotte Bront")                  # "bronte" finds "Brontë"
+
+
+def test_tags_endpoint_and_genre_mix(client):
+    tags = client.get("/api/tags").json()
+    assert len(tags) > 100 and tags[0]["books"] >= tags[-1]["books"]
+    res = client.post("/api/insights", json={"ratings": _fantasy_reader(client)}).json()
+    mix = res["genre_mix"]
+    assert mix and any(r["genre"] == "Fantasy" and r["you"] > 0.3 for r in mix)
+    assert client.post("/api/insights", json={"ratings": _fantasy_reader(client)[:2]}).json()["genre_mix"] == []
+
+
+def test_book_personal(client):
+    wor = _first(client, "words of radiance")["id"]
+    res = client.post(f"/api/books/{wor}/personal", json={"ratings": _fantasy_reader(client)}).json()
+    assert 4.0 < res["predicted_rating"] <= 5.0 and res["readers_n"] > 0 and res["readers_avg"] >= 4.0
+    few = client.post(f"/api/books/{wor}/personal", json={"ratings": _fantasy_reader(client)[:2]}).json()
+    assert few["predicted_rating"] is not None and few["readers_n"] is None       # readers need >= 5 ratings
+    assert client.post(f"/api/books/{wor}/personal", json={}).json()["predicted_rating"] is None
+    assert client.post("/api/books/999999999/personal", json={}).status_code == 404
