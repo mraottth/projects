@@ -9,12 +9,25 @@ Shelves: My Rating > 0 -> rating; Exclusive Shelf 'read' with rating 0 -> read-u
 """
 
 import csv
+import html
 import io
+import re
 
 from goodrec.api.catalog import Catalog
 from goodrec.core.textnorm import author_key, clean_isbn, isbn10_to_13, titlekey
 
 REQUIRED = {"Book Id", "Title", "My Rating"}
+MAX_REVIEW = 1500   # characters kept per review (the chat assistant reads them)
+
+
+def clean_review(text: str | None) -> str:
+    """Goodreads exports reviews as HTML fragments: tags -> plain text, trimmed."""
+    if not text:
+        return ""
+    text = re.sub(r"<br\s*/?>|</p>", "\n", text, flags=re.I)
+    text = html.unescape(re.sub(r"<[^>]+>", "", text))
+    text = re.sub(r"\n{3,}", "\n\n", text).strip()
+    return text if len(text) <= MAX_REVIEW else text[:MAX_REVIEW].rsplit(" ", 1)[0] + "…"
 
 
 def match_row(cat: Catalog, row: dict) -> tuple[int | None, str | None]:
@@ -49,7 +62,9 @@ def parse_export(cat: Catalog, raw: bytes) -> dict:
     rated: dict[int, dict] = {}
     read_unrated: set[int] = set()
     to_read: set[int] = set()
-    unmatched: list[dict] = []
+    unmatched: list[dict] = []           # rated/read books not in the catalog (mostly published after 2017)
+    unmatched_to_read: list[dict] = []
+    reviews: dict[int, str] = {}
     counts = {"rows": 0, "book_id": 0, "isbn": 0, "title": 0}
     for row in reader:
         counts["rows"] += 1
@@ -58,13 +73,20 @@ def parse_export(cat: Catalog, raw: bytes) -> dict:
         except ValueError:
             rating = 0
         shelf = (row.get("Exclusive Shelf") or "").strip()
+        review = clean_review(row.get("My Review"))
         idx, how = match_row(cat, row)
         if idx is None:
+            entry = {"title": row.get("Title", ""), "author": row.get("Author", ""),
+                     "year": row.get("Original Publication Year") or row.get("Year Published"),
+                     "rating": rating if 1 <= rating <= 5 else None, "shelf": shelf} | ({"review": review} if review else {})
             if rating > 0 or shelf == "read":
-                unmatched.append({"title": row.get("Title", ""), "author": row.get("Author", ""),
-                                  "year": row.get("Original Publication Year") or row.get("Year Published")})
+                unmatched.append(entry)
+            elif shelf == "to-read":
+                unmatched_to_read.append(entry)
             continue
         counts[how] += 1
+        if review:
+            reviews[idx] = review
         if 1 <= rating <= 5:
             prev = rated.get(idx)
             if prev is None or rating > prev["rating"]:  # duplicate editions -> keep the max
@@ -78,7 +100,7 @@ def parse_export(cat: Catalog, raw: bytes) -> dict:
     matched = counts["book_id"] + counts["isbn"] + counts["title"]
     return {
         "rated": list(rated.values()), "read_unrated": sorted(read_unrated), "to_read": sorted(to_read),
-        "unmatched": unmatched,
+        "unmatched": unmatched, "unmatched_to_read": unmatched_to_read, "reviews": reviews,
         "stats": {**counts, "matched": matched, "unmatched_rated_or_read": len(unmatched),
                   "match_rate": round(matched / counts["rows"], 4) if counts["rows"] else 0.0},
     }

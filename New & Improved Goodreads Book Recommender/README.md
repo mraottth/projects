@@ -7,6 +7,8 @@ A web app that recommends books from your Goodreads ratings, in two ways:
 
 Results come in three views: **For you** (with "Because you liked X" explanations), **Popular with readers like you** and **Top rated by readers like you**. Every book shows your predicted rating next to its average among readers like you and its Goodreads average, and any list can be sorted by best match or predicted rating. A **Map** view plots your top 50 by Goodreads popularity (x, log scale) against average rating (y), colored by predicted rating; hover a dot for the cover and details, click for the full card. An **Explore** page browses the whole catalog with the same filters (genre, author, year, rating, number of ratings), sorted by most rated, highest rated (weighted by rating count), newest, oldest or title. There's also a genre profile and filters for genre, author, year, average rating and number of ratings. Clicking a book shows its description and similar books.
 
+An **Assistant** tab is a reading assistant (Claude: Haiku 4.5 for simple messages, Sonnet 5 for complex ones): it sees your ratings, reviews, to-read list and out-of-catalog reads, calls the recommender as tools (For you, readers like you, catalog search, book details), can search the web for books published after 2017, and talks about books book-club style. Starter buttons cover the common requests.
+
 **Description:**
 Built on the [UCSD Book Graph](https://mengtingwan.github.io/data/goodreads) Goodreads data collected by Mengting Wan and Julian McAuley: 15.7M ratings from 465k users, collapsed from 2.36M editions to a catalog of about 105k works with at least 20 raters. It replaces the 2023 version, which refit a KNN model over the full ratings matrix on every request and took about a minute. Now all the heavy work happens offline, and a request takes milliseconds.
 
@@ -36,13 +38,15 @@ make frontend    # build the React app
 make serve       # http://localhost:8000
 ```
 
+**Assistant tab setup:** export `ANTHROPIC_API_KEY` before `make serve` (without it the tab says it isn't configured). For Cloud Run, run `make chat-secret` once (stores the key in Secret Manager); `make deploy` then mounts it. Usage caps live in `config/pipeline.yaml` under `chat:` (messages per visitor per day, global per day, turns per conversation); also set a monthly spend limit in the Anthropic console as a hard backstop.
+
 **Filetree:**
 ```
 ├── config/            pipeline.yaml (thresholds, hyperparameters), shelf_genres.yaml (genre map)
 ├── src/goodrec/
 │   ├── pipeline/      s00_download … s10_package (offline)
 │   ├── core/          scoring, similar readers, artifacts, text normalization (shared by API + eval)
-│   ├── api/           FastAPI app, CSV import matching, catalog search
+│   ├── api/           FastAPI app, CSV import matching, catalog search, chat (Assistant tab)
 │   └── eval/          offline evaluation + ALS sweep
 ├── frontend/          React + Vite + TypeScript
 ├── tests/

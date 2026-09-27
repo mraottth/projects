@@ -55,4 +55,18 @@ deploy:          ## build the image in Cloud Build and deploy to Cloud Run (uplo
 	gcloud builds submit --project $(GCP_PROJECT) --region $(GCP_REGION) --tag $(IMAGE) .
 	gcloud run deploy goodrec --project $(GCP_PROJECT) --region $(GCP_REGION) --image $(IMAGE) \
 	  --memory 1Gi --cpu 1 --cpu-boost --min-instances 0 --max-instances 3 --concurrency 20 \
-	  --allow-unauthenticated
+	  --allow-unauthenticated $(CHAT_SECRET_FLAG)
+
+# Assistant tab: the Anthropic key lives in Secret Manager; deploy mounts it only if the secret exists.
+CHAT_SECRET_FLAG = $(shell gcloud secrets describe anthropic-key --project $(GCP_PROJECT) >/dev/null 2>&1 \
+                     && echo --set-secrets ANTHROPIC_API_KEY=anthropic-key:latest)
+
+chat-secret:     ## store $$ANTHROPIC_API_KEY in Secret Manager for the Assistant tab (run once; re-run to rotate)
+	@test -n "$$ANTHROPIC_API_KEY" || (echo "set ANTHROPIC_API_KEY first" && exit 1)
+	gcloud services enable secretmanager.googleapis.com --project $(GCP_PROJECT)
+	gcloud secrets describe anthropic-key --project $(GCP_PROJECT) >/dev/null 2>&1 \
+	  || gcloud secrets create anthropic-key --project $(GCP_PROJECT) --replication-policy automatic
+	printf %s "$$ANTHROPIC_API_KEY" | gcloud secrets versions add anthropic-key --project $(GCP_PROJECT) --data-file=-
+	gcloud secrets add-iam-policy-binding anthropic-key --project $(GCP_PROJECT) \
+	  --member serviceAccount:$$(gcloud projects describe $(GCP_PROJECT) --format 'value(projectNumber)')-compute@developer.gserviceaccount.com \
+	  --role roles/secretmanager.secretAccessor

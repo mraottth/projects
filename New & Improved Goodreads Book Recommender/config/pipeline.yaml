@@ -53,3 +53,19 @@ similar_readers:
   n_neighbors: 300
   min_user_ratings: 5
   pop_damping: 0.5
+
+chat:                       # "Assistant" tab (src/goodrec/api/chat.py); needs ANTHROPIC_API_KEY
+  # Two tiers: a quick Haiku call labels each typed message simple/complex (starter buttons carry a fixed tier).
+  # Once a conversation reaches the complex tier it stays there (switching models re-writes the prompt cache).
+  models:
+    simple:  {model: claude-haiku-4-5-20251001, label: Haiku 4.5, effort: null}
+    complex: {model: claude-sonnet-5, label: Sonnet 5, effort: medium}   # effort: low | medium | high
+  router_model: claude-haiku-4-5-20251001
+  max_tokens: 16000         # includes the model's thinking; too low and thinking crowds out the answer
+  max_tool_rounds: 6        # model <-> tool round trips per user message
+  web_search_tool: web_search_20250305
+  web_search_max_uses: 3    # per user message
+  per_visitor_daily: 40     # user messages per IP per day (in-memory, per instance)
+  global_daily: 1500        # user messages per day across all visitors (per instance)
+  max_turns: 30             # user messages per conversation
+  library_max_lines: 2500   # rated books listed in full in the system prompt; beyond that, 1-2 and 4-5 stars only

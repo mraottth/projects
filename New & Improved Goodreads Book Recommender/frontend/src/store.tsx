@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import type { Book, ImportResult } from "./api";
+import type { Book, ImportResult, OutsideBook } from "./api";
 
 /** The user's shelf lives only in this browser (localStorage); the API is stateless. */
 export type ShelfBook = Pick<Book, "id" | "title" | "author" | "cover_url" | "cover_url_small" | "isbn" | "genre" | "year">;
@@ -17,10 +17,23 @@ interface ShelfState {
   manualRead: number[];    // subset of `read` the user marked on this site (kept on re-import)
   toRead: number[];
   dismissed: number[];
+  reviews: Record<number, string>;   // from the import; read by the Assistant tab
+  outside: OutsideBook[];            // export rows not in the catalog (mostly post-2017); read by the Assistant tab
 }
 
 const KEY = "goodrec.shelf.v1";
-const EMPTY: ShelfState = { ratings: {}, read: [], manualRead: [], toRead: [], dismissed: [] };
+const EMPTY: ShelfState = { ratings: {}, read: [], manualRead: [], toRead: [], dismissed: [], reviews: {}, outside: [] };
+const MAX_REVIEW_CHARS = 800_000;   // keep localStorage well under its ~5 MB quota
+
+function capReviews(reviews: Record<string, string>): Record<number, string> {
+  const out: Record<number, string> = {};
+  let total = 0;
+  for (const [id, text] of Object.entries(reviews)) {
+    if ((total += text.length) > MAX_REVIEW_CHARS) break;
+    out[Number(id)] = text;
+  }
+  return out;
+}
 
 function load(): ShelfState {
   try {
@@ -48,6 +61,8 @@ interface ShelfApi extends ShelfState {
   applyImport: (res: ImportResult, mode: ImportMode) => void;
   clear: () => void;
   requestBody: () => { ratings: { id: number; rating: number }[]; read: number[]; to_read: number[]; dismissed: number[] };
+  /** requestBody plus reviews and outside-the-catalog books, for the Assistant tab. */
+  chatShelf: () => object;
 }
 
 const Ctx = createContext<ShelfApi | null>(null);
@@ -96,16 +111,21 @@ export function ShelfProvider({ children }: { children: ReactNode }) {
       manualRead,
       toRead: res.to_read.filter((i) => !(i in ratings)),
       dismissed: mode === "replace" ? [] : p.dismissed,
+      reviews: capReviews(res.reviews ?? {}),
+      outside: [...(res.unmatched ?? []), ...(res.unmatched_to_read ?? [])],
     };
   }), []);
 
-  const value = useMemo<ShelfApi>(() => ({
-    ...s, count: Object.keys(s.ratings).length, rate, unrate, remove, dismiss, undismiss, markRead, applyImport, clear,
-    requestBody: () => ({
+  const value = useMemo<ShelfApi>(() => {
+    const requestBody = () => ({
       ratings: Object.entries(s.ratings).map(([id, v]) => ({ id: Number(id), rating: v.rating })),
       read: s.read, to_read: s.toRead, dismissed: s.dismissed,
-    }),
-  }), [s, rate, unrate, remove, dismiss, undismiss, markRead, applyImport, clear]);
+    });
+    return {
+      ...s, count: Object.keys(s.ratings).length, rate, unrate, remove, dismiss, undismiss, markRead, applyImport, clear,
+      requestBody, chatShelf: () => ({ ...requestBody(), reviews: s.reviews, outside: s.outside }),
+    };
+  }, [s, rate, unrate, remove, dismiss, undismiss, markRead, applyImport, clear]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

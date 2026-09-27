@@ -309,6 +309,8 @@ async def import_csv(file: UploadFile = File(...)):
         "read_unrated": [id_of[i] for i in res["read_unrated"]],
         "to_read": [id_of[i] for i in res["to_read"]],
         "unmatched": res["unmatched"][:500],
+        "unmatched_to_read": res["unmatched_to_read"][:500],
+        "reviews": {id_of[i]: t for i, t in res["reviews"].items()},
         "stats": res["stats"],
     }
 
@@ -443,6 +445,11 @@ def recommend_route(req: RecommendRequest):
                  "alpha": round(res["alpha"], 3), "total_candidates": res["total"],
                  "min_ratings_for_readers": MIN_RATINGS_FOR_READERS, "ms": round((time.time() - t) * 1000, 1)},
     }
+
+
+from goodrec.api.chat import router as chat_router  # noqa: E402  (chat reads main's state lazily)
+
+app.include_router(chat_router)
 
 
 # ------------------------------------------------------------------ frontend
