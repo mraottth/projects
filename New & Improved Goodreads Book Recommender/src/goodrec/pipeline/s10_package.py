@@ -43,6 +43,14 @@ def build_meta(cat: pl.DataFrame, R: sparse.csr_matrix, Read: sparse.csr_matrix,
     sid_map: dict[str, int] = {}
     series_id = np.array([sid_map.setdefault(k, len(sid_map)) if k else -1 for k in series_keys], dtype=np.int32)
 
+    # Young adult: parent genre YA, or a large share of readers' UCSD genre votes are "young-adult".
+    gcols = [c for c in cat.columns if c.startswith("g_")]
+    votes = cat.select(gcols).fill_null(0).to_numpy().astype(np.float64)
+    ya_share = np.divide(cat["g_ya"].fill_null(0).to_numpy(), votes.sum(axis=1),
+                         out=np.zeros(cat.height), where=votes.sum(axis=1) > 0)
+    is_ya = ((cat["parent_genre"] == "Young Adult").fill_null(False).to_numpy()
+             | (ya_share >= load_config()["catalog"]["ya_min_share"]))
+
     parent_idx = {p: i for i, p in enumerate(PARENTS)}
     parent = np.array([parent_idx.get(p, -1) if p else -1 for p in cat["parent_genre"].to_list()], dtype=np.int16)
 
@@ -64,6 +72,7 @@ def build_meta(cat: pl.DataFrame, R: sparse.csr_matrix, Read: sparse.csr_matrix,
         is_boxset=cat["is_boxset"].to_numpy().astype(bool),
         is_children=cat["is_children"].to_numpy().astype(bool),
         is_comic=cat["is_comic"].to_numpy().astype(bool),
+        is_ya=is_ya,
         series_id=series_id,
         series_pos=cat["series_pos"].fill_null(np.nan).to_numpy().astype(np.float32),
         parent_genre=parent,
@@ -101,6 +110,8 @@ def population_stats(cat: pl.DataFrame, meta: dict, names: dict) -> dict:
                       "n_readers": int(len(bias)), "median": float(np.median(bias))},
         "genres": {names["genres"][int(k)]: {"avg": round(float(a), 3), "n_ratings": int(n)}
                    for k, n, a in by_genre.iter_rows()},
+        # Share of all 1-5 star ratings at each level: the prior for calibrating predicted ratings.
+        "rating_dist": np.round(np.bincount(rated["rating"].to_numpy(), minlength=6)[1:] / rated.height, 5).tolist(),
     }
 
 

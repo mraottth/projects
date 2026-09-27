@@ -18,9 +18,10 @@ import numpy as np
 import orjson
 from scipy import sparse
 
-from goodrec.config import INTERIM_DIR, ROOT, load_config
+from goodrec.config import ARTIFACTS_DIR, INTERIM_DIR, ROOT, load_config
 from goodrec.core.artifacts import load_artifacts
-from goodrec.core.scoring import Filters, Params, UserInput, blend, filter_mask, predict_ratings, raw_scores
+from goodrec.core.scoring import Filters, Params, UserInput, blend, calibration, filter_mask, prediction_floor, \
+    predict_ratings, raw_scores
 
 
 def split_users(R: sparse.csr_matrix, frac: float, seed: int, users: np.ndarray):
@@ -47,7 +48,20 @@ def metrics(top: np.ndarray, relevant: set[int], k: int) -> tuple[float, float]:
     return recall, dcg / idcg
 
 
-def evaluate(art, cases, buckets, k, methods: dict[str, Params], log_every=500):
+def _floored(art, user, mask, p: Params, prior) -> np.ndarray:
+    """Apply the serving prediction floor (scoring.prediction_floor) to an eval mask."""
+    if prior is None or p.pred_floor_offset is None:
+        return mask
+    cal = calibration(art, user, prior)
+    if cal is None:
+        return mask
+    idx = np.flatnonzero(mask)
+    out = np.zeros_like(mask)
+    out[idx[prediction_floor(user, predict_ratings(art, user, idx), cal, p.pred_floor_offset)]] = True
+    return out
+
+
+def evaluate(art, cases, buckets, k, methods: dict[str, Params], log_every=500, prior=None):
     m = art.meta
     res = {name: {n: {"recall": [], "ndcg": [], "items": set(), "pop": []} for n in buckets} for name in methods}
     res.update({b: {n: {"recall": [], "ndcg": [], "items": set(), "pop": []} for n in buckets}
@@ -67,7 +81,7 @@ def evaluate(art, cases, buckets, k, methods: dict[str, Params], log_every=500):
                 "top_rated": idx[np.argsort(-m.bayes[idx])[:k]],
             }
             for name, p in methods.items():
-                ranked[name] = blend(art, raw, mask, p)[0][:k]
+                ranked[name] = blend(art, raw, _floored(art, user, mask, p, prior), p)[0][:k]
             for name, top in ranked.items():
                 r, nd = metrics(top, relevant, k)
                 cell = res[name][n]
@@ -125,8 +139,10 @@ def main(users: int | None = None, grid: bool = False) -> None:
     p = Params.from_config()
     methods = {
         "blend (config)": p,
-        "item-item only": Params.from_config(a_override=0.0, beta_pop=0.0, gamma_quality=0.0),
-        "ALS only": Params.from_config(a_override=1.0, beta_pop=0.0, gamma_quality=0.0),
+        "item-item only": Params.from_config(a_override=0.0, beta_pop=0.0, gamma_quality=0.0, pred_floor_offset=None),
+        "ALS only": Params.from_config(a_override=1.0, beta_pop=0.0, gamma_quality=0.0, pred_floor_offset=None),
+        "blend, no prediction floor": Params.from_config(pred_floor_offset=None),
+        "blend, floor at avg - 0.25": Params.from_config(pred_floor_offset=0.25),
     }
     if grid:
         for k_a, beta, gamma in itertools.product([2, 8, 20], [0.0, 0.1, 0.3], [0.0, 0.1, 0.3]):
@@ -134,7 +150,8 @@ def main(users: int | None = None, grid: bool = False) -> None:
                 k_a=k_a, beta_pop=beta, gamma_quality=gamma)
 
     t = time.time()
-    summary = evaluate(art, cases, buckets, k, methods)
+    prior = orjson.loads((ARTIFACTS_DIR / "population_stats.json").read_bytes())["rating_dist"]
+    summary = evaluate(art, cases, buckets, k, methods, prior=prior)
     ratings = rating_metrics(art, cases, buckets)
     elapsed = time.time() - t
 

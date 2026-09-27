@@ -29,6 +29,7 @@ class ItemMeta:
     is_boxset: np.ndarray       # bool
     is_children: np.ndarray     # bool
     is_comic: np.ndarray        # bool
+    is_ya: np.ndarray           # bool, young adult (s10: parent genre YA or YA vote share >= catalog.ya_min_share)
     series_id: np.ndarray       # int32, -1 = not in a series
     series_pos: np.ndarray      # float32, nan = unknown
     parent_genre: np.ndarray    # int16, -1 = none
@@ -71,7 +72,7 @@ def load_meta(root: Path) -> ItemMeta:
     con.close()
     return ItemMeta(
         **{k: z[k] for k in ("year", "avg_rating", "ratings_count", "n_raters", "bayes", "log_pop", "reader_rate",
-                             "author_id", "is_boxset", "is_children", "is_comic", "series_id", "series_pos",
+                             "author_id", "is_boxset", "is_children", "is_comic", "is_ya", "series_id", "series_pos",
                              "parent_genre", "tag_indptr", "tag_ids")},
         genre_names=names["genres"], tag_names=names["tags"], search_text=text,
         tag_owner=np.repeat(np.arange(len(z["year"]), dtype=np.int32), np.diff(z["tag_indptr"])),

@@ -118,6 +118,8 @@ export function FilterBar({ filters, onChange, genres, defaults = EMPTY_FILTERS 
       <div className="fsection toggles">
         <label><input type="checkbox" checked={filters.include_series_continuations}
                       onChange={(e) => set({ include_series_continuations: e.target.checked })} /> Show later books in series</label>
+        <label><input type="checkbox" checked={filters.include_ya}
+                      onChange={(e) => set({ include_ya: e.target.checked })} /> Include young adult books</label>
       </div>
 
       <div className="fsection">
@@ -137,7 +139,8 @@ function activeCount(f: Filters, d: Filters): number {
   return [f.genres.length > 0, f.tags.length > 0, f.authors_include.length > 0, f.authors_exclude.length > 0,
     f.year_min != null, f.year_max != null, f.min_avg_rating != null,
     f.min_ratings_count != null || f.max_ratings_count != null, !!f.text, f.include_children !== d.include_children,
-    f.include_series_continuations !== d.include_series_continuations].filter(Boolean).length;
+    f.include_series_continuations !== d.include_series_continuations,
+    f.include_ya !== d.include_ya].filter(Boolean).length;
 }
 
 /** Minimum Goodreads average: 3.0–4.8 in 0.1 steps; the leftmost stop means "Any". */

@@ -19,6 +19,7 @@ export interface Book {
   predicted_rating?: number;
   readers_avg?: number | null;   // average rating among readers like you
   readers_n?: number;            // how many of them rated it
+  rank?: number | null;          // position in the unfiltered ranking for the current tab + sort
 }
 
 export interface RecBook extends Book {
@@ -54,12 +55,13 @@ export interface Filters {
   include_children: boolean;
   include_comics: boolean;
   include_series_continuations: boolean;
+  include_ya: boolean;
 }
 
 export const EMPTY_FILTERS: Filters = {
   genres: [], tags: [], authors_include: [], authors_exclude: [], year_min: null, year_max: null,
   min_avg_rating: null, min_ratings_count: null, max_ratings_count: null, text: "",
-  include_children: false, include_comics: false, include_series_continuations: false,
+  include_children: false, include_comics: false, include_series_continuations: false, include_ya: false,
 };
 
 export interface RecResponse {
@@ -119,6 +121,7 @@ export const api = {
   tags: () => fetch("/api/tags").then(json<{ name: string; books: number }[]>),
   genres: () => fetch("/api/genres").then(json<{ name: string; books: number }[]>),
   starter: () => fetch("/api/starter").then(json<Book[]>),
+  homeWall: () => fetch("/api/home_wall").then(json<Book[]>),
   book: (id: number) => fetch(`/api/books/${id}`).then(json<BookDetail>),
   bookPersonal: (id: number, body: object, signal?: AbortSignal) =>
     fetch(`/api/books/${id}/personal`, {

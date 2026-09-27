@@ -36,7 +36,7 @@ export function RecsPage({ tab, sort, setSort, layout, setLayout, filters, setTa
   useEffect(() => { api.genres().then(setGenres).catch(() => {}); }, []);
   useEffect(() => setLimit(PAGE), [filters, sort]);
 
-  const [selected, setSelected] = useState<{ book: RecBook; rank: number } | null>(null);
+  const [selected, setSelected] = useState<{ book: RecBook; rank: number | undefined } | null>(null);
   const effLimit = layout === "map" ? MAP_N : limit;
   const body = JSON.stringify({ ...shelf.requestBody(), filters, limit: effLimit, sort });
   useEffect(() => {
@@ -129,8 +129,8 @@ export function RecsPage({ tab, sort, setSort, layout, setLayout, filters, setTa
             </div>
           ) : (
             <ol className={`rank-list${loading ? " loading" : ""}`}>
-              {list?.map((b, i) => (
-                <li key={b.id}><BookCard book={b} rank={i + 1} onOpen={onOpen} onFilter={(f) => setFilters(applyFilterClick(filters, f))} /></li>
+              {list?.map((b) => (
+                <li key={b.id}><BookCard book={b} rank={b.rank ?? undefined} onOpen={onOpen} onFilter={(f) => setFilters(applyFilterClick(filters, f))} /></li>
               ))}
             </ol>
           )}
@@ -166,7 +166,7 @@ export function RecsPage({ tab, sort, setSort, layout, setLayout, filters, setTa
 
 /** The full recommendation card for a book clicked on the map. */
 function CardPopover({ book, rank, onClose, onOpen, onFilter }: {
-  book: RecBook; rank: number; onClose: () => void; onOpen: (id: number) => void; onFilter: (f: FilterClick) => void;
+  book: RecBook; rank: number | undefined; onClose: () => void; onOpen: (id: number) => void; onFilter: (f: FilterClick) => void;
 }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();

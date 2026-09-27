@@ -38,6 +38,8 @@ PYTHONPATH=src uv run python -m goodrec.eval.tune_als --users 800       # ALS hy
 - `src/goodrec/core/` is shared by the API **and** eval, so eval always exercises serving code:
   - `artifacts.py` loads everything.
   - `scoring.py` has fold-in, item-item scoring, blend `a(n)=n/(n+k_a)`, filters, series rules and explanations.
+  - For you excludes books whose calibrated prediction is below the user's average minus `blend.pred_floor_offset` (`prediction_floor()`, applied inside `ranking()` before the pool is built; needs `prior`, the dataset rating distribution, passed by the API). Popular / Top rated / To-read are not floored. `make eval` reports the floor's NDCG cost.
+  - Young adult books (`is_ya`, built in s10: parent genre YA or YA vote share ≥ `catalog.ya_min_share`) are hidden unless `include_ya` is set or the Young Adult genre is selected. The YA toggle changes the ranking universe, so `ranking()` caches per `include_ya` and ranks are recomputed (not just filtered) when it flips. Explore defaults to showing YA.
   - `predict_ratings` (predicted stars shown on every card) is a separate baseline + item-item residual model, not the blend score. The rank and the predicted rating can disagree by design; `make eval` reports its RMSE. `sort="predicted"` re-orders the whole blend candidate pool by prediction (ties by blend score) before paging. `readers_avg`/`readers_n` on each book come from `similar_readers()` (`item_avg`/`item_n`) and only exist once a user has at least 5 ratings.
   - `similar_readers.py` does nearest users in ALS space, then aggregates their actual shelves from `readers_csr.npz`.
   - Serving needs numpy/scipy only. `implicit`, polars and anthropic are pipeline-only dependency groups.
@@ -57,5 +59,6 @@ PYTHONPATH=src uv run python -m goodrec.eval.tune_als --users 800       # ALS hy
 
 - Changing `blend`/`als` params in `config/pipeline.yaml` affects serving immediately (`Params.from_config`). ALS factor params require re-running s08 onward.
 - Popular Goodreads titles embed series as `"Title (Series, #N)"`. `textnorm.parse_series` drives the "hide later volumes / show next in series" rule.
+- The homepage cover wall is hand-picked in `config/home_wall.yaml` (literary / popular, alternated), resolved by title + author at API startup (`_home_wall()`). A test fails if any entry stops resolving. The Rate books grid still uses the computed `starter_shelf.json`.
 - Cover URLs are 2017 Goodreads links (still live as of 2026-09). The frontend falls back to Open Library by ISBN, then a typographic placeholder.
 - The data license is non-commercial; keep the citation in the footer.

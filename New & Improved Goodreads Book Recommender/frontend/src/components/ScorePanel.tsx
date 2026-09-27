@@ -17,7 +17,7 @@ export function ScorePanel({ predicted, avgRating, ratingsCount, readersAvg, rea
   return (
     <div className="predicted" title="The star rating we expect you'd give this book">
       <span className="predicted-label">Predicted for you</span>
-      <span className="predicted-value">{predicted.toFixed(1)}</span>
+      <span className="predicted-value">{predicted.toFixed(2)}</span>
       <StarBar value={predicted} />
       <dl className="compare">
         <div title={`Average of ${ratingsCount.toLocaleString()} Goodreads ratings`}>

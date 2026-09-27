@@ -14,7 +14,8 @@ Built on the [UCSD Book Graph](https://mengtingwan.github.io/data/goodreads) Goo
 * **Similar books (item-item):** precomputed top-50 neighbors per book, using adjusted cosine similarity with shrinkage on co-ratings. This works well with only a handful of ratings and drives the explanations.
 * **Taste model (ALS):** implicit-feedback matrix factorization. A new user's vector is solved at request time from their ratings (fold-in).
 * **Blend:** `a(n)·z(ALS) + (1−a(n))·z(item-item) + β·z(popularity)`, where `a(n) = n/(n+k_a)`. It leans on item-item for new users and on ALS as ratings accumulate.
-* **Predicted rating:** the stars you'd likely give each book: the book's average, adjusted for how harshly or generously you rate, plus a correction from similar books you've rated. On held-out ratings it misses by 0.86 stars (RMSE) with a full history, vs 0.97 for the book's average rating.
+* **Predicted rating:** the stars you'd likely give each book: the book's average, adjusted for how harshly or generously you rate, plus a correction from similar books you've rated. The raw estimate misses held-out ratings by 0.86 stars (RMSE) with a full history, vs 0.97 for the book's average; the displayed value is then quantile-matched to your own rating distribution, so a tough grader's top picks still reach 4.5+ (at a cost of about 0.13 RMSE).
+* **Prediction floor:** once you've rated 5+ books, For you skips books predicted below your average minus 0.25★ (about a 4% NDCG cost, traded for recommendations that match their own predicted ratings).
 * **Readers like you:** the nearest users in ALS embedding space, and what they actually read and rated.
 * **Genres:** mined from Goodreads reader shelves (e.g. `cozy-mystery`, `space-opera`) and mapped to 205 descriptive tags and 34 parent genres. This replaces the old LDA topics.
 

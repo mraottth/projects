@@ -34,6 +34,7 @@ LINKS = {
     "als_sweep": ("src/goodrec/eval/tune_als.py", "main"),
     # blend
     "blend": ("src/goodrec/core/scoring.py", "blend"),
+    "prediction_floor": ("src/goodrec/core/scoring.py", "prediction_floor"),
     "filter_mask": ("src/goodrec/core/scoring.py", "filter_mask"),
     "next_in_series": ("src/goodrec/core/scoring.py", "next_in_series"),
     "recommend": ("src/goodrec/core/scoring.py", "recommend"),
@@ -42,6 +43,7 @@ LINKS = {
     "similar_readers": ("src/goodrec/core/similar_readers.py", "similar_readers"),
     # predicted rating
     "predict_ratings": ("src/goodrec/core/scoring.py", "predict_ratings"),
+    "calibration": ("src/goodrec/core/scoring.py", "calibration"),
     "rating_metrics": ("src/goodrec/eval/run.py", "rating_metrics"),
     # evaluation
     "split_users": ("src/goodrec/eval/run.py", "split_users"),

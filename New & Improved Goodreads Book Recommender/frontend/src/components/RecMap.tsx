@@ -8,14 +8,17 @@ type AnyBook = Book & Partial<RecBook> & Partial<ReaderBook>;
 /**
  * Scatter of the top recommendations: x = Goodreads ratings (log scale), y = Goodreads average.
  * Dots are colored by predicted rating on an ordinal one-hue ramp (dataviz reference blue, steps
- * 250-650); the top five carry their rank as a direct label. Hover/focus grows a dot into its cover
+ * 250-650); the five highest-ranked books shown carry their (unfiltered) rank as a direct label. Hover/focus grows a dot into its cover
  * with an info card; click opens the full recommendation card. The List view is the table fallback.
  */
+/** Stable rank from the API (unchanged by filters); position only if the API didn't send one. */
+const rankOf = (b: AnyBook, i: number): number | null => ("rank" in b ? (b.rank ?? null) : i + 1);
+
 const RAMP = ["#86b6ef", "#5598e7", "#2a78d6", "#1c5cab", "#104281"];
 const M = { top: 18, right: 22, bottom: 52, left: 62 };
 const HEIGHT = 560;
 
-export function RecMap({ books, onSelect }: { books: AnyBook[]; onSelect: (b: AnyBook, rank: number) => void }) {
+export function RecMap({ books, onSelect }: { books: AnyBook[]; onSelect: (b: AnyBook, rank: number | undefined) => void }) {
   const wrap = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(900);
   const [active, setActive] = useState<number | null>(null);
@@ -56,14 +59,14 @@ export function RecMap({ books, onSelect }: { books: AnyBook[]; onSelect: (b: An
   return (
     <figure className="viz-root rec-map">
       <figcaption className="map-caption">
-        <span><strong>Your top {books.length}</strong> by Goodreads popularity and rating. Hover a dot for the book,
+        <span><strong>{books.length} top-ranked books</strong> by Goodreads popularity and rating. Hover a dot for the book,
           click for its full card. Upper right is loved <em>and</em> widely read; upper left is hidden gems.</span>
         {hasPred && (
           <span className="map-legend" aria-label="Color shows predicted rating">
             <span className="muted small">Predicted for you</span>
             {RAMP.map((c, i) => (
-              <span key={c} className="ramp-step" title={`${geo.ranges[i][0]?.toFixed(1)}–${geo.ranges[i][1]?.toFixed(1)}`}>
-                <i style={{ background: c }} />{i === 0 ? geo.ranges[0][0]?.toFixed(1) : i === 4 ? geo.ranges[4][1]?.toFixed(1) : ""}
+              <span key={c} className="ramp-step" title={`${geo.ranges[i][0]?.toFixed(2)}–${geo.ranges[i][1]?.toFixed(2)}`}>
+                <i style={{ background: c }} />{i === 0 ? geo.ranges[0][0]?.toFixed(2) : i === 4 ? geo.ranges[4][1]?.toFixed(2) : ""}
               </span>
             ))}
           </span>
@@ -104,21 +107,21 @@ export function RecMap({ books, onSelect }: { books: AnyBook[]; onSelect: (b: An
           const low = y > HEIGHT * 0.62;          // ...and upward near the bottom
           return (
             <button key={b.id} type="button" className={`map-pt${on ? " on" : ""}`} style={{ left: x, top: y, zIndex: on ? 1000 : books.length - i }}
-                    aria-label={`#${i + 1} ${b.title} by ${b.author}: ${b.avg_rating.toFixed(2)} average from ${b.ratings_count.toLocaleString()} ratings${b.predicted_rating != null ? `, predicted ${b.predicted_rating.toFixed(1)} for you` : ""}`}
+                    aria-label={`${rankOf(b, i) != null ? `#${rankOf(b, i)} ` : ""}${b.title} by ${b.author}: ${b.avg_rating.toFixed(2)} average from ${b.ratings_count.toLocaleString()} ratings${b.predicted_rating != null ? `, predicted ${b.predicted_rating.toFixed(2)} for you` : ""}`}
                     onMouseEnter={() => setActive(i)} onFocus={() => setActive(i)} onBlur={() => setActive(null)}
-                    onClick={() => onSelect(b, i + 1)}>
+                    onClick={() => onSelect(b, rankOf(b, i) ?? undefined)}>
               <span className="map-dot" style={{ background: color }} />
-              {i < 5 && !on && <span className="map-rank">{i + 1}</span>}
+              {i < 5 && rankOf(b, i) != null && !on && <span className="map-rank">{rankOf(b, i)}</span>}
               {on && (
                 <span className={`map-pop${flip ? " flip" : ""}${low ? " low" : ""}`}>
                   <span className="map-cover"><Cover book={b} size="sm" /></span>
                   <span className="map-info">
-                    <span className="map-info-rank">#{i + 1}</span>
+                    {rankOf(b, i) != null && <span className="map-info-rank">#{rankOf(b, i)}</span>}
                     <strong className="map-info-title">{b.title}</strong>
                     <span className="map-info-meta">{b.author}{b.year ? ` · ${b.year}` : ""}</span>
                     <span className="map-info-row"><b>★ {b.avg_rating.toFixed(2)}</b> Goodreads avg · {formatCount(b.ratings_count)} ratings</span>
                     {b.predicted_rating != null && (
-                      <span className="map-info-row"><b>{b.predicted_rating.toFixed(1)}</b> predicted for you</span>
+                      <span className="map-info-row"><b>{b.predicted_rating.toFixed(2)}</b> predicted for you</span>
                     )}
                     {b.genre && <span className="map-info-meta">{b.genre}</span>}
                   </span>

@@ -34,6 +34,10 @@ export function ActiveFilters({ filters: f, defaults, onChange }: Props) {
     const hi = f.max_ratings_count != null ? formatCount(f.max_ratings_count) : "any";
     chips.push({ key: "count", label: `${lo}–${hi} ratings`, remove: () => set({ min_ratings_count: null, max_ratings_count: null }) });
   }
+  if (f.include_ya !== defaults.include_ya) {
+    chips.push({ key: "ya", label: f.include_ya ? "Young adult shown" : "Young adult hidden",
+                 remove: () => set({ include_ya: defaults.include_ya }) });
+  }
   if (f.include_series_continuations !== defaults.include_series_continuations) {
     chips.push({ key: "series", label: f.include_series_continuations ? "Later books in series shown" : "Later books in series hidden",
                  remove: () => set({ include_series_continuations: defaults.include_series_continuations }) });
