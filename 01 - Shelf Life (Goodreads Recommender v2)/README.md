@@ -1,4 +1,4 @@
-### Goodreads Book Recommender (v2)
+### Shelf Life: Goodreads Book Recommender (v2)
 
 A web app that recommends books from your Goodreads ratings, in two ways:
 

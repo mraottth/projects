@@ -22,11 +22,12 @@ export function Home({ go, onOpen }: { go: (v: "rate" | "import" | "recs") => vo
         <div className="entry-cards">
           <button type="button" className="entry" onClick={() => go("import")}>
             <span className="entry-icon">⇪</span>
-            <strong>Upload Your Ratings from Goodreads</strong>
+            <strong>Upload your ratings from Goodreads</strong>
           </button>
+          <span className="entry-or">or</span>
           <button type="button" className="entry" onClick={() => go("rate")}>
             <span className="entry-icon">★</span>
-            <strong>Rate a few books</strong>
+            <strong>Rate books here to get recommendations</strong>
           </button>
         </div>
         {shelf.count > 0 && (
