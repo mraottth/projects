@@ -1,0 +1,586 @@
+# Goodreads shelf -> genre tag map, applied by `make genres` (s06_genres).
+# Drafted by Claude from the top 500 shelves in data/interim/shelf_candidates.tsv; review and edit freely.
+#   keep:    false = ignored (reading status, ownership, formats, or too broad to discriminate)
+#   display: tag shown in the UI; synonyms share a display name so they merge
+#   parent:  one of `parents` (or null for cross-cutting themes/settings); a work's parent genre is
+#            the parent with the largest share of its kept shelves
+# To regenerate with the API instead: `make genres-draft` (needs ANTHROPIC_API_KEY).
+
+parents:
+  - Literary Fiction
+  - Contemporary Fiction
+  - Historical Fiction
+  - Classics
+  - Mystery & Crime
+  - Thriller & Suspense
+  - Horror
+  - Science Fiction
+  - Fantasy
+  - Paranormal & Urban Fantasy
+  - Romance
+  - Erotica
+  - Young Adult
+  - Children's & Middle Grade
+  - Graphic Novels & Comics
+  - Poetry
+  - Plays & Drama
+  - Humor
+  - Women's Fiction
+  - Christian & Inspirational
+  - Adventure & Action
+  - Short Stories & Anthologies
+  - Biography & Memoir
+  - History
+  - Science & Nature
+  - Self-Help & Psychology
+  - Business & Economics
+  - Philosophy & Religion
+  - Politics & Society
+  - True Crime
+  - Travel
+  - Food, Health & Lifestyle
+  - Arts & Culture
+  - Sports
+
+shelves:
+  # --- broad fiction / literary
+  contemporary: {keep: true, display: "Contemporary", parent: "Contemporary Fiction"}
+  contemporary-fiction: {keep: true, display: "Contemporary", parent: "Contemporary Fiction"}
+  realistic-fiction: {keep: true, display: "Realistic Fiction", parent: "Contemporary Fiction"}
+  realistic: {keep: true, display: "Realistic Fiction", parent: "Contemporary Fiction"}
+  literary-fiction: {keep: true, display: "Literary Fiction", parent: "Literary Fiction"}
+  literary: {keep: true, display: "Literary Fiction", parent: "Literary Fiction"}
+  magical-realism: {keep: true, display: "Magical Realism", parent: "Literary Fiction"}
+  southern: {keep: true, display: "Southern Fiction", parent: "Contemporary Fiction"}
+  southern-fiction: {keep: true, display: "Southern Fiction", parent: "Contemporary Fiction"}
+  chick-lit: {keep: true, display: "Chick Lit", parent: "Women's Fiction"}
+  chicklit: {keep: true, display: "Chick Lit", parent: "Women's Fiction"}
+  chic-lit: {keep: true, display: "Chick Lit", parent: "Women's Fiction"}
+  women-s-fiction: {keep: true, display: "Women's Fiction", parent: "Women's Fiction"}
+  womens-fiction: {keep: true, display: "Women's Fiction", parent: "Women's Fiction"}
+  classics: {keep: true, display: "Classics", parent: "Classics"}
+  classic: {keep: true, display: "Classics", parent: "Classics"}
+  classic-literature: {keep: true, display: "Classics", parent: "Classics"}
+  american-literature: {keep: true, display: "American Literature", parent: "Classics"}
+  american-lit: {keep: true, display: "American Literature", parent: "Classics"}
+  british-literature: {keep: true, display: "British Literature", parent: "Classics"}
+  french-literature: {keep: true, display: "French Literature", parent: "Classics"}
+  19th-century: {keep: true, display: "19th Century", parent: null}
+  20th-century: {keep: true, display: "20th Century", parent: null}
+  gothic: {keep: true, display: "Gothic", parent: "Horror"}
+  translated: {keep: true, display: "In Translation", parent: null}
+  translation: {keep: true, display: "In Translation", parent: null}
+  books-about-books: {keep: true, display: "Books About Books", parent: null}
+
+  # --- historical
+  historical-fiction: {keep: true, display: "Historical Fiction", parent: "Historical Fiction"}
+  historical: {keep: true, display: "Historical Fiction", parent: "Historical Fiction"}
+  fiction-historical: {keep: true, display: "Historical Fiction", parent: "Historical Fiction"}
+  medieval: {keep: true, display: "Medieval", parent: null}
+  victorian: {keep: true, display: "Victorian", parent: null}
+  wwii: {keep: true, display: "World War II", parent: null}
+  world-war-ii: {keep: true, display: "World War II", parent: null}
+  ww2: {keep: true, display: "World War II", parent: null}
+  world-war-2: {keep: true, display: "World War II", parent: null}
+  holocaust: {keep: true, display: "Holocaust", parent: null}
+  war: {keep: true, display: "War", parent: null}
+  military: {keep: true, display: "Military", parent: null}
+
+  # --- mystery / crime
+  mystery: {keep: true, display: "Mystery", parent: "Mystery & Crime"}
+  mysteries: {keep: true, display: "Mystery", parent: "Mystery & Crime"}
+  mystery-series: {keep: true, display: "Mystery", parent: "Mystery & Crime"}
+  mystery-suspense: {keep: true, display: "Mystery & Suspense", parent: "Mystery & Crime"}
+  crime: {keep: true, display: "Crime", parent: "Mystery & Crime"}
+  crime-fiction: {keep: true, display: "Crime", parent: "Mystery & Crime"}
+  crime-mystery: {keep: true, display: "Crime", parent: "Mystery & Crime"}
+  mystery-crime: {keep: true, display: "Crime", parent: "Mystery & Crime"}
+  detective: {keep: true, display: "Detective", parent: "Mystery & Crime"}
+  cozy-mystery: {keep: true, display: "Cozy Mystery", parent: "Mystery & Crime"}
+  cozy-mysteries: {keep: true, display: "Cozy Mystery", parent: "Mystery & Crime"}
+  cozy: {keep: true, display: "Cozy Mystery", parent: "Mystery & Crime"}
+  mystery-cozy: {keep: true, display: "Cozy Mystery", parent: "Mystery & Crime"}
+  cozies: {keep: true, display: "Cozy Mystery", parent: "Mystery & Crime"}
+  historical-mystery: {keep: true, display: "Historical Mystery", parent: "Mystery & Crime"}
+  mystery-historical: {keep: true, display: "Historical Mystery", parent: "Mystery & Crime"}
+  historical-mysteries: {keep: true, display: "Historical Mystery", parent: "Mystery & Crime"}
+  murder-mystery: {keep: true, display: "Murder Mystery", parent: "Mystery & Crime"}
+  murder: {keep: true, display: "Murder Mystery", parent: "Mystery & Crime"}
+  police-procedural: {keep: true, display: "Police Procedural", parent: "Mystery & Crime"}
+  noir: {keep: true, display: "Noir", parent: "Mystery & Crime"}
+
+  # --- thriller / suspense / adventure
+  suspense: {keep: true, display: "Suspense", parent: "Thriller & Suspense"}
+  suspense-thriller: {keep: true, display: "Suspense", parent: "Thriller & Suspense"}
+  thriller: {keep: true, display: "Thriller", parent: "Thriller & Suspense"}
+  thrillers: {keep: true, display: "Thriller", parent: "Thriller & Suspense"}
+  mystery-thriller: {keep: true, display: "Mystery Thriller", parent: "Thriller & Suspense"}
+  psychological-thriller: {keep: true, display: "Psychological Thriller", parent: "Thriller & Suspense"}
+  crime-thriller: {keep: true, display: "Crime Thriller", parent: "Thriller & Suspense"}
+  espionage: {keep: true, display: "Espionage", parent: "Thriller & Suspense"}
+  spy: {keep: true, display: "Espionage", parent: "Thriller & Suspense"}
+  adventure: {keep: true, display: "Adventure", parent: "Adventure & Action"}
+  action: {keep: true, display: "Action & Adventure", parent: "Adventure & Action"}
+  action-adventure: {keep: true, display: "Action & Adventure", parent: "Adventure & Action"}
+  survival: {keep: true, display: "Survival", parent: "Adventure & Action"}
+  western: {keep: true, display: "Western", parent: "Adventure & Action"}
+
+  # --- horror
+  horror: {keep: true, display: "Horror", parent: "Horror"}
+  zombies: {keep: true, display: "Zombies", parent: "Horror"}
+  zombie: {keep: true, display: "Zombies", parent: "Horror"}
+
+  # --- science fiction
+  science-fiction: {keep: true, display: "Science Fiction", parent: "Science Fiction"}
+  sci-fi: {keep: true, display: "Science Fiction", parent: "Science Fiction"}
+  scifi: {keep: true, display: "Science Fiction", parent: "Science Fiction"}
+  sf: {keep: true, display: "Science Fiction", parent: "Science Fiction"}
+  dystopian: {keep: true, display: "Dystopian", parent: "Science Fiction"}
+  dystopia: {keep: true, display: "Dystopian", parent: "Science Fiction"}
+  post-apocalyptic: {keep: true, display: "Post-Apocalyptic", parent: "Science Fiction"}
+  apocalyptic: {keep: true, display: "Post-Apocalyptic", parent: "Science Fiction"}
+  apocalypse: {keep: true, display: "Post-Apocalyptic", parent: "Science Fiction"}
+  speculative-fiction: {keep: true, display: "Speculative Fiction", parent: "Science Fiction"}
+  time-travel: {keep: true, display: "Time Travel", parent: "Science Fiction"}
+  aliens: {keep: true, display: "Aliens", parent: "Science Fiction"}
+  space: {keep: true, display: "Space", parent: "Science Fiction"}
+  space-opera: {keep: true, display: "Space Opera", parent: "Science Fiction"}
+  futuristic: {keep: true, display: "Futuristic", parent: "Science Fiction"}
+  alternate-history: {keep: true, display: "Alternate History", parent: "Science Fiction"}
+  steampunk: {keep: true, display: "Steampunk", parent: "Science Fiction"}
+  sci-fi-fantasy: {keep: true, display: "Sci-Fi & Fantasy", parent: null}
+  scifi-fantasy: {keep: true, display: "Sci-Fi & Fantasy", parent: null}
+  fantasy-sci-fi: {keep: true, display: "Sci-Fi & Fantasy", parent: null}
+  science-fiction-fantasy: {keep: true, display: "Sci-Fi & Fantasy", parent: null}
+  sff: {keep: true, display: "Sci-Fi & Fantasy", parent: null}
+  sf-fantasy: {keep: true, display: "Sci-Fi & Fantasy", parent: null}
+
+  # --- fantasy
+  fantasy: {keep: true, display: "Fantasy", parent: "Fantasy"}
+  magic: {keep: true, display: "Magic", parent: "Fantasy"}
+  high-fantasy: {keep: true, display: "High Fantasy", parent: "Fantasy"}
+  epic-fantasy: {keep: true, display: "Epic Fantasy", parent: "Fantasy"}
+  epic: {keep: true, display: "Epic Fantasy", parent: "Fantasy"}
+  dark-fantasy: {keep: true, display: "Dark Fantasy", parent: "Fantasy"}
+  historical-fantasy: {keep: true, display: "Historical Fantasy", parent: "Fantasy"}
+  fantasy-romance: {keep: true, display: "Fantasy Romance", parent: "Fantasy"}
+  dragons: {keep: true, display: "Dragons", parent: "Fantasy"}
+  mythology: {keep: true, display: "Mythology", parent: "Fantasy"}
+  fairy-tales: {keep: true, display: "Fairy Tale Retellings", parent: "Fantasy"}
+  fairy-tale: {keep: true, display: "Fairy Tale Retellings", parent: "Fantasy"}
+  fairytales: {keep: true, display: "Fairy Tale Retellings", parent: "Fantasy"}
+  fairytale: {keep: true, display: "Fairy Tale Retellings", parent: "Fantasy"}
+  retellings: {keep: true, display: "Fairy Tale Retellings", parent: "Fantasy"}
+  retelling: {keep: true, display: "Fairy Tale Retellings", parent: "Fantasy"}
+  fae: {keep: true, display: "Fae", parent: "Fantasy"}
+  fairies: {keep: true, display: "Fae", parent: "Fantasy"}
+  faeries: {keep: true, display: "Fae", parent: "Fantasy"}
+
+  # --- paranormal / urban fantasy
+  paranormal: {keep: true, display: "Paranormal", parent: "Paranormal & Urban Fantasy"}
+  supernatural: {keep: true, display: "Paranormal", parent: "Paranormal & Urban Fantasy"}
+  paranormal-fantasy: {keep: true, display: "Paranormal", parent: "Paranormal & Urban Fantasy"}
+  urban-fantasy: {keep: true, display: "Urban Fantasy", parent: "Paranormal & Urban Fantasy"}
+  uf: {keep: true, display: "Urban Fantasy", parent: "Paranormal & Urban Fantasy"}
+  urban: {keep: true, display: "Urban Fantasy", parent: "Paranormal & Urban Fantasy"}
+  paranormal-romance: {keep: true, display: "Paranormal Romance", parent: "Paranormal & Urban Fantasy"}
+  romance-paranormal: {keep: true, display: "Paranormal Romance", parent: "Paranormal & Urban Fantasy"}
+  pnr: {keep: true, display: "Paranormal Romance", parent: "Paranormal & Urban Fantasy"}
+  vampires: {keep: true, display: "Vampires", parent: "Paranormal & Urban Fantasy"}
+  vampire: {keep: true, display: "Vampires", parent: "Paranormal & Urban Fantasy"}
+  vamps: {keep: true, display: "Vampires", parent: "Paranormal & Urban Fantasy"}
+  werewolves: {keep: true, display: "Werewolves", parent: "Paranormal & Urban Fantasy"}
+  werewolf: {keep: true, display: "Werewolves", parent: "Paranormal & Urban Fantasy"}
+  shifters: {keep: true, display: "Shapeshifters", parent: "Paranormal & Urban Fantasy"}
+  shapeshifters: {keep: true, display: "Shapeshifters", parent: "Paranormal & Urban Fantasy"}
+  shifter: {keep: true, display: "Shapeshifters", parent: "Paranormal & Urban Fantasy"}
+  shapeshifter: {keep: true, display: "Shapeshifters", parent: "Paranormal & Urban Fantasy"}
+  demons: {keep: true, display: "Angels & Demons", parent: "Paranormal & Urban Fantasy"}
+  angels: {keep: true, display: "Angels & Demons", parent: "Paranormal & Urban Fantasy"}
+  angels-demons: {keep: true, display: "Angels & Demons", parent: "Paranormal & Urban Fantasy"}
+  witches: {keep: true, display: "Witches", parent: "Paranormal & Urban Fantasy"}
+  ghosts: {keep: true, display: "Ghosts", parent: "Paranormal & Urban Fantasy"}
+  ghost: {keep: true, display: "Ghosts", parent: "Paranormal & Urban Fantasy"}
+  ya-paranormal: {keep: true, display: "YA Paranormal", parent: "Young Adult"}
+
+  # --- romance (subgenres and tropes)
+  romance: {keep: true, display: "Romance", parent: "Romance"}
+  adult-romance: {keep: true, display: "Romance", parent: "Romance"}
+  contemporary-romance: {keep: true, display: "Contemporary Romance", parent: "Romance"}
+  romance-contemporary: {keep: true, display: "Contemporary Romance", parent: "Romance"}
+  historical-romance: {keep: true, display: "Historical Romance", parent: "Romance"}
+  romance-historical: {keep: true, display: "Historical Romance", parent: "Romance"}
+  regency: {keep: true, display: "Regency Romance", parent: "Romance"}
+  regency-romance: {keep: true, display: "Regency Romance", parent: "Romance"}
+  romantic-suspense: {keep: true, display: "Romantic Suspense", parent: "Romance"}
+  romance-suspense: {keep: true, display: "Romantic Suspense", parent: "Romance"}
+  romantic-comedy: {keep: true, display: "Romantic Comedy", parent: "Romance"}
+  new-adult: {keep: true, display: "New Adult", parent: "Romance"}
+  na: {keep: true, display: "New Adult", parent: "Romance"}
+  college: {keep: true, display: "College Romance", parent: "Romance"}
+  college-romance: {keep: true, display: "College Romance", parent: "Romance"}
+  sports-romance: {keep: true, display: "Sports Romance", parent: "Romance"}
+  athletes: {keep: true, display: "Sports Romance", parent: "Romance"}
+  dark-romance: {keep: true, display: "Dark Romance", parent: "Romance"}
+  clean-romance: {keep: true, display: "Clean Romance", parent: "Romance"}
+  christian-romance: {keep: true, display: "Christian Romance", parent: "Christian & Inspirational"}
+  military-romance: {keep: true, display: "Men in Uniform", parent: "Romance"}
+  men-in-uniform: {keep: true, display: "Men in Uniform", parent: "Romance"}
+  law-enforcement: {keep: true, display: "Men in Uniform", parent: "Romance"}
+  cowboys: {keep: true, display: "Cowboy Romance", parent: "Romance"}
+  cowboy: {keep: true, display: "Cowboy Romance", parent: "Romance"}
+  western-romance: {keep: true, display: "Cowboy Romance", parent: "Romance"}
+  mc: {keep: true, display: "Motorcycle Club Romance", parent: "Romance"}
+  mc-books: {keep: true, display: "Motorcycle Club Romance", parent: "Romance"}
+  mc-romance: {keep: true, display: "Motorcycle Club Romance", parent: "Romance"}
+  bikers: {keep: true, display: "Motorcycle Club Romance", parent: "Romance"}
+  biker: {keep: true, display: "Motorcycle Club Romance", parent: "Romance"}
+  motorcycle-club: {keep: true, display: "Motorcycle Club Romance", parent: "Romance"}
+  mafia: {keep: true, display: "Mafia Romance", parent: "Romance"}
+  billionaire: {keep: true, display: "Billionaire Romance", parent: "Romance"}
+  rockstar: {keep: true, display: "Rock Star Romance", parent: "Romance"}
+  rockstars: {keep: true, display: "Rock Star Romance", parent: "Romance"}
+  musicians: {keep: true, display: "Rock Star Romance", parent: "Romance"}
+  small-town: {keep: true, display: "Small Town Romance", parent: "Romance"}
+  friends-to-lovers: {keep: true, display: "Friends to Lovers", parent: "Romance"}
+  enemies-to-lovers: {keep: true, display: "Enemies to Lovers", parent: "Romance"}
+  second-chance: {keep: true, display: "Second Chance Romance", parent: "Romance"}
+  second-chances: {keep: true, display: "Second Chance Romance", parent: "Romance"}
+  second-chance-romance: {keep: true, display: "Second Chance Romance", parent: "Romance"}
+  forbidden-love: {keep: true, display: "Forbidden Love", parent: "Romance"}
+  age-gap: {keep: true, display: "Age Gap Romance", parent: "Romance"}
+  marriage-of-convenience: {keep: true, display: "Marriage of Convenience", parent: "Romance"}
+  love-triangle: {keep: true, display: "Love Triangle", parent: "Romance"}
+  insta-love: {keep: true, display: "Insta-Love", parent: "Romance"}
+  bad-boys: {keep: true, display: "Bad Boy Romance", parent: "Romance"}
+  bad-boy: {keep: true, display: "Bad Boy Romance", parent: "Romance"}
+  alpha-male: {keep: true, display: "Alpha Hero", parent: "Romance"}
+  alpha-males: {keep: true, display: "Alpha Hero", parent: "Romance"}
+  alpha: {keep: true, display: "Alpha Hero", parent: "Romance"}
+  royalty: {keep: true, display: "Royalty", parent: null}
+  steamy: {keep: true, display: "Steamy Romance", parent: "Romance"}
+  m-m: {keep: true, display: "M/M Romance", parent: "Romance"}
+  mm: {keep: true, display: "M/M Romance", parent: "Romance"}
+  m-m-romance: {keep: true, display: "M/M Romance", parent: "Romance"}
+  mm-romance: {keep: true, display: "M/M Romance", parent: "Romance"}
+  gay-romance: {keep: true, display: "M/M Romance", parent: "Romance"}
+
+  # --- erotica
+  erotica: {keep: true, display: "Erotica", parent: "Erotica"}
+  smut: {keep: true, display: "Erotica", parent: "Erotica"}
+  erotic: {keep: true, display: "Erotic Romance", parent: "Erotica"}
+  erotic-romance: {keep: true, display: "Erotic Romance", parent: "Erotica"}
+  bdsm: {keep: true, display: "BDSM", parent: "Erotica"}
+  menage: {keep: true, display: "Ménage", parent: "Erotica"}
+
+  # --- young adult
+  young-adult: {keep: true, display: "Young Adult", parent: "Young Adult"}
+  ya: {keep: true, display: "Young Adult", parent: "Young Adult"}
+  teen: {keep: true, display: "Young Adult", parent: "Young Adult"}
+  ya-fiction: {keep: true, display: "Young Adult", parent: "Young Adult"}
+  young-adult-fiction: {keep: true, display: "Young Adult", parent: "Young Adult"}
+  ya-lit: {keep: true, display: "Young Adult", parent: "Young Adult"}
+  ya-books: {keep: true, display: "Young Adult", parent: "Young Adult"}
+  youngadult: {keep: true, display: "Young Adult", parent: "Young Adult"}
+  teen-fiction: {keep: true, display: "Young Adult", parent: "Young Adult"}
+  ya-fantasy: {keep: true, display: "YA Fantasy", parent: "Young Adult"}
+  ya-contemporary: {keep: true, display: "YA Contemporary", parent: "Young Adult"}
+  ya-romance: {keep: true, display: "YA Romance", parent: "Young Adult"}
+  high-school: {keep: true, display: "High School", parent: null}
+  coming-of-age: {keep: true, display: "Coming of Age", parent: null}
+
+  # --- children's
+  childrens: {keep: true, display: "Children's", parent: "Children's & Middle Grade"}
+  children: {keep: true, display: "Children's", parent: "Children's & Middle Grade"}
+  children-s: {keep: true, display: "Children's", parent: "Children's & Middle Grade"}
+  children-s-books: {keep: true, display: "Children's", parent: "Children's & Middle Grade"}
+  childrens-books: {keep: true, display: "Children's", parent: "Children's & Middle Grade"}
+  children-books: {keep: true, display: "Children's", parent: "Children's & Middle Grade"}
+  kids: {keep: true, display: "Children's", parent: "Children's & Middle Grade"}
+  kids-books: {keep: true, display: "Children's", parent: "Children's & Middle Grade"}
+  juvenile: {keep: true, display: "Children's", parent: "Children's & Middle Grade"}
+  juvenile-fiction: {keep: true, display: "Children's", parent: "Children's & Middle Grade"}
+  children-s-lit: {keep: true, display: "Children's", parent: "Children's & Middle Grade"}
+  children-s-literature: {keep: true, display: "Children's", parent: "Children's & Middle Grade"}
+  middle-grade: {keep: true, display: "Middle Grade", parent: "Children's & Middle Grade"}
+  middle-grades: {keep: true, display: "Middle Grade", parent: "Children's & Middle Grade"}
+  middle-school: {keep: true, display: "Middle Grade", parent: "Children's & Middle Grade"}
+  chapter-books: {keep: true, display: "Chapter Books", parent: "Children's & Middle Grade"}
+  picture-books: {keep: true, display: "Picture Books", parent: "Children's & Middle Grade"}
+  picture-book: {keep: true, display: "Picture Books", parent: "Children's & Middle Grade"}
+  picturebooks: {keep: true, display: "Picture Books", parent: "Children's & Middle Grade"}
+  picture: {keep: true, display: "Picture Books", parent: "Children's & Middle Grade"}
+  children-s-picture-books: {keep: true, display: "Picture Books", parent: "Children's & Middle Grade"}
+  childrens-picture-books: {keep: true, display: "Picture Books", parent: "Children's & Middle Grade"}
+  storytime: {keep: true, display: "Picture Books", parent: "Children's & Middle Grade"}
+  story-time: {keep: true, display: "Picture Books", parent: "Children's & Middle Grade"}
+  preschool: {keep: true, display: "Picture Books", parent: "Children's & Middle Grade"}
+
+  # --- graphic novels & comics
+  graphic-novels: {keep: true, display: "Graphic Novels", parent: "Graphic Novels & Comics"}
+  graphic-novel: {keep: true, display: "Graphic Novels", parent: "Graphic Novels & Comics"}
+  graphicnovels: {keep: true, display: "Graphic Novels", parent: "Graphic Novels & Comics"}
+  graphic: {keep: true, display: "Graphic Novels", parent: "Graphic Novels & Comics"}
+  comics: {keep: true, display: "Comics", parent: "Graphic Novels & Comics"}
+  comic: {keep: true, display: "Comics", parent: "Graphic Novels & Comics"}
+  comix: {keep: true, display: "Comics", parent: "Graphic Novels & Comics"}
+  comic-books: {keep: true, display: "Comics", parent: "Graphic Novels & Comics"}
+  comic-book: {keep: true, display: "Comics", parent: "Graphic Novels & Comics"}
+  comics-graphic-novels: {keep: true, display: "Graphic Novels", parent: "Graphic Novels & Comics"}
+  graphic-novels-comics: {keep: true, display: "Graphic Novels", parent: "Graphic Novels & Comics"}
+  comics-and-graphic-novels: {keep: true, display: "Graphic Novels", parent: "Graphic Novels & Comics"}
+  graphic-novels-and-comics: {keep: true, display: "Graphic Novels", parent: "Graphic Novels & Comics"}
+  manga: {keep: true, display: "Manga", parent: "Graphic Novels & Comics"}
+  mangas: {keep: true, display: "Manga", parent: "Graphic Novels & Comics"}
+  manga-comics: {keep: true, display: "Manga", parent: "Graphic Novels & Comics"}
+  manga-manhwa: {keep: true, display: "Manga", parent: "Graphic Novels & Comics"}
+  superheroes: {keep: true, display: "Superheroes", parent: "Graphic Novels & Comics"}
+  superhero: {keep: true, display: "Superheroes", parent: "Graphic Novels & Comics"}
+  marvel: {keep: true, display: "Marvel", parent: "Graphic Novels & Comics"}
+  marvel-comics: {keep: true, display: "Marvel", parent: "Graphic Novels & Comics"}
+  dc: {keep: true, display: "DC Comics", parent: "Graphic Novels & Comics"}
+  dc-comics: {keep: true, display: "DC Comics", parent: "Graphic Novels & Comics"}
+
+  # --- forms
+  poetry: {keep: true, display: "Poetry", parent: "Poetry"}
+  drama: {keep: true, display: "Plays & Drama", parent: "Plays & Drama"}
+  short-stories: {keep: true, display: "Short Stories", parent: "Short Stories & Anthologies"}
+  short-story: {keep: true, display: "Short Stories", parent: "Short Stories & Anthologies"}
+  short-story-collections: {keep: true, display: "Short Stories", parent: "Short Stories & Anthologies"}
+  short-fiction: {keep: true, display: "Short Stories", parent: "Short Stories & Anthologies"}
+  stories: {keep: true, display: "Short Stories", parent: "Short Stories & Anthologies"}
+  anthology: {keep: true, display: "Anthologies", parent: "Short Stories & Anthologies"}
+  anthologies: {keep: true, display: "Anthologies", parent: "Short Stories & Anthologies"}
+  novella: {keep: true, display: "Novellas", parent: null}
+  novellas: {keep: true, display: "Novellas", parent: null}
+  essays: {keep: true, display: "Essays", parent: null}
+
+  # --- humor
+  humor: {keep: true, display: "Humor", parent: "Humor"}
+  humour: {keep: true, display: "Humor", parent: "Humor"}
+  funny: {keep: true, display: "Humor", parent: "Humor"}
+  comedy: {keep: true, display: "Humor", parent: "Humor"}
+  humorous: {keep: true, display: "Humor", parent: "Humor"}
+  satire: {keep: true, display: "Satire", parent: "Humor"}
+
+  # --- christian & inspirational
+  christian: {keep: true, display: "Christian", parent: "Christian & Inspirational"}
+  christian-fiction: {keep: true, display: "Christian Fiction", parent: "Christian & Inspirational"}
+  christian-books: {keep: true, display: "Christian", parent: "Christian & Inspirational"}
+  christian-historical-fiction: {keep: true, display: "Christian Historical Fiction", parent: "Christian & Inspirational"}
+  inspirational: {keep: true, display: "Inspirational", parent: "Christian & Inspirational"}
+  faith: {keep: true, display: "Faith", parent: "Christian & Inspirational"}
+
+  # --- biography & memoir
+  memoir: {keep: true, display: "Memoir", parent: "Biography & Memoir"}
+  memoirs: {keep: true, display: "Memoir", parent: "Biography & Memoir"}
+  biography-memoir: {keep: true, display: "Memoir", parent: "Biography & Memoir"}
+  memoir-biography: {keep: true, display: "Memoir", parent: "Biography & Memoir"}
+  bio-memoir: {keep: true, display: "Memoir", parent: "Biography & Memoir"}
+  biography: {keep: true, display: "Biography", parent: "Biography & Memoir"}
+  biographies: {keep: true, display: "Biography", parent: "Biography & Memoir"}
+  bio: {keep: true, display: "Biography", parent: "Biography & Memoir"}
+  biography-autobiography: {keep: true, display: "Biography", parent: "Biography & Memoir"}
+  autobiography: {keep: true, display: "Autobiography", parent: "Biography & Memoir"}
+
+  # --- nonfiction subjects
+  history: {keep: true, display: "History", parent: "History"}
+  american-history: {keep: true, display: "American History", parent: "History"}
+  science: {keep: true, display: "Science", parent: "Science & Nature"}
+  nature: {keep: true, display: "Nature & Environment", parent: "Science & Nature"}
+  environment: {keep: true, display: "Nature & Environment", parent: "Science & Nature"}
+  technology: {keep: true, display: "Technology", parent: "Science & Nature"}
+  health: {keep: true, display: "Health & Medicine", parent: "Science & Nature"}
+  medical: {keep: true, display: "Health & Medicine", parent: "Science & Nature"}
+  psychology: {keep: true, display: "Psychology", parent: "Self-Help & Psychology"}
+  self-help: {keep: true, display: "Self-Help", parent: "Self-Help & Psychology"}
+  self-improvement: {keep: true, display: "Self-Help", parent: "Self-Help & Psychology"}
+  personal-development: {keep: true, display: "Self-Help", parent: "Self-Help & Psychology"}
+  self-development: {keep: true, display: "Self-Help", parent: "Self-Help & Psychology"}
+  personal-growth: {keep: true, display: "Self-Help", parent: "Self-Help & Psychology"}
+  business: {keep: true, display: "Business", parent: "Business & Economics"}
+  leadership: {keep: true, display: "Leadership", parent: "Business & Economics"}
+  work: {keep: true, display: "Business", parent: "Business & Economics"}
+  economics: {keep: true, display: "Economics", parent: "Business & Economics"}
+  philosophy: {keep: true, display: "Philosophy", parent: "Philosophy & Religion"}
+  religion: {keep: true, display: "Religion", parent: "Philosophy & Religion"}
+  religious: {keep: true, display: "Religion", parent: "Philosophy & Religion"}
+  christianity: {keep: true, display: "Christianity", parent: "Philosophy & Religion"}
+  theology: {keep: true, display: "Christianity", parent: "Philosophy & Religion"}
+  christian-living: {keep: true, display: "Christianity", parent: "Philosophy & Religion"}
+  spirituality: {keep: true, display: "Spirituality", parent: "Philosophy & Religion"}
+  spiritual: {keep: true, display: "Spirituality", parent: "Philosophy & Religion"}
+  jewish: {keep: true, display: "Jewish", parent: null}
+  politics: {keep: true, display: "Politics", parent: "Politics & Society"}
+  political: {keep: true, display: "Politics", parent: "Politics & Society"}
+  sociology: {keep: true, display: "Society & Culture", parent: "Politics & Society"}
+  culture: {keep: true, display: "Society & Culture", parent: "Politics & Society"}
+  journalism: {keep: true, display: "Journalism", parent: "Politics & Society"}
+  education: {keep: true, display: "Education", parent: "Politics & Society"}
+  feminism: {keep: true, display: "Feminism", parent: null}
+  feminist: {keep: true, display: "Feminism", parent: null}
+  true-crime: {keep: true, display: "True Crime", parent: "True Crime"}
+  travel: {keep: true, display: "Travel", parent: "Travel"}
+  food: {keep: true, display: "Food & Cooking", parent: "Food, Health & Lifestyle"}
+  cooking: {keep: true, display: "Food & Cooking", parent: "Food, Health & Lifestyle"}
+  parenting: {keep: true, display: "Parenting", parent: "Food, Health & Lifestyle"}
+  art: {keep: true, display: "Art", parent: "Arts & Culture"}
+  writing: {keep: true, display: "Writing", parent: "Arts & Culture"}
+  music: {keep: true, display: "Music", parent: null}
+  sports: {keep: true, display: "Sports", parent: "Sports"}
+  sport: {keep: true, display: "Sports", parent: "Sports"}
+
+  # --- cross-cutting themes (no parent)
+  lgbt: {keep: true, display: "LGBTQ+", parent: null}
+  glbt: {keep: true, display: "LGBTQ+", parent: null}
+  lgbtq: {keep: true, display: "LGBTQ+", parent: null}
+  lgbtqia: {keep: true, display: "LGBTQ+", parent: null}
+  queer: {keep: true, display: "LGBTQ+", parent: null}
+  gay: {keep: true, display: "LGBTQ+", parent: null}
+  coming-out: {keep: true, display: "LGBTQ+", parent: null}
+  family: {keep: true, display: "Family", parent: null}
+  friendship: {keep: true, display: "Friendship", parent: null}
+  marriage: {keep: true, display: "Marriage", parent: null}
+  mental-illness: {keep: true, display: "Mental Health", parent: null}
+  mental-health: {keep: true, display: "Mental Health", parent: null}
+  disability: {keep: true, display: "Disability", parent: null}
+  multicultural: {keep: true, display: "Multicultural", parent: null}
+  diversity: {keep: true, display: "Multicultural", parent: null}
+  cultural: {keep: true, display: "Multicultural", parent: null}
+  race: {keep: true, display: "Race & Identity", parent: null}
+  african-american: {keep: true, display: "African American", parent: null}
+  animals: {keep: true, display: "Animals", parent: null}
+  dogs: {keep: true, display: "Dogs", parent: null}
+  cats: {keep: true, display: "Cats", parent: null}
+  christmas: {keep: true, display: "Holiday", parent: null}
+  holiday: {keep: true, display: "Holiday", parent: null}
+  holidays: {keep: true, display: "Holiday", parent: null}
+
+  # --- settings (no parent)
+  england: {keep: true, display: "England", parent: null}
+  british: {keep: true, display: "England", parent: null}
+  london: {keep: true, display: "England", parent: null}
+  scotland: {keep: true, display: "Scotland", parent: null}
+  ireland: {keep: true, display: "Ireland", parent: null}
+  irish: {keep: true, display: "Ireland", parent: null}
+  france: {keep: true, display: "France", parent: null}
+  french: {keep: true, display: "France", parent: null}
+  italy: {keep: true, display: "Italy", parent: null}
+  germany: {keep: true, display: "Germany", parent: null}
+  german: {keep: true, display: "Germany", parent: null}
+  russia: {keep: true, display: "Russia", parent: null}
+  japan: {keep: true, display: "Japan", parent: null}
+  japanese: {keep: true, display: "Japan", parent: null}
+  china: {keep: true, display: "China", parent: null}
+  india: {keep: true, display: "India", parent: null}
+  asia: {keep: true, display: "Asia", parent: null}
+  asian: {keep: true, display: "Asia", parent: null}
+  africa: {keep: true, display: "Africa", parent: null}
+  middle-east: {keep: true, display: "Middle East", parent: null}
+  europe: {keep: true, display: "Europe", parent: null}
+  canada: {keep: true, display: "Canada", parent: null}
+  canadian: {keep: true, display: "Canada", parent: null}
+  australia: {keep: true, display: "Australia", parent: null}
+  australian: {keep: true, display: "Australia", parent: null}
+  new-york: {keep: true, display: "New York", parent: null}
+  california: {keep: true, display: "California", parent: null}
+
+  # --- dropped: too broad, reading status, formats, ownership, publishers, personal lists
+  fiction: {keep: false}
+  adult: {keep: false}
+  adult-fiction: {keep: false}
+  literature: {keep: false}
+  general-fiction: {keep: false}
+  non-fiction: {keep: false}
+  nonfiction: {keep: false}
+  non-fic: {keep: false}
+  21st-century: {keep: false}
+  american: {keep: false}
+  america: {keep: false}
+  usa: {keep: false}
+  english: {keep: false}
+  spanish: {keep: false}
+  roman: {keep: false}
+  narrativa: {keep: false}
+  women: {keep: false}
+  love: {keep: false}
+  relationships: {keep: false}
+  emotional: {keep: false}
+  made-me-cry: {keep: false}
+  dark: {keep: false}
+  sweet: {keep: false}
+  short: {keep: false}
+  angst: {keep: false}
+  abuse: {keep: false}
+  death: {keep: false}
+  taboo: {keep: false}
+  pregnancy: {keep: false}
+  virgin: {keep: false}
+  virgin-heroine: {keep: false}
+  hea: {keep: false}
+  m-f: {keep: false}
+  sub: {keep: false}
+  cliffhanger: {keep: false}
+  dual-pov: {keep: false}
+  book-boyfriends: {keep: false}
+  childhood: {keep: false}
+  childhood-favorites: {keep: false}
+  childhood-books: {keep: false}
+  reference: {keep: false}
+  freebie: {keep: false}
+  freebies: {keep: false}
+  free: {keep: false}
+  stand-alone: {keep: false}
+  standalone: {keep: false}
+  part-of-a-series: {keep: false}
+  part-of-series: {keep: false}
+  first-in-series: {keep: false}
+  1st-in-series: {keep: false}
+  favorite-series: {keep: false}
+  favorite-authors: {keep: false}
+  female-author: {keep: false}
+  reviewed: {keep: false}
+  for-review: {keep: false}
+  review-copy: {keep: false}
+  net-galley: {keep: false}
+  netgalley-books: {keep: false}
+  arc-netgalley: {keep: false}
+  edelweiss: {keep: false}
+  audio-books: {keep: false}
+  audio-book: {keep: false}
+  amazon: {keep: false}
+  calibre: {keep: false}
+  ibooks: {keep: false}
+  kobo: {keep: false}
+  epub: {keep: false}
+  overdrive: {keep: false}
+  nook-books: {keep: false}
+  my-ebooks: {keep: false}
+  own-ebook: {keep: false}
+  ebooks-i-own: {keep: false}
+  books-i-have: {keep: false}
+  own-it: {keep: false}
+  have: {keep: false}
+  purchased: {keep: false}
+  signed: {keep: false}
+  downloaded: {keep: false}
+  lendable: {keep: false}
+  ku: {keep: false}
+  unlimited: {keep: false}
+  need: {keep: false}
+  need-to-buy: {keep: false}
+  to-get: {keep: false}
+  want: {keep: false}
+  unread: {keep: false}
+  finished: {keep: false}
+  didn-t-finish: {keep: false}
+  couldn-t-finish: {keep: false}
+  not-interested: {keep: false}
+  recommended: {keep: false}
+  cover-love: {keep: false}
+  book-group: {keep: false}
+  book-club-books: {keep: false}
+  for-school: {keep: false}
+  entangled: {keep: false}
+  harlequin: {keep: false}
+  "1": {keep: false}

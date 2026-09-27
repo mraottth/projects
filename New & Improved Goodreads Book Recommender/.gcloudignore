@@ -1,0 +1,13 @@
+# Upload for `gcloud builds submit`. Without this file gcloud falls back to .gitignore, which would
+# drop artifacts/ (the ~311 MB of models + catalog the image needs). Keep this in sync with .dockerignore.
+.gcloudignore
+.git
+.venv/
+data/
+eval/
+tests/
+frontend/node_modules/
+frontend/dist/
+**/__pycache__/
+.pytest_cache/
+*.log
