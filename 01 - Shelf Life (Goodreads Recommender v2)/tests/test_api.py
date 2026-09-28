@@ -450,3 +450,11 @@ def test_calibration_scales_with_evidence(client):
     assert np.allclose(shown[none], raw[none])                             # no evidence: unstretched
     assert np.allclose(shown[strong], raw[strong] + ev[strong] * (full[strong] - raw[strong]), atol=1e-5)
     assert ((ev >= 0) & (ev < 1)).all()
+
+
+def test_demo_library(client):
+    """The homepage's "See a demo" loads the bundled Goodreads export through the normal import matching."""
+    res = client.get("/api/demo").json()
+    assert len(res["rated"]) > 150 and len(res["to_read"]) > 200   # the rest are mostly post-2017 (outside the catalog)
+    assert res["stats"]["rows"] > 700 and res["stats"]["match_rate"] > 0.5
+    assert {"reviews", "unmatched", "unmatched_to_read"} <= res.keys()

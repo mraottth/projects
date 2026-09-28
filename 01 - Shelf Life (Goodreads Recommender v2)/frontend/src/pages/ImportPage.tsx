@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { api, type ImportResult } from "../api";
 import { Cover } from "../components/Cover";
+import { importBody, topCovers, type FlowBook } from "../components/CoverFlow";
 import { useShelf } from "../store";
 
-export function ImportPage({ go }: { go: (v: "recs") => void }) {
+export function ImportPage({ toRecs }: { toRecs: (covers: FlowBook[], body: object) => void }) {
   const shelf = useShelf();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,7 +70,7 @@ export function ImportPage({ go }: { go: (v: "recs") => void }) {
               </div>
             ))}
           </div>
-          <p><button type="button" className="primary" onClick={() => go("recs")}>See my recommendations →</button></p>
+          <p><button type="button" className="primary" onClick={() => toRecs(topCovers(res), importBody(res))}>See my recommendations →</button></p>
           {res.unmatched.length > 0 && (
             <details>
               <summary>{res.unmatched.length} rated or read books couldn't be matched</summary>

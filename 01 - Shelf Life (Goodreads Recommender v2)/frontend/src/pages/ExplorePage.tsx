@@ -59,14 +59,18 @@ export function ExplorePage({ filters, setFilters, sort, setSort, onOpen }: Prop
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
 
+  const unfiltered = JSON.stringify(filters) === JSON.stringify(EXPLORE_DEFAULTS);
+
   return (
     <div className="recs-page">
       <div className="recs-head">
         <div>
-          <h1>Explore books</h1>
+          <h1>Explore the full library</h1>
           <p className="muted small">
-            {total != null ? `${total.toLocaleString()} books match` : "Loading…"} · the catalog covers books through 2017
-            with at least 20 ratings in the dataset
+            {total == null ? "Loading…"
+              : unfiltered ? `Explore all ${total.toLocaleString()} books in the dataset.`
+              : `${total.toLocaleString()} books match your filters.`}{" "}
+            Note: the catalog covers books through 2017 with at least 20 ratings
           </p>
         </div>
       </div>

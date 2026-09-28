@@ -56,8 +56,8 @@ export function RecsPage({ tab, sort, setSort, layout, setLayout, filters, setTa
         <h1>No ratings yet</h1>
         <p>Rate a few books or import your Goodreads library to get recommendations.</p>
         <p>
-          <button type="button" className="primary" onClick={() => go("rate")}>Rate books</button>{" "}
-          <button type="button" className="ghost" onClick={() => go("import")}>Import from Goodreads</button>
+          <button type="button" className="primary" onClick={() => go("import")}>Import from Goodreads</button>{" "}
+          <button type="button" className="ghost" onClick={() => go("rate")}>Rate books</button>
         </p>
       </div>
     );
@@ -89,6 +89,13 @@ export function RecsPage({ tab, sort, setSort, layout, setLayout, filters, setTa
         </div>
         <button type="button" className="ghost" onClick={() => go("rate")}>+ Rate more books</button>
       </div>
+      {shelf.demo && (
+        <p className="note demo-note">
+          You&apos;re viewing a demo: recommendations for a real Goodreads library of 770 books.{" "}
+          <button type="button" className="link" onClick={() => go("import")}>Import your own</button> or{" "}
+          <button type="button" className="link" onClick={() => go("rate")}>rate books</button> to get yours.
+        </p>
+      )}
 
       <nav className="tabs" role="tablist">
         {tabs.filter((t) => t.show).map((t) => (

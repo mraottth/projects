@@ -20,6 +20,7 @@ RUN uv sync --frozen --no-default-groups --no-install-project
 COPY config/ config/
 COPY src/ src/
 COPY artifacts/ artifacts/
+COPY demo/ demo/
 COPY --from=frontend /frontend/dist frontend/dist
 EXPOSE 8080
 CMD ["sh", "-c", "uvicorn goodrec.api.main:app --host 0.0.0.0 --port ${PORT:-8080}"]

@@ -165,6 +165,7 @@ export const api = {
     fetch(`/api/books/${id}/personal`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal,
     }).then(json<{ predicted_rating: number | null; readers_avg: number | null; readers_n: number | null }>),
+  demo: () => fetch("/api/demo").then(json<ImportResult>),
   importCsv: (file: File) => {
     const body = new FormData();
     body.append("file", file);

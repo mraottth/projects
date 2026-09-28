@@ -2,7 +2,7 @@
 
 ### Shelf Life: Goodreads Book Recommender
 
-**[Try the live app →](https://goodrec-137926939938.us-central1.run.app)**
+**[Try the live app →](https://goodrec-137926939938.us-central1.run.app)** (no Goodreads account needed: click *See a demo*)
 
 **Description:**
 A web app that recommends books from your Goodreads history. Upload your Goodreads library export (or search and rate a few books), and it ranks ~105,000 books for you, predicts the stars you'd give each one, and explains every pick ("because you liked…"). Built on the UCSD Book Graph: 15.7M ratings from 465k readers.
