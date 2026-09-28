@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, EMPTY_FILTERS, type Filters, type RecBook, type RecResponse, type SortKey } from "../api";
 import { BookCard, type FilterClick } from "../components/BookCard";
 import { ActiveFilters } from "../components/ActiveFilters";
@@ -34,6 +34,27 @@ export function RecsPage({ tab, sort, setSort, layout, setLayout, filters, setTa
   const [wide] = useState(() => window.matchMedia("(min-width: 981px)").matches);
 
   useEffect(() => { api.genres().then(setGenres).catch(() => {}); }, []);
+
+  // Tabs scroll sideways on phones: keep the selected one in view and fade whichever edge has more tabs.
+  const tabsRef = useRef<HTMLElement>(null);
+  const [fade, setFade] = useState({ left: false, right: false });
+  const updateFade = useCallback(() => {
+    const el = tabsRef.current;
+    if (!el) return;
+    const left = el.scrollLeft > 2, right = el.scrollLeft + el.clientWidth < el.scrollWidth - 2;
+    setFade((f) => (f.left === left && f.right === right ? f : { left, right }));
+  }, []);
+  useEffect(() => {
+    const el = tabsRef.current;
+    const on = el?.querySelector<HTMLElement>("[aria-selected=true]");
+    if (el && on) {
+      const r = on.getBoundingClientRect(), n = el.getBoundingClientRect();
+      el.scrollLeft += r.left - n.left - (n.width - r.width) / 2;
+    }
+    updateFade();
+    window.addEventListener("resize", updateFade);
+    return () => window.removeEventListener("resize", updateFade);
+  }, [tab, shelf.count, updateFade]);
   useEffect(() => setLimit(PAGE), [filters, sort]);
 
   const [selected, setSelected] = useState<{ book: RecBook; rank: number | undefined } | null>(null);
@@ -97,12 +118,14 @@ export function RecsPage({ tab, sort, setSort, layout, setLayout, filters, setTa
         </p>
       )}
 
-      <nav className="tabs" role="tablist">
+      <div className={`tabs-wrap${fade.left ? " fade-left" : ""}${fade.right ? " fade-right" : ""}`}>
+      <nav className="tabs" role="tablist" ref={tabsRef} onScroll={updateFade}>
         {tabs.filter((t) => t.show).map((t) => (
           <button key={t.key} type="button" role="tab" aria-selected={tab === t.key}
                   className={tab === t.key ? "on" : ""} onClick={() => setTab(t.key)}>{t.label}</button>
         ))}
       </nav>
+      </div>
 
       <div className="recs-layout">
         <section className="recs-main">

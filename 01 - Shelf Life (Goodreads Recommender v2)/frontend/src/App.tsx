@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { api, type Book } from "./api";
 import { BookModal } from "./components/BookModal";
 import { CoverFlow, fillCovers, FLOW_RECS, type FlowBook } from "./components/CoverFlow";
@@ -14,6 +14,16 @@ import { useUrlState, type UrlState } from "./useUrlState";
 // About (with KaTeX) is loaded on demand so the math library isn't in the main bundle.
 const AboutPage = lazy(() => import("./pages/AboutPage").then((m) => ({ default: m.AboutPage })));
 const ChatPage = lazy(() => import("./pages/ChatPage").then((m) => ({ default: m.ChatPage })));
+
+const NAV: { view: UrlState["view"]; label: string }[] = [
+  { view: "recs", label: "Recommendations" },
+  { view: "explore", label: "Explore" },
+  { view: "yours", label: "Your books" },
+  { view: "chat", label: "Assistant 🤖" },
+  { view: "rate", label: "Rate books" },
+  { view: "import", label: "Import" },
+  { view: "about", label: "About" },
+];
 
 export function App() {
   const [url, update] = useUrlState();
@@ -39,26 +49,43 @@ export function App() {
       .then((r) => setFlow((f) => f && { ...f, recs: r.for_you }))
       .catch(() => {});
   }, [go, wall]);
+  const [menuOpen, setMenuOpen] = useState(false);            // phone nav drop-down
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const navRef = useRef<HTMLElement>(null);
+  useEffect(() => setMenuOpen(false), [url.view]);
+  useEffect(() => {
+    if (!menuOpen) return;
+    document.body.classList.add("menu-open");
+    navRef.current?.querySelector<HTMLButtonElement>("button.on, button")?.focus();
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { setMenuOpen(false); toggleRef.current?.focus(); } };
+    window.addEventListener("keydown", onKey);
+    return () => { document.body.classList.remove("menu-open"); window.removeEventListener("keydown", onKey); };
+  }, [menuOpen]);
+  const current = NAV.find((n) => n.view === url.view);
   const shelfSize = new Set([...Object.keys(shelf.ratings).map(Number), ...shelf.read]).size;
 
   return (
     <>
-      <header className="topbar">
+      <header className={menuOpen ? "topbar menu-open" : "topbar"}>
         <button type="button" className="brand" onClick={() => go("home")}>📚 Shelf Life</button>
-        <nav>
-          <button type="button" className={url.view === "recs" ? "on" : ""} aria-current={url.view === "recs" ? "page" : undefined} onClick={() => go("recs")}>
-            Recommendations
-          </button>
-          <button type="button" className={url.view === "explore" ? "on" : ""} aria-current={url.view === "explore" ? "page" : undefined} onClick={() => go("explore")}>Explore</button>
-          <button type="button" className={url.view === "yours" ? "on" : ""} aria-current={url.view === "yours" ? "page" : undefined} onClick={() => go("yours")}>
-            Your books{shelfSize ? <span className="count" aria-label={`${shelfSize} books`}>{shelfSize}</span> : null}
-          </button>
-          <button type="button" className={url.view === "chat" ? "on" : ""} aria-current={url.view === "chat" ? "page" : undefined} onClick={() => go("chat")}>Assistant 🤖</button>
-          <button type="button" className={url.view === "rate" ? "on" : ""} aria-current={url.view === "rate" ? "page" : undefined} onClick={() => go("rate")}>Rate books</button>
-          <button type="button" className={url.view === "import" ? "on" : ""} aria-current={url.view === "import" ? "page" : undefined} onClick={() => go("import")}>Import</button>
-          <button type="button" className={url.view === "about" ? "on" : ""} aria-current={url.view === "about" ? "page" : undefined} onClick={() => go("about")}>About</button>
+        {current && <span className="current-view" aria-hidden="true">{current.label}</span>}
+        {/* Phones: the nav collapses into a drop-down behind this button (styles.css, "mobile menu"). */}
+        <button type="button" className="menu-toggle" aria-expanded={menuOpen} aria-controls="site-nav" ref={toggleRef}
+                aria-label={menuOpen ? "Close menu" : "Open menu"} onClick={() => setMenuOpen((o) => !o)}>
+          <span className="menu-icon" aria-hidden="true" />
+          {shelfSize > 0 && !menuOpen && <span className="menu-dot" aria-hidden="true" />}
+        </button>
+        <nav id="site-nav" ref={navRef}>
+          {NAV.map((n) => (
+            <button key={n.view} type="button" className={url.view === n.view ? "on" : ""}
+                    aria-current={url.view === n.view ? "page" : undefined} onClick={() => { setMenuOpen(false); go(n.view); }}>
+              {n.label}
+              {n.view === "yours" && shelfSize ? <span className="count" aria-label={`${shelfSize} books`}>{shelfSize}</span> : null}
+            </button>
+          ))}
         </nav>
       </header>
+      {menuOpen && <div className="menu-backdrop" onClick={() => setMenuOpen(false)} />}
 
       <main>
         {url.view === "home" && <Home go={go} onOpen={onOpen} toRecs={toRecsWithCovers} wall={wall} />}
