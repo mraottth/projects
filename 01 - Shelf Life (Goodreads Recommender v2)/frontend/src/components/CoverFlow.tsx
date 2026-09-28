@@ -33,6 +33,7 @@ export function importBody(res: ImportResult) {
 }
 
 // Deterministic "random" per cover, so the flow looks organic without jitter between renders.
+// Each cover eases to a pause mid-flight at its own --mid (18-74vw across) so they don't all stack up in the centre.
 const rand = (i: number, k: number) => ((Math.sin((i + 1) * 12.9898 * k) * 43758.5453) % 1 + 1) % 1;
 
 /**
@@ -68,6 +69,7 @@ export function CoverFlow({ books, recs, caption, duration, lead = 0, onSwitch, 
       "--rot": `${(rand(i, 4) - 0.5) * 24}deg`,
       "--lift": `${(rand(i, 5) - 0.5) * 16}vh`,
       "--scale": `${0.85 + rand(i, 6) * 0.35}`,
+      "--mid": `${18 + rand(i, 7) * 56}vw`,
     } as React.CSSProperties,
   })), [books, D, lead]);
 
@@ -91,6 +93,7 @@ export function CoverFlow({ books, recs, caption, duration, lead = 0, onSwitch, 
           "--rot": `${(rand(i, 4) - 0.5) * 20}deg`,
           "--lift": `${(rand(i, 5) - 0.5) * 12}vh`,
           "--scale": `${1 + rand(i, 6) * 0.25}`,
+          "--mid": `${18 + rand(i, 7) * 56}vw`,
         } as React.CSSProperties,
       };
     });

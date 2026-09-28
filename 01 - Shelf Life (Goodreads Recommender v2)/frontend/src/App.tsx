@@ -15,14 +15,15 @@ import { useUrlState, type UrlState } from "./useUrlState";
 const AboutPage = lazy(() => import("./pages/AboutPage").then((m) => ({ default: m.AboutPage })));
 const ChatPage = lazy(() => import("./pages/ChatPage").then((m) => ({ default: m.ChatPage })));
 
-const NAV: { view: UrlState["view"]; label: string }[] = [
-  { view: "recs", label: "Recommendations" },
-  { view: "explore", label: "Explore" },
-  { view: "yours", label: "Your books" },
-  { view: "chat", label: "Assistant 🤖" },
-  { view: "rate", label: "Rate books" },
-  { view: "import", label: "Import" },
-  { view: "about", label: "About" },
+// `tip`: shown on hover (desktop) and under each item in the phone menu.
+const NAV: { view: UrlState["view"]; label: string; tip: string }[] = [
+  { view: "recs", label: "Recommendations", tip: "See your personal picks" },
+  { view: "explore", label: "Explore", tip: "Browse and filter the whole library" },
+  { view: "yours", label: "Your books", tip: "Your shelf and reading stats" },
+  { view: "chat", label: "Assistant 🤖", tip: "Chat with AI about books and your recommendations" },
+  { view: "rate", label: "Rate books", tip: "Rate books for better recommendations" },
+  { view: "import", label: "Import", tip: "Bring in your Goodreads library" },
+  { view: "about", label: "About", tip: "How the recommendations work" },
 ];
 
 export function App() {
@@ -41,7 +42,7 @@ export function App() {
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) { go("recs"); return; }
     setFlow({
       books: fillCovers(own, wall), recs: null, duration: opts.demo ? 5000 : 4000,
-      lead: opts.demo ? 1000 : 0,   // demo: the caption shows alone for a second first
+      lead: opts.demo ? 750 : 0,    // demo: the caption shows alone for 0.75 s first
       caption: opts.demo ? "Generating recommendations from a real Goodreads user's ratings library…" : "Finding your next favorite book…",
     });
     // Top recommendations join as a second wave (this request also warms the server cache for the Recs page).
@@ -77,10 +78,11 @@ export function App() {
         </button>
         <nav id="site-nav" ref={navRef}>
           {NAV.map((n) => (
-            <button key={n.view} type="button" className={url.view === n.view ? "on" : ""}
+            <button key={n.view} type="button" className={url.view === n.view ? "on" : ""} aria-describedby={`tip-${n.view}`}
                     aria-current={url.view === n.view ? "page" : undefined} onClick={() => { setMenuOpen(false); go(n.view); }}>
               {n.label}
               {n.view === "yours" && shelfSize ? <span className="count" aria-label={`${shelfSize} books`}>{shelfSize}</span> : null}
+              <span className="nav-tip" id={`tip-${n.view}`} role="tooltip">{n.tip}</span>
             </button>
           ))}
         </nav>
