@@ -746,24 +746,19 @@ button.chip:hover { background: #f1f0eb; }
   background: var(--page); animation: coverflow-in 250ms ease both, coverflow-out var(--step, 360ms) ease var(--reveal-at, 3010ms) forwards; }
 .coverflow-veil { position: absolute; inset: 0; z-index: 2; background: #fff; opacity: 0;
   animation: coverflow-in var(--step, 360ms) ease var(--fade-at, 2650ms) forwards; }
-.coverflow-item { position: absolute; top: var(--y); left: 0; width: clamp(84px, 9vw, 132px); translate: -160px 0;
-  /* constant speed across the screen (so covers don't slow down and bunch up mid-screen); the tilt and lift ease in and out */
-  animation: coverflow-x var(--dur) linear var(--delay) both, coverflow-fly var(--dur) ease-in-out var(--delay) both; }
+.coverflow-item { position: absolute; top: var(--y); left: 0; width: clamp(84px, 9vw, 132px);
+  transform: translateX(-160px); animation: coverflow-fly var(--dur) cubic-bezier(0.45, 0.05, 0.35, 1) var(--delay) both; }
 .coverflow-item .cover { box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25); border-radius: 6px; }
 .coverflow-caption { position: absolute; left: 50%; top: 50%; z-index: 1; margin: 0; padding: 12px 22px; border-radius: 22px;
   translate: -50% -50%; width: max-content; max-width: calc(100vw - 48px); text-align: center; font-size: 1.15rem; font-weight: 600; color: var(--ink);
   background: rgba(249, 249, 247, 0.78); backdrop-filter: blur(8px); box-shadow: var(--shadow);
   animation: coverflow-caption 300ms ease both; }
-@keyframes coverflow-x {
-  0%   { translate: -160px 0; opacity: 0; }
-  12%  { opacity: 1; }
-  88%  { opacity: 1; }
-  100% { translate: calc(100vw + 40px) 0; opacity: 0; }
-}
 @keyframes coverflow-fly {
-  0%   { transform: rotate(calc(var(--rot) * -1)) scale(var(--scale)); }
-  50%  { transform: translateY(var(--lift)) rotate(0deg) scale(calc(var(--scale) * 1.08)); }
-  100% { transform: rotate(var(--rot)) scale(var(--scale)); }
+  0%   { transform: translate(-160px, 0) rotate(calc(var(--rot) * -1)) scale(var(--scale)); opacity: 0; }
+  12%  { opacity: 1; }
+  50%  { transform: translate(var(--mid, 50vw), var(--lift)) rotate(0deg) scale(calc(var(--scale) * 1.08)); }
+  88%  { opacity: 1; }
+  100% { transform: translate(calc(100vw + 40px), 0) rotate(var(--rot)) scale(var(--scale)); opacity: 0; }
 }
 @keyframes coverflow-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes coverflow-out { from { opacity: 1; } to { opacity: 0; } }
