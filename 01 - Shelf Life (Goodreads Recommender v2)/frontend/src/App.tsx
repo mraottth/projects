@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { api, type Book } from "./api";
+import logo from "./assets/logo-header.png";
 import { BookModal } from "./components/BookModal";
 import { CoverFlow, fillCovers, FLOW_RECS, type FlowBook } from "./components/CoverFlow";
 import { Home } from "./pages/Home";
@@ -68,7 +69,9 @@ export function App() {
   return (
     <>
       <header className={menuOpen ? "topbar menu-open" : "topbar"}>
-        <button type="button" className="brand" onClick={() => go("home")}>📚 Shelf Life</button>
+        <button type="button" className="brand" onClick={() => go("home")} aria-label="Shelf Life, home">
+          <img src={logo} alt="" width={125} height={48} />
+        </button>
         {current && <span className="current-view" aria-hidden="true">{current.label}</span>}
         {/* Phones: the nav collapses into a drop-down behind this button (styles.css, "mobile menu"). */}
         <button type="button" className="menu-toggle" aria-expanded={menuOpen} aria-controls="site-nav" ref={toggleRef}

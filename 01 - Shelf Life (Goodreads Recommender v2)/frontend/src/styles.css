@@ -838,3 +838,8 @@ button.chip:hover { background: #f1f0eb; }
     padding: 0; background: none; box-shadow: none; color: var(--muted); font-size: 0.82rem; font-weight: 400; text-align: left; }
   .topbar.menu-open .nav-tip::before { display: none; }
 }
+
+/* ---------- logo in the top bar (assets/logo-header.png: icon + wordmark, 3x) */
+.brand { display: flex; align-items: center; padding: 0; line-height: 0; }
+.brand img { display: block; height: 48px; width: auto; }
+@media (max-width: 640px) { .brand { padding: 0; } .brand img { height: 36px; } }
