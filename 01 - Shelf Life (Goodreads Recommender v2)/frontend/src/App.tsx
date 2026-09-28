@@ -42,7 +42,7 @@ export function App() {
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) { go("recs"); return; }
     setFlow({
       books: fillCovers(own, wall), recs: null, duration: opts.demo ? 5000 : 4000,
-      lead: opts.demo ? 1000 : 0,   // demo: the caption shows alone for a second first
+      lead: opts.demo ? 750 : 0,    // demo: the caption shows alone for 0.75 s first
       caption: opts.demo ? "Generating recommendations from a real Goodreads user's ratings library…" : "Finding your next favorite book…",
     });
     // Top recommendations join as a second wave (this request also warms the server cache for the Recs page).
