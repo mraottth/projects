@@ -345,8 +345,6 @@ button.chip:hover { background: #f1f0eb; }
 }
 @media (max-width: 640px) {
   .topbar { padding: 8px 12px; gap: 8px; }
-  .topbar nav { overflow-x: auto; }
-  .topbar nav button { padding: 6px 9px; white-space: nowrap; font-size: 0.9rem; }
   .recs-head { flex-direction: column; }
   .rank-body .card-title { font-size: 1.05rem; }
   .blurb { -webkit-line-clamp: 2; }
@@ -435,10 +433,10 @@ button.chip:hover { background: #f1f0eb; }
 /* ---------- fixed-height top bar + sticky recommendation tabs */
 :root { --topbar-h: 58px; }
 .topbar { height: var(--topbar-h); padding-top: 0; padding-bottom: 0; }
-.recs-page > .tabs { position: sticky; top: var(--topbar-h); z-index: 15; background: var(--page); margin-top: 8px;
+.recs-page > .tabs-wrap { position: sticky; top: var(--topbar-h); z-index: 15; background: var(--page); margin: 8px 0 14px;
   box-shadow: 0 1px 0 var(--ring); }
+.tabs-wrap > .tabs { margin: 0; }
 .recs-side { top: calc(var(--topbar-h) + 60px); max-height: calc(100vh - var(--topbar-h) - 76px); }
-@media (max-width: 640px) { .topbar nav { flex: 1; min-width: 0; } }
 
 /* ---------- your books */
 .yours-page { max-width: 1040px; margin: 0 auto; }
@@ -487,9 +485,6 @@ button.chip:hover { background: #f1f0eb; }
 .yours-stats { grid-template-columns: 120px 120px minmax(220px, 1fr) minmax(280px, 1.4fr); }
 @media (max-width: 760px) { .yours-stats { grid-template-columns: 1fr 1fr; } .yours-stats .stat-tile:nth-child(3) { grid-column: 1 / -1; } }
 @media (max-width: 640px) {
-  .topbar nav { -webkit-mask-image: linear-gradient(to right, #000 80%, transparent); mask-image: linear-gradient(to right, #000 80%, transparent);
-    scrollbar-width: none; padding-right: 24px; }
-  .topbar nav::-webkit-scrollbar { display: none; }
 }
 .diff { white-space: nowrap; }
 
@@ -569,7 +564,6 @@ button.chip:hover { background: #f1f0eb; }
 .topbar nav button.on::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: -11px; height: 3px;
   border-radius: 3px 3px 0 0; background: var(--accent); }
 .topbar nav button.on .count { background: var(--accent); color: #fff; }
-@media (max-width: 640px) { .topbar nav button.on::after { bottom: -8px; } }
 
 /* ---------- your books tiles: bold title line on every card */
 .tile-title { font-size: 1.15rem; font-weight: 800; line-height: 1.25; color: var(--ink); }
@@ -769,3 +763,55 @@ button.chip:hover { background: #f1f0eb; }
 @keyframes coverflow-out { from { opacity: 1; } to { opacity: 0; } }
 @keyframes coverflow-caption { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .coverflow { display: none; } }
+
+/* ---------- recommendation tabs: sideways scroll on narrow screens, fading the edge that has more tabs */
+.tabs { scroll-snap-type: x proximity; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tabs button { scroll-snap-align: start; flex: none; }
+.tabs-wrap::before, .tabs-wrap::after { content: ""; position: absolute; top: 0; bottom: 1px; width: 36px; z-index: 1;
+  pointer-events: none; opacity: 0; transition: opacity 0.15s; }
+.tabs-wrap::before { left: 0; background: linear-gradient(to right, var(--page), transparent); }
+.tabs-wrap::after { right: 0; background: linear-gradient(to left, var(--page), transparent); }
+.tabs-wrap.fade-left::before, .tabs-wrap.fade-right::after { opacity: 1; }
+@media (max-width: 640px) {
+  .tabs button { padding: 10px 11px; }
+  .sort-row { flex-wrap: wrap; row-gap: 8px; }
+  .sort-row .view-label { margin-left: 0 !important; }
+}
+
+/* ---------- mobile menu: on phones the nav collapses into a drop-down behind the ☰ button (App.tsx) */
+.menu-toggle, .current-view, .menu-backdrop { display: none; }
+@media (max-width: 640px) {
+  :root { --topbar-h: 52px; }
+  .topbar { justify-content: flex-start; padding: 0 6px 0 12px; }
+  .brand { padding: 6px 0; white-space: nowrap; }
+  .current-view { display: block; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: var(--muted); font-size: 0.95rem; }
+  .current-view::before { content: "·"; margin-right: 8px; }
+  .menu-toggle { display: grid; place-items: center; position: relative; width: 44px; height: 44px; margin-left: auto;
+    background: none; border: 0; border-radius: 10px; color: var(--ink); }
+  .menu-toggle:hover, .topbar.menu-open .menu-toggle { background: #efeee9; }
+  .menu-icon, .menu-icon::before, .menu-icon::after { display: block; width: 20px; height: 2px; border-radius: 2px;
+    background: currentColor; transition: transform 0.2s, background 0.2s; }
+  .menu-icon { position: relative; }
+  .menu-icon::before, .menu-icon::after { content: ""; position: absolute; left: 0; }
+  .menu-icon::before { top: -6px; }
+  .menu-icon::after { top: 6px; }
+  .topbar.menu-open .menu-icon { background: transparent; }
+  .topbar.menu-open .menu-icon::before { transform: translateY(6px) rotate(45deg); }
+  .topbar.menu-open .menu-icon::after { transform: translateY(-6px) rotate(-45deg); }
+  .menu-dot { position: absolute; top: 10px; right: 9px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+    box-shadow: 0 0 0 2px var(--surface); }
+
+  .topbar nav { display: none; }
+  .topbar.menu-open nav { display: flex; flex-direction: column; gap: 2px; position: absolute; top: 100%; left: 0; right: 0;
+    padding: 8px 12px 14px; background: var(--surface); border-bottom: 1px solid var(--ring); box-shadow: var(--shadow);
+    max-height: calc(100dvh - var(--topbar-h)); overflow-y: auto; }
+  .topbar.menu-open nav button { display: flex; align-items: center; min-height: 46px; padding: 0 14px; border-radius: 10px;
+    text-align: left; font-size: 1.02rem; white-space: nowrap; }
+  .topbar.menu-open nav button.on { background: #eef4fc; }
+  .topbar.menu-open nav button.on::after { left: 0; right: auto; top: 11px; bottom: 11px; width: 3px; height: auto;
+    border-radius: 0 3px 3px 0; }
+  .menu-backdrop { display: block; position: fixed; inset: 0; z-index: 19; background: rgba(11, 11, 11, 0.25); }
+  body.menu-open { overflow: hidden; }
+}
