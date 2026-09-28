@@ -5,6 +5,8 @@ A web app that recommends books from your Goodreads ratings, in two ways:
 1. **Upload your Goodreads library export** (CSV). The app uses your whole reading history.
 2. **Search and rate a few books**. There's no account or export, and recommendations update as you rate.
 
+No Goodreads history? **See a demo** on the homepage loads a real 770-book Goodreads library.
+
 Results come in three views: **For you** (with "Because you liked X" explanations), **Popular with readers like you** and **Top rated by readers like you**. Every book shows your predicted rating next to its average among readers like you and its Goodreads average, and any list can be sorted by best match or predicted rating. A **Map** view plots your top 50 by Goodreads popularity (x, log scale) against average rating (y), colored by predicted rating; hover a dot for the cover and details, click for the full card. An **Explore** page browses the whole catalog with the same filters (genre, author, year, rating, number of ratings), sorted by most rated, highest rated (weighted by rating count), newest, oldest or title. There's also a genre profile and filters for genre, author, year, average rating and number of ratings. Clicking a book shows its description and similar books.
 
 An **Assistant** tab is a reading assistant (Claude: Haiku 4.5 for simple messages, Sonnet 5 for complex ones): it sees your ratings, reviews, to-read list and out-of-catalog reads, calls the recommender as tools (For you, readers like you, catalog search, book details), can search the web for books published after 2017, and talks about books book-club style. Starter buttons cover the common requests.

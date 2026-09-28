@@ -301,6 +301,21 @@ async def import_csv(file: UploadFile = File(...)):
         res = parse_export(state["cat"], raw)
     except ValueError as e:
         raise HTTPException(400, str(e))
+    return _import_payload(res)
+
+
+DEMO_CSV = ROOT / "demo" / "goodreads_demo.csv"   # the site owner's Goodreads export, for visitors without one
+
+
+@app.get("/api/demo")
+def demo_import():
+    """The demo library ("See a demo" on the homepage), matched exactly like an uploaded export."""
+    if not DEMO_CSV.exists():
+        raise HTTPException(404, "no demo library on this server")
+    return _import_payload(parse_export(state["cat"], DEMO_CSV.read_bytes()))
+
+
+def _import_payload(res: dict) -> dict:
     id_of = state["cat"].id_of
     rated_books = {b["id"]: b for b in _decorate([r["idx"] for r in res["rated"]])}
     return {

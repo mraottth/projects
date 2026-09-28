@@ -3,10 +3,11 @@ import { api, type Book, type RecBook } from "../api";
 import { Cover } from "../components/Cover";
 import { AvgRating, Stars } from "../components/Stars";
 import { useShelf } from "../store";
+import { shelfCovers, type FlowBook } from "../components/CoverFlow";
 
 const GOAL = 10;
 
-export function RatePage({ go, onOpen }: { go: (v: "recs") => void; onOpen: (id: number) => void }) {
+export function RatePage({ onOpen, toRecs }: { onOpen: (id: number) => void; toRecs: (covers: FlowBook[], body: object) => void }) {
   const shelf = useShelf();
   const [q, setQ] = useState("");
   const [results, setResults] = useState<Book[]>([]);
@@ -86,7 +87,11 @@ export function RatePage({ go, onOpen }: { go: (v: "recs") => void; onOpen: (id:
       <aside className="rate-side">
         <div className="side-head">
           <h2>Your shelf <span className="muted">({shelf.count})</span></h2>
-          {shelf.count > 0 && <button type="button" className="primary" onClick={() => go("recs")}>See recommendations →</button>}
+          {shelf.count > 0 && (
+            <button type="button" className="primary" onClick={() => toRecs(shelfCovers(shelf.ratings), shelf.requestBody())}>
+              See recommendations →
+            </button>
+          )}
         </div>
         {rated.length === 0 && <p className="muted">Books you rate will appear here.</p>}
         <ul className="shelf-list">

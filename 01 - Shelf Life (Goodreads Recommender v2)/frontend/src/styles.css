@@ -103,6 +103,24 @@ button.chip:hover { background: #f1f0eb; }
 .lead { max-width: 640px; margin: 8px auto 24px; color: var(--ink-2); font-size: 1.1rem; }
 .entry-cards { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 20px;
   max-width: 900px; margin: 12px auto 24px; }
+.demo-cta { display: flex; flex-direction: column; align-items: center; gap: 10px; margin: 6px 0 22px; }
+.home-choices { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; }
+.demo-button, .own-button { font-size: 1.1rem; padding: 12px 30px; min-width: 240px; }
+.own-button { border-radius: 999px; border: 1px solid var(--ring); background: var(--card); color: var(--ink); font-weight: 600;
+  box-shadow: var(--shadow); cursor: pointer; }
+.own-button:hover, .own-button.on { border-color: var(--ink-2); }
+.own-chevron { display: inline-block; margin-left: 4px; font-size: 0.85em; transition: transform 0.25s ease; }
+.own-button.on .own-chevron { transform: rotate(180deg); }
+/* Collapsible upload / rate cards: animate height via grid rows (0fr -> 1fr) */
+.entry-reveal { display: grid; grid-template-rows: 0fr; opacity: 0; transform: translateY(-8px);
+  transition: grid-template-rows 0.35s ease, opacity 0.3s ease, transform 0.35s ease; }
+.entry-reveal.open { grid-template-rows: 1fr; opacity: 1; transform: none; }
+.entry-reveal-inner { overflow: hidden; padding: 0 12px; }
+.outline-button { background: transparent; color: var(--accent-ink); border: 1px solid var(--accent); border-radius: 999px;
+  padding: 9px 18px; font-weight: 600; cursor: pointer; }
+.outline-button:hover { background: rgba(42, 120, 214, 0.06); }
+@media (prefers-reduced-motion: reduce) { .entry-reveal, .own-chevron { transition: none; } }
+.demo-note { margin: 0 0 16px; }
 .entry-or { color: var(--muted); font-size: 1.05rem; font-weight: 600; }
 @media (max-width: 640px) { .entry-cards { grid-template-columns: 1fr; gap: 12px; } }
 .entry { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
@@ -129,9 +147,9 @@ button.chip:hover { background: #f1f0eb; }
   -webkit-box-orient: vertical; overflow: hidden; }
 .rate-side { position: sticky; top: 70px; align-self: start; background: var(--card); border: 1px solid var(--ring);
   border-radius: 14px; padding: 16px; max-height: calc(100vh - 90px); overflow: auto; }
-.side-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.side-head { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
 .side-head h2 { margin: 0; white-space: nowrap; }
-.side-head .primary { padding: 7px 14px; font-size: 0.85rem; white-space: nowrap; }
+.side-head .primary { padding: 9px 14px; font-size: 0.9rem; }
 .shelf-title { font-size: 0.85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .preview-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .preview-grid .cover-sm { width: 100%; }
@@ -727,3 +745,27 @@ button.chip:hover { background: #f1f0eb; }
   .chat-msg.user { max-width: 92%; }
   .chat-msg.assistant { padding: 10px 14px; }
 }
+
+/* ---------- import -> recommendations transition (components/CoverFlow.tsx) */
+.coverflow { position: fixed; inset: 0; z-index: 100; overflow: hidden; pointer-events: none;
+  background: var(--page); animation: coverflow-in 250ms ease both, coverflow-out var(--step, 360ms) ease var(--reveal-at, 3010ms) forwards; }
+.coverflow-veil { position: absolute; inset: 0; z-index: 2; background: #fff; opacity: 0;
+  animation: coverflow-in var(--step, 360ms) ease var(--fade-at, 2650ms) forwards; }
+.coverflow-item { position: absolute; top: var(--y); left: 0; width: clamp(84px, 9vw, 132px);
+  transform: translateX(-160px); animation: coverflow-fly var(--dur) cubic-bezier(0.45, 0.05, 0.35, 1) var(--delay) both; }
+.coverflow-item .cover { box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25); border-radius: 6px; }
+.coverflow-caption { position: absolute; left: 50%; top: 50%; z-index: 1; margin: 0; padding: 12px 22px; border-radius: 22px;
+  translate: -50% -50%; width: max-content; max-width: calc(100vw - 48px); text-align: center; font-size: 1.15rem; font-weight: 600; color: var(--ink);
+  background: rgba(249, 249, 247, 0.78); backdrop-filter: blur(8px); box-shadow: var(--shadow);
+  animation: coverflow-caption 300ms ease both; }
+@keyframes coverflow-fly {
+  0%   { transform: translate(-160px, 0) rotate(calc(var(--rot) * -1)) scale(var(--scale)); opacity: 0; }
+  12%  { opacity: 1; }
+  50%  { transform: translate(50vw, var(--lift)) rotate(0deg) scale(calc(var(--scale) * 1.08)); }
+  88%  { opacity: 1; }
+  100% { transform: translate(calc(100vw + 40px), 0) rotate(var(--rot)) scale(var(--scale)); opacity: 0; }
+}
+@keyframes coverflow-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes coverflow-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes coverflow-caption { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .coverflow { display: none; } }

@@ -19,6 +19,7 @@ interface ShelfState {
   dismissed: number[];
   reviews: Record<number, string>;   // from the import; read by the Assistant tab
   outside: OutsideBook[];            // export rows not in the catalog (mostly post-2017); read by the Assistant tab
+  demo?: boolean;                    // the shelf is the homepage's demo library, not the visitor's own
 }
 
 const KEY = "goodrec.shelf.v1";
@@ -58,7 +59,7 @@ interface ShelfApi extends ShelfState {
   dismiss: (id: number) => void;
   undismiss: (id: number) => void;
   markRead: (id: number) => void;
-  applyImport: (res: ImportResult, mode: ImportMode) => void;
+  applyImport: (res: ImportResult, mode: ImportMode, demo?: boolean) => void;
   clear: () => void;
   requestBody: () => { ratings: { id: number; rating: number }[]; read: number[]; to_read: number[]; dismissed: number[] };
   /** requestBody plus reviews and outside-the-catalog books, for the Assistant tab. */
@@ -97,7 +98,7 @@ export function ShelfProvider({ children }: { children: ReactNode }) {
   })), []);
   const clear = useCallback(() => setS(EMPTY), []);
 
-  const applyImport = useCallback((res: ImportResult, mode: ImportMode) => setS((p) => {
+  const applyImport = useCallback((res: ImportResult, mode: ImportMode, demo = false) => setS((p) => {
     // "update": drop everything from earlier imports (including stale matches), keep what the user did here.
     const keep = mode === "replace" ? {} : Object.fromEntries(Object.entries(p.ratings).filter(([, v]) => v.source === "manual"));
     const ratings: ShelfState["ratings"] = { ...keep };
@@ -113,6 +114,7 @@ export function ShelfProvider({ children }: { children: ReactNode }) {
       dismissed: mode === "replace" ? [] : p.dismissed,
       reviews: capReviews(res.reviews ?? {}),
       outside: [...(res.unmatched ?? []), ...(res.unmatched_to_read ?? [])],
+      demo,
     };
   }), []);
 
