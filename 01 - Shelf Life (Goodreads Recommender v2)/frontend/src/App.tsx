@@ -17,11 +17,11 @@ const ChatPage = lazy(() => import("./pages/ChatPage").then((m) => ({ default: m
 
 // `tip`: shown on hover (desktop) and under each item in the phone menu.
 const NAV: { view: UrlState["view"]; label: string; tip: string }[] = [
-  { view: "recs", label: "Recommendations", tip: "Your personal picks, with filters and a map" },
+  { view: "recs", label: "Recommendations", tip: "See your personal picks" },
   { view: "explore", label: "Explore", tip: "Browse and filter the whole library" },
   { view: "yours", label: "Your books", tip: "Your shelf and reading stats" },
-  { view: "chat", label: "Assistant 🤖", tip: "Ask Claude what to read next" },
-  { view: "rate", label: "Rate books", tip: "Star books you've read to get started" },
+  { view: "chat", label: "Assistant 🤖", tip: "Chat with AI about books and your recommendations" },
+  { view: "rate", label: "Rate books", tip: "Rate books for better recommendations" },
   { view: "import", label: "Import", tip: "Bring in your Goodreads library" },
   { view: "about", label: "About", tip: "How the recommendations work" },
 ];
