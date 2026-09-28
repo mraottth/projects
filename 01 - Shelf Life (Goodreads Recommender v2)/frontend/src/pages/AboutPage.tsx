@@ -62,14 +62,11 @@ export function AboutPage({ go }: { go: (v: "rate" | "import" | "recs") => void 
         Goodreads shelves in late 2017.
       </p>
       <ul>
-        <li><strong>15.7 million ratings and reviews</strong> from 465,000 readers.</li>
-        <li><strong>2.36 million book editions.</strong> Editions of the same book (hardcover, paperback, translations)
-          are merged into one &ldquo;work,&rdquo; so ratings for any edition count toward the same book.</li>
-        <li><strong>A catalog of about 105,000 books</strong>: works with at least 20 readers in the data and an English
-          (or unlabeled) edition. Covers, descriptions and Goodreads averages come from the same scrape.</li>
-        <li><strong>Genres come from readers&apos; own shelves.</strong> Goodreads doesn&apos;t publish genres, so the tags
-          readers file books under (&ldquo;cozy-mystery,&rdquo; &ldquo;space-opera,&rdquo; &ldquo;ww2&rdquo;) were
-          mapped to 205 descriptive tags and 34 parent genres.</li>
+        <li><strong>15.7 million ratings</strong> from 465,000 readers.</li>
+        <li><strong>About 105,000 books</strong>, counting every edition of a book (hardcover, paperback, translations) as
+          one, and keeping books with at least 20 readers.</li>
+        <li><strong>Genres from readers&apos; own shelves</strong> (&ldquo;cozy-mystery,&rdquo; &ldquo;space-opera&rdquo;),
+          grouped into 34 genres and 205 tags.</li>
       </ul>
       <Tech>
         <ul>
@@ -99,14 +96,19 @@ export function AboutPage({ go }: { go: (v: "rate" | "import" | "recs") => void 
       </p>
 
       <h2>How recommendations are made</h2>
-      <p>Two models score every book, and their scores are blended based on how many books you&apos;ve rated.</p>
+      <p>
+        Two different models each score every book in the catalog. They notice different things, so the app blends
+        them, and a third, simpler model estimates how many stars you&apos;d give each book.
+      </p>
       <dl className="method">
         <div>
           <dt>Similar books</dt>
           <dd>
-            For every book, the 50 books whose readers rated it most similarly were precomputed from 10 million ratings.
-            Your highly rated books &ldquo;vote&rdquo; for their neighbors and your low ratings vote against theirs. This
-            works well even from a handful of ratings, and it&apos;s where each &ldquo;Because you liked…&rdquo; comes from.
+            <p className="model-kind">Item-to-item collaborative filtering</p>
+            For every book, the app knows the 50 books whose readers rated it most similarly. Books you rated highly
+            &ldquo;vote&rdquo; for their neighbors, and books you disliked vote against theirs. <strong>Why:</strong> it
+            works from just a handful of ratings, and every pick has a concrete reason, which is where each
+            &ldquo;Because you liked…&rdquo; comes from.
             <Tech>
               <p>Adjusted cosine similarity on user-mean-centered ratings, shrunk by co-rating support:</p>
               <TeX block>{String.raw`\mathrm{sim}(i,j)=\cos(\mathbf{r}'_i,\mathbf{r}'_j)\cdot\frac{n_{ij}}{n_{ij}+25},\qquad r'_{ui}=r_{ui}-\bar r_u,\quad n_{ij}\ge 5`}</TeX>
@@ -127,9 +129,11 @@ export function AboutPage({ go }: { go: (v: "rate" | "import" | "recs") => void 
         <div>
           <dt>Taste model</dt>
           <dd>
-            A matrix-factorization model (implicit ALS) places every book and reader as a point in a 64-dimensional
-            &ldquo;taste space.&rdquo; Your point is calculated on the fly from your ratings, and books near it score
-            highly. It picks up broader patterns than similar books do, and gets better the more you rate.
+            <p className="model-kind">Matrix factorization (ALS)</p>
+            Trained on all the ratings at once, this model learns a compact taste profile for every reader and every
+            book, so readers who like similar things end up close together. Your profile is worked out from your ratings
+            the moment you arrive, and books that match it score highly. <strong>Why:</strong> it sees broad patterns
+            that direct book-to-book links miss, like a taste that spans literary fiction and narrative history.
             <Tech>
               <p>
                 Implicit-feedback ALS (Hu, Koren &amp; Volinsky 2008) via the <code>implicit</code> library: 64 factors,
@@ -150,12 +154,10 @@ export function AboutPage({ go }: { go: (v: "rate" | "import" | "recs") => void 
         <div>
           <dt>The blend</dt>
           <dd>
-            With a few ratings the ranking leans on similar books; as you rate more, it shifts toward the taste model.
-            A small popularity adjustment helps new users and is dialed down for people with long histories, so heavy
-            readers don&apos;t just get bestsellers. Well-known books we predict you&apos;d rate highly get a boost, so a
-            widely loved classic you&apos;d probably enjoy isn&apos;t buried; obscure books don&apos;t get it, because their high
-            predictions mostly just reflect a high average. Books we predict you&apos;d rate noticeably below your own average are
-            left out of For you, and later volumes of a series are hidden unless you&apos;ve read the one before.
+            With only a few ratings, the ranking leans on similar books; as you rate more, the taste model gets more say.
+            A few light rules sit on top: heavy readers are steered away from the obvious bestsellers, well-known books
+            you&apos;d probably love get a small boost, books you&apos;d likely rate below your usual are left out, and
+            later books in a series wait until you&apos;ve read the earlier ones.
             <Tech>
               <p>Candidates are the union of each model&apos;s top 300 after filters. Each signal is z-scored within that
                 candidate set and combined with weights that depend on the number of ratings <em>n</em>:</p>
@@ -195,9 +197,10 @@ export function AboutPage({ go }: { go: (v: "rate" | "import" | "recs") => void 
         <div>
           <dt>Readers like you</dt>
           <dd>
-            The 300 readers closest to you in taste space. &ldquo;Popular&rdquo; is what they read most (adjusted so
-            universal bestsellers don&apos;t crowd everything out), &ldquo;Top rated&rdquo; is what they rated highest, and
-            every book shows their average rating. This unlocks after 5 ratings.
+            Using the taste model, the app finds the 300 readers whose taste is closest to yours and looks at their
+            actual shelves: &ldquo;Popular&rdquo; is what they read most, and &ldquo;Top rated&rdquo; is what they
+            rated highest. <strong>Why:</strong> seeing what real people like you loved is easy to trust. This unlocks
+            after 5 ratings.
             <Tech>
               <p>
                 Neighbors are found by cosine similarity between your folded-in ALS vector and the L2-normalized vectors of the
@@ -217,12 +220,11 @@ export function AboutPage({ go }: { go: (v: "rate" | "import" | "recs") => void 
         <div>
           <dt>Predicted rating</dt>
           <dd>
-            A separate estimate of the stars you&apos;d give a book: its average, adjusted for how tough or generous a
-            rater you are, plus a correction from similar books you&apos;ve rated. It&apos;s then spread out toward how
-            you actually rate, in proportion to how much of the prediction comes from your own ratings: books closely
-            tied to ones you&apos;ve rated can reach the top of your scale, while a book with no connection to your
-            reading stays near its average adjusted for you, rather than having small differences between book
-            averages blown up.
+            A separate, simpler model estimates the stars you&apos;d give a book: start from its average rating, adjust
+            for how tough or generous a rater you are, then correct using similar books you&apos;ve rated. The result is
+            then adjusted to how you use the star scale. <strong>Why separate:</strong> &ldquo;what should you read next&rdquo;
+            and &ldquo;how much would you like this book&rdquo; are different questions, so a top recommendation
+            won&apos;t always have the highest predicted rating.
             <Tech>
               <p>A baseline plus a neighborhood residual (a classic item-kNN predictor), separate from the ranking blend:</p>
               <TeX block>{String.raw`\begin{aligned}\mu_j&=\dfrac{n_j\,\bar r_j+50\,g_j}{n_j+50}&&\text{dataset mean, shrunk toward the Goodreads average }g_j\\[4pt] b_u&=\dfrac{\sum_i\,(r_{ui}-\mu_i)}{n+5}&&\text{user bias, shrunk}\\[4pt] \hat r_{uj}&=\operatorname{clip}_{[1,5]}\!\left(\mu_j+b_u+\dfrac{\sum_i s_{ij}\,(r_{ui}-\mu_i-b_u)}{\sum_i|s_{ij}|+0.5}\right)\end{aligned}`}</TeX>
@@ -263,9 +265,9 @@ export function AboutPage({ go }: { go: (v: "rate" | "import" | "recs") => void 
 
       <h2>How well it works</h2>
       <p>
-        About 10,000 readers were set aside and never used to train anything. For each of them, 30% of their ratings
-        were hidden, and the question was whether the books they loved (4–5★) showed up in their top 20. Scores are
-        NDCG@20, where higher is better:
+        To test it fairly, 10,000 readers were set aside and never used for training. For each of them, some of their
+        ratings were hidden, and the test asked whether the books they loved (4–5★) showed up in their top 20
+        recommendations. The score (NDCG@20) rewards putting those books near the top; higher is better.
       </p>
       <table className="viz-table about-table">
         <thead><tr><th>Method</th><th>1 rating</th><th>3 ratings</th><th>10 ratings</th><th>Full history</th></tr></thead>
@@ -276,6 +278,14 @@ export function AboutPage({ go }: { go: (v: "rate" | "import" | "recs") => void 
           <tr><td>Most popular books</td><td>0.032</td><td>0.032</td><td>0.033</td><td>0.036</td></tr>
         </tbody>
       </table>
+      <ul>
+        <li><strong>Blending wins.</strong> The combination matches or beats either model on its own at every
+          history length, and pulls ahead once you&apos;ve rated a few books, because the two models catch different books.</li>
+        <li><strong>It learns quickly.</strong> Scores more than double between 1 and 10 ratings, and with 10 or more
+          it does 3–4× better than just recommending the most popular books.</li>
+        <li><strong>Predicted ratings are close.</strong> They&apos;re typically within about 0.86 stars of the rating
+          people actually gave, compared with 0.97 stars for just using each book&apos;s average.</li>
+      </ul>
       <Tech>
         <ul>
           <li><strong>Split:</strong> 10,000 users with ≥ 10 catalog ratings were sampled (seed 42) before any training and
@@ -292,14 +302,6 @@ export function AboutPage({ go }: { go: (v: "rate" | "import" | "recs") => void 
             of recommendations (a popularity-bias check).</li>
         </ul>
         <CodeRefs items={[["matrix_split", "s05_matrix.main()"], ["split_users", "split_users()"], ["evaluate", "evaluate()"], ["metrics", "metrics()"], ["eval_reports", "eval/reports/"]]} />
-      </Tech>
-
-      <p>
-        Predicted ratings are typically within about 0.86 stars of the rating people actually gave (RMSE, full
-        history), compared with 0.97 for just using the book&apos;s average.
-      </p>
-
-      <Tech>
         <p>
           <strong>Serving:</strong> an offline pipeline (11 scripts, about 15 minutes on a laptop) writes about 311 MB of
           artifacts: numpy arrays, a sparse matrix, and a SQLite catalog with FTS5 full-text search. A FastAPI server loads

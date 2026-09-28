@@ -15,14 +15,15 @@ import { useUrlState, type UrlState } from "./useUrlState";
 const AboutPage = lazy(() => import("./pages/AboutPage").then((m) => ({ default: m.AboutPage })));
 const ChatPage = lazy(() => import("./pages/ChatPage").then((m) => ({ default: m.ChatPage })));
 
-const NAV: { view: UrlState["view"]; label: string }[] = [
-  { view: "recs", label: "Recommendations" },
-  { view: "explore", label: "Explore" },
-  { view: "yours", label: "Your books" },
-  { view: "chat", label: "Assistant 🤖" },
-  { view: "rate", label: "Rate books" },
-  { view: "import", label: "Import" },
-  { view: "about", label: "About" },
+// `tip`: shown on hover (desktop) and under each item in the phone menu.
+const NAV: { view: UrlState["view"]; label: string; tip: string }[] = [
+  { view: "recs", label: "Recommendations", tip: "Your personal picks, with filters and a map" },
+  { view: "explore", label: "Explore", tip: "Browse and filter the whole library" },
+  { view: "yours", label: "Your books", tip: "Your shelf and reading stats" },
+  { view: "chat", label: "Assistant 🤖", tip: "Ask Claude what to read next" },
+  { view: "rate", label: "Rate books", tip: "Star books you've read to get started" },
+  { view: "import", label: "Import", tip: "Bring in your Goodreads library" },
+  { view: "about", label: "About", tip: "How the recommendations work" },
 ];
 
 export function App() {
@@ -77,10 +78,11 @@ export function App() {
         </button>
         <nav id="site-nav" ref={navRef}>
           {NAV.map((n) => (
-            <button key={n.view} type="button" className={url.view === n.view ? "on" : ""}
+            <button key={n.view} type="button" className={url.view === n.view ? "on" : ""} aria-describedby={`tip-${n.view}`}
                     aria-current={url.view === n.view ? "page" : undefined} onClick={() => { setMenuOpen(false); go(n.view); }}>
               {n.label}
               {n.view === "yours" && shelfSize ? <span className="count" aria-label={`${shelfSize} books`}>{shelfSize}</span> : null}
+              <span className="nav-tip" id={`tip-${n.view}`} role="tooltip">{n.tip}</span>
             </button>
           ))}
         </nav>

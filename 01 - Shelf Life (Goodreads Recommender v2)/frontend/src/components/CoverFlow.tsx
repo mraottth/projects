@@ -7,6 +7,8 @@ export type FlowBook = Pick<Book, "id" | "title" | "author" | "cover_url" | "cov
 export const FLOW_COVERS = 30;   // the user's own covers (topped up from the cover wall)
 export const FLOW_RECS = 20;     // then their top recommendations, as a second wave
 const FADE_EARLY_MS = 750;       // start the fade-out this much before the flow's natural end
+const LANE_ORDER = [0, 3, 1, 4, 2, 5];   // six rows, 14vh apart; consecutive covers skip rows
+const MIN_GAP = 0.7;             // cover widths of horizontal travel between covers in neighbouring rows
 
 const hasCover = (b: FlowBook) => !!(b.cover_url || b.cover_url_small || b.isbn);
 
@@ -59,42 +61,46 @@ export function CoverFlow({ books, recs, caption, duration, lead = 0, onSwitch, 
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const D = duration;
-  const own = useMemo(() => books.map((b, i) => ({
-    b,
-    style: {
-      "--y": `${4 + ((i * 5) % 6) * 14 + rand(i, 1) * 5}vh`,
-      "--delay": `${lead + D * (0.04 + 0.36 * (i / Math.max(books.length - 1, 1)) + (rand(i, 2) - 0.5) * 0.04)}ms`,
-      "--dur": `${D * (0.5 + rand(i, 3) * 0.1)}ms`,
-      "--rot": `${(rand(i, 4) - 0.5) * 24}deg`,
-      "--lift": `${(rand(i, 5) - 0.5) * 16}vh`,
-      "--scale": `${0.85 + rand(i, 6) * 0.35}`,
-    } as React.CSSProperties,
-  })), [books, D, lead]);
+  // Spacing: covers launch one "slot" apart, cycling through lanes in LANE_ORDER so covers launched close together
+  // are never in neighbouring lanes. The slot gap is at least MIN_GAP cover-widths of travel between neighbouring
+  // lanes, so on narrow screens (where covers cross slowly) fewer covers fly instead of piling up.
+  const slotMs = useMemo(() => {
+    const vw = window.innerWidth;
+    const coverW = Math.min(132, Math.max(84, vw * 0.09));
+    const speed = (vw + 200) / (D * 0.52);        // px per ms at the average duration below
+    return (MIN_GAP * coverW) / speed / 2;        // neighbouring lanes are two slots apart
+  }, [D]);
+  const slot = (k: number, delay: number) => ({
+    "--y": `${4 + LANE_ORDER[k % LANE_ORDER.length] * 14 + rand(k, 1) * 3}vh`,
+    "--delay": `${delay}ms`,
+    "--dur": `${D * (0.5 + rand(k, 3) * 0.04)}ms`,
+    "--rot": `${(rand(k, 4) - 0.5) * 16}deg`,
+    "--lift": `${(rand(k, 5) - 0.5) * 6}vh`,
+    "--scale": `${0.9 + rand(k, 6) * 0.2}`,
+  }) as React.CSSProperties;
 
-  // Second wave: recommendations. Delays are relative to when they arrive, aimed at 32-50% of the timeline;
-  // if they arrive too late to cross the screen before the fade, they're skipped.
+  // First wave: the user's covers, over 4-32% of the timeline.
+  const OWN_END = 0.32;
+  const own = useMemo(() => {
+    const span = D * (OWN_END - 0.04);
+    const gap = Math.max(slotMs, span / Math.max(books.length - 1, 1));
+    const fit = books.slice(0, Math.floor(span / gap) + 1);
+    return fit.map((b, i) => ({ b, style: slot(i, lead + D * 0.04 + i * gap) }));
+  }, [books, D, lead, slotMs]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Second wave: recommendations, continuing the same lane cycle from where the first wave ended (or from when they
+  // arrive, if later) until 50% of the timeline; anything that can't launch by then is skipped.
   const late = useMemo(() => {
     if (!recs) return [];
     const elapsed = performance.now() - start.current;
-    if (elapsed > lead + D * 0.45) return [];
+    const from = Math.max(lead + D * OWN_END + slotMs, elapsed), until = lead + D * 0.5;
+    if (from > until) return [];
     const seen = new Set(books.map((b) => b.id));
     const list = recs.filter((b) => hasCover(b) && !seen.has(b.id)).slice(0, FLOW_RECS);
-    return list.map((b, j) => {
-      const i = j + 100;
-      const target = lead + D * (0.32 + 0.18 * (j / Math.max(list.length - 1, 1)));
-      return {
-        b,
-        style: {
-          "--y": `${10 + ((j * 7) % 5) * 15 + rand(i, 1) * 5}vh`,
-          "--delay": `${Math.max(0, target - elapsed)}ms`,
-          "--dur": `${D * (0.42 + rand(i, 3) * 0.05)}ms`,
-          "--rot": `${(rand(i, 4) - 0.5) * 20}deg`,
-          "--lift": `${(rand(i, 5) - 0.5) * 12}vh`,
-          "--scale": `${1 + rand(i, 6) * 0.25}`,
-        } as React.CSSProperties,
-      };
-    });
-  }, [recs, books, D, lead]);
+    const n = Math.min(list.length, Math.floor((until - from) / slotMs) + 1);
+    const gap = n > 1 ? Math.max(slotMs, (until - from) / (n - 1)) : 0;
+    return list.slice(0, n).map((b, j) => ({ b, style: slot(own.length + j, from - elapsed + j * gap) }));
+  }, [recs, books, D, lead, slotMs, own.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="coverflow" aria-hidden="true" style={{ "--fade-at": `${fadeAt}ms`, "--reveal-at": `${fadeAt + step}ms`, "--step": `${step}ms` } as React.CSSProperties}>
