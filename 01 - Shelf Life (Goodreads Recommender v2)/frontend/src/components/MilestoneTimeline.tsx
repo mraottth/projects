@@ -20,6 +20,9 @@ const KIND: Record<string, string> = {
 };
 const fmtDay = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 const fmtWeekday = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+// Once a milestone is open, hovering another must rest on it this long (a ring fills around its icon) before the
+// panel switches, so crossing milestones on the way to the panel doesn't change it.
+const SWITCH_MS = 550;
 const dayGap = (a: string, b: string) => Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86_400_000);
 
 export function MilestoneTimeline({ milestones, prompts, categories, onShowPrompt, onShowDecision }: {
@@ -28,6 +31,7 @@ export function MilestoneTimeline({ milestones, prompts, categories, onShowPromp
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [pinned, setPinned] = useState(false);
+  const [pending, setPending] = useState<string | null>(null);   // hovered milestone waiting out SWITCH_MS
   const [edges, setEdges] = useState({ left: false, right: true });
   const [progress, setProgress] = useState({ left: 0, width: 100 });   // scroll position, in % of the track
   const [height, setHeight] = useState<number | undefined>(undefined);
@@ -97,7 +101,8 @@ export function MilestoneTimeline({ milestones, prompts, categories, onShowPromp
     return () => { p?.removeEventListener("transitionend", onEnd); window.clearTimeout(t); };
   }, [openId]);
 
-  const close = () => { window.clearTimeout(closeTimer.current); window.clearTimeout(openTimer.current); setOpenId(null); setPinned(false); };
+  const cancelPending = () => { window.clearTimeout(openTimer.current); setPending(null); };
+  const close = () => { window.clearTimeout(closeTimer.current); cancelPending(); setOpenId(null); setPinned(false); };
   useEffect(() => {
     if (!openId) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
@@ -106,24 +111,25 @@ export function MilestoneTimeline({ milestones, prompts, categories, onShowPromp
   }, [openId]);
 
   // Opening the panel reflows the timeline, so the first preview waits a moment: sweeping the mouse across the
-  // timeline doesn't make it jump. Once open, other milestones preview immediately.
-  const preview = (id: string) => {
+  // timeline doesn't make it jump. Switching to another milestone waits SWITCH_MS (keyboard focus switches at once).
+  const preview = (id: string, immediate = false) => {
     window.clearTimeout(closeTimer.current);
-    window.clearTimeout(openTimer.current);
-    if (pinned) return;
-    if (openId) setOpenId(id);
-    else openTimer.current = window.setTimeout(() => setOpenId(id), 180);
+    cancelPending();
+    if (pinned || openId === id) return;
+    if (immediate) { setOpenId(id); return; }
+    if (openId) setPending(id);
+    openTimer.current = window.setTimeout(() => { setPending(null); setOpenId(id); }, openId ? SWITCH_MS : 180);
   };
   // Unpinned previews close shortly after the pointer leaves the whole section (timeline and panel).
   const leaveSoon = () => {
-    window.clearTimeout(openTimer.current);
+    cancelPending();
     if (pinned) return;
     window.clearTimeout(closeTimer.current);
     closeTimer.current = window.setTimeout(() => setOpenId(null), 300);
   };
   const toggle = (id: string) => {
     if (pinned && openId === id) close();
-    else { window.clearTimeout(closeTimer.current); window.clearTimeout(openTimer.current); setOpenId(id); setPinned(true); }
+    else { window.clearTimeout(closeTimer.current); cancelPending(); setOpenId(id); setPinned(true); }
   };
 
   const m = milestones.find((x) => x.id === openId);
@@ -168,10 +174,17 @@ export function MilestoneTimeline({ milestones, prompts, categories, onShowPromp
                                 // Hover only for a real mouse and focus only from the keyboard, so a tap on a touch
                                 // screen goes straight to the click (pin) instead of an emulated hover.
                                 onPointerEnter={(e) => { if (e.pointerType === "mouse") preview(x.id); }}
-                                onPointerLeave={() => window.clearTimeout(openTimer.current)}
-                                onFocus={(e) => { if (e.currentTarget.matches(":focus-visible")) preview(x.id); }}
+                                onPointerLeave={(e) => { if (e.pointerType === "mouse") cancelPending(); }}
+                                onFocus={(e) => { if (e.currentTarget.matches(":focus-visible")) preview(x.id, true); }}
                                 onClick={() => toggle(x.id)}>
-                          <span className="ms-dot" aria-hidden="true">{x.icon}</span>
+                          <span className="ms-dot" aria-hidden="true">
+                            {x.icon}
+                            {pending === x.id && (
+                              <svg className="ms-ring" viewBox="0 0 100 100" style={{ animationDuration: `${SWITCH_MS}ms` }}>
+                                <circle cx="50" cy="50" r="47" pathLength={100} />
+                              </svg>
+                            )}
+                          </span>
                           <span className="ms-title">{x.title}</span>
                           <span className="ms-sum">{x.summary}</span>
                           <span className="ms-meta">
