@@ -170,8 +170,9 @@ def render(session: str, entries: list[dict]) -> tuple[str, str, str] | None:
     if failed:
         md += [f"*{len(failed)} prompt{'s' if len(failed) > 1 else ''} that failed with an API error "
                f"(e.g. \"Credit balance is too low\") and were retried are omitted.*", ""]
-    for e in omitted:
-        md += [f"*{e['id']} omitted: {omit[e['id']]}.*", ""]
+    if omitted:
+        md += [f"*{len(omitted)} operational prompt{'s' if len(omitted) > 1 else ''} (commit and deploy requests, local "
+               f"setup, troubleshooting) are omitted; ids and reasons are in prompts/omit.json.*", ""]
     for e in entries:
         stamp = (e["time"] or "")[:16].replace("T", " ")
         md += [f"## {e['id']} · {stamp} UTC", "", f"**{KIND_LABEL[e['kind']]}**", ""]
@@ -186,7 +187,7 @@ def render(session: str, entries: list[dict]) -> tuple[str, str, str] | None:
         if e.get("plan"):
             md += ["<details><summary>Claude's plan (approved)</summary>", "", e["plan"], "", "</details>", ""]
         md += ["---", ""]
-    meta = {"session": session, "omitted_api_errors": len(failed), "entries": entries}
+    meta = {"session": session, "omitted_api_errors": len(failed), "omitted": len(omitted), "entries": entries}
     return stem, "\n".join(md), json.dumps(meta, ensure_ascii=False, indent=1) + "\n"
 
 
