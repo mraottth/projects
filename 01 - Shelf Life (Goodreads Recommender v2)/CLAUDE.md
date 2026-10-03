@@ -14,7 +14,7 @@ All Python runs through uv (Python 3.12). The Makefile exports `PYTHONPATH=src`.
 make data            # s00-s05: download raw UCSD files (~7.5 GB, resumable) and build data/interim/*
 make genres          # s06: apply config/shelf_genres.yaml -> per-work genres (make genres-draft = regenerate map via Claude API)
 make artifacts       # s06-s10: item-kNN, ALS, SQLite catalog, packaging + sanity asserts -> artifacts/
-make eval            # offline eval on held-out users -> eval/reports/<stamp>.md (add --grid via: PYTHONPATH=src uv run python -m goodrec.eval.run --grid)
+make eval            # temporal hide-and-predict eval on the test users vs all baselines -> eval/reports/<stamp>_<model>.md
 make test            # pytest (API tests skip unless artifacts/ is built)
 make serve           # uvicorn on :8000; serves frontend/dist if built
 make frontend        # npm install + build frontend/dist
@@ -24,7 +24,10 @@ make deploy          # Cloud Build + Cloud Run (project v2-book-recommender, us-
 
 PYTHONPATH=src uv run pytest tests/test_api.py::test_filters -q         # single test
 PYTHONPATH=src uv run python -m goodrec.pipeline.s07_item_knn --force   # re-run one stage (stages skip if outputs exist)
-PYTHONPATH=src uv run python -m goodrec.eval.tune_als --users 800       # ALS hyperparameter sweep
+PYTHONPATH=src uv run python -m goodrec.eval.run --set validation --users 300 --models shelf_life,popular   # quick check
+PYTHONPATH=src uv run python -m goodrec.eval.run --set validation --grid  # blend grid (validation only; tuning never uses test)
+PYTHONPATH=src uv run python -m goodrec.eval.run --ablations --promote    # full test run; record as champion if it wins
+PYTHONPATH=src uv run python -m goodrec.eval.tune_als --users 800       # ALS hyperparameter sweep (validation users)
 ```
 
 ## Working conventions
@@ -44,7 +47,11 @@ This project's history is public: every prompt, decision and commit shows on the
 
 - `src/goodrec/pipeline/s00…s10` run in order. Each stage skips if its outputs exist (`--force` to redo). Thresholds and hyperparameters live in `config/pipeline.yaml`.
   - **Editions are collapsed to works** (`work_id`) in s03. The catalog (s04) is works with at least `catalog.min_raters` distinct raters, sorted by popularity. `work_idx` (dense 0..N-1) is the row/column index for every matrix and artifact, so s04 through s10 must be rebuilt together when the catalog changes.
-  - s05 holds out `eval.n_test_users` users that **no model sees**; the eval harness folds them in, so eval measures real fold-in quality. Production artifacts are trained on the same train split.
+  - s05 holds out `eval.n_test_users` users that **no model sees**; the eval harness folds them in, so eval measures real fold-in quality. Production artifacts are trained on the same train split. Item statistics (s10: raters, averages and `bayes`, the population stats and calibration prior) are computed without them too; `tests/test_eval.py` checks this.
+- `src/goodrec/eval/`: the offline evaluation (DECISIONS D-037 to D-043).
+  - `split.py`: per-user temporal split. Each held-out user's most recent 30% of ratings are hidden, ordered by date read (s03 `read_date`, from `read_at`) or date shelved when there's no plausible read date, moved to a date boundary. Eligible users are fixed into validation (30%, tuning) and test (70%, reported) sets. Saved to `data/interim/eval_split.npz`; its hash goes in every report, and it rebuilds when the split settings in `eval:` change.
+  - `models.py`: the `Recommender` interface. Shelf Life is the served For you `ranking()` (YA included), plus ablations and the random / popular / genre + popularity baselines. `legacy2023.py` re-implements the 2023 project's similar-readers and SVD methods (its gradient-descent MF was dropped, D-044).
+  - `run.py` runs everything in a forked process pool (`eval.workers`) and writes the report (`report.py`) and per-user results (`eval/runs/`, git-ignored except the champion's). `eval/champion.json` (via `--promote`, only with the user's go-ahead) is the "previous best" baseline for later runs. `metrics.py` has P/R/NDCG@k and the per-user paired comparisons. Baseline results are cached in `eval/runs/cache_*` keyed by their code, the split, the `eval:` settings and the artifacts manifest (`--fresh` recomputes); a cached run takes about 6 minutes; recomputing the 2023 SVD baseline adds roughly 20 minutes.
   - s06 genres come from Goodreads reader shelves mapped through `config/shelf_genres.yaml` (hand-reviewed; parents list is fixed and mirrored in `s06_genres.PARENTS` and `frontend/src/genres.ts`).
   - The raw data URL moved to `mcauleylab.ucsd.edu/public_datasets/gdrive/goodreads/` (the old `datarepo.eng.ucsd.edu` URL 404s).
 - `src/goodrec/core/` is shared by the API **and** eval, so eval always exercises serving code:

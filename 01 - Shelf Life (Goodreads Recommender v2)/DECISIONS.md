@@ -402,3 +402,90 @@ Categories: `ui` · `model` · `eval` · `data` · `assistant` · `infra` · `do
 **Decision.** Export each conversation with Claude Code to `prompts/` (automatically, via a hook), keep this file, and show both with the commits on a public changelog page. Sessions run in Claude Code on the web are imported with `claude --teleport` and the same exporter. Commits from here on are small, with messages of the form `category: summary`.
 
 **Why.** Shelf Life was built through conversation, so the conversation is part of how it was made.
+
+## D-037 · Evaluate with a per-user temporal split
+- **Date:** 2026-10-03
+- **Category:** eval
+- **Prompts:** fe7c091a-110, fe7c091a-111, fe7c091a-112, fe7c091a-115
+- **Commits:** da21a59, d57a932, 9aae987, 457b7c4
+
+**Decision.** Offline evaluation hides each held-out user's most recent 30% of ratings and asks the model to predict them from everything before. Ratings are ordered by the date the user read the book (the data's `read_at`, given for 82.5% of ratings), or the date it was shelved when no plausible read date is given; the data has no date-rated field. The split point is relative to each user's own history, not a calendar date. Books with the same date stay on the same side (the split moves to the nearest date boundary), because their order within a day is unknown. A user is evaluated with at least 10 ratings, at least 7 visible and at least 3 hidden books rated 4+: 8,422 of the 10,000 held-out users.
+
+**Context.** The previous evaluation hid a random 30% of ratings, so models were partly asked to predict the past.
+
+**Ordering.** The first version ordered by shelving date (8,278 users); the user asked to order by date read or rated when the data has it, since back-filled shelves say little about reading order.
+
+**Alternatives considered.** A single global cutoff (2017-01-01, with models retrained on earlier data) was proposed first. It would have evaluated 3,535 users and left out the 2,600 held-out users whose last rating was before 2016. The user preferred a per-user split: "the cutoff should be relative to the user's history, not an arbitrary calendar date. We want enough history to make a meaningful profile and enough future observations to evaluate it."
+
+## D-038 · NDCG@10 as the primary metric; hits are hidden books rated 4+
+- **Date:** 2026-10-03
+- **Category:** eval
+- **Prompts:** fe7c091a-110, fe7c091a-111
+- **Commits:** 0e0f582, d57a932
+
+**Decision.** NDCG@10 is the primary metric, with Recall@10 and Precision@10 as secondary metrics and all three also at 20. Relevance is binary: a hidden book the user rated 4 or 5 stars. Results are broken down by cutting each user's visible history to their 1, 3, 5, 10 and 25 most recent ratings, plus the full history. Reports compare the model with each baseline per user: wins, ties and losses, the mean difference with a bootstrap 95% interval, relative lift and the median gain among wins.
+
+**Alternatives considered.** Grouping users by their real history size plus a separate cold-start section (Claude's suggestion); the user chose truncation only, as in the earlier evaluation. Counting only 5-star books, or any book read, as hits; the user chose 4+.
+
+## D-039 · Evaluate the production models and state their exposure
+- **Date:** 2026-10-03
+- **Category:** eval
+- **Prompts:** fe7c091a-111, fe7c091a-113
+- **Commits:** d57a932
+
+**Decision.** The harness evaluates the production models. Evaluation users are excluded from all training (s05), and the For you ranking is measured as served: prediction floor and boost on, young adult books included, no other content filters. Every report lists the exposure that remains: other training readers' ratings dated after a user's split date, Goodreads-wide rating counts and averages (a 2017 snapshot), and catalog membership counted over all users.
+
+**Why.** With a different split date per user, the models can't be retrained to stop at each user's date. Retraining was only possible with the single global cutoff the user decided against (D-037).
+
+## D-040 · Compute item means and the calibration prior from training users only
+- **Date:** 2026-10-03
+- **Category:** model
+- **Prompts:** fe7c091a-113
+- **Commits:** fa55ca5
+
+**Decision.** s10 computes each book's rater count and average (the inputs to its item mean) from the training matrix, and the population statistics, including the calibration prior, exclude the held-out users.
+
+**Context.** Checking for leakage, at the user's request, found that item means used the catalog's counts and averages over every user, including the evaluation users. Their hidden ratings fed their own predicted ratings, the prediction floor and calibration. 90% of books' item means changed by up to 0.13 stars after the fix.
+
+**Numbers (validation users, full history).** Predicted-rating RMSE 0.8732 with the leak, 0.8777 without; item-mean RMSE 0.9689 → 0.9740. NDCG@10 0.0557 → 0.0558 (ranking was barely affected). Reports: `eval/reports/2026-10-03_1201_validation.md`, `eval/reports/2026-10-03_1203_validation.md`.
+
+## D-041 · Tune on validation users, report on test users
+- **Date:** 2026-10-03
+- **Category:** eval
+- **Prompts:** fe7c091a-113
+- **Commits:** da21a59, d57a932, 12f8f9d
+
+**Decision.** The evaluation users are split once, with a fixed seed, into validation (30%, 2,527 users) and test (70%, 5,895 users). Grid searches and the ALS sweep run only on validation; reported results and decisions about the best model use the test set.
+
+**Why.** Part of the leakage precautions the user asked for: tuning on the same users the results are reported on would overstate them.
+
+## D-042 · Re-implement the 2023 recommender's three methods as baselines
+- **Date:** 2026-10-03
+- **Category:** eval
+- **Prompts:** fe7c091a-110, fe7c091a-112
+- **Commits:** 05a0fbb
+
+**Decision.** The 2023 project's methods run as three baselines on this project's training data, with the original parameters and filters: similar readers (the 150 nearest readers' most-rated books), SVD of the 3,000 nearest readers (what the 2023 web app served) and gradient-descent matrix factorization of the 1,000 nearest. The gradient descent reproduces the original update exactly, including a quirk: NumPy keeps only the last write for repeated indices, so each step updates each reader and book from a single rating. Gradient descent runs on a fixed subsample of 1,000 users because it is slow: the first full run took 3 h 51 min on an 8 GB laptop, almost all of it this baseline. Baseline results are cached and reused until their code, the split, the settings or the artifacts change.
+
+**Result (first, shelving-date split; test set, full history, NDCG@10).** Similar readers 0.0338, SVD 0.0279, gradient descent 0.0012 (random scores 0.0002; with one rating per reader and book per step it barely learns). Shelf Life scores 0.0565: 67% above the best 2023 method, winning for 24.1% of users, tying for 62.7% and losing for 13.3% (`eval/reports/2026-10-03_1556_shelf_life.md`).
+
+**Why.** The original code reads its own data files, which use edition ids and a different set of users and may include the evaluation users, so it can't be run as is. Reproducing the original update, quirk included, compares against what the 2023 project actually did. The user pointed out that the 2023 project used matrix factorization as well as SVD.
+
+## D-043 · Keep a record of the best model so far
+- **Date:** 2026-10-03
+- **Category:** eval
+- **Prompts:** fe7c091a-110, fe7c091a-114
+- **Commits:** d57a932
+
+**Decision.** `eval/champion.json` records the best model so far (parameters, commit, split hash, report). Later runs include it as the "previous best" baseline, reusing its per-user results when the split is unchanged. A model becomes champion only with `--promote`, when it beats the current one on test-set NDCG@10, and only when the user confirms.
+
+**First champion.** The current configuration, recorded on the date-read split (`54b863801d57`) at user's request: test-set NDCG@10 0.0668 with full histories. It beats the best 2023 method (similar readers, 0.0403) by +0.0264 (95% CI +0.0237 to +0.0294, a 66% lift), winning for 27.0% of users, tying for 59.5% and losing for 13.5%; popular books score 0.0229 (`eval/reports/2026-10-03_1817_shelf_life.md`).
+
+## D-044 · Drop the 2023 gradient-descent baseline
+- **Date:** 2026-10-03
+- **Category:** eval
+- **Prompts:** fe7c091a-114
+
+**Decision.** Remove the 2023 notebook's gradient-descent matrix factorization from the evaluation baselines. The 2023 similar-readers and SVD methods stay.
+
+**Why.** The 2023 web app never served it; it existed only in the notebook. And because of how NumPy handles repeated indices in its update (D-042), each step learned from a single rating per reader and book, so it scored close to random (NDCG@10 0.0012 against random's 0.0002). It also accounted for most of the first full run's 3 h 51 min.

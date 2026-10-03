@@ -35,8 +35,13 @@ def build_meta(cat: pl.DataFrame, R: sparse.csr_matrix, Read: sparse.csr_matrix,
     n_users = R.shape[0]
     readers = np.asarray((R > 0).sum(axis=0)).ravel() + np.asarray(Read.sum(axis=0)).ravel()
     mu = float(R.data.mean())
-    n_raters = cat["n_raters"].to_numpy().astype(np.float32)
-    data_avg = cat["data_avg"].to_numpy().astype(np.float32)
+    # Raters and their average come from the training users only (R_train): the catalog's n_raters/data_avg
+    # (s04) count every user, including the held-out evaluation users, whose hidden ratings would otherwise
+    # leak into item means, predicted ratings, the prediction floor and calibration.
+    Rc = R.tocsc()
+    n_raters = np.diff(Rc.indptr).astype(np.float32)
+    sums = np.asarray(Rc.sum(axis=0)).ravel().astype(np.float64)
+    data_avg = np.divide(sums, n_raters, out=np.zeros_like(sums), where=n_raters > 0).astype(np.float32)
 
     series_keys = [f"{s.lower()}|{a}" if s else None
                    for s, a in zip(cat["series_name"].to_list(), cat["author_id"].to_list())]
@@ -89,7 +94,8 @@ def build_meta(cat: pl.DataFrame, R: sparse.csr_matrix, Read: sparse.csr_matrix,
 
 
 def population_stats(cat: pl.DataFrame, meta: dict, names: dict) -> dict:
-    """Reader-population distributions for the "Your books" insights.
+    """Reader-population distributions for the "Your books" insights, over every reader except the
+    held-out evaluation users (rating_dist is also the calibration prior, so it must not see their ratings).
 
     books_read: per reader, catalog books rated or marked read (the same basis as a user's matched shelf).
     harshness:  per reader with >= 10 ratings, mean(rating - item mean) using the Bayesian item mean
@@ -97,8 +103,10 @@ def population_stats(cat: pl.DataFrame, meta: dict, names: dict) -> dict:
     genres:     mean rating and count of all ratings per parent genre.
     """
     widx = cat.select("work_id", "work_idx")
-    r = pl.scan_parquet(INTERIM_DIR / "ratings.parquet").join(widx.lazy(), on="work_id").select(
-        "user_idx", "work_idx", "rating").collect()
+    held_out = pl.DataFrame({"user_idx": np.load(INTERIM_DIR / "test_users.npy")})
+    r = (pl.scan_parquet(INTERIM_DIR / "ratings.parquet").join(widx.lazy(), on="work_id")
+           .join(held_out.lazy(), on="user_idx", how="anti")          # evaluation users never shape the stats
+           .select("user_idx", "work_idx", "rating").collect())
     counts = r.group_by("user_idx").len()["len"].to_numpy()
     vals, freq = np.unique(counts, return_counts=True)
     cum = np.cumsum(freq) / freq.sum()
