@@ -27,6 +27,16 @@ PYTHONPATH=src uv run python -m goodrec.pipeline.s07_item_knn --force   # re-run
 PYTHONPATH=src uv run python -m goodrec.eval.tune_als --users 800       # ALS hyperparameter sweep
 ```
 
+## Working conventions
+
+This project's history is public: every prompt, decision and commit shows on the site's Changelog page (`?view=changelog`).
+
+- **Small commits, one concern each**, on a feature branch. Ask before pushing, merging or deploying.
+- **Commit messages:** `<category>: <imperative summary>` (≤ 72 characters), then a body saying what changed and why. Categories: `ui`, `model`, `eval`, `data`, `assistant`, `infra`, `docs`. The prefix is how the Changelog page categorizes commits; anything else shows as "uncategorized". Messages are public, so keep them neutral.
+- **DECISIONS.md:** add an entry (next `D-NNN`, same fields as the others) whenever a choice or tradeoff is made, by the user or proposed by Claude and accepted. Link the prompt ids and commits, and quote the measured numbers. If the reasoning wasn't stated, say so rather than inventing it.
+- **prompts/:** a `Stop` hook (`.claude/settings.json`, here and at the repo root) runs `scripts/export_prompts.py` after every turn, keeping `prompts/<date>_<session>.md/.json` current. Commit those files with the related work, and add each new prompt id to `prompts/categories.json` (categories above plus `discussion`). `python3 scripts/build_changelog.py` warns about unlabeled ones. Sessions run in Claude Code on the web aren't captured; their commits carry a `Claude-Session:` trailer and show on the page without prompts.
+- **Changelog data:** `scripts/build_changelog.py` writes `frontend/src/changelog.json` (git-ignored) from git, `prompts/` and DECISIONS.md. `make frontend` and `make deploy` run it.
+
 ## Architecture
 
 **Offline pipeline → artifacts → stateless API.** Heavy work is precomputed; a recommend request costs ~10–70 ms.
@@ -55,7 +65,7 @@ PYTHONPATH=src uv run python -m goodrec.eval.tune_als --users 800       # ALS hy
   - Import keeps review text (`My Review`, HTML stripped, 1,500 chars) and unmatched rows with rating/shelf; the store keeps them as `reviews` / `outside` for the Assistant only.
   - `/api/browse` (Explore page) reuses `filter_mask` with an empty user; the Explore filter set is separate from Recommendations' in `useUrlState.ts` and defaults to showing everything.
 - `frontend/`: React + Vite + TS, no UI library.
-  - Pages: Recommendations (list or map), Rate books, Import, Explore (`/api/browse`), Your books (`/api/books/batch` fills in full details for shelf ids), About (`pages/AboutPage.tsx`, holds `REPO_URL`).
+  - Pages: Recommendations (list or map), Rate books, Import, Explore (`/api/browse`), Your books (`/api/books/batch` fills in full details for shelf ids), About (`pages/AboutPage.tsx`, holds `REPO_URL`), Changelog (`pages/ChangelogPage.tsx`, linked from About and the footer). `components/Markdown.tsx` is the shared safe Markdown renderer (Assistant replies and the Changelog).
   - The user's shelf lives in localStorage (`store.tsx`). View, tab and filters live in the URL query string (`useUrlState.ts`).
   - Going to Recommendations from an import, "See a demo" or the Rate books shelf plays `components/CoverFlow.tsx`: 30 covers (the user's top-rated first, topped up from the homepage cover wall via `fillCovers()`), then their top 20 recommendations as a second wave once a prefetched `/api/recommend` answers (skipped if it's late). 4 s; the demo runs 5 s after a 0.75 s `lead` where only its caption ("…a real Goodreads user's ratings library") shows. Each cover eases to a pause halfway through its flight at its own horizontal spot (`--mid`, 18–74vw) rather than all at the centre. Recommendations is shown underneath at the flow's halfway point. Timings are `lead` + fractions of `duration`; the ending starts `FADE_EARLY_MS` (750 ms) before the last 15%: a white veil fades in over the covers, then the white overlay fades away to reveal Recommendations (`--fade-at` / `--reveal-at` / `--step` in CSS), ending at ~3.4 s (demo ~5.2 s). `App` owns the flow state and fetches the wall list once. Skipped for `prefers-reduced-motion`.
   - Genre colors are 8 validated family hues (`genres.ts`); text labels always carry identity.
