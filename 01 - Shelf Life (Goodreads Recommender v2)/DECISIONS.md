@@ -406,12 +406,14 @@ Categories: `ui` · `model` · `eval` · `data` · `assistant` · `infra` · `do
 ## D-037 · Evaluate with a per-user temporal split
 - **Date:** 2026-10-03
 - **Category:** eval
-- **Prompts:** fe7c091a-110, fe7c091a-111, fe7c091a-112
-- **Commits:** da21a59, d57a932
+- **Prompts:** fe7c091a-110, fe7c091a-111, fe7c091a-112, fe7c091a-114
+- **Commits:** da21a59, d57a932, 9aae987, 457b7c4
 
-**Decision.** Offline evaluation hides each held-out user's most recent 30% of ratings, ordered by the date the book was shelved, and asks the model to predict them from everything before. The split point is relative to each user's own history, not a calendar date. Books shelved on the same day stay on the same side (the split moves to the nearest date boundary), because their order within a day is unknown. A user is evaluated with at least 10 ratings, at least 7 visible and at least 3 hidden books rated 4+: 8,278 of the 10,000 held-out users.
+**Decision.** Offline evaluation hides each held-out user's most recent 30% of ratings and asks the model to predict them from everything before. Ratings are ordered by the date the user read the book (the data's `read_at`, given for 82.5% of ratings), or the date it was shelved when no plausible read date is given; the data has no date-rated field. The split point is relative to each user's own history, not a calendar date. Books with the same date stay on the same side (the split moves to the nearest date boundary), because their order within a day is unknown. A user is evaluated with at least 10 ratings, at least 7 visible and at least 3 hidden books rated 4+: 8,422 of the 10,000 held-out users.
 
 **Context.** The previous evaluation hid a random 30% of ratings, so models were partly asked to predict the past.
+
+**Ordering.** The first version ordered by shelving date (8,278 users); the user asked to order by date read or rated when the data has it, since back-filled shelves say little about reading order.
 
 **Alternatives considered.** A single global cutoff (2017-01-01, with models retrained on earlier data) was proposed first. It would have evaluated 3,535 users and left out the 2,600 held-out users whose last rating was before 2016. The user preferred a per-user split: "the cutoff should be relative to the user's history, not an arbitrary calendar date. We want enough history to make a meaningful profile and enough future observations to evaluate it."
 
@@ -453,7 +455,7 @@ Categories: `ui` · `model` · `eval` · `data` · `assistant` · `infra` · `do
 - **Prompts:** fe7c091a-113
 - **Commits:** da21a59, d57a932, 12f8f9d
 
-**Decision.** The evaluation users are split once, with a fixed seed, into validation (30%, 2,483 users) and test (70%, 5,795 users). Grid searches and the ALS sweep run only on validation; reported results and decisions about the best model use the test set.
+**Decision.** The evaluation users are split once, with a fixed seed, into validation (30%, 2,527 users) and test (70%, 5,895 users). Grid searches and the ALS sweep run only on validation; reported results and decisions about the best model use the test set.
 
 **Why.** Part of the leakage precautions the user asked for: tuning on the same users the results are reported on would overstate them.
 
@@ -465,17 +467,19 @@ Categories: `ui` · `model` · `eval` · `data` · `assistant` · `infra` · `do
 
 **Decision.** The 2023 project's methods run as three baselines on this project's training data, with the original parameters and filters: similar readers (the 150 nearest readers' most-rated books), SVD of the 3,000 nearest readers (what the 2023 web app served) and gradient-descent matrix factorization of the 1,000 nearest. The gradient descent reproduces the original update exactly, including a quirk: NumPy keeps only the last write for repeated indices, so each step updates each reader and book from a single rating. Gradient descent runs on a fixed subsample of 1,000 users because it is slow: the first full run took 3 h 51 min on an 8 GB laptop, almost all of it this baseline. Baseline results are cached and reused until their code, the split, the settings or the artifacts change.
 
-**Result (test set, full history, NDCG@10).** Similar readers 0.0338, SVD 0.0279, gradient descent 0.0012 (random scores 0.0002; with one rating per reader and book per step it barely learns). Shelf Life scores 0.0565: 67% above the best 2023 method, winning for 24.1% of users, tying for 62.7% and losing for 13.3% (`eval/reports/2026-10-03_1556_shelf_life.md`).
+**Result (first, shelving-date split; test set, full history, NDCG@10).** Similar readers 0.0338, SVD 0.0279, gradient descent 0.0012 (random scores 0.0002; with one rating per reader and book per step it barely learns). Shelf Life scores 0.0565: 67% above the best 2023 method, winning for 24.1% of users, tying for 62.7% and losing for 13.3% (`eval/reports/2026-10-03_1556_shelf_life.md`).
 
 **Why.** The original code reads its own data files, which use edition ids and a different set of users and may include the evaluation users, so it can't be run as is. Reproducing the original update, quirk included, compares against what the 2023 project actually did. The user pointed out that the 2023 project used matrix factorization as well as SVD.
 
 ## D-043 · Keep a record of the best model so far
 - **Date:** 2026-10-03
 - **Category:** eval
-- **Prompts:** fe7c091a-110
+- **Prompts:** fe7c091a-110, fe7c091a-114
 - **Commits:** d57a932
 
 **Decision.** `eval/champion.json` records the best model so far (parameters, commit, split hash, report). Later runs include it as the "previous best" baseline, reusing its per-user results when the split is unchanged. A model becomes champion only with `--promote`, when it beats the current one on test-set NDCG@10, and only when the user confirms.
+
+**First champion.** The current configuration, recorded on the date-read split (`54b863801d57`) at user's request: test-set NDCG@10 0.0668 with full histories. It beats the best 2023 method (similar readers, 0.0403) by +0.0264 (95% CI +0.0237 to +0.0294, a 66% lift), winning for 27.0% of users, tying for 59.5% and losing for 13.5%; popular books score 0.0229 (`eval/reports/2026-10-03_1817_shelf_life.md`).
 
 ## D-044 · Drop the 2023 gradient-descent baseline
 - **Date:** 2026-10-03
