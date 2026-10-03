@@ -48,7 +48,7 @@ function CommitRow({ c }: { c: Commit }) {
       </div>
       <div className="cl-meta muted small">
         {fmtTime(c.time)} · {c.files} file{c.files === 1 ? "" : "s"}
-        {c.web_session && <span className="cl-badge" title="Made in a Claude Code on the web session; its prompts aren't in this repo">Claude Code on the web</span>}
+        {c.web_session && <span className="cl-badge" title="Made in a Claude Code on the web session">Claude Code on the web</span>}
         <Chips cats={c.categories} />
       </div>
       {c.body && (
