@@ -45,11 +45,14 @@ LINKS = {
     # predicted rating
     "predict_ratings": ("src/goodrec/core/scoring.py", "predict_ratings"),
     "calibration": ("src/goodrec/core/scoring.py", "calibration"),
-    "rating_metrics": ("src/goodrec/eval/run.py", "rating_metrics"),
+    "rating_rmse": ("src/goodrec/eval/run.py", "_work"),
     # evaluation
-    "split_users": ("src/goodrec/eval/run.py", "split_users"),
+    "eval_split": ("src/goodrec/eval/split.py", "split_user"),
     "evaluate": ("src/goodrec/eval/run.py", "evaluate"),
-    "metrics": ("src/goodrec/eval/run.py", "metrics"),
+    "metrics": ("src/goodrec/eval/metrics.py", "at_k"),
+    "paired": ("src/goodrec/eval/metrics.py", "paired"),
+    "baselines": ("src/goodrec/eval/models.py", "simple_baselines"),
+    "legacy2023": ("src/goodrec/eval/legacy2023.py", None),
     "eval_reports": ("eval/reports", None),
     # serving
     "package": ("src/goodrec/pipeline/s10_package.py", "main"),
