@@ -98,5 +98,5 @@ def render(r: dict) -> str:
             lines.append(f"| {name} | " + " | ".join(_f(by_n[str(n)]) for n in buckets) + " |")
     if r.get("notes"):
         lines += ["", "## Notes", "", *[f"- {x}" for x in r["notes"]]]
-    lines += ["", "## Baseline descriptions", "", *[f"- **{row['name']}:** {row['description']}" for row in rows]]
+    lines += ["", "## Descriptions", "", *[f"- **{row['name']}:** {row['description']}" for row in rows]]
     return "\n".join(lines) + "\n"

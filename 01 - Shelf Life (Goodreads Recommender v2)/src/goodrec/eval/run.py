@@ -21,10 +21,12 @@ for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "VECLIB_MAXIMUM_THREADS", 
 import argparse  # noqa: E402
 import dataclasses  # noqa: E402
 import datetime as dt  # noqa: E402
+import hashlib  # noqa: E402
 import itertools  # noqa: E402
 import multiprocessing as mp  # noqa: E402
 import subprocess  # noqa: E402
 import time  # noqa: E402
+from pathlib import Path  # noqa: E402
 
 import numpy as np  # noqa: E402
 import orjson  # noqa: E402
@@ -143,12 +145,24 @@ def params_from_json(d: dict) -> Params:
     return Params(**d)
 
 
+def cache_path(rec: Recommender, split_hash: str, set_: str, users: int | None, cfg: dict) -> Path:
+    """Where a baseline's per-user results are cached. Baselines don't change between runs unless their
+    code, the split, the evaluation settings or the artifacts do, and all of those are in the key."""
+    h = hashlib.sha256(repr((rec.key, rec.subsample, rec.description, split_hash, set_, users, cfg["n_buckets"],
+                             cfg["relevant_min_rating"], cfg["seed"], KMAX)).encode())
+    h.update((ARTIFACTS_DIR / "manifest.json").read_bytes())
+    for f in ("models.py", "legacy2023.py", "metrics.py", "split.py"):
+        h.update((Path(__file__).parent / f).read_bytes())
+    return EVAL_DIR / "runs" / f"cache_{rec.key}_{h.hexdigest()[:12]}.npz"
+
+
 def load_champion() -> dict | None:
     return orjson.loads(CHAMPION.read_bytes()) if CHAMPION.exists() else None
 
 
 def main(set_: str = "test", users: int | None = None, models: str | None = None, ablations: bool = False,
-         grid: bool = False, workers: int | None = None, promote: bool = False, name: str | None = None) -> None:
+         grid: bool = False, workers: int | None = None, promote: bool = False, name: str | None = None,
+         fresh: bool = False) -> None:
     if grid and set_ != "validation":
         raise SystemExit("--grid tunes parameters, so it only runs on --set validation.")
     if promote and set_ != "test":
@@ -196,10 +210,29 @@ def main(set_: str = "test", users: int | None = None, models: str | None = None
     elif not champ:
         notes.append("No previous best yet (eval/champion.json is created by --promote).")
 
+    # Baselines are cached by everything that can change their results (see cache_path).
+    cacheable = [r for r in recs if r.kind == "baseline" and r.key != "champion"]
+    cached = {}
+    if not fresh:
+        for r in cacheable:
+            path = cache_path(r, split.hash, set_, users, cfg)
+            if path.exists():
+                z = np.load(path)
+                cached[r.key] = {"idx": z["idx"], "met": z["met"], "tops": z["tops"]}
+    if cached:
+        notes.append("Baseline results reused from the cache (same code, split, settings and artifacts): "
+                     + ", ".join(r.name for r in cacheable if r.key in cached) + ".")
+    to_run = [r for r in recs if r.key not in cached]
     print(f"  eval: {len(cases):,} {set_} users, split {split.hash}, buckets={buckets}, "
-          f"models={[r.key for r in recs]}, workers={workers}")
+          f"models={[r.key for r in to_run]}, cached={list(cached)}, workers={workers}")
     t = time.time()
-    res = evaluate(recs, cases, buckets, cfg, workers)
+    res = evaluate(to_run, cases, buckets, cfg, workers)
+    (EVAL_DIR / "runs").mkdir(parents=True, exist_ok=True)
+    for r in cacheable:
+        if r.key in res:
+            np.savez_compressed(cache_path(r, split.hash, set_, users, cfg), idx=res[r.key]["idx"],
+                                met=res[r.key]["met"], tops=res[r.key]["tops"])
+    res.update(cached)
     if champ_res is not None:
         recs.append(Recommender(key="champion", name=f"Previous best: {champ['name']}", kind="baseline",
                                 description=f"Champion from {champ.get('commit', '?')} ({champ.get('report', '')})."))
@@ -315,4 +348,5 @@ if __name__ == "__main__":
     ap.add_argument("--workers", type=int, default=None)
     ap.add_argument("--promote", action="store_true", help="record this model as the champion if it beats it")
     ap.add_argument("--name", default=None, help="label for the model under test")
+    ap.add_argument("--fresh", action="store_true", help="recompute baselines instead of using cached results")
     main(**vars(ap.parse_args()))
