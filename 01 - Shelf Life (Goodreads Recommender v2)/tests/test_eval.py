@@ -1,4 +1,4 @@
-"""Evaluation harness: metrics, the temporal split, leakage guards and the 2023 re-implementation.
+"""Evaluation harness: metrics, the temporal split, leakage guards and the baselines.
 
 The first group uses synthetic data; tests marked `needs_data` use the built artifacts and split inputs
 (skipped if `make data artifacts` hasn't run)."""
@@ -9,7 +9,6 @@ from scipy import sparse
 
 from goodrec.config import ARTIFACTS_DIR, INTERIM_DIR, load_config
 from goodrec.core.scoring import UserInput
-from goodrec.eval.legacy2023 import gd_factorize
 from goodrec.eval.metrics import at_k, paired
 from goodrec.eval.split import choose_split, split_user
 
@@ -88,36 +87,6 @@ def test_split_user_eligibility():
     assert split_user(*_user(9), CFG, rng) is None                     # fewer than 10 ratings
     assert split_user(*_user(20, hidden_rating=3), CFG, rng) is None   # no hidden book rated 4+
     assert split_user(*_user(1, per_day=12), CFG, rng) is None         # all on one date
-
-
-# ---------------------------------------------------------------- 2023 gradient descent
-
-def _notebook_mf(R, P, Q, k, steps, lr, beta):
-    """The 2023 notebook's matrix_factorization() update loop, verbatim (dense)."""
-    r_0 = np.where(R > 0)
-    i, j = r_0[0], r_0[1]
-    nonzero = R[i, j]
-    for step in range(steps):
-        resid = nonzero - (P @ Q)[i, j]
-        for kk in range(k):
-            P[i, kk] = P[i, kk] + lr * (2 * resid * Q[kk, j] - beta * P[i, kk])
-            Q[kk, j] = Q[kk, j] + lr * (2 * resid * P[i, kk] - beta * Q[kk, j])
-        if (((step + 1) / (steps / 5)) % 1 == 0) | (step == 0):
-            if lr > 0.00002:
-                lr = lr / 1.5
-    return P, Q
-
-
-def test_gd_factorize_matches_the_2023_notebook():
-    rng = np.random.default_rng(3)
-    R = (rng.random((12, 15)) < 0.4) * rng.integers(1, 6, (12, 15)).astype(float)
-    k, steps = 4, 30
-    gen = np.random.default_rng(11)
-    P_ref, Q_ref = gen.random((12, k)), gen.random((k, 15))
-    P_ref, Q_ref = _notebook_mf(R, P_ref.copy(), Q_ref.copy(), k, steps, 0.02, 1.0)
-    P, Q = gd_factorize(sparse.csr_matrix(R), k=k, steps=steps, lr=0.02, beta=1.0, rng=np.random.default_rng(11))
-    np.testing.assert_allclose(P, P_ref, rtol=1e-10)
-    np.testing.assert_allclose(Q, Q_ref, rtol=1e-10)
 
 
 # ---------------------------------------------------------------- built data: leakage and baselines

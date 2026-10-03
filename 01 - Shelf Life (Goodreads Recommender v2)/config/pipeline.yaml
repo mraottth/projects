@@ -35,7 +35,6 @@ eval:
   subsample:                 # fixed user subsamples for slow baselines (null = every user)
     similar_readers_2023: null
     svd_2023: null
-    gd_mf_2023: 1000         # ~1-2 s per user per history size
   workers: 7
 
 item_knn:

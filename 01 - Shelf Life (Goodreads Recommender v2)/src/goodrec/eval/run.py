@@ -2,10 +2,10 @@
 
 For each evaluated user, the model sees their visible history (cut to the n most recent ratings for each
 n in eval.n_buckets) and ranks unread books; a hit is a hidden book they rated >= 4. Shelf Life (the For
-you ranking as served) is compared with random, popular and genre+popularity baselines, the three 2023
-recommenders (goodrec.eval.legacy2023), the previous best model (eval/champion.json) and, with
---ablations, its own components. Writes eval/reports/<stamp>_<model>.md/.json and per-user results to
-eval/runs/.
+you ranking as served) is compared with random, popular and genre+popularity baselines, the 2023
+recommender's similar-readers and SVD methods (goodrec.eval.legacy2023), the previous best model
+(eval/champion.json) and, with --ablations, its own components. Writes
+eval/reports/<stamp>_<model>.md/.json and per-user results to eval/runs/.
 
   uv run python -m goodrec.eval.run                          # test set, all baselines
   uv run python -m goodrec.eval.run --set validation --users 300 --models shelf_life,popular   # quick check
@@ -180,7 +180,7 @@ def main(set_: str = "test", users: int | None = None, models: str | None = None
     recs = shelf_life_models(art, prior, ablations=ablations, name=name or "Shelf Life (current config)")
     recs += simple_baselines(art)
     wanted = set(models.split(",")) if models else None
-    if wanted is None or wanted & {"similar_readers_2023", "svd_2023", "gd_mf_2023"}:
+    if wanted is None or wanted & {"similar_readers_2023", "svd_2023"}:
         from goodrec.eval.legacy2023 import legacy_baselines
         recs += legacy_baselines(art, cfg["subsample"])
     if grid:
