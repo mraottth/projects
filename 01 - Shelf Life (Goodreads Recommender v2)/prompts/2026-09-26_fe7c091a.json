@@ -713,8 +713,16 @@
    "time": "2026-10-03T14:33:52.666Z",
    "kind": "prompt",
    "text": "One small change to the timeline view. Right now, the loading delay only happens if the modal is already open. It should happen when the modal is closed too so it's a consistent experience. It can load in 3/4 the time in those cases though so users aren't kept waiting when they view the first modal",
-   "reply": null,
+   "reply": "Hovering a milestone when the panel is closed now shows the same filling ring, and the panel opens once the ring completes. That takes 413 ms, three-quarters of the 550 ms used for switching between milestones. Before, it opened after a 180 ms pause with no ring.\n\nI tested it in Chrome: the ring shows at the right speed, the panel opens when it fills, and quickly moving the mouse across the timeline still opens nothing. The earlier checks still pass (the sweep to the panel, the switch delay, Escape, the phone sheet), with no console errors.\n\nOpening still takes three-quarters of the switch time if you change the switch delay (`SWITCH_MS` in [MilestoneTimeline.tsx](frontend/src/components/MilestoneTimeline.tsx)).\n\nThe change is commit `ee30e99`, plus `6842b8c` for the prompt log, on a new branch `br-timeline-first-open`. It's pushed but not merged or deployed. The local server at http://localhost:8000/?view=changelog already shows it; the live site doesn't yet.",
    "id": "fe7c091a-107",
+   "session": "fe7c091a"
+  },
+  {
+   "time": "2026-10-03T14:37:12.197Z",
+   "kind": "prompt",
+   "text": "awesome! also I notice the favicon is the correct logo when viewing the local deploy but the production version uses a book emoji",
+   "reply": null,
+   "id": "fe7c091a-108",
    "session": "fe7c091a"
   }
  ]
