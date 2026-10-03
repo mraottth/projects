@@ -673,8 +673,16 @@
    "time": "2026-10-03T13:58:57.676Z",
    "kind": "prompt",
    "text": "[screenshot]\n\nThis is so good. A couple tweaks: 1) the default view doesn't have enough breathing room on the left (see screenshot). Let's fix that. 2) It's not immediately clear to the user that they can scroll horizontally. The arrows in the top right help, but it's not enough. Let's make a horizontal scroll progress bar at the top to make it really clear. 3) You can include the whole prompt in the hover modal. That's better than cutting it off. And it's good for all the prompts to have claude's reply and a link to show in the changelog. 4) Let's make the dates more prominent on the timeline. 5) There are too many category chips. Let's hide those behind a dropdown. 5) the timeline view can take up more vertical space. Honestly, it can take up most of the viewport. The very top of the full changelog should be visible so the user knows there's more they can scroll down to",
-   "reply": null,
+   "reply": "All six tweaks are in and live on your local server; refresh http://localhost:8000/?view=changelog. I tested them in the browser on desktop and on a phone with touch, with no errors, and all 47 tests pass.\n\n1. **Left edge:** on load, the timeline now starts fully visible with proper margin. The fade and clipping came from scroll snapping lining the first milestone up against the edge while ignoring the padding.\n2. **Scroll progress bar:** a bar across the top shows where you are, and you can click or drag it to move along the timeline. The hint now also says \"Scroll sideways for more →\".\n3. **Popover:** every prompt is shown in full, each with Claude's reply and its own \"Show in changelog ↓\" link. Commits and decisions follow. With the taller cards, the popover now opens beside the milestone rather than below it.\n4. **Dates:** each day starts with a dark label like \"Sat, Sep 26\", with a dashed divider.\n5. **Categories:** the chip row is now an \"All categories ▾\" dropdown with a checkbox and count per category, and the button shows what's selected.\n6. **Size:** the timeline fills most of the screen. On a 900 px-tall screen, the full log's controls show at the bottom, so it's clear there's more below. The cards are larger and show each milestone's summary and its prompt and commit counts. On phones the summaries are hidden for space, since the popover shows them.\n\nTesting on a touch screen turned up a bug: tapping a milestone never opened its panel. The tap's simulated hover opened the bottom sheet right under your finger, so the tap itself was lost. Hover now responds only to a real mouse, and focus only to the keyboard, so a tap opens the sheet as expected.\n\nThat's three more small commits on `br-changelog`, pushed. Nothing is merged or deployed yet.",
    "id": "fe7c091a-101",
+   "session": "fe7c091a"
+  },
+  {
+   "time": "2026-10-03T14:08:34.832Z",
+   "kind": "prompt",
+   "text": "When the modal pops open it tends to cover other milestones in the timeline. Let's make it so they pop open to the right of the timeline. The timeline window should shift or shrink to open up space to the right for a modal with the ability to vertical scroll within it. Clicking the milestone should make the pop up stick in that window. You can also increase the blur effect on the right side to make it clear there's more to scroll to",
+   "reply": null,
+   "id": "fe7c091a-102",
    "session": "fe7c091a"
   }
  ]
