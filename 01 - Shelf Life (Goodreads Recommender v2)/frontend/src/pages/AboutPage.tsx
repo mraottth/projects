@@ -38,7 +38,7 @@ function Tech({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function AboutPage({ go }: { go: (v: "rate" | "import" | "recs") => void }) {
+export function AboutPage({ go }: { go: (v: "rate" | "import" | "recs" | "changelog") => void }) {
   return (
     <article className="about">
       <h1>About Shelf Life</h1>
@@ -49,6 +49,8 @@ export function AboutPage({ go }: { go: (v: "rate" | "import" | "recs") => void 
       </p>
       <p>
         <a className="primary-link" href={REPO_URL} target="_blank" rel="noreferrer">View the code on GitHub ↗</a>
+        {" "}·{" "}
+        <button type="button" className="link primary-link" onClick={() => go("changelog")}>How this was built →</button>
         {" "}·{" "}
         <button type="button" className="link" onClick={() => go("rate")}>Rate some books</button>
         {" "}·{" "}
