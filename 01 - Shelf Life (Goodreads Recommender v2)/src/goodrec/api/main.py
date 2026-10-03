@@ -472,6 +472,11 @@ DIST = ROOT / "frontend" / "dist"
 if DIST.exists():
     app.mount("/assets", StaticFiles(directory=DIST / "assets"), name="assets")
 
+    @app.get("/favicon.ico", include_in_schema=False)
+    def favicon():
+        # Browsers and bookmark tools request /favicon.ico by default; serve the logo instead of the SPA page.
+        return FileResponse(DIST / "favicon.png", media_type="image/png")
+
     @app.get("/{path:path}", include_in_schema=False)
     def spa(path: str):
         target = DIST / path
