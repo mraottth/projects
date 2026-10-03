@@ -408,5 +408,40 @@
   "decisions": [
    "D-036"
   ]
+ },
+ {
+  "id": "M19",
+  "date": "2026-10-03",
+  "icon": "🧪",
+  "category": "eval",
+  "title": "A time-based evaluation harness",
+  "summary": "Each held-out reader's most recent ratings are now hidden and predicted. On 5,795 test readers Shelf Life scores NDCG@10 0.057, 67% above the best 2023 method and 2.5x popular books. A leakage check found held-out ratings in the item means, and the pipeline now excludes them.",
+  "prompts": [
+   "fe7c091a-110",
+   "fe7c091a-111",
+   "fe7c091a-112",
+   "fe7c091a-113"
+  ],
+  "commits": [
+   "fa55ca5",
+   "da21a59",
+   "0e0f582",
+   "04d2498",
+   "05a0fbb",
+   "d57a932",
+   "12f8f9d",
+   "0d905e8",
+   "5505039",
+   "bbf7950"
+  ],
+  "decisions": [
+   "D-037",
+   "D-038",
+   "D-039",
+   "D-040",
+   "D-041",
+   "D-042",
+   "D-043"
+  ]
  }
 ]
