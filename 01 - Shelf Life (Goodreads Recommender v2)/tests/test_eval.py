@@ -166,7 +166,7 @@ def test_a_max_caps_the_taste_model_share():
     from goodrec.core.scoring import Filters, Params, recommend
     art = load_artifacts(with_readers=False)
     user = UserInput(ratings={i: 4 + i % 2 for i in range(0, 400, 4)})      # 100 ratings: a(n) = 100/120
-    assert recommend(art, user, Filters(), Params.from_config(), limit=5)["alpha"] == pytest.approx(100 / 120)
+    assert recommend(art, user, Filters(), Params.from_config(a_max=1.0), limit=5)["alpha"] == pytest.approx(100 / 120)
     assert recommend(art, user, Filters(), Params.from_config(a_max=0.5), limit=5)["alpha"] == pytest.approx(0.5)
 
 
