@@ -249,7 +249,7 @@ export function AboutPage({ go }: { go: (v: "changelog") => void }) {
                 evidence weighting, on 1,200 held-out users, the displayed RMSE is 0.87, and 22% of predictions reach 4.5
                 or more (vs. 35% actual 5★), mostly books tied to your own ratings. Below 5 ratings the raw value is shown.
               </p>
-              <CodeRefs items={[["predict_ratings", "predict_ratings()"], ["calibration", "calibration()"], ["rating_metrics", "rating_metrics()"]]} />
+              <CodeRefs items={[["predict_ratings", "predict_ratings()"], ["calibration", "calibration()"], ["rating_rmse", "eval run._work()"]]} />
             </Tech>
           </dd>
         </div>
@@ -257,43 +257,52 @@ export function AboutPage({ go }: { go: (v: "changelog") => void }) {
 
       <h2>How well it works</h2>
       <p>
-        To test it fairly, 10,000 readers were set aside and never used for training. For each of them, some of their
-        ratings were hidden, and the test asked whether the books they loved (4–5★) showed up in their top 20
-        recommendations. The score (NDCG@20) rewards putting those books near the top; higher is better.
+        To test it fairly, 10,000 readers were set aside and never used for training. For each of them, the most recent
+        30% of the books they read were hidden, and the test asked whether the ones they went on to love (4–5★) showed
+        up in their top 10 recommendations, given everything they had read before. The score (NDCG@10) rewards putting
+        those books near the top; higher is better.
       </p>
       <table className="viz-table about-table">
         <thead><tr><th>Method</th><th>1 rating</th><th>3 ratings</th><th>10 ratings</th><th>Full history</th></tr></thead>
         <tbody>
-          <tr><td><strong>Shelf Life (blend)</strong></td><td>0.042</td><td><strong>0.064</strong></td><td><strong>0.102</strong></td><td><strong>0.139</strong></td></tr>
-          <tr><td>Similar books only</td><td>0.038</td><td>0.061</td><td>0.095</td><td>0.134</td></tr>
-          <tr><td>Taste model only</td><td>0.042</td><td>0.059</td><td>0.084</td><td>0.110</td></tr>
-          <tr><td>Most popular books</td><td>0.032</td><td>0.032</td><td>0.033</td><td>0.036</td></tr>
+          <tr><td><strong>Shelf Life (blend)</strong></td><td><strong>0.039</strong></td><td><strong>0.053</strong></td><td><strong>0.068</strong></td><td>0.067</td></tr>
+          <tr><td>Similar books only</td><td>0.038</td><td>0.052</td><td>0.067</td><td><strong>0.076</strong></td></tr>
+          <tr><td>Taste model only</td><td>0.030</td><td>0.039</td><td>0.051</td><td>0.049</td></tr>
+          <tr><td>The 2023 version of this project</td><td>0.034</td><td>0.035</td><td>0.037</td><td>0.040</td></tr>
+          <tr><td>Most popular books</td><td>0.019</td><td>0.019</td><td>0.020</td><td>0.023</td></tr>
         </tbody>
       </table>
       <ul>
-        <li><strong>Blending wins.</strong> The combination matches or beats either model on its own at every
-          history length, and pulls ahead once you&apos;ve rated a few books, because the two models catch different books.</li>
-        <li><strong>It learns quickly.</strong> Scores more than double between 1 and 10 ratings, and with 10 or more
-          it does 3–4× better than just recommending the most popular books.</li>
-        <li><strong>Predicted ratings are close.</strong> They&apos;re typically within about 0.86 stars of the rating
-          people actually gave, compared with 0.97 stars for just using each book&apos;s average.</li>
+        <li><strong>It learns quickly.</strong> Scores rise by about 75% between 1 and 10 ratings, and with 10 or more it
+          does about 3× better than recommending the most popular books and 1.7–1.8× better than the 2023 version.</li>
+        <li><strong>Blending helps most early on.</strong> With up to 10 ratings the blend matches or beats either model
+          alone. With a long history, the similar-books model on its own currently scores higher, so the blend&apos;s
+          weighting is being re-tuned.</li>
+        <li><strong>Predicted ratings are close.</strong> They&apos;re typically within about 0.87 stars of the rating
+          people actually gave, compared with 0.96 stars for just using each book&apos;s average.</li>
       </ul>
       <Tech>
         <ul>
           <li><strong>Split:</strong> 10,000 users with ≥ 10 catalog ratings were sampled (seed 42) before any training and
-            excluded from the similar-books lists, ALS, and the readers-like-you pool. The eval folds them in exactly as the app
-            folds in a new visitor, through the same serving code.</li>
-          <li><strong>Protocol:</strong> 30% of each test user&apos;s ratings are hidden at random. Visible ratings are truncated
-            to n ∈ {"{1, 3, 5, 10, 25, all}"}, and relevant items are hidden ratings ≥ 4★. There&apos;s binary-relevance
-            NDCG@20 over the full catalog minus visible books, with content filters off. 9,906 users have at least one
-            relevant hidden item.</li>
-          <li><strong>Tuning caveat:</strong> blend weights (k<sub>a</sub>, β, γ) and ALS settings were chosen on 800–2,000-user
-            subsamples of this same held-out pool, so the reported numbers are mildly optimistic. A clean version would carve
-            out a separate validation split.</li>
-          <li><strong>Also reported</strong> in <code>eval/reports/</code>: recall@20, catalog coverage and the mean log-popularity
-            of recommendations (a popularity-bias check).</li>
+            excluded from the similar-books lists, ALS, the readers-like-you pool and the item statistics (each book&apos;s
+            average and the rating distribution used for calibration). The eval folds them in exactly as the app folds in
+            a new visitor, through the same serving code.</li>
+          <li><strong>Protocol:</strong> each test user&apos;s ratings are ordered by the date they read the book (the date
+            shelved when no read date is given), and the most recent 30% are hidden, at a date boundary. Users need ≥ 10
+            ratings, ≥ 7 visible and ≥ 3 hidden books rated 4★ or more: 8,422 users, split once into validation (2,527, for
+            tuning) and test (5,895, reported above). Visible histories are cut to their n most recent ratings,
+            n ∈ {"{1, 3, 5, 10, 25, all}"}. NDCG@10 with binary relevance on the For you list as served, young adult
+            books included.</li>
+          <li><strong>Caveats:</strong> the models have seen other readers&apos; ratings from after each test user&apos;s
+            split date, which mildly flatters similarity and popularity signals. Settings tuned before this evaluation
+            existed (k<sub>a</sub>, β, γ, ALS) were chosen with an earlier random-holdout test on these users; tuning now
+            uses only the validation users.</li>
+          <li><strong>Also reported</strong> in <code>eval/reports/</code>: precision and recall at 10 and 20, per-user wins,
+            ties and losses against each baseline with confidence intervals, catalog coverage and the mean popularity of
+            recommendations (a popularity-bias check). The 2023 row is that project&apos;s similar-readers method, the
+            better of the two 2023 methods re-implemented on this data.</li>
         </ul>
-        <CodeRefs items={[["matrix_split", "s05_matrix.main()"], ["split_users", "split_users()"], ["evaluate", "evaluate()"], ["metrics", "metrics()"], ["eval_reports", "eval/reports/"]]} />
+        <CodeRefs items={[["matrix_split", "s05_matrix.main()"], ["eval_split", "split_user()"], ["evaluate", "evaluate()"], ["metrics", "at_k()"], ["paired", "paired()"], ["baselines", "simple_baselines()"], ["legacy2023", "legacy2023.py"], ["eval_reports", "eval/reports/"]]} />
         <p>
           <strong>How it runs:</strong> all the heavy work (both models, the similar-books lists and the catalog) is done
           ahead of time by an offline pipeline, so the web server only looks things up and a recommendation request takes
