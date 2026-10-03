@@ -476,3 +476,12 @@ Categories: `ui` · `model` · `eval` · `data` · `assistant` · `infra` · `do
 - **Commits:** d57a932
 
 **Decision.** `eval/champion.json` records the best model so far (parameters, commit, split hash, report). Later runs include it as the "previous best" baseline, reusing its per-user results when the split is unchanged. A model becomes champion only with `--promote`, when it beats the current one on test-set NDCG@10, and only when the user confirms.
+
+## D-044 · Drop the 2023 gradient-descent baseline
+- **Date:** 2026-10-03
+- **Category:** eval
+- **Prompts:** fe7c091a-114
+
+**Decision.** Remove the 2023 notebook's gradient-descent matrix factorization from the evaluation baselines. The 2023 similar-readers and SVD methods stay.
+
+**Why.** The 2023 web app never served it; it existed only in the notebook. And because of how NumPy handles repeated indices in its update (D-042), each step learned from a single rating per reader and book, so it scored close to random (NDCG@10 0.0012 against random's 0.0002). It also accounted for most of the first full run's 3 h 51 min.
