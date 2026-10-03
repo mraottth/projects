@@ -1,6 +1,6 @@
-import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, type ChatBook, type ChatStatus, type ChatTier } from "../api";
-import { Cover } from "../components/Cover";
+import { Markdown } from "../components/Markdown";
 import { useShelf } from "../store";
 import type { UrlState } from "../useUrlState";
 
@@ -189,76 +189,4 @@ export function ChatPage({ go, onOpen, seed, clearSeed }: {
       </p>
     </div>
   );
-}
-
-// ------------------------------------------------------------------ minimal markdown (React elements only, no HTML injection)
-
-const INLINE = /(\[\[book:\d+\]\]|\*\*[^*]+\*\*|\*[^*\s][^*]*\*|\[[^\]]+\]\(https?:\/\/[^)\s]+\))/g;
-
-function inline(text: string, books: Record<number, ChatBook>, onOpen: (id: number) => void): ReactNode[] {
-  return text.split(INLINE).map((part, i) => {
-    let m: RegExpMatchArray | null;
-    if ((m = part.match(/^\[\[book:(\d+)\]\]$/))) {
-      const b = books[Number(m[1])];
-      return b
-        ? <button type="button" key={i} className="book-ref" onClick={() => onOpen(b.id)}><em>{b.title}</em> by {b.author}</button>
-        : <span key={i} className="book-ref pending">…</span>;
-    }
-    if ((m = part.match(/^\*\*([^*]+)\*\*$/))) return <strong key={i}>{inline(m[1], books, onOpen)}</strong>;
-    if ((m = part.match(/^\*([^*]+)\*$/))) return <em key={i}>{m[1]}</em>;
-    if ((m = part.match(/^\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)$/))) return <a key={i} href={m[2]} target="_blank" rel="noreferrer">{m[1]}</a>;
-    return <Fragment key={i}>{part}</Fragment>;
-  });
-}
-
-/** A paragraph or list item that starts with a book marker becomes a card: cover, title/author, then the reason. */
-function Line({ text, books, onOpen }: { text: string; books: Record<number, ChatBook>; onOpen: (id: number) => void }) {
-  const m = text.match(/^\s*(?:\*\*)?\[\[book:(\d+)\]\](?:\*\*)?\s*[—–:-]*\s*/);
-  const b = m ? books[Number(m[1])] : undefined;
-  if (!m || !b) return <>{inline(text, books, onOpen)}</>;
-  return (
-    <span className="chat-book">
-      <Cover book={b} size="sm" onClick={() => onOpen(b.id)} />
-      <span>
-        <button type="button" className="chat-book-title" onClick={() => onOpen(b.id)}>{b.title}</button>
-        <span className="muted small"> {b.author}{b.year ? ` · ${b.year}` : ""}</span>
-        <span className="chat-book-why">{inline(text.slice(m[0].length), books, onOpen)}</span>
-      </span>
-    </span>
-  );
-}
-
-function Markdown({ text, books, onOpen }: { text: string; books: Record<number, ChatBook>; onOpen: (id: number) => void }) {
-  const out: ReactNode[] = [];
-  let para: string[] = [];
-  let list: { ordered: boolean; items: string[] } | null = null;
-  const flush = () => {
-    if (para.length) {
-      const lines = para;
-      out.push(<p key={out.length}>{lines.map((l, i) => <Fragment key={i}>{i > 0 && <br />}<Line text={l} books={books} onOpen={onOpen} /></Fragment>)}</p>);
-    }
-    if (list) {
-      const { ordered, items } = list;
-      const Tag = ordered ? "ol" : "ul";
-      out.push(<Tag key={out.length}>{items.map((it, i) => <li key={i}><Line text={it} books={books} onOpen={onOpen} /></li>)}</Tag>);
-    }
-    para = [];
-    list = null;
-  };
-  for (const raw of text.split("\n")) {
-    const line = raw.trimEnd();
-    const li = line.match(/^\s*([-*•]|\d+[.)])\s+(.*)$/);
-    const h = line.match(/^#{1,4}\s+(.*)$/);
-    if (!line.trim()) flush();
-    else if (h) { flush(); out.push(<h4 key={out.length}>{inline(h[1], books, onOpen)}</h4>); }
-    else if (li) {
-      const ordered = /\d/.test(li[1]);
-      if (para.length || (list && list.ordered !== ordered)) flush();
-      list = list ?? { ordered, items: [] };
-      list.items.push(li[2]);
-    } else if (list && /^\s{2,}/.test(raw)) list.items[list.items.length - 1] += " " + line.trim();   // wrapped list item
-    else { if (list) flush(); para.push(line); }
-  }
-  flush();
-  return <div className="md">{out}</div>;
 }
