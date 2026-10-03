@@ -160,7 +160,9 @@ def render(session: str, entries: list[dict]) -> tuple[str, str, str] | None:
         e["id"] = f"{s8}-{n:03d}"
         e["session"] = s8
     failed = [e for e in entries if e["reply"] and API_ERROR.match(e["reply"])]
-    entries = [e for e in entries if e not in failed]
+    omit = load_omit()                     # prompts/omit.json: {id: reason} for housekeeping messages
+    omitted = [e for e in entries if e["id"] in omit]
+    entries = [e for e in entries if e not in failed and e not in omitted]
     if not entries:
         return None
     md = [f"# Claude Code session {s8} ({day})", "",
@@ -168,6 +170,8 @@ def render(session: str, entries: list[dict]) -> tuple[str, str, str] | None:
     if failed:
         md += [f"*{len(failed)} prompt{'s' if len(failed) > 1 else ''} that failed with an API error "
                f"(e.g. \"Credit balance is too low\") and were retried are omitted.*", ""]
+    for e in omitted:
+        md += [f"*{e['id']} omitted: {omit[e['id']]}.*", ""]
     for e in entries:
         stamp = (e["time"] or "")[:16].replace("T", " ")
         md += [f"## {e['id']} · {stamp} UTC", "", f"**{KIND_LABEL[e['kind']]}**", ""]
@@ -184,6 +188,11 @@ def render(session: str, entries: list[dict]) -> tuple[str, str, str] | None:
         md += ["---", ""]
     meta = {"session": session, "omitted_api_errors": len(failed), "entries": entries}
     return stem, "\n".join(md), json.dumps(meta, ensure_ascii=False, indent=1) + "\n"
+
+
+def load_omit() -> dict:
+    path = OUT / "omit.json"
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
 
 
 def write_if_changed(path: Path, text: str) -> bool:

@@ -73,7 +73,7 @@ def load_prompts(folder: Path) -> list[dict]:
     labels = load_json(folder / "categories.json", {})
     prompts = []
     for f in sorted(folder.glob("*.json")):
-        if f.name in ("categories.json", "commit_categories.json"):
+        if f.name in ("categories.json", "commit_categories.json", "omit.json"):
             continue
         for e in load_json(f, {}).get("entries", []):
             e = dict(e)
