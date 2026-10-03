@@ -10,9 +10,9 @@ Sources:
 
 Commits are categorized by their message prefix (`ui: ...`), falling back to commit_categories.json.
 Each commit is linked to the latest prompt before it, unless it carries a `Claude-Session:` trailer
-(made in a Claude Code on the web session whose prompts aren't in this repo). The output is
-deterministic, so rebuilding without changes leaves the file untouched. Cloud Build has no .git, so the
-file is committed, like codeLinks.json.
+(made in a Claude Code on the web session whose prompts aren't in this repo). The output is a build
+artifact (git-ignored): it can't be committed without always lagging the commit that contains it.
+make frontend / make deploy generate it locally (Cloud Build has no .git), and the upload includes it.
 """
 
 from __future__ import annotations  # runs under the system python3 (3.9)
