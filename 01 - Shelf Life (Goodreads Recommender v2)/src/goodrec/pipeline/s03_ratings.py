@@ -5,7 +5,8 @@ goodreads_interactions_dedup.json.gz uses the same fields (user_id, book_id,
 rating, date_added), so it can be swapped in without code changes.
 
 Outputs (data/interim):
-  ratings.parquet  user_idx int32, work_id int64, rating int8 (0 = read, unrated), date int32 (yyyymmdd)
+  ratings.parquet  user_idx int32, work_id int64, rating int8 (0 = read, unrated), date int32 (yyyymmdd, shelved),
+                   read_date int32 (yyyymmdd from read_at, the date the user finished the book; 0 if not given)
   users.parquet    user_idx, user_id (hex)
 """
 
@@ -44,7 +45,7 @@ def main(force: bool = False) -> None:
     users: dict[str, int] = {}
     raw = INTERIM_DIR / "ratings_raw.parquet"
     missing = 0
-    schema = {"user_idx": pl.Int32, "work_id": pl.Int64, "rating": pl.Int8, "date": pl.Int32}
+    schema = {"user_idx": pl.Int32, "work_id": pl.Int64, "rating": pl.Int8, "date": pl.Int32, "read_date": pl.Int32}
     with ColumnWriter(raw, schema, 2_000_000) as w:
         for r in tqdm(iter_jsonl_gz(src), desc="ratings", mininterval=10):
             work = book_to_work.get(int(r["book_id"]))
@@ -52,12 +53,13 @@ def main(force: bool = False) -> None:
                 missing += 1
                 continue
             uid = users.setdefault(r["user_id"], len(users))
-            w.add(user_idx=uid, work_id=work, rating=int(r.get("rating") or 0), date=_date(r.get("date_added")))
+            w.add(user_idx=uid, work_id=work, rating=int(r.get("rating") or 0), date=_date(r.get("date_added")),
+                  read_date=_date(r.get("read_at")))
 
-    # Several editions of one work rated by the same user -> keep the max rating, latest date.
+    # Several editions of one work rated by the same user -> keep the max rating, latest dates.
     (pl.scan_parquet(raw)
        .group_by("user_idx", "work_id")
-       .agg(pl.col("rating").max(), pl.col("date").max())
+       .agg(pl.col("rating").max(), pl.col("date").max(), pl.col("read_date").max())
        .sort("user_idx", "work_id")
        .sink_parquet(out_r, compression="zstd"))
     raw.unlink()
