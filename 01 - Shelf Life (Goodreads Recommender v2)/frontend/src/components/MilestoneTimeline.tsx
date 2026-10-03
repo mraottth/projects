@@ -32,6 +32,7 @@ export function MilestoneTimeline({ milestones, prompts, categories, onShowPromp
   const [openId, setOpenId] = useState<string | null>(null);
   const [pinned, setPinned] = useState(false);
   const [pending, setPending] = useState<string | null>(null);   // hovered milestone waiting out SWITCH_MS
+  const [ringDone, setRingDone] = useState(false);                 // its ring has filled and is fading out
   const [edges, setEdges] = useState({ left: false, right: true });
   const [progress, setProgress] = useState({ left: 0, width: 100 });   // scroll position, in % of the track
   const [height, setHeight] = useState<number | undefined>(undefined);
@@ -78,8 +79,11 @@ export function MilestoneTimeline({ milestones, prompts, categories, onShowPromp
   };
 
   // When a milestone opens, start its details at the top, and once the panel has finished opening, scroll the
-  // (now narrower) timeline so the milestone isn't hidden under the faded edges.
+  // (now narrower) timeline so the milestone isn't hidden under the faded edges. Hover switches don't scroll: that
+  // milestone is under the mouse, and moving the timeline would put a different one there. Clicks and keyboard do.
   const wasOpen = useRef(false);
+  const revealNext = useRef(false);
+  const quietUntil = useRef(0);   // ignore hovers while the timeline scrolls itself
   useEffect(() => {
     const opening = !wasOpen.current;
     wasOpen.current = !!openId;
@@ -90,10 +94,15 @@ export function MilestoneTimeline({ milestones, prompts, categories, onShowPromp
       if (!el || !node) return;
       const a = node.getBoundingClientRect(), b = el.getBoundingClientRect();
       const margin = 72;
-      if (a.left < b.left + margin) el.scrollBy({ left: a.left - b.left - margin, behavior: "smooth" });
-      else if (a.right > b.right - margin) el.scrollBy({ left: a.right - b.right + margin, behavior: "smooth" });
+      const dx = a.left < b.left + margin ? a.left - b.left - margin : a.right > b.right - margin ? a.right - b.right + margin : 0;
+      const to = Math.min(Math.max(el.scrollLeft + dx, 0), el.scrollWidth - el.clientWidth);
+      if (Math.abs(to - el.scrollLeft) < 1) return;
+      quietUntil.current = performance.now() + 600;
+      el.scrollTo({ left: to, behavior: "smooth" });
     };
-    if (!opening) { reveal(); return; }
+    const wanted = revealNext.current;
+    revealNext.current = false;
+    if (!opening) { if (wanted) reveal(); return; }
     const p = panel.current;
     const t = window.setTimeout(reveal, 450);    // fallback: no transition (e.g. the phone bottom sheet)
     const onEnd = (e: TransitionEvent) => { if (e.target === p && e.propertyName === "flex-basis") { window.clearTimeout(t); reveal(); } };
@@ -101,7 +110,7 @@ export function MilestoneTimeline({ milestones, prompts, categories, onShowPromp
     return () => { p?.removeEventListener("transitionend", onEnd); window.clearTimeout(t); };
   }, [openId]);
 
-  const cancelPending = () => { window.clearTimeout(openTimer.current); setPending(null); };
+  const cancelPending = () => { window.clearTimeout(openTimer.current); setPending(null); setRingDone(false); };
   const close = () => { window.clearTimeout(closeTimer.current); cancelPending(); setOpenId(null); setPinned(false); };
   useEffect(() => {
     if (!openId) return;
@@ -116,9 +125,15 @@ export function MilestoneTimeline({ milestones, prompts, categories, onShowPromp
     window.clearTimeout(closeTimer.current);
     cancelPending();
     if (pinned || openId === id) return;
-    if (immediate) { setOpenId(id); return; }
-    if (openId) setPending(id);
-    openTimer.current = window.setTimeout(() => { setPending(null); setOpenId(id); }, openId ? SWITCH_MS : 180);
+    if (immediate) { revealNext.current = true; setOpenId(id); return; }
+    if (performance.now() < quietUntil.current) return;
+    if (!openId) { openTimer.current = window.setTimeout(() => setOpenId(id), 180); return; }
+    setPending(id);
+    openTimer.current = window.setTimeout(() => {
+      setOpenId(id);
+      setRingDone(true);   // the full ring fades out rather than vanishing as the panel switches
+      openTimer.current = window.setTimeout(() => { setPending(null); setRingDone(false); }, 260);
+    }, SWITCH_MS);
   };
   // Unpinned previews close shortly after the pointer leaves the whole section (timeline and panel).
   const leaveSoon = () => {
@@ -129,7 +144,7 @@ export function MilestoneTimeline({ milestones, prompts, categories, onShowPromp
   };
   const toggle = (id: string) => {
     if (pinned && openId === id) close();
-    else { window.clearTimeout(closeTimer.current); cancelPending(); setOpenId(id); setPinned(true); }
+    else { window.clearTimeout(closeTimer.current); cancelPending(); revealNext.current = true; setOpenId(id); setPinned(true); }
   };
 
   const m = milestones.find((x) => x.id === openId);
@@ -180,7 +195,7 @@ export function MilestoneTimeline({ milestones, prompts, categories, onShowPromp
                           <span className="ms-dot" aria-hidden="true">
                             {x.icon}
                             {pending === x.id && (
-                              <svg className="ms-ring" viewBox="0 0 100 100" style={{ animationDuration: `${SWITCH_MS}ms` }}>
+                              <svg className={`ms-ring${ringDone ? " done" : ""}`} viewBox="0 0 100 100" style={{ animationDuration: `${SWITCH_MS}ms` }}>
                                 <circle cx="50" cy="50" r="47" pathLength={100} />
                               </svg>
                             )}
@@ -206,7 +221,7 @@ export function MilestoneTimeline({ milestones, prompts, categories, onShowPromp
         <aside id="ms-panel" ref={panel} className={`ms-panel${m ? ` open cl-${m.category}` : ""}`}
                aria-label={m ? `${m.title}: details` : "Milestone details"} aria-hidden={!m}>
           {m && (
-            <>
+            <div key={m.id} className="ms-panel-body">
               <div className="ms-pop-head">
                 <span className="ms-pop-icon" aria-hidden="true">{m.icon}</span>
                 <div>
@@ -262,7 +277,7 @@ export function MilestoneTimeline({ milestones, prompts, categories, onShowPromp
                   </div>
                 </>
               )}
-            </>
+            </div>
           )}
         </aside>
       </div>

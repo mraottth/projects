@@ -955,6 +955,12 @@ button.chip:hover { background: #f1f0eb; }
 .ms-ring circle { fill: none; stroke: var(--c, var(--accent)); stroke-width: 5; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100;
   animation: ms-ring-fill linear forwards; animation-duration: inherit; }
 @keyframes ms-ring-fill { to { stroke-dashoffset: 0; } }
+.ms-ring.done { opacity: 0; transition: opacity 0.25s ease; }
+.ms-node { transition: background-color 0.2s ease; }
+.ms-title { transition: color 0.2s ease; }
+.ms-panel-body { animation: ms-fade-in 0.2s ease; }
+@keyframes ms-fade-in { from { opacity: 0; transform: translateY(4px); } }
+@media (prefers-reduced-motion: reduce) { .ms-panel-body { animation: none; } }
 .ms-title { font-size: 1rem; font-weight: 700; line-height: 1.25; }
 .ms-node.on .ms-title { color: color-mix(in srgb, var(--c, #8a8577) 85%, black); }
 .ms-sum { font-size: 0.86rem; line-height: 1.45; color: var(--ink-2); display: -webkit-box; -webkit-line-clamp: 10; -webkit-box-orient: vertical; overflow: hidden; }
