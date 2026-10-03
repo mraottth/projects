@@ -689,8 +689,16 @@
    "time": "2026-10-03T14:16:05.987Z",
    "kind": "prompt",
    "text": "Excellent! On the about page, we can remove \"Rate some books · Import from Goodreads.\" Let's also put \"How this was built\" first and make it a more prominent button",
-   "reply": null,
+   "reply": "The About page now starts its links with a blue \"How this was built →\" button, followed by the \"View the code on GitHub ↗\" link. I removed the \"Rate some books\" and \"Import from Goodreads\" links; both pages are still in the top nav.\n\nI checked it in Chrome on desktop and phone widths: it looks right, the button opens the changelog, and there are no console errors. The local server is showing the new version, and `br-changelog` is pushed but not merged or deployed.\n\nThe change is in commit `e6b5976`. One slip in the logging: `170e1f4` says it labels the prompt and adds it to the build-log milestone, but my script failed before doing that, so I added both in `60b3cca`. Fixing the message would mean rewriting a branch that's already pushed, so I left it.",
    "id": "fe7c091a-103",
+   "session": "fe7c091a"
+  },
+  {
+   "time": "2026-10-03T14:22:35.565Z",
+   "kind": "prompt",
+   "text": "There's an issue now where the modal changes too fast as you drag your mouse across the timeline. If a user mouses over the far left milestone and then wants to mouse over to the modal to scroll down, they'll likely cross the second milestone and that'll change the modal. One way to solve this might be having a delay (i.e. you need to mouse over for a longer period of time for the modal to change. There could be other ways to solve this problem, so feel free to suggest an alternative. If we go with that solution maybe we do a design element that has a quick loading bar that spins around the milestone icon as that timer finishes",
+   "reply": null,
+   "id": "fe7c091a-104",
    "session": "fe7c091a"
   }
  ]
