@@ -708,6 +708,14 @@
    "reply": "The panel should now switch smoothly. The hitch came from the timeline jumping sideways: if the milestone you were resting on sat near the faded right edge, the timeline scrolled about 218px the moment the panel switched. That put a different milestone under your mouse and started its ring. I measured this frame by frame in Chrome.\n\nWhat changed:\n- **No hover scrolling:** the timeline no longer scrolls when a hover switches the panel, since that milestone is already under your mouse. Clicking a milestone, using the keyboard, or opening the panel for the first time still scrolls it into view. While the timeline is scrolling itself, hovers are ignored so this can't start a stray ring either.\n- **Ring:** once full, it fades out over a quarter-second instead of vanishing.\n- **Panel:** the new content fades in with a slight lift, unless the visitor has reduced motion turned on.\n- **Highlight:** the previous milestone's highlight eases off instead of snapping.\n\nAfter the fix, the measurement shows no movement at the moment of a switch. All the earlier browser checks still pass, with no console errors:\n- the sweep to the panel;\n- the 550 ms wait;\n- pinned milestones scrolling into view;\n- Escape;\n- the phone bottom sheet.\n\nOne tradeoff: if you rest on a milestone that's partly faded at the right edge, the panel switches but the timeline won't shift it into full view. Clicking it still does.\n\nThe commits are `10a4677` and `41e9cda` (the prompt log). Both are pushed to `br-changelog`, not merged or deployed, and the local server shows the new version.",
    "id": "fe7c091a-105",
    "session": "fe7c091a"
+  },
+  {
+   "time": "2026-10-03T14:33:52.666Z",
+   "kind": "prompt",
+   "text": "One small change to the timeline view. Right now, the loading delay only happens if the modal is already open. It should happen when the modal is closed too so it's a consistent experience. It can load in 3/4 the time in those cases though so users aren't kept waiting when they view the first modal",
+   "reply": null,
+   "id": "fe7c091a-107",
+   "session": "fe7c091a"
   }
  ]
 }
