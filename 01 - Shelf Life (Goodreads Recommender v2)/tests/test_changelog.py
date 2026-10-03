@@ -80,11 +80,12 @@ def test_link_commits_to_prompts():
         {"short": "aaa", "time": "2026-10-01T07:30:00-04:00", "web_session": False},   # 11:30Z -> after s-001
         {"short": "bbb", "time": "2026-10-01T12:30:00+00:00", "web_session": False},   # after s-002
         {"short": "ccc", "time": "2026-10-01T09:00:00+00:00", "web_session": False},   # before any prompt
-        {"short": "ddd", "time": "2026-10-01T12:40:00+00:00", "web_session": True},    # web session: unlinked
+        {"short": "ddd", "time": "2026-10-01T12:40:00+00:00", "web_session": True},    # web sessions link too
+        {"short": "eee", "time": "2026-10-02T09:00:00+00:00", "web_session": True},    # >12 h after s-002: unlinked
     ]
     build_changelog.link(commits, prompts)
-    assert [c["prompt"] for c in commits] == ["s-001", "s-002", None, None]
-    assert prompts[0]["commits"] == ["aaa"] and prompts[1]["commits"] == ["bbb"]
+    assert [c["prompt"] for c in commits] == ["s-001", "s-002", None, "s-002", None]
+    assert prompts[0]["commits"] == ["aaa"] and prompts[1]["commits"] == ["bbb", "ddd"]
 
 
 def test_commit_categories():

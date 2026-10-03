@@ -9,8 +9,9 @@ Sources:
   DECISIONS.md      the decision log
 
 Commits are categorized by their message prefix (`ui: ...`), falling back to commit_categories.json.
-Each commit is linked to the latest prompt before it, unless it carries a `Claude-Session:` trailer
-(made in a Claude Code on the web session whose prompts aren't in this repo). The output is a build
+Each commit is linked to the latest prompt before it, if that prompt is within LINK_WINDOW_H hours
+(commits from a session whose prompts weren't exported then stay unlinked). Commits with a
+`Claude-Session:` trailer were made in Claude Code on the web and are marked as such. The output is a build
 artifact (git-ignored): it can't be committed without always lagging the commit that contains it.
 make frontend / make deploy generate it locally (Cloud Build has no .git), and the upload includes it.
 """
@@ -37,6 +38,7 @@ CATEGORIES = {
 PREFIX = re.compile(r"^(%s)(?:\([^)]*\))?:\s*" % "|".join(CATEGORIES))
 TRAILER = re.compile(r"^(Co-Authored-By|Claude-Session|Signed-off-by):.*$", re.M | re.I)
 SEP_REC, SEP_FIELD = "\x1e", "\x1f"
+LINK_WINDOW_H = 12
 
 
 def load_json(path: Path, default):
@@ -83,17 +85,20 @@ def load_prompts(folder: Path) -> list[dict]:
 
 
 def link(commits: list[dict], prompts: list[dict]) -> None:
-    """Attach each local commit to the latest prompt before it (prompt["commits"] / commit["prompt"])."""
+    """Attach each commit to the latest prompt before it, within LINK_WINDOW_H hours
+    (prompt["commits"] / commit["prompt"])."""
+    from datetime import datetime, timedelta
     for p in prompts:
         p["commits"] = []
     times = [p["time"] for p in prompts]
     for c in sorted(commits, key=lambda c: c["time"]):
         c["prompt"] = None
-        if c["web_session"] or not prompts:
-            continue
         t = utc(c["time"])
         idx = max((i for i, pt in enumerate(times) if pt and pt <= t), default=None)
-        if idx is not None:
+        if idx is None:
+            continue
+        gap = datetime.fromisoformat(t.replace("Z", "+00:00")) - datetime.fromisoformat(times[idx].replace("Z", "+00:00"))
+        if gap <= timedelta(hours=LINK_WINDOW_H):
             c["prompt"] = prompts[idx]["id"]
             prompts[idx]["commits"].append(c["short"])
 
