@@ -10,7 +10,7 @@ from scipy import sparse
 from goodrec.config import ARTIFACTS_DIR, INTERIM_DIR, load_config
 from goodrec.core.scoring import UserInput
 from goodrec.eval.metrics import at_k, paired
-from goodrec.eval.split import choose_split, split_user
+from goodrec.eval.split import choose_split, order_dates, split_user
 
 needs_data = pytest.mark.skipif(
     not ((ARTIFACTS_DIR / "manifest.json").exists() and (INTERIM_DIR / "R_train.npz").exists()),
@@ -53,6 +53,12 @@ def test_choose_split_moves_to_date_boundary():
     assert dates[cut] != dates[cut - 1]                    # never splits inside a day
     assert cut == 6                                        # the closest boundary hides all 4 same-day books
     assert choose_split(np.array([5, 5, 5]), 0.3) is None  # one date: no order to split on
+
+
+def test_order_dates_prefer_plausible_read_dates():
+    read = np.array([20150301, 0, 18000101, 20991231])
+    added = np.array([20170101, 20160505, 20160606, 20160707])
+    assert order_dates(read, added).tolist() == [20150301, 20160505, 20160606, 20160707]
 
 
 def _user(n_days: int, per_day: int = 1, hidden_rating: int = 5):

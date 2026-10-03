@@ -41,8 +41,9 @@ def render(r: dict) -> str:
         f"- **Git commit:** `{r['commit']}`{' (uncommitted changes)' if r.get('dirty') else ''}",
         f"- **Parameters:** `{r['params_text']}`",
         f"- **Artifacts:** `{r['artifacts']}` (built {r.get('artifacts_built', '?')})",
-        f"- **Split:** per-user temporal; each user's most recent {r['split']['holdout_frac']:.0%} of ratings hidden "
-        f"(at the nearest shelving-date boundary); relevant = hidden and rated ≥ {r['split']['relevant_min_rating']}★. "
+        f"- **Split:** per-user temporal; each user's most recent {r['split']['holdout_frac']:.0%} of ratings hidden, "
+        f"ordered by date read (date shelved when no read date is given), at the nearest date boundary; "
+        f"relevant = hidden and rated ≥ {r['split']['relevant_min_rating']}★. "
         f"Hash `{r['split_hash']}`.",
         f"- **Users:** {r['n_users']:,} from the **{r['set']}** set"
         + (f" (subsample of {r['users_arg']:,})" if r.get("users_arg") else "") + ".",

@@ -1,9 +1,9 @@
 """Per-user temporal hide-and-predict split for offline evaluation.
 
 For each held-out user (s05's test users, never seen by any model), ratings are ordered by the date the
-book was shelved (`date_added`) and the most recent `holdout_frac` are hidden. Books shelved on the same
-date stay on the same side: the split moves to the date boundary closest to the target, because their
-order within a day is unknown. Everything dated on or after the split (ratings and read-unrated books)
+user read the book (`read_at`), or the date it was shelved (`date_added`) when no plausible read date is
+given, and the most recent `holdout_frac` are hidden. Books with the same date stay on the same side: the
+split moves to the date boundary closest to the target, because their order within a day is unknown. Everything dated on or after the split (ratings and read-unrated books)
 is excluded from the user's input.
 
 A user is evaluated if they have >= min_ratings ratings, >= min_visible visible ratings and
@@ -25,6 +25,7 @@ from goodrec.config import INTERIM_DIR, load_config
 from goodrec.core.scoring import UserInput
 
 SPLIT_PATH = INTERIM_DIR / "eval_split.npz"
+ORDER_BY = "read_date_then_added"   # part of the split's identity: changing the order rule rebuilds it
 SPLIT_KEYS = ("holdout_frac", "min_ratings", "min_visible", "min_hidden_relevant", "relevant_min_rating",
               "val_frac", "seed")
 
@@ -33,7 +34,7 @@ SPLIT_KEYS = ("holdout_frac", "min_ratings", "min_visible", "min_hidden_relevant
 class Case:
     user: int                 # original user_idx (ratings.parquet)
     is_test: bool             # False = validation set
-    split_date: int           # yyyymmdd; hidden = shelved on or after this date
+    split_date: int           # yyyymmdd; hidden = ordered (read, else shelved) on or after this date
     visible: np.ndarray       # work_idx, oldest first (same-day order is a seeded shuffle)
     visible_r: np.ndarray     # ratings 1-5, aligned with `visible`
     read: np.ndarray          # read-unrated work_idx shelved before the split
@@ -61,6 +62,13 @@ def choose_split(dates: np.ndarray, frac: float) -> int | None:
         return None
     target = n - int(round(frac * n))                          # number of visible ratings wanted
     return int(bounds[np.argmin(np.abs(bounds - target) * 2 + (bounds < target))])
+
+
+def order_dates(read_date: np.ndarray, date_added: np.ndarray) -> np.ndarray:
+    """The date each rating is ordered by: when the book was read if that's given and plausible
+    (1900-2017; the data was collected in late 2017), otherwise when it was shelved."""
+    ok = (read_date >= 19000101) & (read_date <= 20171231)
+    return np.where(ok, read_date, date_added)
 
 
 def split_user(dates: np.ndarray, items: np.ndarray, ratings: np.ndarray, cfg: dict, rng: np.random.Generator):
@@ -113,7 +121,8 @@ def build_split(cfg: dict | None = None) -> Split:
     rng = np.random.default_rng(cfg["seed"])
     cases = []
     for (u,), g in r.group_by(["user_idx"], maintain_order=True):
-        out = split_user(g["date"].to_numpy(), g["work_idx"].to_numpy().astype(np.int32),
+        out = split_user(order_dates(g["read_date"].to_numpy(), g["date"].to_numpy()),
+                         g["work_idx"].to_numpy().astype(np.int32),
                          g["rating"].to_numpy().astype(np.int8), cfg, rng)
         if out:
             vis, vis_r, read, hid, hid_r, sd = out
@@ -122,7 +131,7 @@ def build_split(cfg: dict | None = None) -> Split:
     perm = np.random.default_rng(cfg["seed"] + 1).permutation(len(cases))
     for i in perm[: int(round(cfg["val_frac"] * len(cases)))]:
         cases[i].is_test = False
-    params = {k: cfg[k] for k in SPLIT_KEYS}
+    params = {k: cfg[k] for k in SPLIT_KEYS} | {"order_by": ORDER_BY}
     return Split(cases, split_hash(cases, params), params)
 
 
@@ -154,7 +163,7 @@ def save_split(s: Split, path=SPLIT_PATH) -> None:
 def load_split(path=SPLIT_PATH, cfg: dict | None = None) -> Split:
     """Load the saved split, rebuilding it if missing or built with different split settings."""
     cfg = cfg or load_config()["eval"]
-    params = {k: cfg[k] for k in SPLIT_KEYS}
+    params = {k: cfg[k] for k in SPLIT_KEYS} | {"order_by": ORDER_BY}
     if path.exists():
         with np.load(path) as f:
             z = {k: f[k] for k in f.files}         # each NpzFile access re-reads the array
