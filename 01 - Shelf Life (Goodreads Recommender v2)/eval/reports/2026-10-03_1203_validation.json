@@ -1,0 +1,160 @@
+{
+  "rows": [
+    {
+      "key": "shelf_life",
+      "name": "Shelf Life (after leak fix)",
+      "kind": "model",
+      "description": "For you as served: item-kNN + ALS fold-in blend, fame-gated prediction boost, prediction floor; young adult included, no other content filters.",
+      "n_users": 2483,
+      "by_n": {
+        "1": {
+          "precision@10": 0.021143777295947075,
+          "recall@10": 0.022617848590016365,
+          "ndcg@10": 0.032668691128492355,
+          "precision@20": 0.015807490795850754,
+          "recall@20": 0.0323348306119442,
+          "ndcg@20": 0.03359825536608696,
+          "coverage": 0.10925591561341823,
+          "popularity": 7.04970121383667
+        },
+        "3": {
+          "precision@10": 0.02972211129963398,
+          "recall@10": 0.030213046818971634,
+          "ndcg@10": 0.045814502984285355,
+          "precision@20": 0.022492950782179832,
+          "recall@20": 0.044272083789110184,
+          "ndcg@20": 0.04689688980579376,
+          "coverage": 0.1263993157844721,
+          "popularity": 6.699007034301758
+        },
+        "5": {
+          "precision@10": 0.03250100836157799,
+          "recall@10": 0.033851899206638336,
+          "ndcg@10": 0.05004523694515228,
+          "precision@20": 0.02394281141459942,
+          "recall@20": 0.04763859882950783,
+          "ndcg@20": 0.05064738541841507,
+          "coverage": 0.10350660458044283,
+          "popularity": 6.944680213928223
+        },
+        "10": {
+          "precision@10": 0.0406363271176815,
+          "recall@10": 0.04052107408642769,
+          "ndcg@10": 0.05830466374754906,
+          "precision@20": 0.028997180983424187,
+          "recall@20": 0.05555685609579086,
+          "ndcg@20": 0.057817671447992325,
+          "coverage": 0.09055402451772308,
+          "popularity": 7.222192287445068
+        },
+        "25": {
+          "precision@10": 0.046073298901319504,
+          "recall@10": 0.04303498938679695,
+          "ndcg@10": 0.06393969058990479,
+          "precision@20": 0.03572291508316994,
+          "recall@20": 0.06302569061517715,
+          "ndcg@20": 0.06558242440223694,
+          "coverage": 0.07094934904494916,
+          "popularity": 7.5735955238342285
+        },
+        "-1": {
+          "precision@10": 0.04031413421034813,
+          "recall@10": 0.042689524590969086,
+          "ndcg@10": 0.05581982806324959,
+          "precision@20": 0.0324808694422245,
+          "recall@20": 0.06362729519605637,
+          "ndcg@20": 0.060587115585803986,
+          "coverage": 0.06069561912002281,
+          "popularity": 7.7349324226379395
+        }
+      }
+    }
+  ],
+  "head_to_head": [],
+  "best_2023": null,
+  "rating_rmse": {
+    "Shelf Life predicted rating": {
+      "1": 0.9501451632852993,
+      "3": 0.9265142762635867,
+      "5": 0.915150429149267,
+      "10": 0.897403705433129,
+      "25": 0.8817399553789093,
+      "-1": 0.8777359301784438
+    },
+    "item mean": {
+      "1": 0.9739684183138112,
+      "3": 0.9739684183138112,
+      "5": 0.9739684183138112,
+      "10": 0.9739684183138112,
+      "25": 0.9739684183138112,
+      "-1": 0.9739684183138112
+    },
+    "Goodreads average": {
+      "1": 0.9862518331450559,
+      "3": 0.9862518331450559,
+      "5": 0.9862518331450559,
+      "10": 0.9862518331450559,
+      "25": 0.9862518331450559,
+      "-1": 0.9862518331450559
+    }
+  },
+  "stamp": "2026-10-03_1203",
+  "commit": "836edf8",
+  "dirty": true,
+  "set": "validation",
+  "users_arg": null,
+  "n_users": 2483,
+  "split_hash": "902ddfd25e78",
+  "split": {
+    "holdout_frac": 0.3,
+    "min_ratings": 10,
+    "min_visible": 7,
+    "min_hidden_relevant": 3,
+    "relevant_min_rating": 4,
+    "val_frac": 0.3,
+    "seed": 42
+  },
+  "runtime_s": 127.49870586395264,
+  "notes": [
+    "No previous best yet (eval/champion.json is created by --promote)."
+  ],
+  "buckets": [
+    1,
+    3,
+    5,
+    10,
+    25,
+    -1
+  ],
+  "model": {
+    "key": "shelf_life",
+    "name": "Shelf Life (after leak fix)",
+    "description": "For you as served: item-kNN + ALS fold-in blend, fame-gated prediction boost, prediction floor; young adult included, no other content filters."
+  },
+  "params": {
+    "k_a": 20,
+    "beta_pop": 0.0,
+    "gamma_quality": 0.0,
+    "candidates": 300,
+    "alpha": 30.0,
+    "regularization": 1.0,
+    "confidence": {
+      "5": 1.0,
+      "4": 0.7,
+      "3": 0.3,
+      "0": 0.2
+    },
+    "ii_prior_mean": 3.0,
+    "ii_prior_weight": 5.0,
+    "beta_pop_many": -0.3,
+    "a_override": null,
+    "pred_floor_offset": 0.25,
+    "delta_pred": 0.75,
+    "pred_fame_lo": 4.0,
+    "pred_fame_hi": 5.5,
+    "pred_pool": 50
+  },
+  "params_text": "k_a=20, beta_pop=0.0, gamma_quality=0.0, candidates=300, alpha=30.0, regularization=1.0, confidence={5: 1.0, 4: 0.7, 3: 0.3, 0: 0.2}, ii_prior_mean=3.0, ii_prior_weight=5.0, beta_pop_many=-0.3, a_override=None, pred_floor_offset=0.25, delta_pred=0.75, pred_fame_lo=4.0, pred_fame_hi=5.5, pred_pool=50",
+  "artifacts": "artifacts",
+  "artifacts_built": "2026-10-03 12:01"
+}

@@ -26,7 +26,7 @@ artifacts: genres  ## models + search DB + packaging
 	$(PY) $(P).s09_search_db
 	$(PY) $(P).s10_package
 
-eval:            ## offline evaluation on held-out users -> eval/reports/
+eval:            ## temporal hide-and-predict evaluation vs baselines -> eval/reports/ (see goodrec.eval.run)
 	$(PY) goodrec.eval.run
 
 test:
