@@ -1,0 +1,146 @@
+[
+ {
+  "id": "M01", "date": "2026-09-26", "icon": "🧭", "category": "model",
+  "title": "Rebuild planned: a hybrid recommender",
+  "summary": "The 2023 app took about a minute per request. The rebuild keeps the same Goodreads data but precomputes a hybrid of similar-book neighbors and an ALS taste model, so recommendations come back in milliseconds.",
+  "prompts": ["fe7c091a-004", "fe7c091a-005", "fe7c091a-006", "fe7c091a-007"],
+  "commits": ["7ec278f"],
+  "decisions": ["D-001", "D-002", "D-003", "D-004", "D-008", "D-009"]
+ },
+ {
+  "id": "M02", "date": "2026-09-26", "icon": "🏆", "category": "ui",
+  "title": "Ranked list and predicted ratings",
+  "summary": "Recommendations became a single ranked column with a large rank and a predicted-rating box, plus how readers like you rated each book and a sort by predicted rating.",
+  "prompts": ["fe7c091a-019", "fe7c091a-020", "fe7c091a-021"],
+  "commits": ["7d7493b"],
+  "decisions": ["D-010", "D-012"]
+ },
+ {
+  "id": "M03", "date": "2026-09-26", "icon": "🔗", "category": "data",
+  "title": "Stricter Goodreads import",
+  "summary": "Title-only matches were pairing newer books with unrelated older ones, so a title match now has to match an author too. Re-imports replace earlier ones, and any book can be removed.",
+  "prompts": ["fe7c091a-022", "fe7c091a-025"],
+  "commits": ["7d7493b", "dde6c54"],
+  "decisions": ["D-011"]
+ },
+ {
+  "id": "M04", "date": "2026-09-26", "icon": "🗺️", "category": "ui",
+  "title": "Explore, Your books, map view and About",
+  "summary": "Added a catalog-wide Explore page, a map of recommendations by popularity and rating, reading insights on Your books, and an About page with the math and links to the code.",
+  "prompts": ["fe7c091a-022", "fe7c091a-023", "fe7c091a-024", "fe7c091a-026"],
+  "commits": ["7d7493b", "dde6c54"],
+  "decisions": ["D-013"]
+ },
+ {
+  "id": "M05", "date": "2026-09-26", "icon": "🎚️", "category": "ui",
+  "title": "Click-to-filter and a filter bar",
+  "summary": "Clicking an author, genre or tag filters the list, a filter bar shows what's active, and the filters were reorganized for genre, tags, year, rating and popularity.",
+  "prompts": ["fe7c091a-028", "fe7c091a-029", "fe7c091a-030", "fe7c091a-031", "fe7c091a-032", "fe7c091a-033"],
+  "commits": ["dde6c54"],
+  "decisions": ["D-007"]
+ },
+ {
+  "id": "M06", "date": "2026-09-27", "icon": "☁️", "category": "infra",
+  "title": "Live on Cloud Run",
+  "summary": "Deployed to Google Cloud Run, scaling to zero when idle, with a $5 budget alert. Box sets now rank below the books they contain in search.",
+  "prompts": ["fe7c091a-035", "fe7c091a-036", "fe7c091a-037", "fe7c091a-038", "fe7c091a-039"],
+  "commits": ["ebef015"],
+  "decisions": ["D-014"]
+ },
+ {
+  "id": "M07", "date": "2026-09-27", "icon": "📏", "category": "model",
+  "title": "Stable ranks and calibrated predictions",
+  "summary": "Ranks keep their numbers under filters, predicted ratings are calibrated to each reader's own scale, and For you skips books predicted well below the reader's average (about a 4% accuracy cost).",
+  "prompts": ["fe7c091a-041", "fe7c091a-042", "fe7c091a-043", "fe7c091a-044"],
+  "commits": ["32555e9"],
+  "decisions": ["D-016", "D-017", "D-018", "D-019"]
+ },
+ {
+  "id": "M08", "date": "2026-09-27", "icon": "🎒", "category": "model",
+  "title": "Young adult books hidden by default",
+  "summary": "Recommendations leave out young adult books (main genre YA, or at least 22% of readers' genre votes) unless you tick a box, which re-ranks the whole list.",
+  "prompts": ["fe7c091a-045"],
+  "commits": ["32555e9"],
+  "decisions": ["D-020"]
+ },
+ {
+  "id": "M09", "date": "2026-09-27", "icon": "🏠", "category": "ui",
+  "title": "Homepage refresh and cover wall",
+  "summary": "A simpler homepage, with a hand-picked cover wall that's half literary fiction and half popular titles.",
+  "prompts": ["fe7c091a-046", "fe7c091a-047", "fe7c091a-048"],
+  "commits": ["32555e9"],
+  "decisions": ["D-021"]
+ },
+ {
+  "id": "M10", "date": "2026-09-27", "icon": "🤖", "category": "assistant",
+  "title": "The AI Assistant",
+  "summary": "A Claude-powered reading assistant that uses the recommender as tools, searches the web for books after 2017 and talks books. Haiku handles simple messages and Sonnet complex ones, within daily caps.",
+  "prompts": ["fe7c091a-050", "fe7c091a-051", "fe7c091a-056", "fe7c091a-057", "fe7c091a-058", "fe7c091a-059", "fe7c091a-060", "fe7c091a-061"],
+  "commits": ["8ab67ef"],
+  "decisions": ["D-022", "D-023", "D-024"]
+ },
+ {
+  "id": "M11", "date": "2026-09-27", "icon": "⭐", "category": "model",
+  "title": "A boost for well-known books you'd love",
+  "summary": "Best match now lifts famous books with high predicted ratings, so a classic like The Green Mile isn't buried (#384 → #96), while obscure books with high averages don't jump the queue.",
+  "prompts": ["fe7c091a-063", "fe7c091a-066"],
+  "commits": ["8511b03"],
+  "decisions": ["D-025"]
+ },
+ {
+  "id": "M12", "date": "2026-09-27", "icon": "🎯", "category": "model",
+  "title": "More honest predicted ratings",
+  "summary": "Book averages are now shrunk toward Goodreads-wide averages, and predictions are stretched only as far as your own ratings support. Average error fell from about 1.0 to 0.88 stars.",
+  "prompts": ["fe7c091a-068", "fe7c091a-069", "fe7c091a-070"],
+  "commits": ["9aba0e6"],
+  "decisions": ["D-026", "D-027"]
+ },
+ {
+  "id": "M13", "date": "2026-09-27", "icon": "🗂️", "category": "docs",
+  "title": "Portfolio repo reorganized",
+  "summary": "The portfolio's folders are numbered so Shelf Life comes first on GitHub, and the root README follows the same order.",
+  "prompts": ["fe7c091a-072", "fe7c091a-073", "fe7c091a-074", "fe7c091a-075", "fe7c091a-077", "fe7c091a-078"],
+  "commits": ["3148292"],
+  "decisions": ["D-028"]
+ },
+ {
+  "id": "M14", "date": "2026-09-28", "icon": "🎬", "category": "ui",
+  "title": "Demo library and cover-flow transition",
+  "summary": "\"See a demo\" loads a real 772-book Goodreads library. Going to recommendations plays a short animation of your favorite covers, then your top picks.",
+  "prompts": ["fe7c091a-080", "fe7c091a-081", "fe7c091a-082", "fe7c091a-083", "fe7c091a-084", "fe7c091a-085", "fe7c091a-086", "fe7c091a-087", "fe7c091a-088"],
+  "commits": ["a0ea42a"],
+  "decisions": ["D-029", "D-030"]
+ },
+ {
+  "id": "M15", "date": "2026-09-28", "icon": "🔥", "category": "infra",
+  "title": "An always-warm server",
+  "summary": "One Cloud Run instance now stays running, so a first visit after a quiet spell loads in under a second instead of an estimated 5–15.",
+  "prompts": ["ec278335-002", "ec278335-003"],
+  "commits": ["d7f2ad9"],
+  "decisions": ["D-015"]
+ },
+ {
+  "id": "M16", "date": "2026-09-28", "icon": "📱", "category": "ui",
+  "title": "Phone menu, tooltips and a plainer About",
+  "summary": "On phones, the nav collapses into a menu. Nav links got short tooltips, the About page dropped engineering trivia, and the cover flow got varied pause points instead of bunching up.",
+  "prompts": ["ec278335-004", "ec278335-005", "ec278335-010", "ec278335-011", "ec278335-013", "ec278335-014", "ec278335-016"],
+  "commits": ["4c01f31", "9e6ef1f", "0aa244a", "8c6eb2a", "7c50abd"],
+  "decisions": ["D-031", "D-032", "D-033"]
+ },
+ {
+  "id": "M17", "date": "2026-09-28", "icon": "🐛", "category": "ui",
+  "title": "A logo and favicon",
+  "summary": "The name Shelf Life stayed after a brainstorm of alternatives, and the site got its book-and-worm logo and a matching favicon.",
+  "prompts": ["ec278335-015", "ec278335-016", "ec278335-017"],
+  "commits": ["28950bf", "75171ed"],
+  "decisions": ["D-034"]
+ },
+ {
+  "id": "M18", "date": "2026-10-03", "icon": "📜", "category": "docs",
+  "title": "An open build log",
+  "summary": "Every prompt that shaped the product, Claude's replies, the decisions and the commits are logged in the repo and shown on this page, and they update automatically from now on.",
+  "prompts": ["fe7c091a-090", "fe7c091a-091", "fe7c091a-092", "fe7c091a-099"],
+  "commits": ["ecf5abc", "7458594", "126595d", "4a321fc", "d9f443f", "2fe381b", "9c5c176"],
+  "decisions": ["D-036"]
+ }
+]
