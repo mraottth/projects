@@ -20,9 +20,11 @@ const KIND: Record<string, string> = {
 };
 const fmtDay = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 const fmtWeekday = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
-// Once a milestone is open, hovering another must rest on it this long (a ring fills around its icon) before the
-// panel switches, so crossing milestones on the way to the panel doesn't change it.
+// Hovering a milestone must rest on it while a ring fills around its icon before its details show: SWITCH_MS to
+// switch from an open milestone (so crossing milestones on the way to the panel doesn't change it), OPEN_MS to open
+// the panel when it's closed (shorter, so the first look isn't slow, and sweeping across doesn't reflow the timeline).
 const SWITCH_MS = 550;
+const OPEN_MS = Math.round(SWITCH_MS * 0.75);
 const dayGap = (a: string, b: string) => Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86_400_000);
 
 export function MilestoneTimeline({ milestones, prompts, categories, onShowPrompt, onShowDecision }: {
@@ -31,7 +33,7 @@ export function MilestoneTimeline({ milestones, prompts, categories, onShowPromp
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [pinned, setPinned] = useState(false);
-  const [pending, setPending] = useState<string | null>(null);   // hovered milestone waiting out SWITCH_MS
+  const [pending, setPending] = useState<{ id: string; ms: number } | null>(null);   // hovered milestone and its wait
   const [ringDone, setRingDone] = useState(false);                 // its ring has filled and is fading out
   const [edges, setEdges] = useState({ left: false, right: true });
   const [progress, setProgress] = useState({ left: 0, width: 100 });   // scroll position, in % of the track
@@ -119,21 +121,20 @@ export function MilestoneTimeline({ milestones, prompts, categories, onShowPromp
     return () => window.removeEventListener("keydown", onKey);
   }, [openId]);
 
-  // Opening the panel reflows the timeline, so the first preview waits a moment: sweeping the mouse across the
-  // timeline doesn't make it jump. Switching to another milestone waits SWITCH_MS (keyboard focus switches at once).
+  // Hover waits OPEN_MS (panel closed) or SWITCH_MS (panel open) with a filling ring; keyboard focus shows at once.
   const preview = (id: string, immediate = false) => {
     window.clearTimeout(closeTimer.current);
     cancelPending();
     if (pinned || openId === id) return;
     if (immediate) { revealNext.current = true; setOpenId(id); return; }
     if (performance.now() < quietUntil.current) return;
-    if (!openId) { openTimer.current = window.setTimeout(() => setOpenId(id), 180); return; }
-    setPending(id);
+    const ms = openId ? SWITCH_MS : OPEN_MS;
+    setPending({ id, ms });
     openTimer.current = window.setTimeout(() => {
       setOpenId(id);
-      setRingDone(true);   // the full ring fades out rather than vanishing as the panel switches
+      setRingDone(true);   // the full ring fades out rather than vanishing as the details appear
       openTimer.current = window.setTimeout(() => { setPending(null); setRingDone(false); }, 260);
-    }, SWITCH_MS);
+    }, ms);
   };
   // Unpinned previews close shortly after the pointer leaves the whole section (timeline and panel).
   const leaveSoon = () => {
@@ -194,8 +195,8 @@ export function MilestoneTimeline({ milestones, prompts, categories, onShowPromp
                                 onClick={() => toggle(x.id)}>
                           <span className="ms-dot" aria-hidden="true">
                             {x.icon}
-                            {pending === x.id && (
-                              <svg className={`ms-ring${ringDone ? " done" : ""}`} viewBox="0 0 100 100" style={{ animationDuration: `${SWITCH_MS}ms` }}>
+                            {pending?.id === x.id && (
+                              <svg className={`ms-ring${ringDone ? " done" : ""}`} viewBox="0 0 100 100" style={{ animationDuration: `${pending.ms}ms` }}>
                                 <circle cx="50" cy="50" r="47" pathLength={100} />
                               </svg>
                             )}
