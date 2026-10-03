@@ -1,7 +1,7 @@
 {
  "session": "fe7c091a-5174-49e5-9f91-126c647e9612",
  "omitted_api_errors": 12,
- "omitted": 23,
+ "omitted": 24,
  "entries": [
   {
    "time": "2026-09-26T23:22:59.503Z",
@@ -707,6 +707,22 @@
    "text": "The functionality is great! There's a weird little jitter or hitch in the UI when the timer completes though. Can you smooth that out?",
    "reply": "The panel should now switch smoothly. The hitch came from the timeline jumping sideways: if the milestone you were resting on sat near the faded right edge, the timeline scrolled about 218px the moment the panel switched. That put a different milestone under your mouse and started its ring. I measured this frame by frame in Chrome.\n\nWhat changed:\n- **No hover scrolling:** the timeline no longer scrolls when a hover switches the panel, since that milestone is already under your mouse. Clicking a milestone, using the keyboard, or opening the panel for the first time still scrolls it into view. While the timeline is scrolling itself, hovers are ignored so this can't start a stray ring either.\n- **Ring:** once full, it fades out over a quarter-second instead of vanishing.\n- **Panel:** the new content fades in with a slight lift, unless the visitor has reduced motion turned on.\n- **Highlight:** the previous milestone's highlight eases off instead of snapping.\n\nAfter the fix, the measurement shows no movement at the moment of a switch. All the earlier browser checks still pass, with no console errors:\n- the sweep to the panel;\n- the 550 ms wait;\n- pinned milestones scrolling into view;\n- Escape;\n- the phone bottom sheet.\n\nOne tradeoff: if you rest on a milestone that's partly faded at the right edge, the panel switches but the timeline won't shift it into full view. Clicking it still does.\n\nThe commits are `10a4677` and `41e9cda` (the prompt log). Both are pushed to `br-changelog`, not merged or deployed, and the local server shows the new version.",
    "id": "fe7c091a-105",
+   "session": "fe7c091a"
+  },
+  {
+   "time": "2026-10-03T14:33:52.666Z",
+   "kind": "prompt",
+   "text": "One small change to the timeline view. Right now, the loading delay only happens if the modal is already open. It should happen when the modal is closed too so it's a consistent experience. It can load in 3/4 the time in those cases though so users aren't kept waiting when they view the first modal",
+   "reply": "Hovering a milestone when the panel is closed now shows the same filling ring, and the panel opens once the ring completes. That takes 413 ms, three-quarters of the 550 ms used for switching between milestones. Before, it opened after a 180 ms pause with no ring.\n\nI tested it in Chrome: the ring shows at the right speed, the panel opens when it fills, and quickly moving the mouse across the timeline still opens nothing. The earlier checks still pass (the sweep to the panel, the switch delay, Escape, the phone sheet), with no console errors.\n\nOpening still takes three-quarters of the switch time if you change the switch delay (`SWITCH_MS` in [MilestoneTimeline.tsx](frontend/src/components/MilestoneTimeline.tsx)).\n\nThe change is commit `ee30e99`, plus `6842b8c` for the prompt log, on a new branch `br-timeline-first-open`. It's pushed but not merged or deployed. The local server at http://localhost:8000/?view=changelog already shows it; the live site doesn't yet.",
+   "id": "fe7c091a-107",
+   "session": "fe7c091a"
+  },
+  {
+   "time": "2026-10-03T14:37:12.197Z",
+   "kind": "prompt",
+   "text": "awesome! also I notice the favicon is the correct logo when viewing the local deploy but the production version uses a book emoji",
+   "reply": "The book emoji is coming from your browser's cache, not from the live site. Production serves the same logo files as your local server, byte for byte. Before the logo was added on Sep 28, the favicon was a 📚 emoji, and browsers hold onto favicons long after a site changes them. Your local server never had the emoji, so it shows the logo.\n\nI made two fixes so every returning visitor gets the logo, not just you:\n- **Version tag:** the favicon links now end in `?v=2`. Browsers treat that as a new icon and download it fresh.\n- **`/favicon.ico`:** browsers and bookmark tools request this address by default, and it returned the app's HTML page. It now returns the logo.\n\nBoth work on your local server and the 47 tests pass. I restarted the local server for the second fix, and it still has your API key, so the Assistant works.\n\nThe fix is in commit `2f3e5f8`, plus `cb8d308`, which logs the prompt under the logo milestone. It's pushed on `br-timeline-first-open` with the hover-ring change, not merged or deployed. Production will keep showing the emoji to you until it's deployed. To see the logo before then, open `/favicon.png` on the live site once, or clear the site's data in Chrome.",
+   "id": "fe7c091a-108",
    "session": "fe7c091a"
   }
  ]
