@@ -38,7 +38,7 @@ function Tech({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function AboutPage({ go }: { go: (v: "rate" | "import" | "recs") => void }) {
+export function AboutPage({ go }: { go: (v: "changelog") => void }) {
   return (
     <article className="about">
       <h1>About Shelf Life</h1>
@@ -47,12 +47,9 @@ export function AboutPage({ go }: { go: (v: "rate" | "import" | "recs") => void 
         Upload your Goodreads library or rate a handful of books you know, and it finds books that readers with your
         taste loved, with a reason for each pick and an estimate of how many stars you&apos;d give it.
       </p>
-      <p>
+      <p className="about-actions">
+        <button type="button" className="primary" onClick={() => go("changelog")}>How this was built →</button>
         <a className="primary-link" href={REPO_URL} target="_blank" rel="noreferrer">View the code on GitHub ↗</a>
-        {" "}·{" "}
-        <button type="button" className="link" onClick={() => go("rate")}>Rate some books</button>
-        {" "}·{" "}
-        <button type="button" className="link" onClick={() => go("import")}>Import from Goodreads</button>
       </p>
 
       <h2>The data</h2>

@@ -474,6 +474,8 @@ button.chip:hover { background: #f1f0eb; }
 .about h2 { margin-top: 32px; }
 .lead-left { font-size: 1.1rem; color: var(--ink-2); }
 .primary-link { font-weight: 600; }
+.about-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; margin: 18px 0 8px; }
+.about-actions .primary { font-size: 1.05rem; padding: 12px 24px; }
 .about ul { padding-left: 20px; }
 .about li { margin-bottom: 6px; }
 .note { background: #fff8e6; border: 1px solid #f3dd9a; padding: 10px 14px; border-radius: var(--radius); font-size: 0.92rem; }
@@ -843,3 +845,170 @@ button.chip:hover { background: #f1f0eb; }
 .brand { display: flex; align-items: center; padding: 0; line-height: 0; }
 .brand img { display: block; height: 48px; width: auto; }
 @media (max-width: 640px) { .brand { padding: 0; } .brand img { height: 36px; } }
+
+/* ---------- changelog (pages/ChangelogPage.tsx) */
+.changelog { max-width: 880px; margin: 0 auto; }
+.cl-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 18px 0 10px; }
+.cl-search { flex: 1 1 240px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--ring); font: inherit; background: var(--card); }
+.cl-filter { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
+.cl-chip-btn { border: 1px solid var(--ring); background: var(--card); border-radius: 999px; padding: 4px 11px; font-size: 0.85rem; cursor: pointer; color: var(--ink-2); }
+.cl-chip-btn.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+.cl-chip-btn.on .muted { color: rgba(255, 255, 255, 0.7); }
+.cl-list { display: flex; flex-direction: column; gap: 12px; }
+.cl-day { font-size: 1rem; color: var(--ink-2); margin: 18px 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--ring); }
+.cl-card { background: var(--card); border: 1px solid var(--ring); border-radius: 14px; padding: 14px 18px; box-shadow: var(--shadow); }
+.cl-card + .cl-card, div + .cl-card { margin-top: 10px; }
+.cl-standalone { padding: 10px 18px; }
+.cl-card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 6px; }
+.cl-kind { font-weight: 700; font-size: 0.85rem; color: var(--accent-ink); }
+.cl-kind.alt { color: #8a5a00; }
+.cl-text { white-space: pre-wrap; line-height: 1.5; overflow-wrap: anywhere; }
+.cl-title { margin: 2px 0 8px; font-size: 1.08rem; }
+.cl-section { margin: 6px 0; line-height: 1.55; }
+.cl-section > strong { display: block; font-size: 0.85rem; color: var(--ink-2); }
+.cl-section .md p:last-child { margin-bottom: 0; }
+.cl-chips { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.cl-chip { font-size: 0.72rem; padding: 1px 8px; border-radius: 999px; background: #efeee9; color: var(--ink-2); white-space: nowrap; }
+.cl-ui { --c: #2a78d6; } .cl-model { --c: #7a3fc4; } .cl-eval { --c: #1f8a5b; } .cl-data { --c: #b46a00; }
+.cl-assistant { --c: #c2408a; } .cl-infra { --c: #5d6b7a; } .cl-docs { --c: #3d7f8f; } .cl-discussion { --c: #8a8577; }
+.cl-chip[class*="cl-"] { background: color-mix(in srgb, var(--c, #8a8577) 12%, white); color: color-mix(in srgb, var(--c, #8a8577) 85%, black); }
+.cl-chip-btn.cat.on { background: var(--c); border-color: var(--c); }
+.cl-asked { margin: 8px 0 0; font-size: 0.92rem; }
+.cl-asked ul { margin: 4px 0 0; padding-left: 20px; }
+.cl-details { margin-top: 8px; }
+.cl-details > summary { cursor: pointer; color: var(--accent-ink); font-size: 0.9rem; font-weight: 600; }
+.cl-details[open] > summary { margin-bottom: 6px; }
+.cl-details .md { font-size: 0.93rem; line-height: 1.55; border-left: 3px solid var(--ring); padding-left: 12px; }
+.cl-commits { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--ring); display: flex; flex-direction: column; gap: 8px; }
+.cl-commit-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.cl-hash { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem; margin-right: 6px; }
+.cl-subject { font-weight: 600; }
+.cl-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 2px; }
+.cl-badge { font-size: 0.72rem; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--ring); color: var(--ink-2); }
+.cl-refs { margin: 8px 0 0; }
+.cl-refs .link { margin-right: 6px; }
+.cl-group > summary { display: flex; align-items: baseline; gap: 10px; cursor: pointer; list-style: none; margin: 8px 0; }
+.cl-group > summary h2 { margin: 0; font-size: 1.15rem; }
+.cl-group > summary::before { content: "▸"; color: var(--muted); }
+.cl-group[open] > summary::before { content: "▾"; }
+.cl-flash { outline: 3px solid var(--accent); outline-offset: 2px; transition: outline-color 1.5s; }
+.md pre { background: #f3f2ee; border-radius: 8px; padding: 10px 12px; overflow-x: auto; font-size: 0.85rem; }
+.md code { background: #f0efea; border-radius: 4px; padding: 0 4px; font-size: 0.88em; }
+.md pre code { background: none; padding: 0; }
+.md blockquote { margin: 0 0 10px; padding-left: 12px; border-left: 3px solid var(--ring); color: var(--ink-2); }
+.md-table { overflow-x: auto; margin: 0 0 10px; }
+.md-table table { border-collapse: collapse; font-size: 0.88rem; }
+.md-table th, .md-table td { border: 1px solid var(--ring); padding: 4px 8px; text-align: left; vertical-align: top; }
+.md-table th { background: #f6f5f1; }
+.md-path { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.88em; }
+@media (max-width: 640px) { .cl-card { padding: 12px 14px; } }
+
+/* ---------- milestone timeline (components/MilestoneTimeline.tsx) */
+.ms { display: flex; flex-direction: column; margin: 22px 0 14px; padding: 16px 18px 10px; background: var(--card);
+  border: 1px solid var(--ring); border-radius: 16px; box-shadow: var(--shadow); min-height: 380px; overflow: hidden; }
+@media (min-width: 641px) {
+  /* Wider than the changelog column (up to the site width), so the details panel leaves room for the timeline. */
+  .changelog .ms { width: min(1200px, calc(100vw - 40px)); position: relative; left: 50%; transform: translateX(-50%); }
+}
+.ms-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; }
+.ms-head h2 { margin: 0; font-size: 1.2rem; }
+.ms-arrows { margin-left: auto; display: inline-flex; gap: 6px; }
+.ms-arrows button { width: 34px; padding: 3px 0; font-size: 1.15rem; line-height: 1; }
+.ms-arrows button:disabled { opacity: 0.35; cursor: default; }
+.ms-progress { position: relative; height: 8px; margin: 12px 0 4px; border-radius: 999px; background: #ecebe6; cursor: pointer; touch-action: none; }
+.ms-progress:hover { background: #e3e2dc; }
+.ms-thumb { position: absolute; top: 0; bottom: 0; border-radius: 999px; background: var(--accent); min-width: 24px; }
+.ms-body { flex: 1; min-height: 0; display: flex; margin: 0 -18px -10px; }
+.ms-left { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.ms-left .ms-progress { margin-inline: 18px; }
+.ms-viewport { position: relative; flex: 1; min-height: 0; display: flex; }
+.ms-scroll { flex: 1; min-width: 0; display: flex; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x proximity; scroll-padding-inline: 24px;
+  scrollbar-width: none; padding: 0 18px; }
+.ms-scroll::-webkit-scrollbar { display: none; }
+/* Edges with more to scroll to: the content fades out (mask) and what's left is blurred (overlay). */
+.ms-scroll.fade-right { mask-image: linear-gradient(to right, #000 calc(100% - 150px), rgba(0, 0, 0, 0.35) calc(100% - 50px), transparent); }
+.ms-scroll.fade-left { mask-image: linear-gradient(to left, #000 calc(100% - 60px), transparent); }
+.ms-scroll.fade-left.fade-right { mask-image: linear-gradient(to right, transparent, #000 60px, #000 calc(100% - 150px), rgba(0, 0, 0, 0.35) calc(100% - 50px), transparent); }
+.ms-blur { position: absolute; top: 0; bottom: 0; pointer-events: none; opacity: 0; transition: opacity 0.2s ease;
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+.ms-blur.on { opacity: 1; }
+.ms-blur.right { right: 0; width: 170px; mask-image: linear-gradient(to right, transparent, #000 70%); -webkit-mask-image: linear-gradient(to right, transparent, #000 70%); }
+.ms-blur.left { left: 0; width: 60px; mask-image: linear-gradient(to left, transparent, #000 80%); -webkit-mask-image: linear-gradient(to left, transparent, #000 80%); }
+.ms-track { position: relative; display: flex; list-style: none; margin: 0; padding: 52px 18px 8px 6px; width: max-content; }
+.ms-track::before { content: ""; position: absolute; left: 0; right: 0; top: 84px; height: 2px; background: var(--ring); }
+.ms-item { position: relative; width: 218px; flex: 0 0 auto; scroll-snap-align: start; display: flex; }
+.ms-item.new-day::before { content: ""; position: absolute; left: 0; top: -14px; bottom: 0; border-left: 2px dashed var(--ring); }
+.ms-day { position: absolute; left: 8px; top: -44px; font-size: 0.92rem; font-weight: 700; color: #fff; background: var(--ink);
+  padding: 4px 12px; border-radius: 999px; white-space: nowrap; letter-spacing: 0.01em; }
+.ms-gap { flex: 0 0 auto; width: 84px; display: flex; align-items: flex-start; justify-content: center; padding-top: 22px; }
+.ms-gap span { font-size: 0.78rem; font-weight: 600; color: var(--ink-2); background: var(--card); padding: 3px 8px; border-radius: 999px; border: 1px dashed var(--muted); white-space: nowrap; }
+.ms-node { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; padding: 0 12px 6px; background: none; border: 0;
+  border-radius: 14px; cursor: pointer; text-align: center; font: inherit; color: var(--ink); }
+.ms-node:hover, .ms-node.on { background: color-mix(in srgb, var(--c, #8a8577) 6%, transparent); }
+.ms-dot { display: grid; place-items: center; width: 64px; height: 64px; flex: 0 0 auto; border-radius: 50%; font-size: 1.85rem; position: relative; z-index: 1;
+  background: color-mix(in srgb, var(--c, #8a8577) 14%, white); border: 2px solid color-mix(in srgb, var(--c, #8a8577) 70%, white);
+  transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.ms-node:hover .ms-dot, .ms-node:focus-visible .ms-dot, .ms-node.on .ms-dot { transform: scale(1.1); box-shadow: 0 0 0 5px color-mix(in srgb, var(--c, #8a8577) 22%, transparent); }
+.ms-node:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Ring that fills around a hovered milestone's icon while the panel waits to switch to it (SWITCH_MS). */
+.ms-ring { position: absolute; inset: -7px; width: calc(100% + 14px); height: calc(100% + 14px); transform: rotate(-90deg); pointer-events: none; overflow: visible; }
+.ms-ring circle { fill: none; stroke: var(--c, var(--accent)); stroke-width: 5; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100;
+  animation: ms-ring-fill linear forwards; animation-duration: inherit; }
+@keyframes ms-ring-fill { to { stroke-dashoffset: 0; } }
+.ms-ring.done { opacity: 0; transition: opacity 0.25s ease; }
+.ms-node { transition: background-color 0.2s ease; }
+.ms-title { transition: color 0.2s ease; }
+.ms-panel-body { animation: ms-fade-in 0.2s ease; }
+@keyframes ms-fade-in { from { opacity: 0; transform: translateY(4px); } }
+@media (prefers-reduced-motion: reduce) { .ms-panel-body { animation: none; } }
+.ms-title { font-size: 1rem; font-weight: 700; line-height: 1.25; }
+.ms-node.on .ms-title { color: color-mix(in srgb, var(--c, #8a8577) 85%, black); }
+.ms-sum { font-size: 0.86rem; line-height: 1.45; color: var(--ink-2); display: -webkit-box; -webkit-line-clamp: 10; -webkit-box-orient: vertical; overflow: hidden; }
+.ms-meta { margin-top: auto; font-size: 0.76rem; color: var(--muted); }
+/* Details panel: opens to the right of the timeline, which narrows to make room; scrolls on its own. */
+.ms-panel { flex: 0 0 0; min-width: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; visibility: hidden;
+  border-left: 1px solid transparent; transition: flex-basis 0.25s ease, visibility 0s linear 0.25s; }
+.ms-panel.open { flex-basis: min(460px, 44%); visibility: visible; padding: 14px 18px 16px; border-left-color: var(--ring);
+  background: color-mix(in srgb, var(--c, #8a8577) 4%, var(--card)); box-shadow: inset 0 4px 0 var(--c, var(--accent)); transition: flex-basis 0.25s ease; }
+.ms-panel.open > * { min-width: 300px; }
+.ms-node.pinned { box-shadow: inset 0 -3px 0 var(--c, var(--accent)); }
+.ms-pin { white-space: nowrap; }
+.ms-pop-head { display: flex; gap: 10px; align-items: flex-start; }
+.ms-pop-head h3 { margin: 0 0 2px; font-size: 1.05rem; }
+.ms-pop-icon { font-size: 1.6rem; line-height: 1; }
+.ms-close { margin-left: auto; background: none; border: 0; font-size: 1.4rem; line-height: 1; color: var(--muted); cursor: pointer; padding: 0 2px; }
+.ms-summary { margin: 8px 0 10px; line-height: 1.5; }
+.ms-panel h4 { margin: 12px 0 6px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-2); }
+.ms-prompts { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 14px; }
+.ms-ptext { margin: 2px 0 4px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.93rem; line-height: 1.5; }
+.ms-prow { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
+.ms-prow .cl-details { margin-top: 0; flex: 1 1 100%; order: 2; }
+.ms-prow .ms-show { order: 1; }
+.ms-prow:has(.cl-details) .ms-show { order: 1; }
+.ms-commits { margin: 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; font-size: 0.9rem; }
+.ms-pop-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.ms-show { font-weight: 600; font-size: 0.88rem; }
+.cl-cats { position: relative; }
+.cl-cats-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; min-width: 250px; padding: 6px; background: var(--card);
+  border: 1px solid var(--ring); border-radius: 12px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14); }
+.cl-cats-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; }
+.cl-cats-row:hover { background: #f4f3ef; }
+.cl-cats-row .muted { margin-left: auto; }
+.cl-cats-swatch { width: 10px; height: 10px; border-radius: 50%; background: var(--c, var(--muted)); }
+@media (max-width: 640px) {
+  .ms { padding: 14px 14px 8px; }
+  .ms-body { margin: 0 -14px -8px; }
+  .ms-left .ms-progress { margin-inline: 14px; }
+  .ms-scroll { padding: 0 14px; scroll-padding-inline: 20px; }
+  .ms-blur.right { width: 90px; }
+  .ms-item { width: 176px; }
+  .ms-dot { width: 52px; height: 52px; font-size: 1.5rem; }
+  .ms-track::before { top: 78px; }
+  .ms-sum { display: none; }   /* the popover shows the summary; phones don't have the height */
+  /* Phones: the details panel is a bottom sheet over the page instead. */
+  .ms-panel, .ms-panel.open { position: fixed; left: 0; right: 0; bottom: 0; z-index: 60; max-height: 70vh; flex: none; transition: none;
+    border: 1px solid var(--ring); border-bottom: 0; border-radius: 16px 16px 0 0; box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.18), inset 0 4px 0 var(--c, var(--accent)); }
+  .ms-panel:not(.open) { display: none; }
+  .ms-panel.open > * { min-width: 0; }
+  .cl-cats-menu { right: auto; left: 0; }
+}

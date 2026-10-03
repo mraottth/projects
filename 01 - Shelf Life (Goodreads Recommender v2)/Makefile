@@ -35,8 +35,9 @@ test:
 serve:           ## API (serves frontend/dist if built) on http://localhost:8000
 	uv run uvicorn goodrec.api.main:app --reload --port 8000
 
-frontend:        ## code-link anchors for the About page, then build the React app
+frontend:        ## code-link anchors for the About page, changelog data, then build the React app
 	python3 scripts/code_links.py
+	python3 scripts/build_changelog.py
 	cd frontend && npm install && npm run build
 
 dev:             ## frontend dev server with API proxy (run `make serve` in another shell)
@@ -52,6 +53,7 @@ IMAGE       := $(GCP_REGION)-docker.pkg.dev/$(GCP_PROJECT)/goodrec/app
 
 deploy:          ## build the image in Cloud Build and deploy to Cloud Run (uploads artifacts/)
 	python3 scripts/code_links.py
+	python3 scripts/build_changelog.py
 	gcloud builds submit --project $(GCP_PROJECT) --region $(GCP_REGION) --tag $(IMAGE) .
 	gcloud run deploy goodrec --project $(GCP_PROJECT) --region $(GCP_REGION) --image $(IMAGE) \
 	  --memory 1Gi --cpu 1 --cpu-boost --min-instances 1 --max-instances 3 --concurrency 20 \

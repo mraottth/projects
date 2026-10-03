@@ -41,6 +41,8 @@ make frontend    # build the React app
 make serve       # http://localhost:8000
 ```
 
+**How it was built:** Shelf Life was built in conversation with Claude Code, and the whole process is public. The site's **Changelog** page (linked from About) shows every prompt, Claude's replies, the commits they produced and the decisions along the way. The same records are in [`prompts/`](prompts/) and [`DECISIONS.md`](DECISIONS.md).
+
 **Assistant tab setup:** export `ANTHROPIC_API_KEY` before `make serve` (without it the tab says it isn't configured). For Cloud Run, run `make chat-secret` once (stores the key in Secret Manager); `make deploy` then mounts it. Usage caps live in `config/pipeline.yaml` under `chat:` (messages per visitor per day, global per day, turns per conversation); also set a monthly spend limit in the Anthropic console as a hard backstop.
 
 **Filetree:**

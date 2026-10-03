@@ -1,0 +1,71 @@
+{
+ "7ec278f": [
+  "model",
+  "data",
+  "eval",
+  "ui",
+  "infra"
+ ],
+ "7d7493b": [
+  "ui",
+  "model",
+  "data"
+ ],
+ "dde6c54": [
+  "ui",
+  "docs"
+ ],
+ "ebef015": [
+  "infra",
+  "data"
+ ],
+ "32555e9": [
+  "ui",
+  "model"
+ ],
+ "8ab67ef": [
+  "assistant"
+ ],
+ "8511b03": [
+  "model",
+  "eval"
+ ],
+ "9aba0e6": [
+  "model",
+  "data",
+  "eval"
+ ],
+ "3148292": [
+  "docs",
+  "ui"
+ ],
+ "a0ea42a": [
+  "ui"
+ ],
+ "d7f2ad9": [
+  "infra"
+ ],
+ "4c01f31": [
+  "ui"
+ ],
+ "9e6ef1f": [
+  "ui",
+  "docs"
+ ],
+ "0aa244a": [
+  "ui"
+ ],
+ "8c6eb2a": [
+  "ui"
+ ],
+ "7c50abd": [
+  "ui"
+ ],
+ "28950bf": [
+  "ui",
+  "docs"
+ ],
+ "75171ed": [
+  "ui"
+ ]
+}
