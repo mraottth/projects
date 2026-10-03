@@ -681,8 +681,16 @@
    "time": "2026-10-03T14:08:34.832Z",
    "kind": "prompt",
    "text": "When the modal pops open it tends to cover other milestones in the timeline. Let's make it so they pop open to the right of the timeline. The timeline window should shift or shrink to open up space to the right for a modal with the ability to vertical scroll within it. Clicking the milestone should make the pop up stick in that window. You can also increase the blur effect on the right side to make it clear there's more to scroll to",
-   "reply": null,
+   "reply": "Milestone details now open in a panel to the right of the timeline instead of covering other milestones. The change is pushed to `br-changelog` but not merged or deployed. The local server at http://localhost:8000/?view=changelog is serving the new build.\n\n- **Layout:** the timeline narrows to make room for the panel (about 460px wide), so nothing gets covered. On desktop the milestone box now widens past the 880px changelog column, up to 1200px. Without that, the timeline would have room for only about two milestones next to the panel.\n- **Hover and pin:** hovering a milestone previews it in the panel, and moving the mouse off the box closes it. Clicking pins it: the header shows \"📌 pinned\" and it stays until you click it again, press × or press Escape. Hovering other milestones doesn't replace a pinned one.\n- **Scrolling:** the panel scrolls vertically on its own. If the milestone you open ends up under the panel or the faded edge, the timeline scrolls it back into view.\n- **Hover delay:** the first preview waits 0.18 seconds, so moving the mouse across the timeline doesn't make it jump. Once the panel is open, other milestones preview instantly.\n- **Right edge:** the fade is wider (about 150px) and there's a real blur on top of it.\n- **Phones:** the details still open as a bottom sheet, since there's no room for a side panel.\n\nI tested it in Chrome at 1440px and on a 420px touch screen. Hovering, moving into the panel, closing on leave, pinning, Escape, and pinned milestones scrolling into view all worked, with no console errors and no sideways page scroll on mobile. The 47 tests pass.\n\nThe work is in two commits:\n- `881f0cd ui: show milestone details in a side panel beside the timeline`\n- `b2a07a0`, which logs this prompt and adds it to the \"An open build log\" milestone",
    "id": "fe7c091a-102",
+   "session": "fe7c091a"
+  },
+  {
+   "time": "2026-10-03T14:16:05.987Z",
+   "kind": "prompt",
+   "text": "Excellent! On the about page, we can remove \"Rate some books · Import from Goodreads.\" Let's also put \"How this was built\" first and make it a more prominent button",
+   "reply": null,
+   "id": "fe7c091a-103",
    "session": "fe7c091a"
   }
  ]
