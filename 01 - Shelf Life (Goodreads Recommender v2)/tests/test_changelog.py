@@ -102,3 +102,17 @@ def test_parse_decisions():
     assert [s["label"] for s in ds[0]["sections"]][:2] == ["Decision", "Context"]
     assert all(d["date"] and d["sections"] for d in ds)
     assert len({d["id"] for d in ds}) == len(ds)
+
+
+def test_milestones_resolve():
+    """Every reference in prompts/milestones.json points at a real prompt, decision or commit."""
+    data = build_changelog.build()
+    ms = data["milestones"]
+    assert len(ms) >= 10 and len({m["id"] for m in ms}) == len(ms)
+    raw = {m["id"]: m for m in json.loads((ROOT / "prompts" / "milestones.json").read_text())}
+    for m in ms:
+        assert m["prompts"] == raw[m["id"]]["prompts"], m["id"]           # nothing dropped
+        assert m["decisions"] == raw[m["id"]]["decisions"], m["id"]
+        assert len(m["commits"]) == len(raw[m["id"]]["commits"]), m["id"]
+        assert m["category"] in data["categories"] and m["title"] and m["summary"]
+    assert [m["date"] for m in ms] == sorted(m["date"] for m in ms)

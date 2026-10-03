@@ -7,6 +7,7 @@ Sources:
   prompts/*.json    exported Claude Code sessions (scripts/export_prompts.py)
   prompts/categories.json, prompts/commit_categories.json   hand labels for past prompts / commits
   DECISIONS.md      the decision log
+  prompts/milestones.json   hand-curated major changes for the visual timeline
 
 Commits are categorized by their message prefix (`ui: ...`), falling back to commit_categories.json.
 Each commit is linked to the latest prompt before it, if that prompt is within LINK_WINDOW_H hours
@@ -75,7 +76,7 @@ def load_prompts(folder: Path) -> list[dict]:
     labels = load_json(folder / "categories.json", {})
     prompts = []
     for f in sorted(folder.glob("*.json")):
-        if f.name in ("categories.json", "commit_categories.json", "omit.json"):
+        if f.name in ("categories.json", "commit_categories.json", "omit.json", "milestones.json"):
             continue
         for e in load_json(f, {}).get("entries", []):
             e = dict(e)
@@ -124,6 +125,31 @@ def parse_decisions(text: str) -> list[dict]:
     return out
 
 
+def resolve_milestones(milestones: list[dict], commits: list[dict], prompts: list[dict], decisions: list[dict]) -> list[dict]:
+    """Check each milestone's references; commits resolve by short-hash prefix to {short, subject, url}.
+    Unknown references are dropped with a warning."""
+    pids = {p["id"] for p in prompts}
+    dids = {d["id"] for d in decisions}
+    out = []
+    for m in milestones:
+        m = dict(m)
+        missing = [p for p in m.get("prompts", []) if p not in pids] + [d for d in m.get("decisions", []) if d not in dids]
+        resolved = []
+        for short in m.get("commits", []):
+            c = next((c for c in commits if c["hash"].startswith(short)), None)
+            if c:
+                resolved.append({"short": c["short"], "subject": c["subject"], "url": c["url"]})
+            else:
+                missing.append(short)
+        if missing:
+            print(f"build_changelog: milestone {m['id']} drops unknown references: {', '.join(missing)}", file=sys.stderr)
+        m["prompts"] = [p for p in m.get("prompts", []) if p in pids]
+        m["decisions"] = [d for d in m.get("decisions", []) if d in dids]
+        m["commits"] = resolved
+        out.append(m)
+    return out
+
+
 def build() -> dict:
     commits = git_commits()
     labels = load_json(ROOT / "prompts" / "commit_categories.json", {})
@@ -138,8 +164,9 @@ def build() -> dict:
             print(f"build_changelog: {len(missing)} uncategorized {kind}: {', '.join(missing[:8])}"
                   f"{' ...' if len(missing) > 8 else ''}", file=sys.stderr)
     omitted = len(load_json(ROOT / "prompts" / "omit.json", {}))
+    milestones = resolve_milestones(load_json(ROOT / "prompts" / "milestones.json", []), commits, prompts, decisions)
     return {"repo": GITHUB, "categories": CATEGORIES, "commits": sorted(commits, key=lambda c: c["time"]),
-            "prompts": prompts, "decisions": decisions, "omitted_prompts": omitted}
+            "prompts": prompts, "decisions": decisions, "milestones": milestones, "omitted_prompts": omitted}
 
 
 def main() -> None:
@@ -150,7 +177,7 @@ def main() -> None:
     OUT.write_text(text, encoding="utf-8")
     d = json.loads(text)
     print(f"wrote {OUT.relative_to(ROOT)}: {len(d['commits'])} commits, {len(d['prompts'])} prompts, "
-          f"{len(d['decisions'])} decisions", file=sys.stderr)
+          f"{len(d['decisions'])} decisions, {len(d['milestones'])} milestones", file=sys.stderr)
 
 
 if __name__ == "__main__":
