@@ -168,3 +168,25 @@ def test_a_max_caps_the_taste_model_share():
     user = UserInput(ratings={i: 4 + i % 2 for i in range(0, 400, 4)})      # 100 ratings: a(n) = 100/120
     assert recommend(art, user, Filters(), Params.from_config(), limit=5)["alpha"] == pytest.approx(100 / 120)
     assert recommend(art, user, Filters(), Params.from_config(a_max=0.5), limit=5)["alpha"] == pytest.approx(0.5)
+
+
+def test_recency_weights_and_neutral_default():
+    from goodrec.core.scoring import Params, item_item_weights, recency_weights
+    w = recency_weights([7, 8, 9], half_life=1.0)
+    assert w == {7: 0.25, 8: 0.5, 9: 1.0}
+    p = Params.from_config()
+    user = UserInput(ratings={7: 5, 8: 3, 9: 4})
+    assert item_item_weights(user, p) == item_item_weights(UserInput(ratings=user.ratings, recency={7: 1.0, 8: 1.0, 9: 1.0}), p)
+
+
+@needs_data
+def test_full_recency_reproduces_scores():
+    from goodrec.core.artifacts import load_artifacts
+    from goodrec.core.scoring import Params, raw_scores
+    art = load_artifacts(with_readers=False)
+    p = Params.from_config()
+    user = UserInput(ratings={0: 5, 4: 4, 9: 2, 50: 5})
+    a = raw_scores(art, user, p)
+    b = raw_scores(art, UserInput(ratings=user.ratings, recency={i: 1.0 for i in user.ratings}), p)
+    np.testing.assert_array_equal(a.s_als, b.s_als)
+    np.testing.assert_array_equal(a.s_ii, b.s_ii)

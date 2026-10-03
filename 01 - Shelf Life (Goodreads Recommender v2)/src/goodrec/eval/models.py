@@ -9,12 +9,13 @@ a series) so they compete on equal terms.
 
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass, field
 
 import numpy as np
 
 from goodrec.core.artifacts import Artifacts
-from goodrec.core.scoring import Filters, Params, UserInput, raw_scores, ranking
+from goodrec.core.scoring import Filters, Params, UserInput, raw_scores, ranking, recency_weights
 
 
 @dataclass
@@ -56,6 +57,9 @@ class ShelfLife(Recommender):
     kind: str = "model"
 
     def recommend(self, user, k, rng):
+        if self.params.recency_half_life:
+            # Evaluation inputs list ratings oldest first (eval.split.Case.user_input), so order gives recency.
+            user = dataclasses.replace(user, recency=recency_weights(list(user.ratings), self.params.recency_half_life))
         raw = raw_scores(self.art, user, self.params)
         return ranking(self.art, raw, user, self.params, "match", self.prior, include_ya=True)["order"][:k]
 
