@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import data from "../changelog.json";
 import { Markdown } from "../components/Markdown";
 import { MilestoneTimeline, type Milestone } from "../components/MilestoneTimeline";
@@ -133,6 +133,41 @@ function DecisionCard({ d, onPrompt }: { d: Decision; onPrompt: (id: string) => 
   );
 }
 
+/** "Categories ▾" drop-down with a checkbox per category (replaces a long row of chips). */
+function CategoryMenu({ cats, setCats, counts }: { cats: string[]; setCats: (c: string[]) => void; counts: Record<string, number> }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: Event) => { if (e instanceof KeyboardEvent ? e.key === "Escape" : !ref.current?.contains(e.target as Node)) setOpen(false); };
+    window.addEventListener("pointerdown", close);
+    window.addEventListener("keydown", close);
+    return () => { window.removeEventListener("pointerdown", close); window.removeEventListener("keydown", close); };
+  }, [open]);
+  const label = cats.length === 0 ? "All categories" : cats.length === 1 ? CATS[cats[0]] : `${cats.length} categories`;
+  return (
+    <div className="cl-cats" ref={ref}>
+      <button type="button" className={`ghost small${cats.length ? " on" : ""}`} aria-haspopup="true" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        {label} ▾
+      </button>
+      {open && (
+        <div className="cl-cats-menu" role="menu">
+          <label className="cl-cats-row">
+            <input type="checkbox" checked={cats.length === 0} onChange={() => setCats([])} /> All categories
+          </label>
+          {Object.keys(CL.categories).map((c) => (
+            <label key={c} className={`cl-cats-row cl-${c}`}>
+              <input type="checkbox" checked={cats.includes(c)}
+                     onChange={() => setCats(cats.includes(c) ? cats.filter((x) => x !== c) : [...cats, c])} />
+              <span className="cl-cats-swatch" aria-hidden="true" /> {CATS[c]} <span className="muted small">{counts[c] ?? 0}</span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ChangelogPage() {
   const [mode, setMode] = useState<Mode>("timeline");
   const [cats, setCats] = useState<string[]>([]);          // empty = all categories
@@ -180,7 +215,6 @@ export function ChangelogPage() {
   const goDecision = (id: string) => { setCats([]); setQ(""); setMode("decisions"); setFocus(id); };
 
   const first = CL.prompts[0]?.time ?? CL.commits[0]?.time;
-  const toggleCat = (c: string) => setCats((cs) => (cs.includes(c) ? cs.filter((x) => x !== c) : [...cs, c]));
   let lastDay = "";
 
   return (
@@ -207,20 +241,11 @@ export function ChangelogPage() {
           ))}
         </div>
         <input className="cl-search" type="search" placeholder="Search prompts, replies, commits…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <CategoryMenu cats={cats} setCats={setCats} counts={counts} />
         {mode === "timeline" && (
           <button type="button" className="ghost small" onClick={() => setNewest((n) => !n)}>{newest ? "Newest first" : "Oldest first"} ⇅</button>
         )}
       </div>
-      <div className="cl-filter">
-        <button type="button" className={`cl-chip-btn${cats.length === 0 ? " on" : ""}`} onClick={() => setCats([])}>All</button>
-        {Object.keys(CL.categories).map((c) => (
-          <button key={c} type="button" className={`cl-chip-btn cat cl-${c}${cats.includes(c) ? " on" : ""}`} aria-pressed={cats.includes(c)}
-                  onClick={() => toggleCat(c)}>
-            {CATS[c]} <span className="muted">{counts[c] ?? 0}</span>
-          </button>
-        ))}
-      </div>
-
       {mode === "timeline" && (
         <div className="cl-list">
           {timeline.length === 0 && <p className="muted">Nothing matches.</p>}

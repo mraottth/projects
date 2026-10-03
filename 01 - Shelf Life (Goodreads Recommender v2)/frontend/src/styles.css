@@ -947,3 +947,13 @@ button.chip:hover { background: #f1f0eb; }
   .ms-item { width: 120px; }
   .ms-pop { border-radius: 16px 16px 0 0; border-bottom: 0; }
 }
+
+/* changelog category drop-down (pages/ChangelogPage.tsx) */
+.cl-cats { position: relative; }
+.cl-cats-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; min-width: 250px; padding: 6px; background: var(--card);
+  border: 1px solid var(--ring); border-radius: 12px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14); }
+.cl-cats-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; }
+.cl-cats-row:hover { background: #f4f3ef; }
+.cl-cats-row .muted { margin-left: auto; }
+.cl-cats-swatch { width: 10px; height: 10px; border-radius: 50%; background: var(--c, var(--muted)); }
+@media (max-width: 640px) { .cl-cats-menu { right: auto; left: 0; } }
