@@ -64,6 +64,7 @@ class Params:
     ii_prior_weight: float = 5.0
     beta_pop_many: float = 0.0        # popularity weight for a user with many ratings (interpolated by a(n))
     a_override: float | None = None   # force the ALS weight (eval: 0 = item-item only, 1 = ALS only)
+    a_max: float = 1.0                # cap on the ALS weight a(n), however many ratings
     pred_floor_offset: float | None = None  # For you: drop books predicted below (user average - offset)
     delta_pred: float = 0.0           # Best match: weight on z(predicted rating), scaled by a(n) and fame (config: 0.75)
     pred_fame_lo: float = 4.0         # log10 Goodreads ratings count where fame weight starts (10k)...
@@ -77,7 +78,7 @@ class Params:
         p = dict(k_a=b["k_a"], beta_pop=b["beta_pop"], beta_pop_many=b.get("beta_pop_many", b["beta_pop"]), gamma_quality=b["gamma_quality"],
                  pred_floor_offset=b.get("pred_floor_offset"), delta_pred=b.get("delta_pred", 0.0),
                  pred_fame_lo=b.get("pred_fame_lo", 4.0), pred_fame_hi=b.get("pred_fame_hi", 6.0),
-                 pred_pool=b.get("pred_pool", 50),
+                 pred_pool=b.get("pred_pool", 50), a_max=b.get("a_max", 1.0),
                  candidates=b["candidates"], alpha=a["alpha"], regularization=a["regularization"],
                  confidence={int(k): float(v) for k, v in a["confidence"].items()})
         p.update(overrides)
@@ -245,7 +246,7 @@ def _pool(art: Artifacts, raw: RawScores, mask: np.ndarray, p: Params):
     cand = np.union1d(top_als, top_ii)
     if len(cand) == 0:
         cand = _top(m.log_pop, idx, p.candidates)
-    a = raw.n / (raw.n + p.k_a) if raw.u is not None else 0.0
+    a = min(raw.n / (raw.n + p.k_a), p.a_max) if raw.u is not None else 0.0
     if p.a_override is not None:
         a = p.a_override
         if a >= 1.0 and raw.u is not None:
@@ -594,7 +595,7 @@ def recommend(art: Artifacts, user: UserInput, f: Filters, p: Params, limit: int
     return {
         "items": items, "ranks": ranks, "scores": rk["score"][items], "source": rk["source"][items],
         "predicted": preds, "because": explain(art, raw, items), "next_in_series": [int(i) in nxt for i in items],
-        "total": int(mask.sum()), "alpha": raw.n / (raw.n + p.k_a) if raw.n else 0.0,
+        "total": int(mask.sum()), "alpha": min(raw.n / (raw.n + p.k_a), p.a_max) if raw.n else 0.0,
     }
 
 

@@ -54,6 +54,7 @@ als:
 blend:
   candidates: 300
   k_a: 20                   # tuned 2026-09-26 (eval grid): a(n) = n / (n + k_a)
+  a_max: 1.0                # cap on a(n), the taste model's (ALS) share of the blend
   beta_pop: 0.0             # tuned: popularity weight for new users (interpolated by a(n))...
   beta_pop_many: -0.3       # ...toward this for heavy raters (penalty raised NDCG at n=all + coverage)
   gamma_quality: 0.0        # tuned (quality prior did not help NDCG)
