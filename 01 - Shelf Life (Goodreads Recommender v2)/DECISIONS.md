@@ -406,7 +406,7 @@ Categories: `ui` · `model` · `eval` · `data` · `assistant` · `infra` · `do
 ## D-037 · Evaluate with a per-user temporal split
 - **Date:** 2026-10-03
 - **Category:** eval
-- **Prompts:** fe7c091a-110, fe7c091a-111, fe7c091a-112, fe7c091a-114
+- **Prompts:** fe7c091a-110, fe7c091a-111, fe7c091a-112, fe7c091a-115
 - **Commits:** da21a59, d57a932, 9aae987, 457b7c4
 
 **Decision.** Offline evaluation hides each held-out user's most recent 30% of ratings and asks the model to predict them from everything before. Ratings are ordered by the date the user read the book (the data's `read_at`, given for 82.5% of ratings), or the date it was shelved when no plausible read date is given; the data has no date-rated field. The split point is relative to each user's own history, not a calendar date. Books with the same date stay on the same side (the split moves to the nearest date boundary), because their order within a day is unknown. A user is evaluated with at least 10 ratings, at least 7 visible and at least 3 hidden books rated 4+: 8,422 of the 10,000 held-out users.
