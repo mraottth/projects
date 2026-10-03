@@ -95,6 +95,17 @@ def test_split_user_eligibility():
     assert split_user(*_user(1, per_day=12), CFG, rng) is None         # all on one date
 
 
+# ---------------------------------------------------------------- grid spec
+
+def test_grid_points_parse_every_combination():
+    from goodrec.eval.run import grid_points
+    pts = grid_points("k_a=20,50; a_max=0.5,1.0; pred_floor_offset=null,0.25")
+    assert len(pts) == 8
+    assert {"k_a": 50, "a_max": 0.5, "pred_floor_offset": None} in pts
+    with pytest.raises(SystemExit):
+        grid_points("not_a_param=1")
+
+
 # ---------------------------------------------------------------- built data: leakage and baselines
 
 @needs_data
@@ -147,3 +158,13 @@ def test_baselines_return_k_unseen_books():
         top = rec.recommend(user, 20, np.random.default_rng(0))
         assert len(top) == 20 and len(set(top.tolist())) == 20, rec.key
         assert not set(top.tolist()) & user.seen, rec.key
+
+
+@needs_data
+def test_a_max_caps_the_taste_model_share():
+    from goodrec.core.artifacts import load_artifacts
+    from goodrec.core.scoring import Filters, Params, recommend
+    art = load_artifacts(with_readers=False)
+    user = UserInput(ratings={i: 4 + i % 2 for i in range(0, 400, 4)})      # 100 ratings: a(n) = 100/120
+    assert recommend(art, user, Filters(), Params.from_config(), limit=5)["alpha"] == pytest.approx(100 / 120)
+    assert recommend(art, user, Filters(), Params.from_config(a_max=0.5), limit=5)["alpha"] == pytest.approx(0.5)
