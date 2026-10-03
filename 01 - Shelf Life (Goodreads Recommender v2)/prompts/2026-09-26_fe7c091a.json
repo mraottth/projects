@@ -1,7 +1,7 @@
 {
  "session": "fe7c091a-5174-49e5-9f91-126c647e9612",
  "omitted_api_errors": 12,
- "omitted": 23,
+ "omitted": 24,
  "entries": [
   {
    "time": "2026-09-26T23:22:59.503Z",
@@ -721,7 +721,7 @@
    "time": "2026-10-03T14:37:12.197Z",
    "kind": "prompt",
    "text": "awesome! also I notice the favicon is the correct logo when viewing the local deploy but the production version uses a book emoji",
-   "reply": null,
+   "reply": "The book emoji is coming from your browser's cache, not from the live site. Production serves the same logo files as your local server, byte for byte. Before the logo was added on Sep 28, the favicon was a 📚 emoji, and browsers hold onto favicons long after a site changes them. Your local server never had the emoji, so it shows the logo.\n\nI made two fixes so every returning visitor gets the logo, not just you:\n- **Version tag:** the favicon links now end in `?v=2`. Browsers treat that as a new icon and download it fresh.\n- **`/favicon.ico`:** browsers and bookmark tools request this address by default, and it returned the app's HTML page. It now returns the logo.\n\nBoth work on your local server and the 47 tests pass. I restarted the local server for the second fix, and it still has your API key, so the Assistant works.\n\nThe fix is in commit `2f3e5f8`, plus `cb8d308`, which logs the prompt under the logo milestone. It's pushed on `br-timeline-first-open` with the hover-ring change, not merged or deployed. Production will keep showing the emoji to you until it's deployed. To see the logo before then, open `/favicon.png` on the live site once, or clear the site's data in Chrome.",
    "id": "fe7c091a-108",
    "session": "fe7c091a"
   }
