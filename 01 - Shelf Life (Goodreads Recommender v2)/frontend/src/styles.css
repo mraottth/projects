@@ -900,3 +900,50 @@ button.chip:hover { background: #f1f0eb; }
 .md-table th { background: #f6f5f1; }
 .md-path { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.88em; }
 @media (max-width: 640px) { .cl-card { padding: 12px 14px; } }
+
+/* ---------- milestone timeline (components/MilestoneTimeline.tsx) */
+.ms { margin: 22px 0 8px; padding: 16px 18px 6px; background: var(--card); border: 1px solid var(--ring); border-radius: 16px; box-shadow: var(--shadow); }
+.ms-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; }
+.ms-head h2 { margin: 0; font-size: 1.15rem; }
+.ms-arrows { margin-left: auto; display: inline-flex; gap: 6px; }
+.ms-arrows button { width: 32px; padding: 3px 0; font-size: 1.1rem; line-height: 1; }
+.ms-arrows button:disabled { opacity: 0.35; cursor: default; }
+.ms-scroll { overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; margin: 4px -18px 0; padding: 0 18px; }
+.ms-scroll::-webkit-scrollbar { display: none; }
+.ms-scroll.fade-right { mask-image: linear-gradient(to right, #000 calc(100% - 48px), transparent); }
+.ms-scroll.fade-left { mask-image: linear-gradient(to left, #000 calc(100% - 48px), transparent); }
+.ms-scroll.fade-left.fade-right { mask-image: linear-gradient(to right, transparent, #000 48px, #000 calc(100% - 48px), transparent); }
+.ms-track { position: relative; display: flex; list-style: none; margin: 0; padding: 30px 0 14px; width: max-content; }
+.ms-track::before { content: ""; position: absolute; left: 0; right: 0; top: 52px; height: 2px; background: var(--ring); }
+.ms-item { position: relative; width: 150px; flex: 0 0 auto; scroll-snap-align: start; }
+.ms-item.new-day::before { content: ""; position: absolute; left: 0; top: -4px; bottom: 18px; border-left: 1px dashed var(--ring); }
+.ms-day { position: absolute; left: 6px; top: -26px; font-size: 0.78rem; font-weight: 700; color: var(--ink-2); white-space: nowrap; }
+.ms-gap { flex: 0 0 auto; width: 70px; display: flex; align-items: flex-start; justify-content: center; padding-top: 12px; }
+.ms-gap span { font-size: 0.72rem; color: var(--muted); background: var(--card); padding: 2px 6px; border-radius: 999px; border: 1px dashed var(--ring); white-space: nowrap; }
+.ms-node { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; padding: 0 8px 4px; background: none; border: 0; cursor: pointer; text-align: center; font: inherit; color: var(--ink); }
+.ms-dot { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; font-size: 1.3rem; position: relative; z-index: 1;
+  background: color-mix(in srgb, var(--c, #8a8577) 14%, white); border: 2px solid color-mix(in srgb, var(--c, #8a8577) 70%, white);
+  transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.ms-node:hover .ms-dot, .ms-node:focus-visible .ms-dot, .ms-node.on .ms-dot { transform: scale(1.14); box-shadow: 0 0 0 4px color-mix(in srgb, var(--c, #8a8577) 22%, transparent); }
+.ms-node:focus-visible { outline: none; }
+.ms-title { font-size: 0.82rem; font-weight: 600; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.ms-node.on .ms-title { color: color-mix(in srgb, var(--c, #8a8577) 85%, black); }
+.ms-pop { position: fixed; z-index: 60; overflow-y: auto; background: var(--card); border: 1px solid var(--ring); border-radius: 14px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.18); padding: 14px 16px; border-top: 4px solid var(--c, var(--accent)); }
+.ms-pop-head { display: flex; gap: 10px; align-items: flex-start; }
+.ms-pop-head h3 { margin: 0 0 2px; font-size: 1.02rem; }
+.ms-pop-icon { font-size: 1.6rem; line-height: 1; }
+.ms-close { margin-left: auto; background: none; border: 0; font-size: 1.4rem; line-height: 1; color: var(--muted); cursor: pointer; padding: 0 2px; }
+.ms-summary { margin: 8px 0 10px; line-height: 1.5; }
+.ms-pop h4 { margin: 10px 0 6px; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-2); }
+.ms-prompts { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 10px; }
+.ms-ptext { margin: 2px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; font-size: 0.93rem; }
+.ms-commits { margin: 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; font-size: 0.9rem; }
+.ms-pop-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--ring); }
+.ms-show { margin-left: auto; font-weight: 600; }
+@media (max-width: 640px) {
+  .ms { padding: 14px 14px 4px; }
+  .ms-scroll { margin: 4px -14px 0; padding: 0 14px; }
+  .ms-item { width: 120px; }
+  .ms-pop { border-radius: 16px 16px 0 0; border-bottom: 0; }
+}

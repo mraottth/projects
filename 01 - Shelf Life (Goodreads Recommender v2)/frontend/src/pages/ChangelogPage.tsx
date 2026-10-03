@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import data from "../changelog.json";
 import { Markdown } from "../components/Markdown";
+import { MilestoneTimeline, type Milestone } from "../components/MilestoneTimeline";
 
 /**
  * How Shelf Life was built: every prompt given to Claude Code, Claude's replies, the commits they produced and the
@@ -21,7 +22,8 @@ interface Decision {
   sections: { label: string; text: string }[];
 }
 interface Changelog {
-  repo: string; categories: Record<string, string>; commits: Commit[]; prompts: Prompt[]; decisions: Decision[]; omitted_prompts: number;
+  repo: string; categories: Record<string, string>; commits: Commit[]; prompts: Prompt[]; decisions: Decision[];
+  milestones: Milestone[]; omitted_prompts: number;
 }
 
 const CL = data as Changelog;
@@ -31,6 +33,7 @@ const KIND: Record<Prompt["kind"], string> = {
   "plan-feedback": "Feedback on Claude's plan",
 };
 const commitByShort = new Map(CL.commits.map((c) => [c.short, c]));
+const promptById = new Map(CL.prompts.map((p) => [p.id, p]));
 const fmtTime = (t: string) => new Date(t).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 const fmtDay = (t: string) => new Date(t).toLocaleDateString(undefined, { weekday: "short", month: "long", day: "numeric", year: "numeric" });
 const dayKey = (t: string) => new Date(t).toDateString();
@@ -165,15 +168,16 @@ export function ChangelogPage() {
     return n;
   }, []);
 
-  // Jump from a decision to its prompt in the timeline.
+  // Jump to a prompt (from a decision or milestone) or a decision (from a milestone).
   useEffect(() => {
-    if (!focus || mode !== "timeline") return;
+    if (!focus) return;
     const el = document.getElementById(focus);
     if (el) { el.scrollIntoView({ behavior: "smooth", block: "start" }); el.classList.add("cl-flash"); }
     const t = setTimeout(() => { el?.classList.remove("cl-flash"); setFocus(null); }, 2000);
     return () => clearTimeout(t);
   }, [focus, mode]);
   const goPrompt = (id: string) => { setCats([]); setQ(""); setMode("timeline"); setFocus(id); };
+  const goDecision = (id: string) => { setCats([]); setQ(""); setMode("decisions"); setFocus(id); };
 
   const first = CL.prompts[0]?.time ?? CL.commits[0]?.time;
   const toggleCat = (c: string) => setCats((cs) => (cs.includes(c) ? cs.filter((x) => x !== c) : [...cs, c]));
@@ -186,10 +190,15 @@ export function ChangelogPage() {
         Shelf Life was built in conversation with Claude Code. This page logs every prompt that shaped it, Claude&apos;s
         replies, the commits they produced and the decisions along the way: {CL.prompts.length} prompts, {CL.commits.length} commits
         and {CL.decisions.length} decisions{first ? ` since ${new Date(first).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}` : ""}.
-        {CL.omitted_prompts > 0 && ` ${CL.omitted_prompts} purely operational prompts (commit and deploy requests, running it locally, setup) are left out.`}
+        {CL.omitted_prompts > 0 && ` ${CL.omitted_prompts} purely operational prompts (commit and deploy requests, running it locally, setup) are left out.`}{" "}
         The same records are in the repo as <a href={`${CL.repo}/tree/main/01%20-%20Shelf%20Life%20%28Goodreads%20Recommender%20v2%29/prompts`} target="_blank" rel="noreferrer">prompts/</a>{" "}
         and <a href={`${CL.repo}/blob/main/01%20-%20Shelf%20Life%20%28Goodreads%20Recommender%20v2%29/DECISIONS.md`} target="_blank" rel="noreferrer">DECISIONS.md</a>.
       </p>
+
+      {CL.milestones.length > 0 && (
+        <MilestoneTimeline milestones={CL.milestones} prompts={promptById} categories={CL.categories}
+                           onShowPrompt={goPrompt} onShowDecision={goDecision} />
+      )}
 
       <div className="cl-controls">
         <div className="seg" role="tablist" aria-label="View">
