@@ -32,10 +32,10 @@
   "eval_reports": "eval/reports",
   "package": "src/goodrec/pipeline/s10_package.py#L138",
   "load_artifacts": "src/goodrec/core/artifacts.py#L82",
-  "api_recommend": "src/goodrec/api/main.py#L353",
+  "api_recommend": "src/goodrec/api/main.py#L368",
   "api_search": "src/goodrec/api/catalog.py#L87",
   "csv_matching": "src/goodrec/api/matching.py#L33",
-  "shelf_store": "frontend/src/store.tsx#L71",
+  "shelf_store": "frontend/src/store.tsx#L72",
   "chat_tools": "src/goodrec/api/chat.py#L167",
   "chat_loop": "src/goodrec/api/chat.py#L510",
   "chat_digest": "src/goodrec/api/chat.py#L375"
