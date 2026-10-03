@@ -137,8 +137,9 @@ def build() -> dict:
         if missing:
             print(f"build_changelog: {len(missing)} uncategorized {kind}: {', '.join(missing[:8])}"
                   f"{' ...' if len(missing) > 8 else ''}", file=sys.stderr)
+    omitted = len(load_json(ROOT / "prompts" / "omit.json", {}))
     return {"repo": GITHUB, "categories": CATEGORIES, "commits": sorted(commits, key=lambda c: c["time"]),
-            "prompts": prompts, "decisions": decisions}
+            "prompts": prompts, "decisions": decisions, "omitted_prompts": omitted}
 
 
 def main() -> None:

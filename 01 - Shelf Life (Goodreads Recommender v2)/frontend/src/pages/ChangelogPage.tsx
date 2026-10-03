@@ -20,7 +20,9 @@ interface Decision {
   id: string; title: string; date: string; categories: string[]; prompts: string[]; commits: string[];
   sections: { label: string; text: string }[];
 }
-interface Changelog { repo: string; categories: Record<string, string>; commits: Commit[]; prompts: Prompt[]; decisions: Decision[] }
+interface Changelog {
+  repo: string; categories: Record<string, string>; commits: Commit[]; prompts: Prompt[]; decisions: Decision[]; omitted_prompts: number;
+}
 
 const CL = data as Changelog;
 const CATS: Record<string, string> = { ...CL.categories, uncategorized: "Uncategorized" };
@@ -181,9 +183,10 @@ export function ChangelogPage() {
     <div className="changelog">
       <h1>How Shelf Life was built</h1>
       <p className="lead-left">
-        Shelf Life was built in conversation with Claude Code. This page logs every prompt, Claude&apos;s replies, the
-        commits they produced and the decisions along the way: {CL.prompts.length} prompts, {CL.commits.length} commits
+        Shelf Life was built in conversation with Claude Code. This page logs every prompt that shaped it, Claude&apos;s
+        replies, the commits they produced and the decisions along the way: {CL.prompts.length} prompts, {CL.commits.length} commits
         and {CL.decisions.length} decisions{first ? ` since ${new Date(first).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}` : ""}.
+        {CL.omitted_prompts > 0 && ` ${CL.omitted_prompts} purely operational prompts (commit and deploy requests, running it locally, setup) are left out.`}
         The same records are in the repo as <a href={`${CL.repo}/tree/main/01%20-%20Shelf%20Life%20%28Goodreads%20Recommender%20v2%29/prompts`} target="_blank" rel="noreferrer">prompts/</a>{" "}
         and <a href={`${CL.repo}/blob/main/01%20-%20Shelf%20Life%20%28Goodreads%20Recommender%20v2%29/DECISIONS.md`} target="_blank" rel="noreferrer">DECISIONS.md</a>.
       </p>
