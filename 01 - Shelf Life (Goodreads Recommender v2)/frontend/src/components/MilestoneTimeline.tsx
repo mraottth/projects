@@ -19,6 +19,7 @@ const KIND: Record<string, string> = {
   "plan-feedback": "Feedback on Claude's plan",
 };
 const fmtDay = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+const fmtWeekday = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 const dayGap = (a: string, b: string) => Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86_400_000);
 const PHONE = "(max-width: 640px)";
 
@@ -30,16 +31,46 @@ export function MilestoneTimeline({ milestones, prompts, categories, onShowPromp
   const [pinned, setPinned] = useState(false);
   const [pos, setPos] = useState<React.CSSProperties>({});
   const [edges, setEdges] = useState({ left: false, right: true });
+  const [progress, setProgress] = useState({ left: 0, width: 100 });   // scroll position, in % of the track
   const scroller = useRef<HTMLDivElement>(null);
+  const section = useRef<HTMLElement>(null);
+  const [height, setHeight] = useState<number | undefined>(undefined);
   const popRef = useRef<HTMLDivElement>(null);
   const nodes = useRef(new Map<string, HTMLButtonElement>());
   const closeTimer = useRef<number | undefined>(undefined);
 
   const updateEdges = () => {
     const el = scroller.current;
-    if (el) setEdges({ left: el.scrollLeft > 4, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 4 });
+    if (!el) return;
+    setEdges({ left: el.scrollLeft > 4, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 4 });
+    setProgress({ left: (el.scrollLeft / el.scrollWidth) * 100, width: Math.min(100, (el.clientWidth / el.scrollWidth) * 100) });
   };
-  useEffect(updateEdges, []);
+  // Fill most of the viewport, leaving ~90 px so the top of the full changelog peeks in below.
+  useLayoutEffect(() => {
+    const fit = () => {
+      const el = section.current;
+      if (!el) return;
+      const top = el.getBoundingClientRect().top + window.scrollY;
+      setHeight(Math.round(Math.min(Math.max(window.innerHeight - top - 90, 380), 760)));
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, []);
+  useEffect(() => {
+    updateEdges();
+    const ro = new ResizeObserver(updateEdges);
+    if (scroller.current) ro.observe(scroller.current);
+    return () => ro.disconnect();
+  }, []);
+  // Progress bar: click or drag anywhere on it to scroll the timeline to that point.
+  const seek = (e: React.PointerEvent<HTMLDivElement>) => {
+    const el = scroller.current;
+    if (!el) return;
+    const bar = e.currentTarget.getBoundingClientRect();
+    const frac = Math.min(Math.max((e.clientX - bar.left) / bar.width, 0), 1);
+    el.scrollLeft = frac * el.scrollWidth - el.clientWidth / 2;
+  };
   const scrollBy = (dir: number) => scroller.current?.scrollBy({ left: dir * scroller.current.clientWidth * 0.8, behavior: "smooth" });
 
   // Place the popover beside its node: below if there's room, else above; a bottom sheet on phones.
@@ -48,14 +79,12 @@ export function MilestoneTimeline({ milestones, prompts, categories, onShowPromp
     const node = nodes.current.get(openId);
     if (!node) return;
     if (window.matchMedia(PHONE).matches) { setPos({ left: 0, right: 0, bottom: 0, maxHeight: "70vh" }); return; }
+    // Beside the milestone (right if it fits, else left), top-aligned with it and kept on screen.
     const r = node.getBoundingClientRect();
-    const w = Math.min(400, window.innerWidth - 24);
-    const left = Math.min(Math.max(r.left + r.width / 2 - w / 2, 12), window.innerWidth - w - 12);
-    const below = window.innerHeight - r.bottom - 16;
-    const above = r.top - 16;
-    setPos(below >= 320 || below >= above
-      ? { left, width: w, top: r.bottom + 8, maxHeight: Math.max(below, 220) }
-      : { left, width: w, bottom: window.innerHeight - r.top + 8, maxHeight: Math.max(above, 220) });
+    const w = Math.min(440, window.innerWidth - 24);
+    const left = r.right + 8 + w <= window.innerWidth - 12 ? r.right + 8 : Math.max(12, r.left - 8 - w);
+    const top = Math.min(Math.max(r.top, 72), window.innerHeight - 320);
+    setPos({ left, width: w, top, maxHeight: window.innerHeight - top - 12 });
   }, [openId]);
   useLayoutEffect(place, [place]);
   useEffect(() => {
@@ -91,16 +120,22 @@ export function MilestoneTimeline({ milestones, prompts, categories, onShowPromp
   let prevDate = "";
 
   return (
-    <section className="ms" aria-label="Project milestones">
+    <section className="ms" aria-label="Project milestones" ref={section} style={{ height }}>
       <div className="ms-head">
         <h2>Milestones</h2>
-        <span className="muted small">Hover or tap a milestone to see the prompts and commits behind it</span>
+        <span className="muted small">Hover or tap a milestone to see the prompts and commits behind it. Scroll sideways for more →</span>
         <span className="ms-arrows">
           <button type="button" className="ghost small" aria-label="Earlier milestones" disabled={!edges.left} onClick={() => scrollBy(-1)}>‹</button>
           <button type="button" className="ghost small" aria-label="Later milestones" disabled={!edges.right} onClick={() => scrollBy(1)}>›</button>
         </span>
       </div>
-      <div className={`ms-scroll${edges.left ? " fade-left" : ""}${edges.right ? " fade-right" : ""}`} ref={scroller} onScroll={updateEdges}>
+      <div className="ms-progress" role="scrollbar" aria-controls="ms-scroller" aria-orientation="horizontal"
+           aria-valuenow={Math.round(progress.left / Math.max(100 - progress.width, 1) * 100)} aria-valuemin={0} aria-valuemax={100}
+           onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); seek(e); }}
+           onPointerMove={(e) => { if (e.buttons) seek(e); }}>
+        <div className="ms-thumb" style={{ left: `${progress.left}%`, width: `${progress.width}%` }} />
+      </div>
+      <div id="ms-scroller" className={`ms-scroll${edges.left ? " fade-left" : ""}${edges.right ? " fade-right" : ""}`} ref={scroller} onScroll={updateEdges}>
         <ol className="ms-track">
           {milestones.map((x) => {
             const newDay = x.date !== prevDate;
@@ -110,14 +145,22 @@ export function MilestoneTimeline({ milestones, prompts, categories, onShowPromp
               <Fragment key={x.id}>
                 {newDay && gap > 1 && <li className="ms-gap" aria-hidden="true"><span>{gap} days later</span></li>}
                 <li className={`ms-item${newDay ? " new-day" : ""}`}>
-                  {newDay && <span className="ms-day">{fmtDay(x.date)}</span>}
+                  {newDay && <span className="ms-day">{fmtWeekday(x.date)}</span>}
                   <button type="button" className={`ms-node cl-${x.category}${openId === x.id ? " on" : ""}`}
                           ref={(el) => { if (el) nodes.current.set(x.id, el); else nodes.current.delete(x.id); }}
                           aria-expanded={openId === x.id} aria-controls="ms-pop"
-                          onMouseEnter={() => show(x.id)} onMouseLeave={hideSoon}
-                          onFocus={() => show(x.id)} onBlur={hideSoon} onClick={() => toggle(x.id)}>
+                          // Hover only for a real mouse and focus only from the keyboard: on touch screens the emulated
+                          // hover would open the sheet under the finger and swallow the tap.
+                          onPointerEnter={(e) => { if (e.pointerType === "mouse") show(x.id); }}
+                          onPointerLeave={(e) => { if (e.pointerType === "mouse") hideSoon(); }}
+                          onFocus={(e) => { if (e.currentTarget.matches(":focus-visible")) show(x.id); }}
+                          onBlur={hideSoon} onClick={() => toggle(x.id)}>
                     <span className="ms-dot" aria-hidden="true">{x.icon}</span>
                     <span className="ms-title">{x.title}</span>
+                    <span className="ms-sum">{x.summary}</span>
+                    <span className="ms-meta">
+                      {x.prompts.length} prompt{x.prompts.length === 1 ? "" : "s"} · {x.commits.length} commit{x.commits.length === 1 ? "" : "s"}
+                    </span>
                   </button>
                 </li>
               </Fragment>
@@ -128,7 +171,8 @@ export function MilestoneTimeline({ milestones, prompts, categories, onShowPromp
 
       {m && createPortal(
         <div id="ms-pop" ref={popRef} className={`ms-pop cl-${m.category}`} role="dialog" aria-label={m.title} style={pos}
-             onMouseEnter={() => window.clearTimeout(closeTimer.current)} onMouseLeave={hideSoon}>
+             onPointerEnter={() => window.clearTimeout(closeTimer.current)}
+             onPointerLeave={(e) => { if (e.pointerType === "mouse") hideSoon(); }}>
           <div className="ms-pop-head">
             <span className="ms-pop-icon" aria-hidden="true">{m.icon}</span>
             <div>
@@ -149,12 +193,17 @@ export function MilestoneTimeline({ milestones, prompts, categories, onShowPromp
                 <li key={id}>
                   <span className="cl-kind small">{KIND[p.kind] ?? "Prompt"}</span>
                   <p className="ms-ptext">{p.text}</p>
-                  {p.reply && (
-                    <details className="cl-details">
-                      <summary>Claude&apos;s reply</summary>
-                      <Markdown text={p.reply} />
-                    </details>
-                  )}
+                  <div className="ms-prow">
+                    {p.reply && (
+                      <details className="cl-details">
+                        <summary>Claude&apos;s reply</summary>
+                        <Markdown text={p.reply} />
+                      </details>
+                    )}
+                    <button type="button" className="link ms-show" onClick={() => { setOpenId(null); setPinned(false); onShowPrompt(id); }}>
+                      Show in changelog ↓
+                    </button>
+                  </div>
                 </li>
               );
             })}
@@ -171,16 +220,16 @@ export function MilestoneTimeline({ milestones, prompts, categories, onShowPromp
             </>
           )}
 
-          <div className="ms-pop-foot">
-            {m.decisions.map((d) => (
-              <button key={d} type="button" className="cl-chip-btn" onClick={() => { setOpenId(null); setPinned(false); onShowDecision(d); }}>{d}</button>
-            ))}
-            {m.prompts[0] && (
-              <button type="button" className="link ms-show" onClick={() => { setOpenId(null); setPinned(false); onShowPrompt(m.prompts[0]); }}>
-                Show in changelog ↓
-              </button>
-            )}
-          </div>
+          {m.decisions.length > 0 && (
+            <>
+              <h4>Decisions</h4>
+              <div className="ms-pop-foot">
+                {m.decisions.map((d) => (
+                  <button key={d} type="button" className="cl-chip-btn" onClick={() => { setOpenId(null); setPinned(false); onShowDecision(d); }}>{d}</button>
+                ))}
+              </div>
+            </>
+          )}
         </div>,
         document.body,
       )}
