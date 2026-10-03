@@ -159,11 +159,16 @@ Categories: `ui` · `model` · `eval` · `data` · `assistant` · `infra` · `do
 ## D-015 · Keep one warm Cloud Run instance
 - **Date:** 2026-09-28
 - **Category:** infra
+- **Prompts:** ec278335-002, ec278335-003
 - **Commits:** d7f2ad9
 
-**Decision.** Set Cloud Run's minimum instances to 1, so visitors never wait for a cold start.
+**Decision.** Set Cloud Run's minimum instances to 1, so visitors never wait for a cold start. `make deploy` keeps the setting.
 
-**Context.** Made in a Claude Code on the web session whose prompts aren't in this repo. The reasoning wasn't recorded. The earlier estimate for a warm instance was about $10–15/month (fe7c091a-036).
+**Context.** Claude's estimate (not measured): after the site sits idle, a first visit would wait about 5–15 seconds with no warm instance (starting the container, loading Python and the ~300 MB of models) versus under 1 second with one.
+
+**Alternatives considered.** Keep scaling to zero (D-014): free when idle, but with that cold-start wait.
+
+**Why.** A fast first impression matters for a portfolio site, worth roughly $10–15/month.
 
 ## D-016 · Ranks don't change when filters are applied
 - **Date:** 2026-09-27
@@ -199,14 +204,14 @@ Categories: `ui` · `model` · `eval` · `data` · `assistant` · `infra` · `do
 
 **Why.** −0.25 keeps most of the benefit for about a 4% NDCG cost.
 
-## D-019 · No popularity correction for "readers like you" lists
+## D-019 · No extra ubiquity correction for "readers like you" lists
 - **Date:** 2026-09-27
 - **Category:** model
 - **Prompts:** fe7c091a-043, fe7c091a-044
 
-**Decision.** The Popular and Top rated lists from similar readers are not adjusted for how widely read a book is.
+**Decision.** Don't add a further correction to the Popular and Top rated lists to discount books that everyone reads. (The Popular score already divides a book's reach among similar readers by the square root of its reach among all readers.)
 
-**Alternatives considered.** A "ubiquity" correction that would discount books everyone reads.
+**Alternatives considered.** A "ubiquity" correction that would push widely read books further down.
 
 **Why.** The user's call: "That feels like putting our finger on the scales too much. If a book is extremely popular with readers like me that's a useful signal."
 
@@ -325,18 +330,75 @@ Categories: `ui` · `model` · `eval` · `data` · `assistant` · `infra` · `do
 ## D-030 · A two-choice homepage and a cover-flow transition
 - **Date:** 2026-09-28
 - **Category:** ui
-- **Prompts:** fe7c091a-081, fe7c091a-082, fe7c091a-083, fe7c091a-084, fe7c091a-085, fe7c091a-086, fe7c091a-087, fe7c091a-088
+- **Prompts:** fe7c091a-081, fe7c091a-082, fe7c091a-083, fe7c091a-084, fe7c091a-085, fe7c091a-086, fe7c091a-087, fe7c091a-088, ec278335-010, ec278335-013, ec278335-014
 - **Commits:** a0ea42a, 9e6ef1f, 8c6eb2a, 7c50abd
 
 **Decision.** The homepage offers "See a demo" or "Use my own ratings", which expands the upload and rate options. Going to Recommendations plays a short transition: the reader's 30 top-rated covers (topped up from the cover wall), then their top 20 recommendations, flow across the screen and fade to white. The demo adds a caption lead-in.
 
-**Context.** Timings were tuned by eye over several prompts. Later web-session commits made the flow less crowded and shortened the demo lead-in to 0.75 s.
+**Context.** Timings were tuned by eye over several prompts. Later, to stop covers bunching up mid-screen, Claude tried a constant-speed version with spaced lanes (on-screen covers ~24 → ~17). The user preferred the original feel, so it was reverted, and each cover now pauses at its own random point (18–74% across) instead of the center (covers in the middle fifth: 26% → 15%). The demo lead-in was shortened to 0.75 s.
 
-## D-031 · Log every prompt, decision and commit in the open
+## D-031 · Collapse the top nav into a menu on phones
+- **Date:** 2026-09-28
+- **Category:** ui
+- **Prompts:** ec278335-004, ec278335-005
+- **Commits:** 4c01f31
+
+**Decision.** At 640 px wide or less, the seven top-bar links collapse into a drop-down menu. The bar shows the current page, and a dot on the menu button stands in for the Your books count. The recommendation tabs keep sideways scrolling, but snap to tabs and scroll the selected one into view.
+
+**Context.** The two toolbars were squished on phones.
+
+**Alternatives considered.** A bottom tab bar, as in native apps.
+
+**Why.** It matches what the user suggested, and leaves the desktop layout unchanged.
+
+## D-032 · Short tooltips on the nav links
+- **Date:** 2026-09-28
+- **Category:** ui
+- **Prompts:** ec278335-010, ec278335-011
+- **Commits:** 9e6ef1f, 0aa244a
+
+**Decision.** Each top-nav link gets a few words on what the page is for (e.g. "See your personal picks"). It appears on hover or focus on desktop and as a subtitle in the phone menu. The user chose the wording for three of them.
+
+## D-033 · A plainer About page
+- **Date:** 2026-09-28
+- **Category:** docs
+- **Prompts:** ec278335-010, ec278335-016
+- **Commits:** 9e6ef1f, 28950bf
+
+**Decision.** The About page's visible text explains what each model is, why it's used, how it works and what the results mean. Memory use, data types and run times were removed from the technical sections; the math and code links stay.
+
+**Why.** The user found those engineering details beside the point for readers.
+
+## D-034 · Keep the name Shelf Life; add a logo and favicon
+- **Date:** 2026-09-28
+- **Category:** ui
+- **Prompts:** ec278335-015, ec278335-016, ec278335-017
+- **Commits:** 28950bf, 75171ed
+
+**Decision.** Keep "Shelf Life", and use the user's logo (book-and-worm icon plus wordmark) in the top bar and as the favicon.
+
+**Alternatives considered.** Next Chapter, Kindred Reads, Dog-Ear.
+
+**Why.** Claude still recommended Shelf Life (memorable, hints at a reading history over time, already throughout the site and repo), and the user kept it.
+
+## D-035 · Leave the readers-like-you rankings as they are, for now
+- **Date:** 2026-09-28
+- **Category:** model
+- **Prompts:** ec278335-019, ec278335-020, ec278335-021
+
+**Decision.** Keep the Popular and Top rated tabs unchanged: no prediction floor, and no minimum share of similar readers.
+
+**Context.** Popular's Best match ranks by reach among similar readers ÷ √(reach among all readers). That favors books over-represented among similar readers over books most of them read. *Superintelligence* led the user's list with 5% reach and a 2.56 predicted rating.
+
+**Alternatives considered.** Apply the For you prediction floor to these tabs (about a 10-line server change); require at least ~10% of similar readers to have read a book.
+
+**Why.** The user's call ("let's keep it as is for now"), consistent with D-019. It may be revisited.
+
+## D-036 · Log every prompt, decision and commit in the open
 - **Date:** 2026-10-03
 - **Category:** docs
-- **Prompts:** fe7c091a-090, fe7c091a-091
+- **Prompts:** fe7c091a-090, fe7c091a-091, fe7c091a-092
 
-**Decision.** Export each conversation with Claude Code to `prompts/` (automatically, via a hook), keep this file, and show both with the commits on a public changelog page. Commits from here on are small, with messages of the form `category: summary`.
+**Decision.** Export each conversation with Claude Code to `prompts/` (automatically, via a hook), keep this file, and show both with the commits on a public changelog page. Sessions run in Claude Code on the web are imported with `claude --teleport` and the same exporter. Commits from here on are small, with messages of the form `category: summary`.
 
 **Why.** Shelf Life was built through conversation, so the conversation is part of how it was made.
