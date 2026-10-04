@@ -116,3 +116,23 @@ def test_milestones_resolve():
         assert len(m["commits"]) == len(raw[m["id"]]["commits"]), m["id"]
         assert m["category"] in data["categories"] and m["title"] and m["summary"]
     assert [m["date"] for m in ms] == sorted(m["date"] for m in ms)
+
+
+def test_messages_sent_mid_turn_are_logged_without_renumbering(tmp_path):
+    lines = [
+        _line(type="user", timestamp="2026-10-01T10:00:00.000Z", message={"content": "Start the work"}),
+        _line(type="assistant", message={"content": [{"type": "tool_use", "id": "t1", "name": "Bash", "input": {}}]}),
+        _line(type="attachment", timestamp="2026-10-01T10:05:00.000Z",
+              attachment={"type": "queued_command", "prompt": "Also sort the cards by version"}),
+        _line(type="attachment", attachment={"type": "queued_command",
+                                             "prompt": "<task-notification>background job done</task-notification>"}),
+        _line(type="assistant", message={"content": [{"type": "text", "text": "Both done."}]}),
+        _line(type="user", timestamp="2026-10-01T11:00:00.000Z", message={"content": "Next request"}),
+    ]
+    t = tmp_path / "session-abcdef12.jsonl"
+    t.write_text("".join(lines))
+    entries = export_prompts.parse(t)
+    assert [e["text"] for e in entries] == ["Start the work", "Also sort the cards by version", "Next request"]
+    assert entries[0]["reply"] == "Both done." and entries[1]["reply"] is None
+    export_prompts.render("abcdef12-0000", entries)
+    assert [e["id"] for e in entries] == ["abcdef12-001", "abcdef12-001a", "abcdef12-002"]
