@@ -210,12 +210,12 @@ def main(set_: str = "test", users: int | None = None, models: str | None = None
         from goodrec.eval.legacy2023 import legacy_baselines
         recs += legacy_baselines(art, cfg["subsample"])
     if wanted:
-        recs = [r for r in recs if r.key in wanted or r.key == "shelf_life"]
+        recs = [r for r in recs if r.key in wanted or r.key in ("shelf_life", "shelf_life_display")]
     for point in grid_points(grid) if grid else []:
         label = ", ".join(f"{k}={v}" for k, v in point.items())
         recs.append(ShelfLife(key="grid_" + "_".join(f"{k}{v}" for k, v in point.items()), name=f"grid: {label}",
                               kind="ablation", art=art, prior=prior, description=f"Grid point: {label}.",
-                              params=Params.from_config(**point)))
+                              params=Params.from_config(**point), display="author_penalty" in point))
 
     notes = []
     if overrides:
@@ -308,7 +308,7 @@ def _full_tops(res: dict, n_cases: int) -> np.ndarray:
 
 
 def summarize(recs, res, cases, buckets, art, cfg) -> dict:
-    order = {"model": 0, "baseline": 1, "ablation": 2}
+    order = {"model": 0, "display": 1, "baseline": 2, "ablation": 3}
     recs_sorted = sorted(recs, key=lambda r: (order[r.kind], r.key != "champion"))
     rows = []
     for r in recs_sorted:
@@ -324,6 +324,17 @@ def summarize(recs, res, cases, buckets, art, cfg) -> dict:
             t10 = tops[ok, b, :10]
             cell["coverage"] = len(np.unique(t20[t20 >= 0])) / art.meta.n
             cell["popularity"] = float(art.meta.log_pop[t10[t10 >= 0]].mean()) if (t10 >= 0).any() else None
+            # Author variety of each user's top 10: distinct (main) authors, and the most books by one author.
+            distinct, most = [], []
+            for row_items in t10:
+                a = art.meta.author_id[row_items[row_items >= 0]]
+                a = a[a >= 0]
+                if len(a):
+                    _, c = np.unique(a, return_counts=True)
+                    distinct.append(len(c))
+                    most.append(int(c.max()))
+            cell["authors10"] = float(np.mean(distinct)) if distinct else None
+            cell["top_author10"] = float(np.mean(most)) if most else None
             by_n[str(n)] = cell
         rows.append({"key": r.key, "name": r.name, "kind": r.kind, "description": r.description,
                      "n_users": int(len(res[r.key]["idx"])), "by_n": by_n})

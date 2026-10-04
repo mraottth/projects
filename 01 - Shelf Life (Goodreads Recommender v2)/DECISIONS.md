@@ -532,3 +532,17 @@ Categories: `ui` · `model` · `eval` · `data` · `assistant` · `infra` · `do
 **Caveat.** Only the blend settings changed between versions (item-kNN and ALS settings are unchanged since launch), so each version can be re-scored by its settings, but every version uses today's data: the Goodreads-shrunk item means and the leak fix (D-026, D-040) changed the data, not settings. The page says re-scored versions differ slightly from what they scored at the time.
 
 **Numbers (test, full history, NDCG@10).** v1 launch 0.0645, v2 floor 0.0651, v3 fame-gated boost 0.0668, v4 blend cap 0.0770, v5 recency 0.0874 (+35% since launch). At 5 ratings, launch scores higher (0.057 against 0.052): the floor costs accuracy for short histories, as D-018 accepted.
+
+## D-049 · Vary authors in the Best match list (display only)
+- **Date:** 2026-10-03
+- **Category:** model
+- **Prompts:** fe7c091a-132, fe7c091a-133, fe7c091a-134, fe7c091a-135
+- **Commits:** 00dd8a1, 42342b6, 0d3b97f
+
+**Decision.** The Recommendations page's Best match list (which the Assistant follows) re-orders the model's top 100 so repeat authors are nudged down: each next book scores its blend score minus 0.5 for every book by the same author already above it. The model's own ranking is unchanged, so the evaluation, the champion and the Evaluation chart keep scoring the model; reports add a "Best match as displayed" row and an author-variety table so the cost stays visible. Predicted ratings and the predicted-rating sort are untouched.
+
+**Context.** This partly reverses D-006 (no cap on books per author). The user's list had five Brandon Sanderson books in the top 10 after reading and loving three recently: "part of me wants to leave the recommendations as they are predicted, but I think variety is important."
+
+**Alternatives considered.** A hard cap per author (rejected in D-006). The same penalty inside the model, making a lower-scoring v6 the champion (Claude's first proposal); the user preferred to leave the model untouched and change only the displayed order. Re-ordering in the browser, which only sees one page at a time and would shift ranks under filters.
+
+**Numbers (validation, full-history NDCG@10 cost; distinct authors in the top 10; most from one author).** Penalty 0.1: −0.3%, 8.6, 2.1. 0.25: −0.8%, 8.8, 1.9. **0.5: −1.9%, 9.1, 1.7.** 1.0: −3.1%, 9.4, 1.5 (no penalty: 8.4, 2.3). On the demo library, five Sanderson books in the top 10 become four, spread out (#1, 3, 7, 10) instead of clustered; 0.75 would leave three. The user chose 0.5. On the test readers: the model scores 0.0874 (unchanged) and the displayed list 0.0860 (−1.6%); distinct authors in the top 10 rise from 8.4 to 9.1 and the most from one author falls from 2.3 to 1.7 (`eval/reports/2026-10-04_0004_shelf_life.md`).

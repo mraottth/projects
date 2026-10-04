@@ -101,6 +101,15 @@ def render(r: dict) -> str:
     for row in rows:
         lines.append(f"| {row['name']} | " + " | ".join(_f(row['by_n'][str(n)]['coverage']) for n in buckets) + " | "
                      + " | ".join(_f(row['by_n'][str(n)]['popularity'], 2) for n in buckets) + " |")
+    if any("authors10" in row["by_n"][str(buckets[0])] for row in rows):
+        lines += ["", "Author variety of each user's top 10: distinct authors, and the most books by a single author "
+                  "(averages over users; the model doesn't aim for variety, the displayed Best match list does).", "",
+                  "| | " + " | ".join(f"authors {_n(n)}" for n in buckets) + " | "
+                  + " | ".join(f"one author {_n(n)}" for n in buckets) + " |",
+                  "|---|" + "---|" * (2 * len(buckets))]
+        for row in rows:
+            lines.append(f"| {row['name']} | " + " | ".join(_f(row['by_n'][str(n)].get('authors10'), 2) for n in buckets) + " | "
+                         + " | ".join(_f(row['by_n'][str(n)].get('top_author10'), 2) for n in buckets) + " |")
     if r.get("rating_rmse"):
         lines += ["", "Predicted-rating error on all hidden ratings (RMSE, stars; lower is better):", "",
                   "| | " + " | ".join(_n(n) for n in buckets) + " |", "|---|" + "---|" * len(buckets)]

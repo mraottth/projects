@@ -67,6 +67,7 @@ class Params:
     a_override: float | None = None   # force the ALS weight (eval: 0 = item-item only, 1 = ALS only)
     a_max: float = 1.0                # cap on the ALS weight a(n), however many ratings
     recency_half_life: float | None = None  # weight a rating by 0.5 ** (k / half-life), k = ratings dated later
+    author_penalty: float = 0.0       # display only: Best match nudges repeat authors down (diversify_authors)
     pred_floor_offset: float | None = None  # For you: drop books predicted below (user average - offset)
     delta_pred: float = 0.0           # Best match: weight on z(predicted rating), scaled by a(n) and fame (config: 0.75)
     pred_fame_lo: float = 4.0         # log10 Goodreads ratings count where fame weight starts (10k)...
@@ -81,7 +82,7 @@ class Params:
                  pred_floor_offset=b.get("pred_floor_offset"), delta_pred=b.get("delta_pred", 0.0),
                  pred_fame_lo=b.get("pred_fame_lo", 4.0), pred_fame_hi=b.get("pred_fame_hi", 6.0),
                  pred_pool=b.get("pred_pool", 50), a_max=b.get("a_max", 1.0),
-                 recency_half_life=b.get("recency_half_life"),
+                 recency_half_life=b.get("recency_half_life"), author_penalty=b.get("author_penalty", 0.0),
                  candidates=b["candidates"], alpha=a["alpha"], regularization=a["regularization"],
                  confidence={int(k): float(v) for k, v in a["confidence"].items()})
         p.update(overrides)
@@ -487,9 +488,37 @@ def ranking(art: Artifacts, raw: RawScores, user: UserInput, p: Params, sort: st
     source[top_ii] += 1
     source[top_als] += 2
     out = {"order": order, "score": s_all, "source": source, "preds": preds_all, "shown": shown_all, "alpha": a,
-           "base": base, "base_default": base_default, "keep": keep, "sort": sort}
+           "base": base, "base_default": base_default, "keep": keep, "sort": sort, "include_ya": include_ya}
     raw.cache[key] = out
     return out
+
+
+def diversify_authors(order: np.ndarray, score: np.ndarray, author_id: np.ndarray, penalty: float,
+                      head: int = 100) -> np.ndarray:
+    """Best match as displayed: re-order the top `head` of the model's ranking so repeat authors are nudged down.
+
+    Greedy: each next book is the one with the highest blend score minus `penalty` for every book by the same
+    (main) author already placed above it. The first book by an author is free, so this only reorders near-ties;
+    a reader who would love several books by one author still sees them. Display only: the model's ranking
+    (and the evaluation's score for it) is unchanged, and the predicted-rating sort doesn't use it.
+    """
+    if not penalty or len(order) < 2:
+        return order
+    top = order[:head]
+    s = score[top].astype(np.float64)
+    auth = author_id[top]
+    left = np.ones(len(top), dtype=bool)
+    seen: dict[int, int] = {}
+    picked = []
+    for _ in range(len(top)):
+        pen = np.array([seen.get(int(a), 0) if a >= 0 else 0 for a in auth], dtype=np.float64)
+        adj = np.where(left, s - penalty * pen, -np.inf)
+        k = int(np.argmax(adj))                       # ties go to the earlier (higher-ranked) book
+        left[k] = False
+        picked.append(top[k])
+        if auth[k] >= 0:
+            seen[int(auth[k])] = seen.get(int(auth[k]), 0) + 1
+    return np.concatenate([np.asarray(picked, dtype=order.dtype), order[head:]])
 
 
 def apply_ranking(order: np.ndarray, mask: np.ndarray, extra_key: np.ndarray, dismissed=()) -> tuple[np.ndarray, np.ndarray]:
@@ -604,7 +633,13 @@ def recommend(art: Artifacts, user: UserInput, f: Filters, p: Params, limit: int
     mask = filter_mask(art, user, f, allow=nxt) & rk["keep"]      # the floor also applies to filter extras
     extra_key = (rk["score"] if sort != "predicted"
                  else np.nan_to_num(rk["shown"], nan=0.0) * 1e3 + rk["score"])
-    items, ranks = apply_ranking(rk["order"], mask, extra_key, user.dismissed)
+    order = rk["order"]
+    if sort == "match" and p.author_penalty:             # Best match as displayed: vary repeat authors
+        key = ("display_order", rk.get("include_ya"), p.author_penalty)
+        if key not in raw.cache:
+            raw.cache[key] = diversify_authors(rk["order"], rk["score"], art.meta.author_id, p.author_penalty)
+        order = raw.cache[key]
+    items, ranks = apply_ranking(order, mask, extra_key, user.dismissed)
     page = slice(offset, offset + limit)
     items, ranks = items[page], ranks[page]
     preds = rk["shown"][items]                                   # displayed (calibrated when prior is given)

@@ -3,8 +3,8 @@ import { Markdown } from "./Markdown";
 
 /**
  * Model versions (x) against an evaluation metric (y) for the Evaluation page. A details panel beside the chart
- * (below it on phones) shows the current champion by default; hovering a version's point with a mouse previews
- * it, and clicking (or Enter/Space) pins it until clicked again, × or Escape. The panel never covers the chart.
+ * (below it on phones) shows the current champion by default; hovering a version's point with a mouse shows it
+ * (and it stays when the mouse moves away), and clicking (or Enter/Space) pins it until clicked again, × or Escape. The panel never covers the chart.
  * Labelled dashed lines are baselines for comparison (the 2023 Book Recommender, popular books) on the same test readers.
  * The chart and panel share one height that fits the viewport; the SVG is drawn at its measured size.
  */
@@ -97,7 +97,8 @@ export function VersionChart({ versions, references, buckets, onViewReport }: {
     if (pinned && openId === id) { setOpenId(null); setPinned(false); }
     else { setOpenId(id); setPinned(true); }
   };
-  // The panel shows the hovered or pinned version, else the current champion (else the latest version).
+  // The panel shows the pinned or last-hovered version (it stays after the mouse leaves), else the current
+  // champion (else the latest version).
   const defaultId = (versions.find((vv) => vv.champion) ?? versions[versions.length - 1])?.id ?? null;
   const shownId = openId ?? defaultId;
   const i = versions.findIndex((v) => v.id === shownId);
@@ -124,8 +125,7 @@ export function VersionChart({ versions, references, buckets, onViewReport }: {
 
       <div className="ev-body">
         <div className="ev-left">
-          <div className="ev-plot" ref={plot}
-               onPointerLeave={(e) => { if (e.pointerType === "mouse" && !pinned) setOpenId(null); }}>
+          <div className="ev-plot" ref={plot}>
             <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${METRIC_LABEL[metric]} by model version`}>
               {ticks.map((t) => (
                 <g key={t}>
@@ -173,7 +173,8 @@ export function VersionChart({ versions, references, buckets, onViewReport }: {
                 <h3>{v.title}</h3>
                 <span className="muted small">{fmtDate(v.date)}{pinned ? " · 📌 pinned" : ""}</span>
               </div>
-              {pinned && <button type="button" className="ms-close" aria-label="Unpin" onClick={() => { setOpenId(null); setPinned(false); }}>×</button>}
+              {openId && <button type="button" className="ms-close" aria-label="Back to the current champion" title="Back to the current champion"
+                                 onClick={() => { setOpenId(null); setPinned(false); }}>×</button>}
             </div>
             <p>{v.summary}</p>
             <p className="muted small"><strong>Settings:</strong> {v.settings}

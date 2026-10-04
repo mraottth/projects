@@ -385,7 +385,8 @@
    "fe7c091a-103",
    "fe7c091a-104",
    "fe7c091a-105",
-   "fe7c091a-107"
+   "fe7c091a-107",
+   "fe7c091a-130"
   ],
   "commits": [
    "ecf5abc",
@@ -403,7 +404,8 @@
    "e6b5976",
    "d397b1c",
    "10a4677",
-   "ee30e99"
+   "ee30e99",
+   "7e5fc0d"
   ],
   "decisions": [
    "D-036"
@@ -505,7 +507,9 @@
    "fe7c091a-125",
    "fe7c091a-126",
    "fe7c091a-127",
-   "fe7c091a-128"
+   "fe7c091a-128",
+   "fe7c091a-131",
+   "fe7c091a-135a"
   ],
   "commits": [
    "053f12a",
@@ -525,10 +529,38 @@
    "dab08fc",
    "b98097c",
    "df464a7",
-   "095a283"
+   "095a283",
+   "8eebe94",
+   "9558581",
+   "672ab3b"
   ],
   "decisions": [
    "D-048"
+  ]
+ },
+ {
+  "id": "M22",
+  "date": "2026-10-03",
+  "icon": "🎨",
+  "category": "model",
+  "title": "More authors in Best match",
+  "summary": "After a list with five Brandon Sanderson books in the top 10, the Best match list now nudges repeat authors down a little, as a display step that leaves the model and its evaluation untouched. It costs 1.6% of NDCG@10 on test readers and adds about one more distinct author to each top 10.",
+  "prompts": [
+   "fe7c091a-132",
+   "fe7c091a-133",
+   "fe7c091a-134",
+   "fe7c091a-135"
+  ],
+  "commits": [
+   "00dd8a1",
+   "42342b6",
+   "0d3b97f",
+   "653832e",
+   "4a730d8",
+   "9266f81"
+  ],
+  "decisions": [
+   "D-049"
   ]
  }
 ]

@@ -95,8 +95,12 @@ def parse(transcript: Path) -> list[dict]:
     reply: list[str] = []          # assistant text since the last tool call (= the final reply when the turn ends)
 
     def close():
-        if entries and entries[-1]["reply"] is None:
-            entries[-1]["reply"] = clean("\n\n".join(reply)) or None
+        # The turn's final reply belongs to the prompt that started it, not to messages queued during the turn.
+        for e in reversed(entries):
+            if not e.get("queued"):
+                if e["reply"] is None:
+                    e["reply"] = clean("\n\n".join(reply)) or None
+                break
 
     with open(transcript, encoding="utf-8") as f:
         for line in f:
@@ -124,6 +128,13 @@ def parse(transcript: Path) -> list[dict]:
                     reply = []
                     k, t = ti if ti else ("prompt", text)
                     entries.append({"time": d.get("timestamp"), "kind": k, "text": clean(t), "reply": None})
+            elif kind == "attachment" and (d.get("attachment") or {}).get("type") == "queued_command" and entries:
+                # A message the user sent while Claude was working (shown mid-turn). Task notifications and other
+                # system text are dropped by user_text().
+                text = user_text((d.get("attachment") or {}).get("prompt"))
+                if text:
+                    entries.append({"time": d.get("timestamp"), "kind": "prompt", "text": clean(text), "reply": None,
+                                    "queued": True})
             elif kind == "assistant" and entries:
                 for block in content if isinstance(content, list) else []:
                     if not isinstance(block, dict):
@@ -156,8 +167,16 @@ def render(session: str, entries: list[dict]) -> tuple[str, str, str] | None:
     day = (entries[0]["time"] or "")[:10]   # named by the session's first prompt, even if that one failed
     stem = f"{day}_{s8}"
     # Ids are assigned before failed prompts are dropped, so they never shift (prompts/categories.json keys on them).
-    for n, e in enumerate(entries, 1):
-        e["id"] = f"{s8}-{n:03d}"
+    # Ids stay stable as the session grows: messages queued mid-turn take the id of the prompt they arrived
+    # during plus a letter (fe7c091a-135a), so they never renumber later prompts.
+    n, sub = 0, 0
+    for e in entries:
+        if e.get("queued") and n:
+            sub += 1
+            e["id"] = f"{s8}-{n:03d}{chr(96 + sub)}"
+        else:
+            n, sub = n + 1, 0
+            e["id"] = f"{s8}-{n:03d}"
         e["session"] = s8
     failed = [e for e in entries if e["reply"] and API_ERROR.match(e["reply"])]
     omit = load_omit()                     # prompts/omit.json: {id: reason} for housekeeping messages

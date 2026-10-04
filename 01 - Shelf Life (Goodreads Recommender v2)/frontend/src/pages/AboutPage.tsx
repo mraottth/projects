@@ -153,7 +153,9 @@ export function AboutPage({ go }: { go: (v: "changelog" | "evaluation") => void 
             Books you read recently count more than ones you read long ago.
             A few light rules sit on top: heavy readers are steered away from the obvious bestsellers, well-known books
             you&apos;d probably love get a small boost, books you&apos;d likely rate below your usual are left out, and
-            later books in a series wait until you&apos;ve read the earlier ones.
+            later books in a series wait until you&apos;ve read the earlier ones. Finally, the Best match list mixes up
+            authors a little: if one author would fill several of the top spots, their later books are nudged down so
+            others get a look in. Sorting by predicted rating skips that and shows the ranking as predicted.
             <Tech>
               <p>Candidates are the union of each model&apos;s top 300 after filters. Each signal is z-scored within that
                 candidate set and combined with weights that depend on the number of ratings <em>n</em>:</p>
@@ -167,7 +169,10 @@ export function AboutPage({ go }: { go: (v: "changelog" | "evaluation") => void 
                 Recency: each rating&apos;s similar-books weight and taste-model confidence are multiplied by
                 0.5<sup>k/25</sup>, where k is the number of your ratings dated later (date read from a Goodreads import,
                 else date added; ratings made here are dated the day you rate them). Ratings with the same date share a
-                weight, so a shelf rated in one sitting is unaffected. The last term is the prediction boost: <TeX>{String.raw`\hat r`}</TeX> is your predicted rating, δ = 0.75,
+                weight, so a shelf rated in one sitting is unaffected. Author variety (display only): the top 100 are
+                re-ordered greedily, each next book scoring its blend score minus 0.5 for every book by the same author
+                already above it. The evaluation scores the model before this step; on the validation readers the
+                displayed list costs 1.9% of full-history NDCG@10 and raises distinct authors in the top 10 from 8.4 to 9.1. The last term is the prediction boost: <TeX>{String.raw`\hat r`}</TeX> is your predicted rating, δ = 0.75,
                 and the fame weight <em>f</em> goes from 0 at 10k Goodreads ratings to 1 at about 316k. The 50 best
                 fame-weighted predictions are also added to the candidate pool. In the temporal evaluation it adds about 3%
                 to full-history NDCG@10.

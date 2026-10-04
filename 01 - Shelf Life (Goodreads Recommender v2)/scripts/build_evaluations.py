@@ -51,7 +51,46 @@ def report_kind(stem: str, report: dict | None) -> str:
     return "Test set"
 
 
-def build_reports(champion: dict | None) -> list[dict]:
+# Settings added after early reports were written, with the value those reports implicitly used.
+PARAM_DEFAULTS = {"a_max": 1.0, "recency_half_life": None}
+
+
+def norm_params(p: dict) -> str:
+    """Model settings that define a version. author_penalty is a display step, not part of the model."""
+    return json.dumps({k: v for k, v in {**PARAM_DEFAULTS, **p}.items() if k != "author_penalty"}, sort_keys=True)
+
+
+def version_labels(report: dict, versions: list[dict]) -> dict[str, str]:
+    """Model names in a report -> the page's version names ("v5 · Recent reading counts more"): the model under
+    test is matched by its settings, the previous best by the champion report it cites. Other rows keep their names."""
+    by_params = {v["_params"]: v for v in versions}
+    by_report = {v["report"]: v for v in versions}
+    out = {}
+    v = by_params.get(norm_params(report.get("params", {})))
+    if v:
+        out["\x01version"] = v["id"]
+        name = report["model"]["name"]
+        extra = re.search(r"\((before|after) leak fix\)", name)
+        out[name] = f"{v['id']} · {v['title']}" + (f" ({extra.group(0)[1:-1]})" if extra else "")
+    champ = row(report, "champion")
+    m = re.search(r"reports/([^)\s]+)\.md", champ["description"]) if champ else None
+    if m and m.group(1) in by_report:
+        cv = by_report[m.group(1)]
+        out[champ["name"]] = f"Previous best: {cv['id']} · {cv['title']}"
+    return out
+
+
+def relabel(text: str, labels: dict[str, str]) -> str:
+    """Replace model names, longest first, through placeholders so one replacement can't feed another."""
+    keys = sorted(labels, key=len, reverse=True)
+    for i, k in enumerate(keys):
+        text = text.replace(k, f"\x00{i}\x00")
+    for i, k in enumerate(keys):
+        text = text.replace(f"\x00{i}\x00", labels[k])
+    return text
+
+
+def build_reports(champion: dict | None, versions: list[dict]) -> list[dict]:
     champ_stem = Path(champion["report"]).stem if champion else None
     out = []
     for md in sorted((EVAL / "reports").glob("*.md")):
@@ -63,10 +102,16 @@ def build_reports(champion: dict | None) -> list[dict]:
         time = f"{m.group(2)}:{m.group(3)}" if m and STAMP.match(stem) else ""
         new_format = bool(report and "rows" in report)
         sl = row(report, "shelf_life") if new_format else None
+        labels = version_labels(report, versions) if new_format else {}
+        version = labels.pop("\x01version", None)
+        text = relabel(text, labels)
+        kind = report_kind(stem, report)
+        if new_format and versions and report.get("split_hash") != versions[-1]["split_hash"]:
+            kind += " (earlier split)"
         out.append({
-            "id": stem, "date": date, "time": time, "kind": report_kind(stem, report),
+            "id": stem, "date": date, "time": time, "kind": kind, "version": version,
             "title": text.split("\n", 1)[0].lstrip("# ").strip(),
-            "model": report["model"]["name"] if new_format else None,
+            "model": labels.get(report["model"]["name"], report["model"]["name"]) if new_format else None,
             "set": report.get("set") if new_format else None,
             "n_users": report.get("n_users") if new_format else None,
             "split_hash": report.get("split_hash") if new_format else None,
@@ -101,7 +146,7 @@ def build_versions(commits: list[dict], champion: dict | None, decisions: dict) 
             d = decisions[did]
             decs.append({"id": did, "title": d["title"], "sections": d["sections"]})
         champ = next((h for h in report.get("head_to_head", []) if h["key"] == "champion"), None)
-        versions.append({**v, "commits": resolved, "decisions": decs,
+        versions.append({**v, "commits": resolved, "decisions": decs, "_params": norm_params(report.get("params", {})),
                          "metrics": metrics_of(sl), "n_users": report["n_users"],
                          "split_hash": report["split_hash"], "_vs_champion": champ,
                          "champion": bool(champion) and Path(champion["report"]).stem == v["report"]})
@@ -116,6 +161,29 @@ def build_versions(commits: list[dict], champion: dict | None, decisions: dict) 
     return versions
 
 
+def strip_private(versions: list[dict]) -> list[dict]:
+    return [{k: x for k, x in v.items() if not k.startswith("_")} for v in versions]
+
+
+def build_groups(versions: list[dict], reports: list[dict]) -> list[dict]:
+    """One card per model version, newest version first (by when the version was made, not when it was tested):
+    the version's report of record plus its other runs (newest first). Runs that match no version (the earliest
+    random-holdout reports, the ALS sweep) form a final "Earlier evaluations" group."""
+    by_id = {r["id"]: r for r in reports}
+    newest = lambda rs: sorted(rs, key=lambda r: (r["date"], r["time"]), reverse=True)  # noqa: E731
+    groups = []
+    for v in sorted(versions, key=lambda v: (v["date"], v["id"]), reverse=True):
+        main = by_id[v["report"]]
+        others = newest(r for r in reports if r["version"] == v["id"] and r["id"] != main["id"])
+        groups.append({"id": v["id"], "title": f"{v['id']} · {v['title']}", "date": v["date"], "champion": v["champion"],
+                       "ndcg10": main["ndcg10"], "main": main["id"], "others": [r["id"] for r in others]})
+    rest = newest(r for r in reports if r["version"] is None)
+    if rest:
+        groups.append({"id": "earlier", "title": "Earlier evaluations (before the time-based test)", "date": rest[-1]["date"],
+                       "champion": False, "ndcg10": None, "main": None, "others": [r["id"] for r in rest]})
+    return groups
+
+
 def build() -> dict:
     champion = load_json(EVAL / "champion.json")
     commits = git_commits()
@@ -128,7 +196,9 @@ def build() -> dict:
         r = row(latest, key) if key else None
         if r:
             refs.append({"key": r["key"], "label": label, "metrics": metrics_of(r)})
-    return {"versions": versions, "references": refs, "reports": build_reports(champion), "metrics": METRICS,
+    reports = build_reports(champion, versions)
+    return {"versions": strip_private(versions), "references": refs, "reports": reports,
+            "groups": build_groups(versions, reports), "metrics": METRICS,
             "buckets": latest.get("buckets", [1, 3, 5, 10, 25, -1])}
 
 
