@@ -69,9 +69,11 @@ class MFModel:
         b_u, p_u, z, ri, rv, X, A_inv = fit if fit is not None else self.fold_in(ratings, read)
         pred = self.mu + self.bi[items] + b_u + self.Q[items].astype(np.float64) @ (p_u + z)
         if loo and ri is not None:                            # leave-one-out for the reader's own books
-            pos = {int(j): t for t, j in enumerate(ri)}
-            own = np.array([pos.get(int(j), -1) for j in items])
-            m = own >= 0
+            order = np.argsort(ri)                            # position of each item among the rated books
+            at = np.minimum(np.searchsorted(ri[order], items), len(ri) - 1)
+            m = ri[order][at] == items
+            own = np.full(len(items), -1)
+            own[m] = order[at[m]]
             if m.any():
                 Xo = X[own[m]]
                 h = np.einsum("ij,jk,ik->i", Xo, A_inv, Xo)
