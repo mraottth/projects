@@ -57,3 +57,12 @@ def test_report_tables_use_version_names(data):
     assert f"**{v['id']} · {v['title']}**" in champ["markdown"]          # the model's row in the metric tables
     prev = data["versions"][[x["id"] for x in data["versions"]].index(v["id"]) - 1]
     assert f"vs. Previous best: {prev['id']} · {prev['title']}" in champ["markdown"]
+
+
+def test_one_card_per_version_newest_version_first(data):
+    groups = data["groups"]
+    vgroups = [g for g in groups if g["id"] != "earlier"]
+    assert [g["id"] for g in vgroups] == [v["id"] for v in sorted(data["versions"], key=lambda v: (v["date"], v["id"]), reverse=True)]
+    assert vgroups[0]["champion"]                                        # the newest version is the champion
+    placed = [g["main"] for g in vgroups] + [r for g in groups for r in g["others"]]
+    assert sorted(placed) == sorted(r["id"] for r in data["reports"])     # every report in exactly one card

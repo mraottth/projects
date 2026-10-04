@@ -68,6 +68,7 @@ def version_labels(report: dict, versions: list[dict]) -> dict[str, str]:
     out = {}
     v = by_params.get(norm_params(report.get("params", {})))
     if v:
+        out["\x01version"] = v["id"]
         name = report["model"]["name"]
         extra = re.search(r"\((before|after) leak fix\)", name)
         out[name] = f"{v['id']} · {v['title']}" + (f" ({extra.group(0)[1:-1]})" if extra else "")
@@ -102,9 +103,13 @@ def build_reports(champion: dict | None, versions: list[dict]) -> list[dict]:
         new_format = bool(report and "rows" in report)
         sl = row(report, "shelf_life") if new_format else None
         labels = version_labels(report, versions) if new_format else {}
+        version = labels.pop("\x01version", None)
         text = relabel(text, labels)
+        kind = report_kind(stem, report)
+        if new_format and versions and report.get("split_hash") != versions[-1]["split_hash"]:
+            kind += " (earlier split)"
         out.append({
-            "id": stem, "date": date, "time": time, "kind": report_kind(stem, report),
+            "id": stem, "date": date, "time": time, "kind": kind, "version": version,
             "title": text.split("\n", 1)[0].lstrip("# ").strip(),
             "model": labels.get(report["model"]["name"], report["model"]["name"]) if new_format else None,
             "set": report.get("set") if new_format else None,
@@ -160,6 +165,25 @@ def strip_private(versions: list[dict]) -> list[dict]:
     return [{k: x for k, x in v.items() if not k.startswith("_")} for v in versions]
 
 
+def build_groups(versions: list[dict], reports: list[dict]) -> list[dict]:
+    """One card per model version, newest version first (by when the version was made, not when it was tested):
+    the version's report of record plus its other runs (newest first). Runs that match no version (the earliest
+    random-holdout reports, the ALS sweep) form a final "Earlier evaluations" group."""
+    by_id = {r["id"]: r for r in reports}
+    newest = lambda rs: sorted(rs, key=lambda r: (r["date"], r["time"]), reverse=True)  # noqa: E731
+    groups = []
+    for v in sorted(versions, key=lambda v: (v["date"], v["id"]), reverse=True):
+        main = by_id[v["report"]]
+        others = newest(r for r in reports if r["version"] == v["id"] and r["id"] != main["id"])
+        groups.append({"id": v["id"], "title": f"{v['id']} · {v['title']}", "date": v["date"], "champion": v["champion"],
+                       "ndcg10": main["ndcg10"], "main": main["id"], "others": [r["id"] for r in others]})
+    rest = newest(r for r in reports if r["version"] is None)
+    if rest:
+        groups.append({"id": "earlier", "title": "Earlier evaluations (before the time-based test)", "date": rest[-1]["date"],
+                       "champion": False, "ndcg10": None, "main": None, "others": [r["id"] for r in rest]})
+    return groups
+
+
 def build() -> dict:
     champion = load_json(EVAL / "champion.json")
     commits = git_commits()
@@ -172,7 +196,9 @@ def build() -> dict:
         r = row(latest, key) if key else None
         if r:
             refs.append({"key": r["key"], "label": label, "metrics": metrics_of(r)})
-    return {"versions": strip_private(versions), "references": refs, "reports": build_reports(champion, versions), "metrics": METRICS,
+    reports = build_reports(champion, versions)
+    return {"versions": strip_private(versions), "references": refs, "reports": reports,
+            "groups": build_groups(versions, reports), "metrics": METRICS,
             "buckets": latest.get("buckets", [1, 3, 5, 10, 25, -1])}
 
 

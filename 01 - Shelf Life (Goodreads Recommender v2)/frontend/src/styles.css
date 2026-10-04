@@ -1086,6 +1086,12 @@ button.chip:hover { background: #f1f0eb; }
 .ev-kind.champion { background: #fff4d6; color: #7a5a00; }
 .ev-report-title { font-weight: 600; }
 .ev-report-score { margin-left: auto; font-size: 0.88rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.ev-runs { display: flex; flex-direction: column; gap: 8px; }
+.ev-run { border: 1px solid var(--ring); border-radius: 10px; padding: 8px 12px; background: #fbfbf9; }
+.ev-run > summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; cursor: pointer; list-style: none; }
+.ev-run > summary::-webkit-details-marker { display: none; }
+.ev-run > summary::before { content: "▸"; color: var(--muted); transition: transform 0.15s ease; }
+.ev-run[open] > summary::before { transform: rotate(90deg); }
 .ev-report-body { margin-top: 10px; border-top: 1px solid var(--ring); padding-top: 8px; overflow-x: auto; }
 /* Report headings by Markdown level: the report title, then sections (Metrics, Head-to-head), then subsections. */
 .ev-report-body .md-h1 { margin: 6px 0 12px; font-size: 1.4rem; }
