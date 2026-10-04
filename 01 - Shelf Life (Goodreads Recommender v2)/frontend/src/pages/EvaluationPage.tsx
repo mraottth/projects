@@ -114,8 +114,7 @@ export function EvaluationPage({ track, setTrack }: { track: Track; setTrack: (t
         books they went on to love (4–5★) show up near the top of their recommendations, given everything they read
         before. The main score is NDCG@10; higher is better. Since launch, full-history NDCG@10 has gone from{" "}
         {first?.metrics["-1"]["ndcg@10"].toFixed(3)} to {last?.metrics["-1"]["ndcg@10"].toFixed(3)} ({gain >= 0 ? "+" : ""}
-        {(100 * gain).toFixed(0)}%). The first two versions predate this test, so they were re-scored with their own
-        settings on today&apos;s data.
+        {(100 * gain).toFixed(0)}%).
       </p>
       ) : (
       <p className="lead-left">

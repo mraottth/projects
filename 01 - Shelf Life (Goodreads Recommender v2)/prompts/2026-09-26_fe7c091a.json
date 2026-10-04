@@ -1,7 +1,7 @@
 {
  "session": "fe7c091a-5174-49e5-9f91-126c647e9612",
  "omitted_api_errors": 12,
- "omitted": 31,
+ "omitted": 32,
  "entries": [
   {
    "time": "2026-09-26T23:22:59.503Z",
@@ -1112,6 +1112,62 @@
    "text": "We can remove \"Baseline: Book average + user offset\" as a baseline. Also let's change the page title from \"How the model improved\" to \"Evaluation Timeline\"",
    "reply": "Both changes are done, committed and pushed to `br-rating-mf`. I checked them in the browser, and the Evaluation page tests pass.\n\n- **Baseline removed:** \"Book average + user offset\" is gone from the rating chart. I also dropped the sentence in the Rating intro that quoted its score, so the intro now only compares against the book average (0.763). The chart's two baselines are the 2023 Book Recommender and the book average.\n- **Title:** the page heading is now \"Evaluation Timeline\", matching the About page button.\n\nThe reports themselves still list that baseline in their tables; this only changes the chart and intro.\n\nThis is on the same branch as v6, so it'll go out with the rating model. Shall I merge and deploy?",
    "id": "fe7c091a-147",
+   "session": "fe7c091a"
+  },
+  {
+   "time": "2026-10-04T21:34:06.145Z",
+   "kind": "prompt",
+   "text": "do you have confidence intervals from previous evaluation runs saved to add to the charts without having to rerun evals?",
+   "reply": "Yes. Every point on the chart can get a confidence interval from saved data, with no re-runs.\n\n**What's saved:** the per-reader results for every reader, not just averages, so I can bootstrap a 95% interval for any metric at any history size.\n- **Versions:** the report of record for each of v1–v6 has its per-reader results in `eval/runs/` (5,895 test readers × 6 history sizes). That covers all six ranking metrics and every rating metric, including RMSE, Pearson, Spearman and within ±1★.\n- **Baselines:** the same files exist for every baseline in those runs: 2023 similar readers and SVD, popular, book average and the rest. The dashed lines could get a shaded band too.\n- **Already computed:** the reports already contain a paired interval between each version and the previous one, for NDCG@10 and MAE at every history size. The version panel shows these as text (\"Per reader, MAE vs v5: −0.0110 (95% CI …)\").\n\n**The catch:** `eval/runs/` is git-ignored except for the champion files. Only my machine has the per-reader results for v1–v5 and the baselines; a fresh clone, or a deploy built from one, wouldn't.\n\n**How I'd do it:**\n1. A small script bootstraps the intervals once from `eval/runs/` and writes them to a committed `eval/ci.json` (a few KB). The page build reads it, so deploys don't depend on the ignored files.\n2. `run.py` writes the same intervals into every new report's JSON, so future versions get them automatically.\n3. The chart draws a light vertical whisker on each version point and a faint band around each baseline line. The panel shows each value with its interval.\n\n**One point on interpretation:** these whiskers show each version's own uncertainty. Two versions' intervals can overlap even when the paired comparison between them is clearly significant, because the paired test compares each reader against themselves. v6 against v5 on MAE is an example. So I'd keep the paired \"vs previous version\" line in the panel as the real test, and treat the whiskers as context.\n\nWant me to go ahead?",
+   "id": "fe7c091a-149",
+   "session": "fe7c091a"
+  },
+  {
+   "time": "2026-10-04T21:35:36.685Z",
+   "kind": "prompt",
+   "text": "let's go ahead and do that",
+   "reply": "The Evaluation chart now shows 95% confidence intervals, built entirely from saved results; I didn't re-run any evaluations. It's on branch `br-chart-ci`, pushed, with all 103 tests passing; not merged or deployed yet.\n\n**What you'll see:**\n- **Version points** (v1–v6) get a whisker. This works on both the Ranking and Rating tracks, for every metric and history length.\n- **Baselines** (the dashed lines) get a faint shaded band.\n- **Version panel:** each score for the selected version shows its interval underneath, for example NDCG@10 0.0875 with 0.084–0.091 below. The text under the chart explains the bars and bands.\n\n**How the intervals are computed:**\n- **Bootstrap:** 1,000 resamples of the 5,895 test readers, with each metric recomputed exactly as the report computes it. RMSE and Pearson correlation are handled properly too.\n- **Old versions:** they come from the per-reader results already saved on this machine, written once to a committed `eval/ci.json` (96 KB). That folder isn't in git, which is why the snapshot file is needed for deploys.\n- **Future evaluations:** they store the intervals in their own reports automatically, which adds about a minute per run.\n\n**Reading the chart:** the whiskers can make versions look tied when they aren't. v6's and v5's MAE intervals overlap ([0.657, 0.672] vs [0.668, 0.682]), yet v6 is significantly better when each reader is compared with themselves (−0.0110, [−0.0124, −0.0095]). That paired comparison is still shown in the panel as the real test of a change. I recorded this caveat in decision D-054.\n\nShall I merge and deploy?",
+   "id": "fe7c091a-150",
+   "session": "fe7c091a"
+  },
+  {
+   "time": "2026-10-04T21:44:40.717Z",
+   "kind": "prompt",
+   "text": "let's scrap this, they're too tiny to really be distinguishable visually",
+   "reply": "The intervals are scrapped. I deleted the branch locally and on GitHub. Nothing from it was merged or deployed, so main and the live site never had them. Locally I'm back on main, and the local site is rebuilt to match.\n\nOne small follow-up is pending: a docs-only commit on branch `br-ci-note`, pushed but not merged. It records the dropped feature as decision D-054 and labels the three prompts from this detour, so the public changelog doesn't show them unlabeled. It can go out with your next merge, or I can merge it now. It doesn't touch the app, so it doesn't need its own deploy.",
+   "id": "fe7c091a-151",
+   "session": "fe7c091a"
+  },
+  {
+   "time": "2026-10-04T21:48:26.714Z",
+   "kind": "prompt",
+   "text": "let's actually try a version where we use points that are small enough to see the confidence intervals. Let's also remove \"The first two versions predate this test, so they were re-scored with their own settings on today's data.\" from the description",
+   "reply": "The small-point version is ready on your local server at `localhost:8000/?view=evaluation`. It's pushed on branch `br-chart-ci` but not merged or deployed.\n\n- **Points:** each version is now a small solid dot, so its 95% confidence-interval whisker shows above and below it, with caps. On the Rating track the whiskers are narrow but still visible. Baselines keep their faint shaded bands.\n- **Champion:** v6 is a small gold dot, with its trophy moved into its value label (\"🏆 0.087\"). On phones the label shows just the number and the trophy stays on the x-axis label, because the two labels collided.\n- **Intro text:** I removed \"The first two versions predate this test, so they were re-scored with their own settings on today's data.\" The Ranking intro now ends with the +36% NDCG@10 gain since launch.\n\nI deleted the `br-ci-note` branch, since it recorded the decision to drop the intervals, and updated the decision entry on this branch to match.\n\nHave a look. If it reads well, I'll merge and deploy.",
+   "id": "fe7c091a-152",
+   "session": "fe7c091a"
+  },
+  {
+   "time": "2026-10-04T21:53:32.380Z",
+   "kind": "prompt",
+   "text": "Maybe try removing the data labels and putting the trophy directly above the winning point",
+   "reply": "The value labels are gone, and a small trophy now sits just above the champion's whisker. It's live on your local server at `localhost:8000/?view=evaluation`.\n\n- **Points:** the chart now shows only small dots with their confidence-interval whiskers, so every interval is visible on both tracks. The trophy over v6 glows when v6 is selected.\n- **Exact numbers:** they're still in the side panel and in each point's hover label.\n- **Phones:** checked, no collisions.\n\nIt's on the `br-chart-ci` branch, pushed but not merged or deployed. Want me to merge and deploy?",
+   "id": "fe7c091a-153",
+   "session": "fe7c091a"
+  },
+  {
+   "time": "2026-10-04T21:56:16.654Z",
+   "kind": "prompt",
+   "text": "you can remove the trophy from above the winning point",
+   "reply": "The trophy no longer sits above the winning point. The champion now shows as a gold dot, and its 🏆 still appears on its x-axis label and in the side panel. You can see it on your local server at `localhost:8000/?view=evaluation`.\n\nThe change is pushed on `br-chart-ci`, but not merged or deployed. Want me to merge and deploy?",
+   "id": "fe7c091a-154",
+   "session": "fe7c091a"
+  },
+  {
+   "time": "2026-10-04T21:58:41.795Z",
+   "kind": "prompt",
+   "text": "Hmm, no you can scrap it. It's visually less clear and we have CIs presented elsewhere. We'll keep the change that removed \"The first two versions predate this test, so they were re-scored with their own settings on today's data.\"",
+   "reply": "The chart-interval work is scrapped. I deleted its branch locally and on GitHub, and the local site no longer shows it. The only thing kept is the intro edit: the Ranking intro drops \"The first two versions predate this test, so they were re-scored with their own settings on today's data.\" Each re-scored version's panel still shows its \"Re-scored on today's data\" badge.\n\nThat edit is on a new branch, `br-intro-trim`, pushed but not merged or deployed. It also has two small bookkeeping additions:\n- **Decision D-054:** records that the chart intervals were tried in three designs and dropped as less clear. The intervals in the version panel and the reports are unchanged.\n- **Prompt log:** labels for this whole thread.\n\nThe Rating intro still has its own similar sentence: \"The first two versions used an earlier rating model, reconstructed for this test on today's data.\" I left it, since you only mentioned the Ranking one; say if it should go too.\n\nWant me to merge and deploy?",
+   "id": "fe7c091a-155",
    "session": "fe7c091a"
   }
  ]
