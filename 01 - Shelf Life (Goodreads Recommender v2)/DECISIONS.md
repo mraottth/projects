@@ -511,3 +511,13 @@ Categories: `ui` · `model` · `eval` · `data` · `assistant` · `infra` · `do
 **Finding.** Weighting each rating by how recent it is (the k-th most recent counts 0.5^(k/25)) raises full-history NDCG@10 on the validation users from 0.0777 to 0.0872 (+0.0095, 95% CI +0.0075 to +0.0116), on top of the blend cap (D-045). Half-lives of 10, 50 and 100 gained less (+0.0076, +0.0074, +0.0052). Shorter histories are essentially unchanged, since a handful of ratings are all recent. The order comes from when each book was read (date shelved when no read date is given).
 
 **Decision.** Not shipped yet. The app keeps no dates for ratings: Goodreads imports drop "Date Read" and "Date Added", and ratings made on the site aren't timestamped. Shipping it means keeping those dates from import to scoring, which is planned as a separate step for the user to approve. The scoring code supports it already (`UserInput.recency`, `recency_weights()`), with no effect while no dates are passed.
+
+## D-047 · Weight recent reading more in the app
+- **Date:** 2026-10-03
+- **Category:** model
+- **Prompts:** fe7c091a-116
+- **Commits:** 9ac0ca0, 1145474, ff5efd2, 5d7f534
+
+**Decision.** Recommendations weight each rating by how recently the book was read: 0.5^(k/25), where k is the number of the reader's ratings dated later. Dates come from a Goodreads import ("Date Read", else "Date Added"); ratings made on the site are dated the day they're made. Ratings with the same date share a weight, so a shelf rated in one sitting is unaffected; undated ratings count as oldest, and a shelf with no dates (saved before this change) is scored exactly as before. The dates live in the browser with the rest of the shelf and are sent with each request, like the ratings.
+
+**Why.** D-046's offline result. Re-checked with the app's tie rule on the validation users (full-history NDCG@10 0.0777 → 0.0870 at a half-life of 25; 15 and 40 slightly lower), then confirmed on the test users against the champion: 0.0770 → 0.0874 (+0.0104, 95% CI +0.0090 to +0.0118; wins for 17.8% of users, losses for 9.4%), with shorter, undated histories unchanged (`eval/reports/2026-10-03_2124_shelf_life.md`). On the demo library, 7 of the top 10 recommendations stay the same.
