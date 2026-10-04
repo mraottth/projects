@@ -1,7 +1,7 @@
 {
  "session": "fe7c091a-5174-49e5-9f91-126c647e9612",
  "omitted_api_errors": 12,
- "omitted": 30,
+ "omitted": 31,
  "entries": [
   {
    "time": "2026-09-26T23:22:59.503Z",
@@ -1110,7 +1110,7 @@
    "time": "2026-10-04T19:20:14.869Z",
    "kind": "prompt",
    "text": "We can remove \"Baseline: Book average + user offset\" as a baseline. Also let's change the page title from \"How the model improved\" to \"Evaluation Timeline\"",
-   "reply": null,
+   "reply": "Both changes are done, committed and pushed to `br-rating-mf`. I checked them in the browser, and the Evaluation page tests pass.\n\n- **Baseline removed:** \"Book average + user offset\" is gone from the rating chart. I also dropped the sentence in the Rating intro that quoted its score, so the intro now only compares against the book average (0.763). The chart's two baselines are the 2023 Book Recommender and the book average.\n- **Title:** the page heading is now \"Evaluation Timeline\", matching the About page button.\n\nThe reports themselves still list that baseline in their tables; this only changes the chart and intro.\n\nThis is on the same branch as v6, so it'll go out with the rating model. Shall I merge and deploy?",
    "id": "fe7c091a-147",
    "session": "fe7c091a"
   }
