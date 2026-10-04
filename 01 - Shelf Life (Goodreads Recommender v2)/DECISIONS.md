@@ -546,3 +546,53 @@ Categories: `ui` · `model` · `eval` · `data` · `assistant` · `infra` · `do
 **Alternatives considered.** A hard cap per author (rejected in D-006). The same penalty inside the model, making a lower-scoring v6 the champion (Claude's first proposal); the user preferred to leave the model untouched and change only the displayed order. Re-ordering in the browser, which only sees one page at a time and would shift ranks under filters.
 
 **Numbers (validation, full-history NDCG@10 cost; distinct authors in the top 10; most from one author).** Penalty 0.1: −0.3%, 8.6, 2.1. 0.25: −0.8%, 8.8, 1.9. **0.5: −1.9%, 9.1, 1.7.** 1.0: −3.1%, 9.4, 1.5 (no penalty: 8.4, 2.3). On the demo library, five Sanderson books in the top 10 become four, spread out (#1, 3, 7, 10) instead of clustered; 0.75 would leave three. The user chose 0.5. On the test readers: the model scores 0.0874 (unchanged) and the displayed list 0.0860 (−1.6%); distinct authors in the top 10 rise from 8.4 to 9.1 and the most from one author falls from 2.3 to 1.7 (`eval/reports/2026-10-04_0004_shelf_life.md`).
+
+## D-050 · Evaluate rating prediction as a second track
+- **Date:** 2026-10-04
+- **Category:** eval
+- **Prompts:** fe7c091a-139, fe7c091a-140, fe7c091a-141
+- **Commits:** e08af3c, a316c08, 8fd70c5, 3b069fc, 00d9b98, 24f06ad
+
+**Decision.** The evaluation has two clearly separated tracks on the same test readers, truncated histories and hidden books. Track 1, recommendation quality, is unchanged (NDCG, Recall and Precision at 10 and 20). Track 2, rating prediction, scores the predicted rating a book card shows against every hidden rating (1–5★).
+- **Metrics.** MAE is primary. Secondary: RMSE, Pearson correlation pooled over all ratings, and Spearman within each reader's hidden books (readers with at least 3 varied ratings, 92% of them). Also: share within ±1★ and ±0.5★, mean signed error, a half-star calibration table, error by actual star and prediction spread. Metrics are averaged per reader, then over readers, as in Track 1.
+- **Rating scales.** The model already adapts to them (the reader's offset b_u and calibration to their own histogram). The evaluation checks this with:
+  - baselines that know the reader's scale (book average + offset, the reader's average);
+  - per-reader Spearman, which ignores the scale;
+  - MAE divided by σ_u, the spread of the reader's visible ratings shrunk toward the population's;
+  - results by rating style (narrow, typical, wide), with cut points from the validation readers' terciles.
+- **Leakage.** Predictions and σ_u see only visible ratings and training-only item statistics; a test checks that changing hidden ratings changes no prediction.
+- **Baselines.** Book average (the requested one), book average + reader offset, the reader's average, the Goodreads average (reference; 2017 snapshot) and both 2023 methods' ratings. The 2023 methods fall back to the book average when they have no estimate (similar readers: 50% of books; SVD: 10%). The better one is labelled "2023 best". Gradient descent stays excluded (D-044).
+- **Champion.** NDCG@10 still decides, with a rating guardrail: no promotion if per-reader MAE is significantly worse than the champion's (bootstrap CI of the difference entirely above 0). This was the user's choice.
+- **Evaluation page.** A Ranking | Rating switch changes the intro, the chart, the panel and every report card (the user's request).
+
+**Context.** The user wanted to know whether the model predicts ratings well, not just which books someone will like, and to account for how differently people use the scale without test-set leakage. Before this, reports carried one RMSE number for the raw, uncalibrated prediction, not the rating users see.
+
+**Alternatives considered.** Normalizing ratings per reader with z-scores from hidden ratings (leaks; σ_u uses visible ratings only). Picking the champion on MAE, or a combined score (the user chose NDCG@10 with the guardrail). Style groups from test-set terciles (would let test ratings define the groups).
+
+**Numbers (test, 5,895 readers, full history, v5).**
+- Displayed rating: MAE 0.675, RMSE 0.879, Pearson 0.504, per-reader Spearman 0.314, 77.6% within one star.
+- Uncalibrated: MAE 0.672.
+- Book average + reader offset: 0.678 (the model wins for 49% of readers and loses for 45%; mean difference −0.0025, CI −0.0036 to −0.0012).
+- Book average: 0.763. The reader's average: 0.727. Goodreads average: 0.764. 2023 similar readers: 0.792. 2023 SVD: 0.797.
+- With one visible rating: displayed 0.740, book average + offset 0.742.
+- Every method over-predicts the books readers disliked (+2.3★ bias at 1★) and under-predicts 5★ books (−0.65).
+
+So most of the gain over book averages comes from the reader's offset; the similar-books residual adds little on MAE. Calibration costs 0.003 MAE but keeps predictions more spread out (59% of the actual spread vs 53%).
+
+## D-051 · Reconstruct earlier rating models for the version history
+- **Date:** 2026-10-04
+- **Category:** eval
+- **Prompts:** fe7c091a-140
+- **Commits:** a316c08, c85dd3f
+
+**Decision.** The five versions differ mostly in ranking settings, so with today's code their predicted ratings would be identical. To chart a real rating history, the evaluation can reconstruct earlier rating models (`RatingSettings`, `run.py --rating`, evaluation only; `core/` is unchanged).
+- **Item means.** "global" is the training average shrunk toward the global mean, as before D-026.
+- **Calibration.** "full" applies the whole stretch to every book (the first calibration, before the evidence gate of D-027); "none" is the raw prediction.
+- **Per-version settings** (from the git history; recorded in `eval/versions.json`):
+  - v1: global, none;
+  - v2: global, full (calibration arrived in 32555e9);
+  - v3–v5: today's (9aba0e6).
+
+Each version was re-run on the test set against the previous one, so the chart shows per-reader intervals between neighbours. Reconstructed versions run on today's data and artifacts; the page says so. This was the user's choice ("Reconstruct them").
+
+**Numbers (full-history MAE).** v1 0.677, v2 0.755, v3–v5 0.675 (v4 and v5 change only the ranking: identical predictions). Full calibration made predictions worse (v2 vs v1: +0.078, CI 0.074 to 0.083), and the evidence gate recovered it (v3 vs v2: −0.080), matching the earlier finding behind D-027. Track 1 numbers of all five re-runs match the earlier reports exactly.

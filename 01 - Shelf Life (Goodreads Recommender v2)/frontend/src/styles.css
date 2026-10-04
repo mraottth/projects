@@ -1034,6 +1034,8 @@ button.chip:hover { background: #f1f0eb; }
 .evaluation { max-width: 960px; margin: 0 auto; }
 .ev-chart { display: flex; flex-direction: column; margin: 18px 0 26px; padding: 16px 18px 14px; background: var(--card);
   border: 1px solid var(--ring); border-radius: 16px; box-shadow: var(--shadow); min-height: 460px; }
+.evaluation .ev-track { margin: 2px 0 14px; }
+.evaluation .ev-track button { padding: 8px 18px; font-size: 0.95rem; }
 .ev-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; font-size: 0.92rem; }
 .ev-controls select { margin-left: 4px; font: inherit; padding: 4px 6px; border-radius: 8px; border: 1px solid var(--ring); background: var(--card); }
 .ev-body { flex: 1; min-height: 0; display: flex; gap: 16px; margin-top: 10px; }
@@ -1054,6 +1056,8 @@ button.chip:hover { background: #f1f0eb; }
 .ev-ref-0 text { fill: #8d6122; }
 .ev-ref-1 line { stroke: var(--muted); }
 .ev-ref-1 text { fill: var(--ink-2); }
+.ev-ref-2 line { stroke: #3f8a8c; }
+.ev-ref-2 text { fill: #2f6d6f; }
 .ev-point { cursor: pointer; outline: none; -webkit-tap-highlight-color: transparent; }
 .ev-hit { fill: transparent; }
 .ev-dot { fill: var(--card); stroke: var(--accent); stroke-width: 3; transition: r 0.15s ease; }
@@ -1076,6 +1080,7 @@ button.chip:hover { background: #f1f0eb; }
   background: color-mix(in srgb, var(--accent) 14%, white); white-space: nowrap; }
 .ev-delta td.up { color: #1d7a3c; }
 .ev-delta td { white-space: nowrap; }
+.ev-delta td:first-child { white-space: normal; }
 .ev-pct { display: block; font-size: 0.82em; opacity: 0.85; }
 .ev-list { margin: 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
 .ev-list summary { cursor: pointer; line-height: 1.4; }

@@ -14,6 +14,7 @@ export interface UrlState {
   filters: Filters;          // recommendations
   explore: Filters;          // explore page
   browseSort: BrowseSort;
+  track: "ranking" | "rating";   // Evaluation page: which evaluation track is shown
 }
 
 /** Explore browses the whole catalog, so nothing is hidden by default. */
@@ -58,6 +59,7 @@ function parse(search: string): UrlState {
     filters: view === "recs" ? parseFilters(p, EMPTY_FILTERS) : { ...EMPTY_FILTERS },
     explore: view === "explore" ? parseFilters(p, EXPLORE_DEFAULTS) : { ...EXPLORE_DEFAULTS },
     browseSort: BROWSE_SORTS.includes(bs) ? bs : "popular",
+    track: p.get("track") === "rating" ? "rating" : "ranking",
   };
 }
 
@@ -74,6 +76,7 @@ function serialize(s: UrlState): string {
     if (s.browseSort !== "popular") p.set("bsort", s.browseSort);
     writeFilters(p, s.explore, EXPLORE_DEFAULTS);
   }
+  if (s.view === "evaluation" && s.track === "rating") p.set("track", "rating");
   const qs = p.toString();
   return qs ? `?${qs}` : window.location.pathname;
 }

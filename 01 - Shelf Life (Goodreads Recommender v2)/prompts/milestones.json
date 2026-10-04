@@ -548,5 +548,31 @@
   "decisions": [
    "D-049"
   ]
+ },
+ {
+  "id": "M23",
+  "date": "2026-10-04",
+  "icon": "🎯",
+  "category": "eval",
+  "title": "Rating predictions get their own test",
+  "summary": "The evaluation now has two tracks on the same readers and hidden books: whether the right books reach the top, and how close each card's predicted rating is to the one the reader gave. On test readers the predictions miss by 0.68 stars on average (0.76 for book averages), mostly thanks to adjusting for how generous each reader is. Earlier rating models were rebuilt to chart the history, and the Evaluation page switches between the two tracks.",
+  "prompts": [
+   "fe7c091a-139",
+   "fe7c091a-140",
+   "fe7c091a-141"
+  ],
+  "commits": [
+   "e08af3c",
+   "a316c08",
+   "8fd70c5",
+   "3b069fc",
+   "00d9b98",
+   "24f06ad",
+   "c85dd3f"
+  ],
+  "decisions": [
+   "D-050",
+   "D-051"
+  ]
  }
 ]

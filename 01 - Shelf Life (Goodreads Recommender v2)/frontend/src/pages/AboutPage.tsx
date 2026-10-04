@@ -233,16 +233,21 @@ export function AboutPage({ go }: { go: (v: "changelog" | "evaluation") => void 
               <p>A baseline plus a neighborhood residual (a classic item-kNN predictor), separate from the ranking blend:</p>
               <TeX block>{String.raw`\begin{aligned}\mu_j&=\dfrac{n_j\,\bar r_j+50\,g_j}{n_j+50}&&\text{dataset mean, shrunk toward the Goodreads average }g_j\\[4pt] b_u&=\dfrac{\sum_i\,(r_{ui}-\mu_i)}{n+5}&&\text{user bias, shrunk}\\[4pt] \hat r_{uj}&=\operatorname{clip}_{[1,5]}\!\left(\mu_j+b_u+\dfrac{\sum_i s_{ij}\,(r_{ui}-\mu_i-b_u)}{\sum_i|s_{ij}|+0.5}\right)\end{aligned}`}</TeX>
               <p>The sum runs over your rated books linked to <em>j</em> in either direction of the top-50 neighbor lists, using
-                the larger similarity. Accuracy of this raw prediction on held-out ratings (RMSE in stars, lower is better)
-                improves as you rate more:</p>
+                the larger similarity. On the evaluation&apos;s rating track (every hidden rating of 5,895 test readers,
+                MAE in stars, lower is better), the displayed rating improves as you rate more:</p>
               <table className="viz-table about-table">
                 <thead><tr><th>Visible ratings</th><th>1</th><th>3</th><th>5</th><th>10</th><th>25</th><th>all</th></tr></thead>
                 <tbody>
-                  <tr><td>Predicted rating</td><td>0.935</td><td>0.910</td><td>0.900</td><td>0.883</td><td>0.869</td><td><strong>0.852</strong></td></tr>
-                  <tr><td>Book mean <TeX>{String.raw`\mu_j`}</TeX></td><td colSpan={6}>0.953 (doesn&apos;t use your ratings)</td></tr>
-                  <tr><td>Goodreads average alone</td><td colSpan={6}>0.971</td></tr>
+                  <tr><td>Displayed rating</td><td>0.740</td><td>0.716</td><td>0.702</td><td>0.685</td><td>0.676</td><td><strong>0.675</strong></td></tr>
+                  <tr><td>Before calibration</td><td>0.740</td><td>0.716</td><td>0.701</td><td>0.684</td><td>0.674</td><td>0.672</td></tr>
+                  <tr><td>Book mean + your bias <TeX>{String.raw`\mu_j+b_u`}</TeX></td><td>0.742</td><td>0.718</td><td>0.704</td><td>0.688</td><td>0.679</td><td>0.678</td></tr>
+                  <tr><td>Book mean <TeX>{String.raw`\mu_j`}</TeX></td><td colSpan={6}>0.763 (doesn&apos;t use your ratings)</td></tr>
                 </tbody>
               </table>
+              <p>Most of the gain over the book mean comes from knowing how tough or generous a rater you are; the similar-books
+                correction adds a little (it orders a reader&apos;s own books slightly better: rank correlation 0.314 vs 0.306).
+                Calibration costs 0.003 stars of MAE but spreads predictions more like real ratings (59% of their spread
+                vs 53%).</p>
               <p>
                 <strong>Calibration.</strong> A least-squares predictor regresses toward your mean, so a tough grader almost
                 never sees a 4.5 (0.2% of held-out predictions for raters averaging under 3.6★, who actually give 5★ 14% of
@@ -261,7 +266,7 @@ export function AboutPage({ go }: { go: (v: "changelog" | "evaluation") => void 
                 evidence weighting, on 1,200 held-out users, the displayed RMSE is 0.87, and 22% of predictions reach 4.5
                 or more (vs. 35% actual 5★), mostly books tied to your own ratings. Below 5 ratings the raw value is shown.
               </p>
-              <CodeRefs items={[["predict_ratings", "predict_ratings()"], ["calibration", "calibration()"], ["rating_rmse", "eval run._work()"]]} />
+              <CodeRefs items={[["predict_ratings", "predict_ratings()"], ["calibration", "calibration()"], ["rating_track", "summarize_rating()"]]} />
             </Tech>
           </dd>
         </div>
@@ -272,7 +277,8 @@ export function AboutPage({ go }: { go: (v: "changelog" | "evaluation") => void 
         To test it fairly, 10,000 readers were set aside and never used for training. For each of them, the most recent
         30% of the books they read were hidden, and the test asked whether the ones they went on to love (4–5★) showed
         up in their top 10 recommendations, given everything they had read before. The score (NDCG@10) rewards putting
-        those books near the top; higher is better.{" "}
+        those books near the top; higher is better. A second track, on the same readers and hidden books, checks the
+        predicted star rating on each card against the rating the reader actually gave.{" "}
         <button type="button" className="link primary-link" onClick={() => go("evaluation")}>
           See how the model improved, version by version →
         </button>
@@ -296,8 +302,9 @@ export function AboutPage({ go }: { go: (v: "changelog" | "evaluation") => void 
         <li><strong>Recent reading matters.</strong> Counting recently read books more than old ones raised full-history
           scores by another 14% (0.077 → 0.087). It uses the reading dates in a Goodreads import, so it helps most
           for imported libraries.</li>
-        <li><strong>Predicted ratings are close.</strong> They&apos;re typically within about 0.87 stars of the rating
-          people actually gave, compared with 0.96 stars for just using each book&apos;s average.</li>
+        <li><strong>Predicted ratings are close.</strong> On average they miss the rating people actually gave by 0.68
+          stars, and 78% are within one star, compared with a 0.76-star miss for just using each book&apos;s average. Most
+          of that gain comes from adjusting for how generous a rater you are.</li>
       </ul>
       <Tech>
         <ul>
@@ -319,8 +326,13 @@ export function AboutPage({ go }: { go: (v: "changelog" | "evaluation") => void 
             ties and losses against each baseline with confidence intervals, catalog coverage and the mean popularity of
             recommendations (a popularity-bias check). The 2023 row is that project&apos;s similar-readers method, the
             better of the two 2023 methods re-implemented on this data.</li>
+          <li><strong>Rating track:</strong> every hidden rating (1–5★), predicted from the visible ratings only. MAE is the
+            main score, with RMSE, correlation (pooled, and within each reader&apos;s books), the share within one star,
+            bias by actual rating, a calibration table, and results by rating style (readers grouped by how widely they
+            spread their ratings, with cut points fixed on the validation readers). A new version can only become the
+            champion if its MAE isn&apos;t significantly worse than the current one&apos;s.</li>
         </ul>
-        <CodeRefs items={[["matrix_split", "s05_matrix.main()"], ["eval_split", "split_user()"], ["evaluate", "evaluate()"], ["metrics", "at_k()"], ["paired", "paired()"], ["baselines", "simple_baselines()"], ["legacy2023", "legacy2023.py"], ["eval_reports", "eval/reports/"]]} />
+        <CodeRefs items={[["matrix_split", "s05_matrix.main()"], ["eval_split", "split_user()"], ["evaluate", "evaluate()"], ["metrics", "at_k()"], ["rating_metrics_user", "rating_user()"], ["rating_settings", "RatingSettings"], ["paired", "paired()"], ["baselines", "simple_baselines()"], ["legacy2023", "legacy2023.py"], ["eval_reports", "eval/reports/"]]} />
         <p>
           <strong>How it runs:</strong> all the heavy work (both models, the similar-books lists and the catalog) is done
           ahead of time by an offline pipeline, so the web server only looks things up and a recommendation request takes

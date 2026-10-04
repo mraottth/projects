@@ -45,7 +45,9 @@ LINKS = {
     # predicted rating
     "predict_ratings": ("src/goodrec/core/scoring.py", "predict_ratings"),
     "calibration": ("src/goodrec/core/scoring.py", "calibration"),
-    "rating_rmse": ("src/goodrec/eval/run.py", "_work"),
+    "rating_track": ("src/goodrec/eval/run.py", "summarize_rating"),
+    "rating_metrics_user": ("src/goodrec/eval/metrics.py", "rating_user"),
+    "rating_settings": ("src/goodrec/eval/rating.py", "RatingSettings"),
     # evaluation
     "eval_split": ("src/goodrec/eval/split.py", "split_user"),
     "evaluate": ("src/goodrec/eval/run.py", "evaluate"),

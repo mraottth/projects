@@ -1,10 +1,13 @@
 """Offline evaluation: per-user temporal hide-and-predict on held-out users (goodrec.eval.split).
 
 For each evaluated user, the model sees their visible history (cut to the n most recent ratings for each
-n in eval.n_buckets) and ranks unread books; a hit is a hidden book they rated >= 4. Shelf Life (the For
-you ranking as served) is compared with random, popular and genre+popularity baselines, the 2023
-recommender's similar-readers and SVD methods (goodrec.eval.legacy2023), the previous best model
-(eval/champion.json) and, with --ablations, its own components. Writes
+n in eval.n_buckets). Two tracks, on the same users, histories and hidden books:
+- Track 1, recommendation quality: rank unread books; a hit is a hidden book they rated >= 4.
+- Track 2, rating prediction: predict the rating of every hidden book (goodrec.eval.rating).
+Shelf Life (the For you ranking and the card's predicted rating, as served) is compared with random, popular
+and genre+popularity baselines (ranking), book-average, user-offset and user-mean baselines (rating), the
+2023 recommender's similar-readers and SVD methods (both tracks, goodrec.eval.legacy2023), the previous best
+model (eval/champion.json) and, with --ablations, its own components. Writes
 eval/reports/<stamp>_<model>.md/.json and per-user results to eval/runs/.
 
   uv run python -m goodrec.eval.run                          # test set, all baselines
@@ -12,6 +15,7 @@ eval/reports/<stamp>_<model>.md/.json and per-user results to eval/runs/.
   uv run python -m goodrec.eval.run --set validation --models shelf_life --grid "k_a=20,50;a_max=0.5,1.0"
   uv run python -m goodrec.eval.run --promote                # make this model the champion if it beats it
   uv run python -m goodrec.eval.run --params "delta_pred=0" --name "..."   # re-score other settings (not promotable)
+  uv run python -m goodrec.eval.run --rating "item_means=global;calibration=none"   # an earlier rating model
 """
 
 import os
@@ -34,10 +38,14 @@ import orjson  # noqa: E402
 
 from goodrec.config import ARTIFACTS_DIR, ROOT, load_config  # noqa: E402
 from goodrec.core.artifacts import load_artifacts  # noqa: E402
-from goodrec.core.scoring import Params, predict_ratings  # noqa: E402
+from goodrec.core.scoring import Params  # noqa: E402
 from goodrec.eval import report  # noqa: E402
-from goodrec.eval.metrics import METRICS, at_k, paired  # noqa: E402
-from goodrec.eval.models import Recommender, ShelfLife, shelf_life_models, simple_baselines  # noqa: E402
+from goodrec.eval.metrics import (METRICS, POOL_LEN, RATING_COLS, at_k, paired, pooled_summary,  # noqa: E402
+                                  rating_pool, rating_user)
+from goodrec.eval.models import (Recommender, ShelfLife, rating_baselines, shelf_life_models,  # noqa: E402
+                                 simple_baselines)
+from goodrec.eval.rating import (STYLES, RatingSettings, population_sd, rating_artifacts, rating_style,  # noqa: E402
+                                 user_sigma)
 from goodrec.eval.split import load_split  # noqa: E402
 
 EVAL_DIR = ROOT / "eval"
@@ -49,30 +57,35 @@ _STATE: dict = {}      # set before forking the worker pool
 
 
 def _work(job: tuple[int, np.ndarray]) -> tuple[int, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Score one model on a chunk of cases (runs in a worker process)."""
+    """Score one model on a chunk of cases, on each track it takes part in (runs in a worker process)."""
     mi, idx = job
     rec: Recommender = _STATE["models"][mi]
     cases, buckets, rel_min, seed = _STATE["cases"], _STATE["buckets"], _STATE["rel_min"], _STATE["seed"]
-    art = _STATE.get("art")
+    fallback, pop_sd = _STATE["fallback"], _STATE["pop_sd"]
     met = np.full((len(idx), len(buckets), len(COLS)), np.nan, np.float32)
     tops = np.full((len(idx), len(buckets), KMAX), -1, np.int32)
-    sse = np.zeros((len(idx), len(buckets), 3))          # rating error: predicted, item mean, Goodreads avg
-    cnt = np.zeros(len(idx))
+    rmet = np.full((len(idx), len(buckets), len(RATING_COLS)), np.nan, np.float32)
+    pool = np.zeros((len(idx), len(buckets), POOL_LEN), np.float32)
     for r, ci in enumerate(idx):
         c = cases[ci]
         rel = c.relevant(rel_min)
+        items, truth = c.hidden.astype(np.int64), c.hidden_r.astype(np.float64)
         for b, n in enumerate(buckets):
             user = c.user_input(n)
-            top = np.asarray(rec.recommend(user, KMAX, np.random.default_rng([seed, c.user, b])), dtype=np.int64)
-            tops[r, b, : len(top)] = top
-            met[r, b] = [*at_k(top, rel, 10), *at_k(top, rel, 20)]
-            if rec.key == "shelf_life":
-                pred = predict_ratings(art, user, c.hidden.astype(np.int64))
-                truth = c.hidden_r.astype(np.float64)
-                sse[r, b] = [((pred - truth) ** 2).sum(), ((np.clip(art.meta.bayes[c.hidden], 1, 5) - truth) ** 2).sum(),
-                             ((art.meta.avg_rating[c.hidden] - truth) ** 2).sum()]
-        cnt[r] = len(c.hidden)
-    return mi, met, tops, sse, cnt
+            top, pred = rec.run(user, KMAX, np.random.default_rng([seed, c.user, b]), items)
+            if top is not None:
+                top = np.asarray(top, dtype=np.int64)
+                tops[r, b, : len(top)] = top
+                met[r, b] = [*at_k(top, rel, 10), *at_k(top, rel, 20)]
+            if pred is not None:
+                # Only visible ratings and training-only artifacts reach `pred` and σ_u; `truth` is only compared.
+                pred = np.asarray(pred, dtype=np.float64)
+                miss = np.isnan(pred)
+                pred = np.clip(np.where(miss, fallback[items], pred), 1, 5)
+                sigma = user_sigma(np.fromiter(user.ratings.values(), dtype=np.float64), pop_sd)
+                rmet[r, b] = rating_user(pred, truth, sigma)
+                pool[r, b] = rating_pool(pred, truth, int(miss.sum()))
+    return mi, met, tops, rmet, pool
 
 
 def _subsample(n_cases: int, size: int | None, seed: int) -> np.ndarray:
@@ -82,12 +95,12 @@ def _subsample(n_cases: int, size: int | None, seed: int) -> np.ndarray:
 
 
 def evaluate(models: list[Recommender], cases, buckets, cfg, workers: int) -> dict:
-    """Run every model; returns key -> {"idx", "met", "tops"} (+ "sse"/"cnt" for shelf_life)."""
+    """Run every model; returns key -> {"idx", "met", "tops", "rmet", "pool"} (NaN / zeros off its tracks)."""
     _STATE.update(models=models, cases=cases, buckets=buckets, rel_min=cfg["relevant_min_rating"], seed=cfg["seed"])
     jobs, out = [], {}
     for mi, rec in enumerate(models):
         idx = _subsample(len(cases), rec.subsample, cfg["seed"])
-        out[rec.key] = {"idx": idx, "met": [], "tops": [], "sse": [], "cnt": [], "t": 0.0}
+        out[rec.key] = {"idx": idx, "met": [], "tops": [], "rmet": [], "pool": []}
         for chunk in np.array_split(idx, max(1, min(len(idx), workers * 6))):
             jobs.append((mi, chunk))
     t0 = time.time()
@@ -100,29 +113,30 @@ def evaluate(models: list[Recommender], cases, buckets, cfg, workers: int) -> di
         for job in jobs:
             done = _collect(_work(job), models, out, done, len(jobs), t0)
     for v in out.values():
-        for f in ("met", "tops", "sse"):
-            v[f] = np.concatenate(v[f]) if v[f] else None
-        v["cnt"] = np.concatenate(v["cnt"]) if v["cnt"] else None
+        for f in FIELDS:
+            v[f] = np.concatenate(v[f])
     return out
 
 
 def _collect(res, models, out, done, total, t0) -> int:
-    mi, met, tops, sse, cnt = res
+    mi, *arrays = res
     o = out[models[mi].key]
-    o["met"].append(met)
-    o["tops"].append(tops)
-    o["sse"].append(sse)
-    o["cnt"].append(cnt)
+    for f, a in zip(FIELDS, arrays):
+        o[f].append(a)
     done += 1
     if done % max(1, total // 20) == 0 or done == total:
         print(f"  {done}/{total} chunks ({time.time() - t0:.0f}s)", flush=True)
     return done
 
 
-def per_user(res: dict, n_cases: int) -> np.ndarray:
-    """(n_cases, buckets, cols) with NaN for users a subsampled model didn't run on."""
-    full = np.full((n_cases, *res["met"].shape[1:]), np.nan, np.float32)
-    full[res["idx"]] = res["met"]
+FIELDS = ("met", "tops", "rmet", "pool")
+FILL = {"met": np.nan, "tops": -1, "rmet": np.nan, "pool": 0}
+
+
+def per_user(res: dict, n_cases: int, f: str = "met") -> np.ndarray:
+    """(n_cases, buckets, ...) for one result field, NaN (-1, 0) for users a subsampled model didn't run on."""
+    full = np.full((n_cases, *res[f].shape[1:]), FILL[f], res[f].dtype)
+    full[res["idx"]] = res[f]
     return full
 
 
@@ -168,7 +182,7 @@ def cache_path(rec: Recommender, split_hash: str, set_: str, users: int | None, 
     h = hashlib.sha256(repr((rec.key, rec.subsample, rec.description, split_hash, set_, users, cfg["n_buckets"],
                              cfg["relevant_min_rating"], cfg["seed"], KMAX)).encode())
     h.update((ARTIFACTS_DIR / "manifest.json").read_bytes())
-    for f in ("models.py", "legacy2023.py", "metrics.py", "split.py"):
+    for f in ("models.py", "legacy2023.py", "metrics.py", "rating.py", "split.py"):
         h.update((Path(__file__).parent / f).read_bytes())
     return EVAL_DIR / "runs" / f"cache_{rec.key}_{h.hexdigest()[:12]}.npz"
 
@@ -179,11 +193,12 @@ def load_champion() -> dict | None:
 
 def main(set_: str = "test", users: int | None = None, models: str | None = None, ablations: bool = False,
          grid: str | None = None, workers: int | None = None, promote: bool = False, name: str | None = None,
-         fresh: bool = False, params: str | None = None) -> None:
+         fresh: bool = False, params: str | None = None, rating: str | None = None) -> None:
     if grid and set_ != "validation":
         raise SystemExit("--grid tunes parameters, so it only runs on --set validation.")
-    if promote and params:
-        raise SystemExit("--params re-scores other settings; it can't be promoted (change config/pipeline.yaml instead).")
+    if promote and (params or rating):
+        raise SystemExit("--params and --rating re-score other settings; they can't be promoted (change the config instead).")
+    rsettings = RatingSettings.parse(rating)
     overrides = {}
     if params:
         points = grid_points(params)
@@ -200,17 +215,19 @@ def main(set_: str = "test", users: int | None = None, models: str | None = None
     buckets = cfg["n_buckets"]
     art = load_artifacts(with_readers=False)
     prior = np.asarray(orjson.loads((ARTIFACTS_DIR / "population_stats.json").read_bytes())["rating_dist"])
-    _STATE["art"] = art
+    bayes_m = full_cfg["blend"]["bayes_m"]
+    _STATE.update(fallback=np.clip(art.meta.bayes, 1, 5).astype(np.float64), pop_sd=population_sd(prior))
 
     recs = shelf_life_models(art, prior, ablations=ablations, name=name or "Shelf Life (current config)",
-                             params=Params.from_config(**overrides))
-    recs += simple_baselines(art)
+                             params=Params.from_config(**overrides), rating=rsettings,
+                             rating_art=rating_artifacts(art, rsettings, bayes_m))
+    recs += simple_baselines(art) + rating_baselines(art)
     wanted = set(models.split(",")) if models else None
     if wanted is None or wanted & {"similar_readers_2023", "svd_2023"}:
         from goodrec.eval.legacy2023 import legacy_baselines
         recs += legacy_baselines(art, cfg["subsample"])
     if wanted:
-        recs = [r for r in recs if r.key in wanted or r.key in ("shelf_life", "shelf_life_display")]
+        recs = [r for r in recs if r.key in wanted or r.key in ("shelf_life", "shelf_life_display", "shelf_life_raw")]
     for point in grid_points(grid) if grid else []:
         label = ", ".join(f"{k}={v}" for k, v in point.items())
         recs.append(ShelfLife(key="grid_" + "_".join(f"{k}{v}" for k, v in point.items()), name=f"grid: {label}",
@@ -220,21 +237,31 @@ def main(set_: str = "test", users: int | None = None, models: str | None = None
     notes = []
     if overrides:
         notes.append("Model settings overridden for this run: " + ", ".join(f"{k}={v}" for k, v in overrides.items()) + ".")
+    if not rsettings.is_default:
+        notes.append(f"Rating model reconstructed for this run ({rsettings.text()}); see goodrec/eval/rating.py. "
+                     "It runs on today's data and artifacts.")
     champ = load_champion()
     champ_res = None
     if champ and (wanted is None or "champion" in wanted):
         same_split = champ.get("split_hash") == split.hash and champ.get("set") == set_ and not users
         runs = EVAL_DIR / champ["runs"] if champ.get("runs") else None
+        crs = RatingSettings(**champ.get("rating", {}))
+        live = dict(key="champion", name=f"Previous best: {champ['name']}", kind="baseline", art=art, prior=prior,
+                    params=params_from_json(champ["params"]), rating=crs, rating_art=rating_artifacts(art, crs, bayes_m),
+                    description=f"Champion from {champ.get('commit', '?')} ({champ.get('report', '')}), "
+                                "re-run on the current artifacts.")
         if same_split and runs and runs.exists():
             z = np.load(runs)
             champ_res = {"idx": np.arange(len(cases)), "met": z["met"], "tops": z["tops"]}
-            notes.append(f"Previous best ({champ['name']}) reused from {champ['runs']} (same split).")
+            if "rmet" in z.files:
+                champ_res.update(rmet=z["rmet"], pool=z["pool"])
+                notes.append(f"Previous best ({champ['name']}) reused from {champ['runs']} (same split).")
+            else:    # saved before the rating track: reuse its rankings, predict its ratings now
+                recs.append(ShelfLife(**live, tracks=("rating",)))
+                notes.append(f"Previous best ({champ['name']}): rankings reused from {champ['runs']} (same split), "
+                             "ratings predicted in this run.")
         else:
-            recs.append(ShelfLife(key="champion", name=f"Previous best: {champ['name']}", kind="baseline",
-                                  art=art, prior=prior,
-                                  params=params_from_json(champ["params"]),
-                                  description=f"Champion from {champ.get('commit', '?')} ({champ.get('report', '')}), "
-                                              "re-run on the current artifacts."))
+            recs.append(ShelfLife(**live, tracks=("ranking", "rating")))
     elif not champ:
         notes.append("No previous best yet (eval/champion.json is created by --promote).")
 
@@ -246,7 +273,7 @@ def main(set_: str = "test", users: int | None = None, models: str | None = None
             path = cache_path(r, split.hash, set_, users, cfg)
             if path.exists():
                 z = np.load(path)
-                cached[r.key] = {"idx": z["idx"], "met": z["met"], "tops": z["tops"]}
+                cached[r.key] = {f: z[f] for f in ("idx", *FIELDS)}
     if cached:
         notes.append("Baseline results reused from the cache (same code, split, settings and artifacts): "
                      + ", ".join(r.name for r in cacheable if r.key in cached) + ".")
@@ -259,15 +286,19 @@ def main(set_: str = "test", users: int | None = None, models: str | None = None
     for r in cacheable:
         if r.key in res:
             np.savez_compressed(cache_path(r, split.hash, set_, users, cfg), idx=res[r.key]["idx"],
-                                met=res[r.key]["met"], tops=res[r.key]["tops"])
+                                **{f: res[r.key][f] for f in FIELDS})
     res.update(cached)
     if champ_res is not None:
+        if "rmet" not in champ_res:
+            champ_res.update(rmet=res["champion"]["rmet"], pool=res["champion"]["pool"])
+        recs = [r for r in recs if r.key != "champion"]
         recs.append(Recommender(key="champion", name=f"Previous best: {champ['name']}", kind="baseline",
+                                tracks=("ranking", "rating"),
                                 description=f"Champion from {champ.get('commit', '?')} ({champ.get('report', '')})."))
         res["champion"] = champ_res
     elapsed = time.time() - t
 
-    summary = summarize(recs, res, cases, buckets, art, cfg)
+    summary = summarize(recs, res, cases, buckets, art, cfg, population_sd(prior))
     stamp = dt.datetime.now().strftime("%Y-%m-%d_%H%M")
     model = next(r for r in recs if r.key == "shelf_life")
     sha, dirty = git_info()
@@ -277,6 +308,7 @@ def main(set_: str = "test", users: int | None = None, models: str | None = None
         model={"key": model.key, "name": model.name, "description": model.description},
         params=params_json(model.params),
         params_text=", ".join(f"{k}={v}" for k, v in params_json(model.params).items()),
+        rating=dataclasses.asdict(rsettings), rating_text=rsettings.text(),
         artifacts=str(ARTIFACTS_DIR.relative_to(ROOT)),
         artifacts_built=dt.datetime.fromtimestamp((ARTIFACTS_DIR / "item_meta.npz").stat().st_mtime).strftime("%Y-%m-%d %H:%M"),
     )
@@ -285,8 +317,8 @@ def main(set_: str = "test", users: int | None = None, models: str | None = None
     runs_dir.mkdir(parents=True, exist_ok=True)
     for r in recs:
         if r.key in res and r.key != "champion":
-            np.savez_compressed(runs_dir / f"{stamp}_{set_}_{r.key}.npz", met=per_user(res[r.key], len(cases)),
-                                tops=_full_tops(res[r.key], len(cases)), users=np.array([c.user for c in cases]))
+            np.savez_compressed(runs_dir / f"{stamp}_{set_}_{r.key}.npz", users=np.array([c.user for c in cases]),
+                                **{f: per_user(res[r.key], len(cases), f) for f in FIELDS})
     out_dir = EVAL_DIR / "reports"
     out_dir.mkdir(parents=True, exist_ok=True)
     tag = "validation" if set_ == "validation" else model.key
@@ -296,26 +328,22 @@ def main(set_: str = "test", users: int | None = None, models: str | None = None
     print(f"  report: {md.relative_to(ROOT)}")
     for row in summary["rows"]:
         print(f"    {row['name']:<40} NDCG@10 all={row['by_n']['-1']['ndcg@10']:.4f}")
+    for row in summary["rating_rows"]:
+        print(f"    {row['name']:<40} MAE all={row['by_n']['-1']['mae']:.4f}")
 
     if promote:
         promote_if_better(summary, champ, stamp, set_, md, runs_dir)
 
 
-def _full_tops(res: dict, n_cases: int) -> np.ndarray:
-    full = np.full((n_cases, *res["tops"].shape[1:]), -1, np.int32)
-    full[res["idx"]] = res["tops"]
-    return full
-
-
-def summarize(recs, res, cases, buckets, art, cfg) -> dict:
+def summarize(recs, res, cases, buckets, art, cfg, pop_sd: float) -> dict:
     order = {"model": 0, "display": 1, "baseline": 2, "ablation": 3}
     recs_sorted = sorted(recs, key=lambda r: (order[r.kind], r.key != "champion"))
     rows = []
     for r in recs_sorted:
-        if r.key not in res:
+        if r.key not in res or "ranking" not in r.tracks:
             continue
         full = per_user(res[r.key], len(cases))
-        tops = _full_tops(res[r.key], len(cases))
+        tops = per_user(res[r.key], len(cases), "tops")
         by_n = {}
         for b, n in enumerate(buckets):
             ok = ~np.isnan(full[:, b, 0])
@@ -353,28 +381,94 @@ def summarize(recs, res, cases, buckets, art, cfg) -> dict:
             str(n): paired(model[:, b, j], base[:, b, j], cfg["bootstrap"], cfg["seed"]) for b, n in enumerate(buckets)}})
 
     out = {"rows": rows, "head_to_head": h2h, "best_2023": best_legacy}
-    sl = res["shelf_life"]
-    if sl.get("sse") is not None:
-        tot = sl["cnt"].sum()
-        out["rating_rmse"] = {nm: {str(n): float(np.sqrt(sl["sse"][:, b, i].sum() / tot)) for b, n in enumerate(buckets)}
-                              for i, nm in enumerate(("Shelf Life predicted rating", "item mean", "Goodreads average"))}
+    out.update(summarize_rating(recs_sorted, res, cases, buckets, cfg, pop_sd))
     return out
 
 
+def summarize_rating(recs_sorted, res, cases, buckets, cfg, pop_sd: float) -> dict:
+    """Track 2: per-user rating metrics averaged over users, pooled ones from summed counts, by rating style
+    (σ_u of the full visible history against the validation-set cut points) and per-user MAE head-to-heads."""
+    sigma = np.array([user_sigma(c.visible_r, pop_sd) for c in cases])
+    style = rating_style(sigma, cfg["rating_style_cuts"])
+    col = {c: i for i, c in enumerate(RATING_COLS)}
+    full_b = buckets.index(-1) if -1 in buckets else len(buckets) - 1
+    rows = []
+    for r in recs_sorted:
+        if r.key not in res or "rating" not in r.tracks:
+            continue
+        rm = per_user(res[r.key], len(cases), "rmet")
+        pool = per_user(res[r.key], len(cases), "pool").astype(np.float64)
+        ran = ~np.isnan(rm[:, 0, 0])
+        by_n = {}
+        for b, n in enumerate(buckets):
+            x = rm[:, b]
+            p = pooled_summary(pool[ran, b].sum(axis=0))
+            by_n[str(n)] = {
+                "mae": float(np.nanmean(x[:, col["mae"]])), "rmse": float(np.sqrt(np.nanmean(x[:, col["mse"]]))),
+                "pearson": p["pearson"], "spearman": float(np.nanmean(x[:, col["spearman"]])),
+                "spearman_users": float((~np.isnan(x[ran, col["spearman"]])).mean()),
+                "within1": float(np.nanmean(x[:, col["within1"]])), "within05": float(np.nanmean(x[:, col["within05"]])),
+                "bias": float(np.nanmean(x[:, col["bias"]])), "nmae": float(np.nanmean(x[:, col["nmae"]])),
+                "sd_pred": p["sd_pred"], "sd_actual": p["sd_actual"], "fallback": p["fallback"],
+            }
+        p = pooled_summary(pool[ran, full_b].sum(axis=0))
+        x = rm[:, full_b]
+        by_style = []
+        for g, label in enumerate(STYLES):
+            m = ran & (style == g)
+            by_style.append({"style": label, "users": int(m.sum()),
+                             **{k: float(np.nanmean(x[m, col[k]])) if m.any() else None
+                                for k in ("mae", "nmae", "spearman", "bias")}})
+        rows.append({"key": r.key, "name": r.name, "kind": r.kind, "description": r.description,
+                     "n_users": int(ran.sum()), "by_n": by_n, "calibration": p["calibration"],
+                     "by_star": p["by_star"], "by_style": by_style})
+
+    model = per_user(res["shelf_life"], len(cases), "rmet")[..., col["mae"]]
+    legacy = [r for r in rows if r["key"].endswith("_2023")]
+    best_legacy = min(legacy, key=lambda r: r["by_n"]["-1"]["mae"])["key"] if legacy else None
+    h2h = []
+    for r in rows:
+        if r["kind"] != "baseline":
+            continue
+        base = per_user(res[r["key"]], len(cases), "rmet")[..., col["mae"]]
+        name = r["name"] + (" (2023 best)" if r["key"] == best_legacy else "")
+        h2h.append({"key": r["key"], "name": name, "by_n": {
+            str(n): paired(model[:, b], base[:, b], cfg["bootstrap"], cfg["seed"], lower_is_better=True)
+            for b, n in enumerate(buckets)}})
+    cuts = cfg["rating_style_cuts"]
+    styles = [{"style": s, "users": int((style == g).sum())} for g, s in enumerate(STYLES)]
+    return {"rating_rows": rows, "rating_head_to_head": h2h, "rating_best_2023": best_legacy,
+            "rating_styles": {"cuts": cuts, "pop_sd": pop_sd, "groups": styles}}
+
+
 def promote_if_better(summary: dict, champ: dict | None, stamp: str, set_: str, md, runs_dir) -> None:
+    """Champion = best full-history NDCG@10, with a rating guardrail: not if its per-user MAE is significantly worse
+    than the champion's (the bootstrap CI of the MAE difference lies entirely above 0)."""
     score = next(r for r in summary["rows"] if r["key"] == "shelf_life")["by_n"]["-1"]["ndcg@10"]
+    mae = next(r for r in summary["rating_rows"] if r["key"] == "shelf_life")["by_n"]["-1"]["mae"]
     prev = next((r for r in summary["rows"] if r["key"] == "champion"), None)
     if prev and score <= prev["by_n"]["-1"]["ndcg@10"]:
         print(f"  not promoted: NDCG@10 {score:.4f} <= previous best {prev['by_n']['-1']['ndcg@10']:.4f}")
+        return
+    guard = next((h["by_n"]["-1"] for h in summary["rating_head_to_head"] if h["key"] == "champion"), None)
+    if not rating_guardrail_ok(guard):
+        print(f"  not promoted: rating MAE significantly worse than the previous best "
+              f"({guard['mean_diff']:+.4f}, 95% CI [{guard['ci95'][0]:+.4f}, {guard['ci95'][1]:+.4f}])")
         return
     src = runs_dir / f"{stamp}_{set_}_shelf_life.npz"
     keep = runs_dir / f"champion_{stamp}.npz"
     keep.write_bytes(src.read_bytes())
     rec = {"key": "shelf_life", "name": summary["model"]["name"], "params": summary["params"],
-           "commit": summary["commit"], "split_hash": summary["split_hash"], "set": set_, "ndcg@10": score,
+           "rating": summary["rating"], "commit": summary["commit"], "split_hash": summary["split_hash"], "set": set_,
+           "ndcg@10": score, "mae": mae,
            "report": str(md.relative_to(EVAL_DIR)), "runs": str(keep.relative_to(EVAL_DIR)), "promoted": stamp}
     CHAMPION.write_bytes(orjson.dumps(rec, option=orjson.OPT_INDENT_2 | orjson.OPT_NON_STR_KEYS))
     print(f"  promoted to champion (NDCG@10 {score:.4f}" + (f", previous {prev['by_n']['-1']['ndcg@10']:.4f})" if prev else ")"))
+
+
+def rating_guardrail_ok(vs_champion: dict | None) -> bool:
+    """False when the model's per-user MAE is significantly worse than the champion's (CI of the difference > 0)."""
+    return not (vs_champion and vs_champion.get("n") and vs_champion["ci95"][0] > 0)
 
 
 if __name__ == "__main__":
@@ -391,4 +485,6 @@ if __name__ == "__main__":
     ap.add_argument("--fresh", action="store_true", help="recompute baselines instead of using cached results")
     ap.add_argument("--params", default=None, metavar="SPEC",
                     help='score the model with these settings instead of the config, e.g. "delta_pred=0;a_max=1"')
+    ap.add_argument("--rating", default=None, metavar="SPEC",
+                    help='reconstruct an earlier rating model, e.g. "item_means=global;calibration=none"')
     main(**vars(ap.parse_args()))

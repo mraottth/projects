@@ -17,6 +17,10 @@ def data():
     return be.build()
 
 
+def markdown(r: dict) -> str:
+    return r["head"] + r["track1"] + (r["track2"] or "") + r["tail"]
+
+
 def test_every_version_resolves_its_report_and_commits(data):
     curated = json.loads((ROOT / "eval" / "versions.json").read_text())
     assert [v["id"] for v in data["versions"]] == [v["id"] for v in curated]
@@ -54,9 +58,9 @@ def test_report_tables_use_version_names(data):
     champ = data["reports"][0]
     v = next(x for x in data["versions"] if x["champion"])
     assert champ["model"] == f"{v['id']} · {v['title']}"
-    assert f"**{v['id']} · {v['title']}**" in champ["markdown"]          # the model's row in the metric tables
+    assert f"**{v['id']} · {v['title']}**" in champ["track1"]            # the model's row in the metric tables
     prev = data["versions"][[x["id"] for x in data["versions"]].index(v["id"]) - 1]
-    assert f"vs. Previous best: {prev['id']} · {prev['title']}" in champ["markdown"]
+    assert f"vs. Previous best: {prev['id']} · {prev['title']}" in champ["track1"]
 
 
 def test_one_card_per_version_newest_version_first(data):
@@ -66,3 +70,30 @@ def test_one_card_per_version_newest_version_first(data):
     assert vgroups[0]["champion"]                                        # the newest version is the champion
     placed = [g["main"] for g in vgroups] + [r for g in groups for r in g["others"]]
     assert sorted(placed) == sorted(r["id"] for r in data["reports"])     # every report in exactly one card
+
+
+def test_reports_split_into_shared_and_track_sections(data):
+    for r in data["reports"]:
+        text = (ROOT / "eval" / "reports" / f"{r['id']}.md").read_text(encoding="utf-8")
+        parts = be.split_sections(text)
+        assert parts["head"] + parts["track1"] + (parts["track2"] or "") + parts["tail"] == text       # nothing lost
+        assert (parts["track2"] is None) == (r["track2"] is None)
+        if r["track2"] is not None:
+            assert r["track1"].startswith("## Track 1") and r["track2"].startswith("## Track 2")
+            assert "## Track 2" not in r["track1"] and "## Notes" not in r["track2"]
+    assert be.split_sections("# T\n\n## Metrics\nx\n## Notes\ny\n") == {
+        "head": "# T\n\n", "track1": "## Metrics\nx\n", "track2": None, "tail": "## Notes\ny\n"}
+    assert be.split_sections("no headings")["track1"] == "no headings"
+
+
+def test_versions_carry_rating_metrics(data):
+    for v in data["versions"]:
+        if v["rmetrics"] is not None:
+            assert set(v["rmetrics"]["-1"]) == set(be.RMETRICS)
+    for prev, cur in zip(data["versions"], data["versions"][1:]):
+        if "rci_vs_previous" in cur:
+            ch = cur["rci_vs_previous"]["-1"]
+            assert ch["ci95"][0] <= ch["mean_diff"] <= ch["ci95"][1]
+            gap = cur["rmetrics"]["-1"]["mae"] - prev["rmetrics"]["-1"]["mae"]
+            assert ch["mean_diff"] == pytest.approx(gap, abs=1e-6)
+    assert all(set(r["metrics"]["-1"]) == set(be.RMETRICS) for r in data["rating_references"])
