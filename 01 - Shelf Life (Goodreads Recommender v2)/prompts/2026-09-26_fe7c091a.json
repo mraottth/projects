@@ -887,8 +887,16 @@
    "time": "2026-10-04T02:34:18.509Z",
    "kind": "prompt",
    "text": "It feels like it'd make more sense to have the cards in descending n value order (push back if you disagree)",
-   "reply": null,
+   "reply": "I agreed, and it's done: the full-history numbers are the headline results and used to come last. Every report card now runs from the full history down: all, 25, 10, 5, 3, then 1 rating.\n\n- **Sections:** both the Metrics and the Head-to-head sections use that order. The \"identical rankings\" footnote stays at the end of its section.\n- **Columns:** the diagnostics, rating-error and older random-holdout tables now have their history-size columns in the same order. That also matches the chart's History menu, which already started at \"Full history\".\n- **Existing reports:** I rearranged all 20 affected reports in place and checked that each kept exactly the same content, just reordered. The three latest reports also match a fresh render from their saved results exactly. New reports come out in this order automatically.\n\nThe 70 tests pass, and the browser check shows the new order on the champion's card with no errors. It's pushed on `br-eval-page-3` with the earlier Evaluation page rounds; nothing is merged or deployed yet. Should I merge and deploy?",
    "id": "fe7c091a-125",
+   "session": "fe7c091a"
+  },
+  {
+   "time": "2026-10-04T02:37:17.384Z",
+   "kind": "prompt",
+   "text": "Let's draw some boundaries in the tables around different groupings of information. For example, a vertical boundary between the @10 and @20 metrics would be helpful. Feel free to make suggestions on other places where table formatting would help make the information more legible",
+   "reply": null,
+   "id": "fe7c091a-126",
    "session": "fe7c091a"
   }
  ]
