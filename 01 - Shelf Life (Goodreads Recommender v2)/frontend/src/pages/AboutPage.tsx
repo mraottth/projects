@@ -38,7 +38,7 @@ function Tech({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function AboutPage({ go }: { go: (v: "changelog") => void }) {
+export function AboutPage({ go }: { go: (v: "changelog" | "evaluation") => void }) {
   return (
     <article className="about">
       <h1>About Shelf Life</h1>
@@ -266,7 +266,10 @@ export function AboutPage({ go }: { go: (v: "changelog") => void }) {
         To test it fairly, 10,000 readers were set aside and never used for training. For each of them, the most recent
         30% of the books they read were hidden, and the test asked whether the ones they went on to love (4–5★) showed
         up in their top 10 recommendations, given everything they had read before. The score (NDCG@10) rewards putting
-        those books near the top; higher is better.
+        those books near the top; higher is better.{" "}
+        <button type="button" className="link primary-link" onClick={() => go("evaluation")}>
+          See how the model improved, version by version →
+        </button>
       </p>
       <table className="viz-table about-table">
         <thead><tr><th>Method</th><th>1 rating</th><th>3 ratings</th><th>10 ratings</th><th>Full history</th></tr></thead>
