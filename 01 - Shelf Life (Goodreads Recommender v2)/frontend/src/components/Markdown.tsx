@@ -68,6 +68,38 @@ function heatStyles(head: string[], rows: string[][]): (CSSProperties | undefine
   return styles;
 }
 
+/** Column group of a report-table header, for drawing boundaries between groups (@10 | @20, wins/ties/losses |
+ * differences, coverage | popularity). Columns with the same key sit together; "" never groups. */
+function colGroup(h: string): string {
+  const t = h.replace(/\*\*/g, "").trim().toLowerCase();
+  if (/@10$/.test(t)) return "k10";
+  if (/@20$/.test(t)) return "k20";
+  if (/^(wins|ties|losses)$/.test(t)) return "wlt";
+  if (/^(mean diff|lift|median gain)/.test(t)) return "gain";
+  if (/^coverage/.test(t)) return "coverage";
+  if (/^popularity/.test(t)) return "popularity";
+  if (/^(all|n=\d+)$/.test(t)) return "n";
+  return t;
+}
+
+/** Spanning header for a column group, and the column's own label under it (heat tables only). */
+const GROUP_LABEL: Record<string, string> = { k10: "Top 10", k20: "Top 20", coverage: "Coverage", popularity: "Popularity" };
+function subLabel(h: string, g: string): string {
+  const t = h.replace(/\*\*/g, "").trim();
+  if (g === "k10" || g === "k20") return t.replace(/@(10|20)$/, "");
+  if (g === "coverage" || g === "popularity") return t.replace(/^(coverage|popularity)\s+/i, "");
+  return t;
+}
+
+/** Row group of a report-table row: the model under test (bold), the previous best, baselines, ablations. */
+function rowGroup(first: string): number {
+  const t = first.replace(/^vs\. /, "").trim();
+  if (/^\*\*.*\*\*$/.test(t)) return 0;
+  if (/^Previous best/.test(t)) return 1;
+  if (/^(item-kNN only|ALS only|Shelf Life, no |grid: )/.test(t)) return 3;
+  return 2;
+}
+
 function Line({ text, ctx }: { text: string; ctx: Ctx }) {
   const m = text.match(/^\s*(?:\*\*)?\[\[book:(\d+)\]\](?:\*\*)?\s*[—–:-]*\s*/);
   const b = m ? ctx.books?.[Number(m[1])] : undefined;
@@ -127,10 +159,50 @@ export function Markdown({ text, books, onOpen, heat = false }: {
       k += 1;
       while (k + 1 < lines.length && /^\s*\|.*\|\s*$/.test(lines[k + 1])) rows.push(cells(lines[++k]));
       const st = heat ? heatStyles(head, rows) : null;
+      // Report tables (heat): boundaries between column groups and row groups, numbers right-aligned.
+      const groups = head.map(colGroup);
+      const colCls = head.map((_, i) => {
+        if (!heat || i === 0) return "";
+        const numeric = rows.filter((r) => cellNumber(r[i] ?? "") !== null).length >= Math.max(1, rows.length / 2);
+        return [i === 1 || groups[i] !== groups[i - 1] ? "gb" : "", numeric ? "num" : ""].filter(Boolean).join(" ");
+      });
+      const rowCls = rows.map((r, j) => (heat && j > 0 && rowGroup(r[0] ?? "") !== rowGroup(rows[j - 1][0] ?? "") ? "rb" : ""));
+      // Two header rows when columns form named groups (@10 / @20, coverage / popularity): a spanning group label
+      // over short column labels.
+      const spans: { label: string; start: number; len: number }[] = [];
+      groups.forEach((g, i) => {
+        const last = spans[spans.length - 1];
+        if (i > 0 && GROUP_LABEL[g] && last && last.label === GROUP_LABEL[g] && last.start + last.len === i) last.len += 1;
+        else if (i > 0 && GROUP_LABEL[g]) spans.push({ label: GROUP_LABEL[g], start: i, len: 1 });
+      });
+      const twoRow = heat && spans.length >= 2;
       out.push(
         <div key={out.length} className={`md-table${heat ? " heat" : ""}`}><table>
-          <thead><tr>{head.map((c, i) => <th key={i}>{inline(c, ctx)}</th>)}</tr></thead>
-          <tbody>{rows.map((r, j) => <tr key={j}>{r.map((c, i) => <td key={i} style={st?.[j]?.[i]}>{inline(c, ctx)}</td>)}</tr>)}</tbody>
+          <thead>
+            {twoRow ? (
+              <>
+                <tr>
+                  {head.map((c, i) => {
+                    const sp = spans.find((x) => x.start === i);
+                    if (sp) return <th key={i} colSpan={sp.len} className="gb grp">{sp.label}</th>;
+                    if (spans.some((x) => i > x.start && i < x.start + x.len)) return null;
+                    return <th key={i} rowSpan={2} className={colCls[i] || undefined}>{inline(c, ctx)}</th>;
+                  })}
+                </tr>
+                <tr>
+                  {head.map((c, i) => (spans.some((x) => i >= x.start && i < x.start + x.len)
+                    ? <th key={i} className={colCls[i] || undefined}>{subLabel(c, groups[i])}</th> : null))}
+                </tr>
+              </>
+            ) : (
+              <tr>{head.map((c, i) => <th key={i} className={colCls[i] || undefined}>{inline(c, ctx)}</th>)}</tr>
+            )}
+          </thead>
+          <tbody>{rows.map((r, j) => (
+            <tr key={j} className={rowCls[j] || undefined}>
+              {r.map((c, i) => <td key={i} className={colCls[i] || undefined} style={st?.[j]?.[i]}>{inline(c, ctx)}</td>)}
+            </tr>
+          ))}</tbody>
         </table></div>,
       );
       continue;

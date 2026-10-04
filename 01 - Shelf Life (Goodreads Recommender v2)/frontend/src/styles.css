@@ -900,6 +900,14 @@ button.chip:hover { background: #f1f0eb; }
 .md-table table { border-collapse: collapse; font-size: 0.88rem; }
 .md-table th, .md-table td { border: 1px solid var(--ring); padding: 4px 8px; text-align: left; vertical-align: top; }
 .md-table th { background: #f6f5f1; }
+/* Report tables (Evaluation page): group boundaries, right-aligned numbers, a first column that stays put. */
+.md-table.heat th.gb, .md-table.heat td.gb { border-left: 2px solid var(--axis); }
+.md-table.heat tr.rb td { border-top: 2px solid var(--axis); }
+.md-table.heat th.num, .md-table.heat td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.md-table.heat th:first-child, .md-table.heat td:first-child { position: sticky; left: 0; z-index: 1; background: var(--card); }
+.md-table.heat th:first-child { background: #f6f5f1; }
+.md-table.heat td:first-child { min-width: 190px; }
+.md-table.heat th.grp { text-align: center; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-2); }
 .md-path { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.88em; }
 @media (max-width: 640px) { .cl-card { padding: 12px 14px; } }
 
