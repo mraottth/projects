@@ -15,6 +15,13 @@ The notebook's third method, gradient-descent matrix factorization (2.3), isn't 
 app never served it, and its update kept only NumPy's last write for repeated indices, so each step
 learned from one rating per reader and book (it scored close to random; DECISIONS D-044).
 
+Both also give a rating for any book, as the 2023 app displayed (rating track):
+- Similar readers: the 150 nearest readers' average rating of the book (the app's "similar readers' average").
+- SVD: the reconstructed value x the reader's rating-vector norm + the neighbours' mean rating, which is how the
+  2023 web app turned the normalised reconstruction back into stars.
+A book none of the neighbours rated has no estimate; the harness falls back to the book average and reports
+how often.
+
 Both drop the reader's own books and later volumes in a series. Differences from the original:
 work-level ids (editions collapsed) instead of edition ids; this project's catalog and training users;
 the children's-book filter uses this catalog's children's and comics flags instead of the 2023 LDA
@@ -42,6 +49,7 @@ class Neighbourhood:
         R = R if R is not None else sparse.load_npz(INTERIM_DIR / "R_train.npz")
         R = sparse.csr_matrix(R, dtype=np.float32)
         norms = np.sqrt(np.asarray(R.multiply(R).sum(axis=1)).ravel())
+        self.norms = norms.astype(np.float32)        # raw rating = normalised value x the reader's norm
         self.Rn = sparse.diags(1 / np.maximum(norms, 1e-12)).astype(np.float32) @ R
         self.Rn = self.Rn.tocsr()
         self.Rn.sort_indices()
@@ -60,6 +68,10 @@ class Neighbourhood:
         n = min(n, len(sims))
         top = np.argpartition(-sims, n - 1)[:n]
         return top[np.argsort(-sims[top], kind="stable")]
+
+    def raw_ratings(self, nbrs: np.ndarray) -> sparse.csr_matrix:
+        """The neighbours' original 1-5 ratings (rows of R_train)."""
+        return sparse.diags(self.norms[nbrs]) @ self.Rn[nbrs]
 
     def matrix(self, user: UserInput, nbrs: np.ndarray) -> tuple[sparse.csr_matrix, np.ndarray]:
         """Neighbour rows plus the target as the last row, restricted to books any of them rated.
@@ -94,15 +106,30 @@ class SimilarReaders2023(Recommender):
     art: Artifacts = None
     nb: Neighbourhood = field(default=None, repr=False)
     n_neighbours: int = 150
+    tracks: tuple = ("ranking", "rating")
 
-    def recommend(self, user, k, rng):
+    def run(self, user, k, rng, items):
         m = self.art.meta
         nbrs = self.nb.nearest(user, self.n_neighbours)
-        sub = self.nb.Rn[nbrs]
-        counts = np.bincount(sub.indices, minlength=m.n).astype(np.float64)
-        cols = np.flatnonzero(counts)
-        ok = _keep(self.art) & (m.ratings_count > 100) & (m.avg_rating > 3.75)
-        return _rank(counts[cols], cols, ok, user, k, tiebreak=m.avg_rating)
+        top = pred = None
+        if "ranking" in self.tracks:
+            sub = self.nb.Rn[nbrs]
+            counts = np.bincount(sub.indices, minlength=m.n).astype(np.float64)
+            cols = np.flatnonzero(counts)
+            ok = _keep(self.art) & (m.ratings_count > 100) & (m.avg_rating > 3.75)
+            top = _rank(counts[cols], cols, ok, user, k, tiebreak=m.avg_rating)
+        if "rating" in self.tracks:
+            raw = self.nb.raw_ratings(nbrs).tocsc()[:, items]
+            n = np.diff(raw.indptr)
+            s = np.asarray(raw.sum(axis=0)).ravel()
+            pred = np.where(n > 0, s / np.maximum(n, 1), np.nan)
+        return top, pred
+
+    def recommend(self, user, k, rng):
+        return self.run(user, k, rng, np.zeros(0, np.int64))[0]
+
+    def rate(self, user, items):
+        return self.run(user, 0, None, items)[1]
 
 
 @dataclass
@@ -111,14 +138,35 @@ class SVD2023(Recommender):
     nb: Neighbourhood = field(default=None, repr=False)
     n_neighbours: int = 3000
     factors: int = 42
+    tracks: tuple = ("ranking", "rating")
 
-    def recommend(self, user, k, rng):
-        M, cols = self.nb.matrix(user, self.nb.nearest(user, self.n_neighbours))
+    def run(self, user, k, rng, items):
+        nbrs = self.nb.nearest(user, self.n_neighbours)
+        M, cols = self.nb.matrix(user, nbrs)
         kk = min(self.factors, min(M.shape) - 1)
         U, s, Vt = svds(M.astype(np.float64), k=kk, random_state=0)
-        pred = (U[-1] * s) @ Vt
-        ok = _keep(self.art) & (self.art.meta.avg_rating > 3.5)
-        return _rank(pred, cols, ok, user, k)
+        recon = (U[-1] * s) @ Vt
+        top = pred = None
+        if "ranking" in self.tracks:
+            ok = _keep(self.art) & (self.art.meta.avg_rating > 3.5)
+            top = _rank(recon, cols, ok, user, k)
+        if "rating" in self.tracks:
+            # Back to stars as the 2023 web app did: x the reader's rating-vector norm, + the neighbours' mean
+            # rating of books the reader hasn't rated.
+            raw = self.nb.raw_ratings(nbrs).tocsr()
+            mine = np.isin(raw.indices, np.fromiter(user.ratings, dtype=np.int64))
+            offset = float(raw.data[~mine].mean()) if (~mine).any() else float(raw.data.mean())
+            norm = float(np.linalg.norm(np.fromiter(user.ratings.values(), dtype=np.float64)))
+            pos = np.searchsorted(cols, items)
+            found = (pos < len(cols)) & (cols[np.minimum(pos, len(cols) - 1)] == items)
+            pred = np.where(found, recon[np.minimum(pos, len(cols) - 1)] * norm + offset, np.nan)
+        return top, pred
+
+    def recommend(self, user, k, rng):
+        return self.run(user, k, rng, np.zeros(0, np.int64))[0]
+
+    def rate(self, user, items):
+        return self.run(user, 0, None, items)[1]
 
 
 def legacy_baselines(art: Artifacts, subsample: dict) -> list[Recommender]:

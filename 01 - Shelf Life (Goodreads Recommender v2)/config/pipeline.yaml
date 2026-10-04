@@ -36,6 +36,9 @@ eval:
     similar_readers_2023: null
     svd_2023: null
   workers: 7
+  # Rating track: users grouped by the spread of their visible ratings (σ_u, goodrec.eval.rating) into
+  # narrow / typical / wide raters. Cut points = the validation users' terciles (python -m goodrec.eval.rating).
+  rating_style_cuts: [0.833, 1.015]
 
 item_knn:
   k: 50                     # tune
