@@ -998,6 +998,14 @@
    "queued": true,
    "id": "fe7c091a-136c",
    "session": "fe7c091a"
+  },
+  {
+   "time": "2026-10-04T11:59:59.683Z",
+   "kind": "prompt",
+   "text": "one quick design change on mobile - on the milestone timeline, the cards that pop up take over the screen (which is fine) but when you scroll down on them you lose the 'x' button making it hard to navigate back to the timeline. Let's make it so you can get back there by 1) clicking outside the card, and 2) having the header of the card stick to the top as you scroll so the title so the x button is always visible",
+   "reply": null,
+   "id": "fe7c091a-137",
+   "session": "fe7c091a"
   }
  ]
 }
