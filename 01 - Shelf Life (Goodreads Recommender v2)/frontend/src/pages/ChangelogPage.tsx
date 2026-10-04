@@ -183,8 +183,10 @@ export function ChangelogPage() {
     [cats, q]); // eslint-disable-line react-hooks/exhaustive-deps
   const commits = useMemo(() => CL.commits.filter((c) => match(c.categories, c.subject, c.body, c.short)),
     [cats, q]); // eslint-disable-line react-hooks/exhaustive-deps
-  const decisions = useMemo(() => CL.decisions.filter((d) => match(d.categories, d.title, ...d.sections.map((s) => s.text))),
-    [cats, q]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Decisions are numbered in the order they were made (D-001, D-002, ...), so the number orders them by date.
+  const decisions = useMemo(() => CL.decisions.filter((d) => match(d.categories, d.title, ...d.sections.map((s) => s.text)))
+    .sort((a, b) => (newest ? -1 : 1) * (parseInt(a.id.slice(2), 10) - parseInt(b.id.slice(2), 10))),
+    [cats, q, newest]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Timeline: prompts (with their commits nested) plus commits not tied to a prompt shown here.
   const timeline = useMemo(() => {
@@ -242,7 +244,7 @@ export function ChangelogPage() {
         </div>
         <input className="cl-search" type="search" placeholder="Search prompts, replies, commits…" value={q} onChange={(e) => setQ(e.target.value)} />
         <CategoryMenu cats={cats} setCats={setCats} counts={counts} />
-        {mode === "timeline" && (
+        {(mode === "timeline" || mode === "decisions") && (
           <button type="button" className="ghost small" onClick={() => setNewest((n) => !n)}>{newest ? "Newest first" : "Oldest first"} ⇅</button>
         )}
       </div>

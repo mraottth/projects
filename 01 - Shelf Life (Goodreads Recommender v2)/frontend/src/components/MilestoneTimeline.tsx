@@ -166,10 +166,12 @@ export function MilestoneTimeline({ milestones, prompts, categories, onShowPromp
         <h2>Product Milestones</h2>
         <span className="muted small">Hover a milestone to see the prompts and commits behind it; click to keep it open. Scroll sideways for more →</span>
         <span className="ms-arrows">
-          <button type="button" className="ghost small ms-order" aria-pressed={newestFirst}
-                  onClick={() => setNewestFirst((v) => !v)}>
-            {newestFirst ? "Newest first" : "Oldest first"} ⇅
-          </button>
+          <label className="ms-order">Display{" "}
+            <select value={newestFirst ? "newest" : "oldest"} onChange={(e) => setNewestFirst(e.target.value === "newest")}>
+              <option value="oldest">Oldest first</option>
+              <option value="newest">Newest first</option>
+            </select>
+          </label>
           <button type="button" className="ghost small" aria-label={newestFirst ? "Newer milestones" : "Older milestones"}
                   disabled={!edges.left} onClick={() => scrollBy(-1)}>‹</button>
           <button type="button" className="ghost small" aria-label={newestFirst ? "Older milestones" : "Newer milestones"}

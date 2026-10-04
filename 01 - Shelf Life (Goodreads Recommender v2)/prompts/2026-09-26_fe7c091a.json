@@ -971,6 +971,24 @@
    "queued": true,
    "id": "fe7c091a-135a",
    "session": "fe7c091a"
+  },
+  {
+   "time": "2026-10-04T04:14:22.198Z",
+   "kind": "prompt",
+   "text": "The oldest/newest first button is a little unclear. It's unclear whether what the button says is the current sorting order or the order after you click it. I think having a 'Display' label with a dropdown for 'Oldest First' and 'Newest First' would be clearer. Also having an oldest/newest button on the 'Decisions' list would be useful. The button works better there because the decisions have dates, so it's clearer to the user how it's currently sorted",
+   "reply": null,
+   "queued": true,
+   "id": "fe7c091a-136a",
+   "session": "fe7c091a"
+  },
+  {
+   "time": "2026-10-04T04:15:48.824Z",
+   "kind": "prompt",
+   "text": "You can also remove the 'Portfolio repo reorganized' item from the timeline. Anything not related to product iteration doesn't need to be in the timeline",
+   "reply": null,
+   "queued": true,
+   "id": "fe7c091a-136b",
+   "session": "fe7c091a"
   }
  ]
 }
