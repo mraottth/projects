@@ -11,6 +11,10 @@ exclude the held-out users, D-040). Hidden ratings are only ever compared agains
 - calibration "evidence" (today, D-027): quantile calibration to the user's own rating histogram, applied in
   proportion to each book's evidence; "full": the whole stretch for every book (the first calibration);
   "none": the raw baseline + item-item residual prediction.
+- predictor "knn" (today) or a factorization model from goodrec.eval.tune_rating (D-052): "mf:<name>" or
+  "hybrid:<name>" (the item-item residual on top of it), <name> a model in data/interim/rating_mf/
+  ("production" = artifacts/rating_mf.npz). A non-knn predictor also drives the ranking's prediction floor
+  and boost, as it would in production, so both tracks measure it.
 """
 
 from __future__ import annotations
@@ -21,7 +25,7 @@ from dataclasses import dataclass
 import numpy as np
 from scipy import sparse
 
-from goodrec.config import INTERIM_DIR
+from goodrec.config import ARTIFACTS_DIR, INTERIM_DIR
 from goodrec.core.artifacts import Artifacts
 from goodrec.core.scoring import UserInput, apply_calibration, calibration, predict_ratings
 
@@ -35,10 +39,13 @@ SIGMA_FLOOR = 0.5
 class RatingSettings:
     item_means: str = "goodreads"
     calibration: str = "evidence"
+    predictor: str = "knn"
 
     def __post_init__(self):
         if self.item_means not in ITEM_MEANS or self.calibration not in CALIBRATION:
             raise ValueError(f"rating settings: item_means in {ITEM_MEANS}, calibration in {CALIBRATION}")
+        if self.predictor != "knn" and self.predictor.partition(":")[0] not in ("mf", "hybrid"):
+            raise ValueError("rating settings: predictor is knn, mf:<model> or hybrid:<model>")
 
     @classmethod
     def parse(cls, spec: str | None) -> "RatingSettings":
@@ -47,7 +54,7 @@ class RatingSettings:
         for part in filter(None, (x.strip() for x in (spec or "").split(";"))):
             k, _, v = part.partition("=")
             if k.strip() not in {f.name for f in dataclasses.fields(cls)}:
-                raise SystemExit(f"--rating: unknown setting {k!r} (item_means, calibration)")
+                raise SystemExit(f"--rating: unknown setting {k!r} (item_means, calibration, predictor)")
             kw[k.strip()] = v.strip()
         try:
             return cls(**kw)
@@ -59,7 +66,8 @@ class RatingSettings:
         return self == RatingSettings()
 
     def text(self) -> str:
-        return f"item_means={self.item_means}, calibration={self.calibration}"
+        return f"item_means={self.item_means}, calibration={self.calibration}" + (
+            f", predictor={self.predictor}" if self.predictor != "knn" else "")
 
 
 def global_item_means(R: sparse.spmatrix, bayes_m: float) -> np.ndarray:
@@ -72,11 +80,23 @@ def global_item_means(R: sparse.spmatrix, bayes_m: float) -> np.ndarray:
 
 
 def rating_artifacts(art: Artifacts, s: RatingSettings, bayes_m: float, R: sparse.spmatrix | None = None) -> Artifacts:
-    """The artifacts a rating model predicts with: production's, or a shallow copy with other item means."""
-    if s.item_means == "goodreads":
-        return art
-    R = R if R is not None else sparse.load_npz(INTERIM_DIR / "R_train.npz")
-    return dataclasses.replace(art, meta=dataclasses.replace(art.meta, bayes=global_item_means(R, bayes_m)))
+    """The artifacts a rating model predicts with: production's, or a shallow copy with other item means and/or
+    a factorization predictor."""
+    if s.item_means == "global":
+        R = R if R is not None else sparse.load_npz(INTERIM_DIR / "R_train.npz")
+        art = dataclasses.replace(art, meta=dataclasses.replace(art.meta, bayes=global_item_means(R, bayes_m)))
+    if s.predictor != "knn":
+        from goodrec.core.rating_mf import MFModel
+        mode, _, name = s.predictor.partition(":")
+        path = ARTIFACTS_DIR / "rating_mf.npz" if name == "production" else INTERIM_DIR / "rating_mf" / f"{name}.npz"
+        art = dataclasses.replace(art, rating_mode=mode, rating_mf=MFModel.load(path), rating_calibration=s.calibration)
+    return art
+
+
+def ranking_artifacts(art: Artifacts, s: RatingSettings, rating_art: Artifacts) -> Artifacts:
+    """What the ranking uses: a factorization predictor replaces the knn one everywhere (floor and boost too);
+    reconstructed item means / calibration (D-051) only ever applied to the rating track."""
+    return rating_art if s.predictor != "knn" else art
 
 
 def model_ratings(art: Artifacts, user: UserInput, items: np.ndarray, s: RatingSettings, prior: np.ndarray) -> np.ndarray:

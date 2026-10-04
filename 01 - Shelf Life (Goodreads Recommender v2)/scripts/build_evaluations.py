@@ -67,6 +67,8 @@ def split_sections(text: str) -> dict:
 def report_kind(stem: str, report: dict | None) -> str:
     if stem.startswith("als_sweep"):
         return "ALS sweep (earlier evaluation)"
+    if stem.startswith("rating_sweep"):
+        return "Rating model sweep (validation)"
     m = STAMP.match(stem)
     if not m or not m.group(4):
         return "Earlier evaluation (random holdout)"
@@ -122,14 +124,17 @@ def build_reports(champion: dict | None, versions: list[dict]) -> list[dict]:
         stem = md.stem
         text = md.read_text(encoding="utf-8")
         report = load_json(md.with_suffix(".json"))
-        m = STAMP.match(stem) or re.search(r"(\d{4}-\d{2}-\d{2})", stem)
+        m = STAMP.match(stem) or re.search(r"(\d{4}-\d{2}-\d{2})_?(\d{2})?(\d{2})?", stem)
         date = m.group(1) if m else ""
-        time = f"{m.group(2)}:{m.group(3)}" if m and STAMP.match(stem) else ""
+        time = f"{m.group(2)}:{m.group(3)}" if m and m.group(2) else ""
         new_format = bool(report and "rows" in report)
         sl = row(report, "shelf_life") if new_format else None
         rsl = rating_row(report, "shelf_life") if new_format else None
         labels = version_labels(report, versions) if new_format else {}
         version = labels.pop("\x01version", None)
+        if stem.startswith("rating_sweep") and report and report.get("base_report"):   # tuned against this version
+            base = Path(report["base_report"]).stem
+            version = next((v["id"] for v in versions if v["report"] == base), None)
         text = relabel(text, labels)
         kind = report_kind(stem, report)
         if new_format and versions and report.get("split_hash") != versions[-1]["split_hash"]:
