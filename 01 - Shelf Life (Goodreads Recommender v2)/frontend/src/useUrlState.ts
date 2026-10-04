@@ -7,7 +7,7 @@ import { EMPTY_FILTERS, type BrowseSort, type Filters, type SortKey } from "./ap
  * and the other survives in memory while navigating.
  */
 export interface UrlState {
-  view: "home" | "rate" | "import" | "recs" | "explore" | "yours" | "chat" | "about" | "changelog";
+  view: "home" | "rate" | "import" | "recs" | "explore" | "yours" | "chat" | "about" | "changelog" | "evaluation";
   tab: "for-you" | "popular" | "top-rated" | "to-read";
   sort: SortKey;
   layout: "list" | "map";

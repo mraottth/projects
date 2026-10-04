@@ -17,6 +17,7 @@ const AboutPage = lazy(() => import("./pages/AboutPage").then((m) => ({ default:
 const ChatPage = lazy(() => import("./pages/ChatPage").then((m) => ({ default: m.ChatPage })));
 // Changelog carries ~230 KB of prompts and commits, so it's only loaded when visited.
 const ChangelogPage = lazy(() => import("./pages/ChangelogPage").then((m) => ({ default: m.ChangelogPage })));
+const EvaluationPage = lazy(() => import("./pages/EvaluationPage").then((m) => ({ default: m.EvaluationPage })));
 
 // `tip`: shown on hover (desktop) and under each item in the phone menu.
 const NAV: { view: UrlState["view"]; label: string; tip: string }[] = [
@@ -111,6 +112,7 @@ export function App() {
         )}
         {url.view === "about" && <Suspense fallback={<div className="spinner" />}><AboutPage go={go} /></Suspense>}
         {url.view === "changelog" && <Suspense fallback={<div className="spinner" />}><ChangelogPage /></Suspense>}
+        {url.view === "evaluation" && <Suspense fallback={<div className="spinner" />}><EvaluationPage /></Suspense>}
         {url.view === "explore" && (
           <ExplorePage filters={url.explore} setFilters={(explore) => update({ explore })}
                        sort={url.browseSort} setSort={(browseSort) => update({ browseSort })} onOpen={onOpen} />

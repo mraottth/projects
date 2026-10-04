@@ -11,6 +11,7 @@ eval/reports/<stamp>_<model>.md/.json and per-user results to eval/runs/.
   uv run python -m goodrec.eval.run --set validation --users 300 --models shelf_life,popular   # quick check
   uv run python -m goodrec.eval.run --set validation --models shelf_life --grid "k_a=20,50;a_max=0.5,1.0"
   uv run python -m goodrec.eval.run --promote                # make this model the champion if it beats it
+  uv run python -m goodrec.eval.run --params "delta_pred=0" --name "..."   # re-score other settings (not promotable)
 """
 
 import os
@@ -178,9 +179,17 @@ def load_champion() -> dict | None:
 
 def main(set_: str = "test", users: int | None = None, models: str | None = None, ablations: bool = False,
          grid: str | None = None, workers: int | None = None, promote: bool = False, name: str | None = None,
-         fresh: bool = False) -> None:
+         fresh: bool = False, params: str | None = None) -> None:
     if grid and set_ != "validation":
         raise SystemExit("--grid tunes parameters, so it only runs on --set validation.")
+    if promote and params:
+        raise SystemExit("--params re-scores other settings; it can't be promoted (change config/pipeline.yaml instead).")
+    overrides = {}
+    if params:
+        points = grid_points(params)
+        if len(points) != 1:
+            raise SystemExit("--params takes one value per setting, e.g. \"delta_pred=0;pred_floor_offset=null\".")
+        overrides = points[0]
     if promote and set_ != "test":
         raise SystemExit("--promote compares on the test set; drop --set validation.")
     full_cfg = load_config()
@@ -193,7 +202,8 @@ def main(set_: str = "test", users: int | None = None, models: str | None = None
     prior = np.asarray(orjson.loads((ARTIFACTS_DIR / "population_stats.json").read_bytes())["rating_dist"])
     _STATE["art"] = art
 
-    recs = shelf_life_models(art, prior, ablations=ablations, name=name or "Shelf Life (current config)")
+    recs = shelf_life_models(art, prior, ablations=ablations, name=name or "Shelf Life (current config)",
+                             params=Params.from_config(**overrides))
     recs += simple_baselines(art)
     wanted = set(models.split(",")) if models else None
     if wanted is None or wanted & {"similar_readers_2023", "svd_2023"}:
@@ -208,6 +218,8 @@ def main(set_: str = "test", users: int | None = None, models: str | None = None
                               params=Params.from_config(**point)))
 
     notes = []
+    if overrides:
+        notes.append("Model settings overridden for this run: " + ", ".join(f"{k}={v}" for k, v in overrides.items()) + ".")
     champ = load_champion()
     champ_res = None
     if champ and (wanted is None or "champion" in wanted):
@@ -366,4 +378,6 @@ if __name__ == "__main__":
     ap.add_argument("--promote", action="store_true", help="record this model as the champion if it beats it")
     ap.add_argument("--name", default=None, help="label for the model under test")
     ap.add_argument("--fresh", action="store_true", help="recompute baselines instead of using cached results")
+    ap.add_argument("--params", default=None, metavar="SPEC",
+                    help='score the model with these settings instead of the config, e.g. "delta_pred=0;a_max=1"')
     main(**vars(ap.parse_args()))

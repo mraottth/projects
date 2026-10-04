@@ -479,12 +479,35 @@
    "5d7f534",
    "a832fe3",
    "56d0c8d",
-   "e4a5dfb"
+   "e4a5dfb",
+   "3c0e778"
   ],
   "decisions": [
    "D-045",
    "D-046",
    "D-047"
+  ]
+ },
+ {
+  "id": "M21",
+  "date": "2026-10-03",
+  "icon": "📊",
+  "category": "eval",
+  "title": "An Evaluation page",
+  "summary": "A new page charts every model version on the same test readers, from launch (NDCG@10 0.064) to recency weighting (0.087), with what changed and the commits behind each step, and lists every evaluation report with the champion's first.",
+  "prompts": [
+   "fe7c091a-118",
+   "fe7c091a-119"
+  ],
+  "commits": [
+   "053f12a",
+   "7dd48db",
+   "7e854c6",
+   "40268df",
+   "3cb8a41"
+  ],
+  "decisions": [
+   "D-048"
   ]
  }
 ]

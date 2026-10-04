@@ -107,6 +107,14 @@ def test_grid_points_parse_every_combination():
         grid_points("not_a_param=1")
 
 
+def test_params_override_cannot_be_promoted():
+    from goodrec.eval.run import main
+    with pytest.raises(SystemExit, match="can't be promoted"):
+        main(promote=True, params="delta_pred=0")
+    with pytest.raises(SystemExit, match="one value per setting"):
+        main(params="delta_pred=0,0.5")
+
+
 # ---------------------------------------------------------------- built data: leakage and baselines
 
 @needs_data

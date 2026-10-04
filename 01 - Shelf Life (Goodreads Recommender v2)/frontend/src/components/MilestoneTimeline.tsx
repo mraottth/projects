@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Markdown } from "./Markdown";
 
 /**
@@ -19,13 +19,11 @@ const KIND: Record<string, string> = {
   "plan-feedback": "Feedback on Claude's plan",
 };
 const fmtDay = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-const fmtWeekday = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 // Hovering a milestone must rest on it while a ring fills around its icon before its details show: SWITCH_MS to
 // switch from an open milestone (so crossing milestones on the way to the panel doesn't change it), OPEN_MS to open
 // the panel when it's closed (shorter, so the first look isn't slow, and sweeping across doesn't reflow the timeline).
 const SWITCH_MS = 550;
 const OPEN_MS = Math.round(SWITCH_MS * 0.75);
-const dayGap = (a: string, b: string) => Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86_400_000);
 
 export function MilestoneTimeline({ milestones, prompts, categories, onShowPrompt, onShowDecision }: {
   milestones: Milestone[]; prompts: Map<string, PromptLite>; categories: Record<string, string>;
@@ -149,7 +147,6 @@ export function MilestoneTimeline({ milestones, prompts, categories, onShowPromp
   };
 
   const m = milestones.find((x) => x.id === openId);
-  let prevDate = "";
 
   return (
     <section className={`ms${m ? " open" : ""}`} aria-label="Project milestones" ref={section} style={{ height }}
@@ -175,42 +172,33 @@ export function MilestoneTimeline({ milestones, prompts, categories, onShowPromp
           <div className="ms-viewport">
             <div id="ms-scroller" className={`ms-scroll${edges.left ? " fade-left" : ""}${edges.right ? " fade-right" : ""}`} ref={scroller} onScroll={updateEdges}>
               <ol className="ms-track">
-                {milestones.map((x) => {
-                  const newDay = x.date !== prevDate;
-                  const gap = prevDate ? dayGap(prevDate, x.date) : 0;
-                  prevDate = x.date;
-                  return (
-                    <Fragment key={x.id}>
-                      {newDay && gap > 1 && <li className="ms-gap" aria-hidden="true"><span>{gap} days later</span></li>}
-                      <li className={`ms-item${newDay ? " new-day" : ""}`}>
-                        {newDay && <span className="ms-day">{fmtWeekday(x.date)}</span>}
-                        <button type="button" className={`ms-node cl-${x.category}${openId === x.id ? " on" : ""}${openId === x.id && pinned ? " pinned" : ""}`}
-                                ref={(el) => { if (el) nodes.current.set(x.id, el); else nodes.current.delete(x.id); }}
-                                aria-expanded={openId === x.id} aria-controls="ms-panel" aria-pressed={openId === x.id && pinned}
-                                // Hover only for a real mouse and focus only from the keyboard, so a tap on a touch
-                                // screen goes straight to the click (pin) instead of an emulated hover.
-                                onPointerEnter={(e) => { if (e.pointerType === "mouse") preview(x.id); }}
-                                onPointerLeave={(e) => { if (e.pointerType === "mouse") cancelPending(); }}
-                                onFocus={(e) => { if (e.currentTarget.matches(":focus-visible")) preview(x.id, true); }}
-                                onClick={() => toggle(x.id)}>
-                          <span className="ms-dot" aria-hidden="true">
-                            {x.icon}
-                            {pending?.id === x.id && (
-                              <svg className={`ms-ring${ringDone ? " done" : ""}`} viewBox="0 0 100 100" style={{ animationDuration: `${pending.ms}ms` }}>
-                                <circle cx="50" cy="50" r="47" pathLength={100} />
-                              </svg>
-                            )}
-                          </span>
-                          <span className="ms-title">{x.title}</span>
-                          <span className="ms-sum">{x.summary}</span>
-                          <span className="ms-meta">
-                            {x.prompts.length} prompt{x.prompts.length === 1 ? "" : "s"} · {x.commits.length} commit{x.commits.length === 1 ? "" : "s"}
-                          </span>
-                        </button>
-                      </li>
-                    </Fragment>
-                  );
-                })}
+                {milestones.map((x) => (
+                  <li key={x.id} className="ms-item">
+                    <button type="button" className={`ms-node cl-${x.category}${openId === x.id ? " on" : ""}${openId === x.id && pinned ? " pinned" : ""}`}
+                            ref={(el) => { if (el) nodes.current.set(x.id, el); else nodes.current.delete(x.id); }}
+                            aria-expanded={openId === x.id} aria-controls="ms-panel" aria-pressed={openId === x.id && pinned}
+                            // Hover only for a real mouse and focus only from the keyboard, so a tap on a touch
+                            // screen goes straight to the click (pin) instead of an emulated hover.
+                            onPointerEnter={(e) => { if (e.pointerType === "mouse") preview(x.id); }}
+                            onPointerLeave={(e) => { if (e.pointerType === "mouse") cancelPending(); }}
+                            onFocus={(e) => { if (e.currentTarget.matches(":focus-visible")) preview(x.id, true); }}
+                            onClick={() => toggle(x.id)}>
+                      <span className="ms-dot" aria-hidden="true">
+                        {x.icon}
+                        {pending?.id === x.id && (
+                          <svg className={`ms-ring${ringDone ? " done" : ""}`} viewBox="0 0 100 100" style={{ animationDuration: `${pending.ms}ms` }}>
+                            <circle cx="50" cy="50" r="47" pathLength={100} />
+                          </svg>
+                        )}
+                      </span>
+                      <span className="ms-title">{x.title}</span>
+                      <span className="ms-sum">{x.summary}</span>
+                      <span className="ms-meta">
+                        {x.prompts.length} prompt{x.prompts.length === 1 ? "" : "s"} · {x.commits.length} commit{x.commits.length === 1 ? "" : "s"}
+                      </span>
+                    </button>
+                  </li>
+                ))}
               </ol>
             </div>
             {/* Blurred edges where there's more to scroll to. */}

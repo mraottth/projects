@@ -521,3 +521,14 @@ Categories: `ui` · `model` · `eval` · `data` · `assistant` · `infra` · `do
 **Decision.** Recommendations weight each rating by how recently the book was read: 0.5^(k/25), where k is the number of the reader's ratings dated later. Dates come from a Goodreads import ("Date Read", else "Date Added"); ratings made on the site are dated the day they're made. Ratings with the same date share a weight, so a shelf rated in one sitting is unaffected; undated ratings count as oldest, and a shelf with no dates (saved before this change) is scored exactly as before. The dates live in the browser with the rest of the shelf and are sent with each request, like the ratings.
 
 **Why.** D-046's offline result. Re-checked with the app's tie rule on the validation users (full-history NDCG@10 0.0777 → 0.0870 at a half-life of 25; 15 and 40 slightly lower), then confirmed on the test users against the champion: 0.0770 → 0.0874 (+0.0104, 95% CI +0.0090 to +0.0118; wins for 17.8% of users, losses for 9.4%), with shorter, undated histories unchanged (`eval/reports/2026-10-03_2124_shelf_life.md`). On the demo library, 7 of the top 10 recommendations stay the same.
+
+## D-048 · Chart the model's versions on today's test split
+- **Date:** 2026-10-03
+- **Category:** eval
+- **Prompts:** fe7c091a-118, fe7c091a-119
+
+**Decision.** An Evaluation page, linked from About, charts the model's five versions on the same temporal test split, with every evaluation report below it (the champion's first). Versions that predate the temporal evaluation (launch, and the prediction floor) were re-scored with their own settings, at the user's request, rather than shown only from the point the evaluation existed.
+
+**Caveat.** Only the blend settings changed between versions (item-kNN and ALS settings are unchanged since launch), so each version can be re-scored by its settings, but every version uses today's data: the Goodreads-shrunk item means and the leak fix (D-026, D-040) changed the data, not settings. The page says re-scored versions differ slightly from what they scored at the time.
+
+**Numbers (test, full history, NDCG@10).** v1 launch 0.0645, v2 floor 0.0651, v3 fame-gated boost 0.0668, v4 blend cap 0.0770, v5 recency 0.0874 (+35% since launch). At 5 ratings, launch scores higher (0.057 against 0.052): the floor costs accuracy for short histories, as D-018 accepted.
