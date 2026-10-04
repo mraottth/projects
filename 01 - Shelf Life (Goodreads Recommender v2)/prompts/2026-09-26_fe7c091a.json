@@ -895,8 +895,16 @@
    "time": "2026-10-04T02:37:17.384Z",
    "kind": "prompt",
    "text": "Let's draw some boundaries in the tables around different groupings of information. For example, a vertical boundary between the @10 and @20 metrics would be helpful. Feel free to make suggestions on other places where table formatting would help make the information more legible",
-   "reply": null,
+   "reply": "The report tables now have boundaries between their groups, plus a few legibility changes I suggested and made. It's pushed on `br-eval-page-3` and not deployed yet.\n\n**Vertical boundaries between column groups:**\n- in the metric tables, @10 | @20;\n- in the head-to-heads, users | wins, ties and losses | mean diff, lift and median gain;\n- in the diagnostics, coverage | popularity;\n- after the row-name column in every table.\n\n**My additions:**\n- **Horizontal rules between row groups:** the model under test, the previous best, the baselines, and the ablation or grid rows in validation sweeps.\n- **Two-level headers:**\n  - In the metric tables, \"Top 10\" and \"Top 20\" span short \"Precision · Recall · NDCG\" labels, instead of repeating @10 and @20 in every column.\n  - In the diagnostics, \"Coverage\" and \"Popularity\" span \"all · n=25 · … · n=1\", instead of repeating \"coverage\" in every column.\n- **Right-aligned numbers,** so the decimals line up.\n- **A row-name column that stays put** when a wide table scrolls sideways. It now has a minimum width, so names no longer squeeze into narrow wraps.\n\nThis all lives in the report cards' table renderer, so every existing report picks it up without being edited. The 70 tests pass, and the browser check found no errors.\n\n`br-eval-page-3` now holds all the Evaluation page rounds. Should I merge and deploy?",
    "id": "fe7c091a-126",
+   "session": "fe7c091a"
+  },
+  {
+   "time": "2026-10-04T02:43:31.510Z",
+   "kind": "prompt",
+   "text": "In the cards let's make the headers bigger (at whatever level \"Head-to-head\" and \"metrics\" are at). Anything currently larger than that should also be adjusted accordingly. Also let's keep the order of the metrics as NDCG, Precision, Recall everywhere it comes up.",
+   "reply": null,
+   "id": "fe7c091a-127",
    "session": "fe7c091a"
   }
  ]
