@@ -903,8 +903,16 @@
    "time": "2026-10-04T02:43:31.510Z",
    "kind": "prompt",
    "text": "In the cards let's make the headers bigger (at whatever level \"Head-to-head\" and \"metrics\" are at). Anything currently larger than that should also be adjusted accordingly. Also let's keep the order of the metrics as NDCG, Precision, Recall everywhere it comes up.",
-   "reply": null,
+   "reply": "Both changes are in and pushed on `br-eval-page-3`; nothing is merged or deployed yet.\n\n**Headings:** before, the renderer showed every heading level at the same size, so the report title, \"Metrics\" and \"n=25\" all looked alike. Report cards now size them by level:\n- the report title is largest (22px);\n- sections like Model, Metrics and Head-to-head are bigger than before (19.5px), with a thin rule underneath;\n- subsections like \"all (full visible history)\" and \"n=25\" are 16px.\n\nThis only applies inside the Evaluation page's report cards, so the Assistant and changelog are unchanged.\n\n**Metric order:** NDCG, Precision, Recall (at 10, then at 20) is now the order in:\n- the chart's metric menu;\n- the version panel's table;\n- the report tables, including the \"Top 10 / Top 20\" sub-headers;\n- the page data.\n\nNew reports follow it automatically. I reordered the 16 existing reports in place, and three spot-checked reports match a fresh render exactly. The saved per-user results files keep their internal column order, so the champion record and the cache stay valid.\n\nThe 70 tests pass and the browser check found no errors. Your local server shows the new version. Should I merge and deploy?",
    "id": "fe7c091a-127",
+   "session": "fe7c091a"
+  },
+  {
+   "time": "2026-10-04T02:49:11.012Z",
+   "kind": "prompt",
+   "text": "On the About page, let's change 'How this was built' to 'How Shelf Life was built' and let's make 'View the code on GitHub' a button like the other two. Let's make all 3 buttons equal width.",
+   "reply": null,
+   "id": "fe7c091a-128",
    "session": "fe7c091a"
   }
  ]
