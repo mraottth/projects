@@ -653,3 +653,19 @@ All three qualify under D-053. The MF hybrid gains the most.
 **Context.** D-050 made NDCG@10 decide promotions, with MAE as a guardrail. A change aimed at rating prediction could never qualify on its own, even with a clear MAE gain and an unchanged ranking. The user chose "MAE better, NDCG not worse" for a clear winner.
 
 **Alternatives considered.** Requiring NDCG@10 to be at least the champion's (stricter; a pure rating change would pass or fail on ranking noise). Promoting on MAE alone (offered only if the new model were limited to the displayed rating; the user chose to use it everywhere).
+
+## D-054 · Keep confidence intervals off the Evaluation chart
+- **Date:** 2026-10-04
+- **Category:** eval
+- **Prompts:** fe7c091a-149, fe7c091a-150, fe7c091a-151, fe7c091a-152, fe7c091a-153, fe7c091a-154, fe7c091a-155
+
+**Decision.** The Evaluation chart stays as it was: points with value labels, no confidence-interval whiskers or bands. Confidence intervals stay where they already are: the version panel's per-reader paired CI against the previous version, and the reports' head-to-head tables. The ranking intro also drops its sentence about the first two versions being re-scored. The page and the version settings already say which versions were re-scored.
+
+**Context.** The user asked whether saved runs could put CIs on the charts without re-running evaluations. They could: a bootstrap over the per-reader results already in `eval/runs/` (1,000 resamples of the 5,895 test readers) gave intervals for every version and baseline, e.g. v6 NDCG@10 0.0875 [0.0841, 0.0913] and MAE 0.664 [0.657, 0.672]. Claude tried three designs on a branch, which was deleted unmerged:
+- **Whiskers with the existing large points.** The user found the intervals too small to make out.
+- **Small dots, with the trophy in the value label.**
+- **Small dots without value labels.**
+
+The user's verdict on the last two: "It's visually less clear and we have CIs presented elsewhere."
+
+**Alternatives considered.** The three chart designs above. Unpaired per-version intervals would also have needed a caveat: v6's and v5's MAE intervals overlap ([0.657, 0.672] vs [0.668, 0.682]) although the per-reader paired test is clearly significant (−0.0110 [−0.0124, −0.0095]).
