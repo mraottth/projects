@@ -78,16 +78,22 @@ function colGroup(h: string): string {
   if (/^(mean diff|lift|median gain)/.test(t)) return "gain";
   if (/^coverage/.test(t)) return "coverage";
   if (/^popularity/.test(t)) return "popularity";
+  if (/^authors /.test(t)) return "authors";
+  if (/^one author /.test(t)) return "oneauthor";
   if (/^(all|n=\d+)$/.test(t)) return "n";
   return t;
 }
 
 /** Spanning header for a column group, and the column's own label under it (heat tables only). */
-const GROUP_LABEL: Record<string, string> = { k10: "Top 10", k20: "Top 20", coverage: "Coverage", popularity: "Popularity" };
+const GROUP_LABEL: Record<string, string> = {
+  k10: "Top 10", k20: "Top 20", coverage: "Coverage", popularity: "Popularity",
+  authors: "Distinct authors", oneauthor: "Most from one author",
+};
 function subLabel(h: string, g: string): string {
   const t = h.replace(/\*\*/g, "").trim();
   if (g === "k10" || g === "k20") return t.replace(/@(10|20)$/, "");
   if (g === "coverage" || g === "popularity") return t.replace(/^(coverage|popularity)\s+/i, "");
+  if (g === "authors" || g === "oneauthor") return t.replace(/^(authors|one author)\s+/i, "");
   return t;
 }
 
@@ -96,6 +102,7 @@ function rowGroup(first: string): number {
   const t = first.replace(/^vs\. /, "").trim();
   if (/^\*\*.*\*\*$/.test(t)) return 0;
   if (/^Previous best/.test(t)) return 1;
+  if (/^Best match as displayed/.test(t)) return 1;
   if (/^(item-kNN only|ALS only|Shelf Life, no |grid: )/.test(t)) return 3;
   return 2;
 }

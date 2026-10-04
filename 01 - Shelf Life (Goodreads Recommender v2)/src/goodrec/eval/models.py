@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from goodrec.core.artifacts import Artifacts
-from goodrec.core.scoring import Filters, Params, UserInput, raw_scores, ranking
+from goodrec.core.scoring import Filters, Params, UserInput, diversify_authors, raw_scores, ranking
 
 
 @dataclass
@@ -54,10 +54,14 @@ class ShelfLife(Recommender):
     params: Params = None
     prior: np.ndarray | None = None
     kind: str = "model"
+    display: bool = False         # score Best match as displayed (author variety), not the model's own ranking
 
     def recommend(self, user, k, rng):
         raw = raw_scores(self.art, user, self.params)
-        return ranking(self.art, raw, user, self.params, "match", self.prior, include_ya=True)["order"][:k]
+        rk = ranking(self.art, raw, user, self.params, "match", self.prior, include_ya=True)
+        if self.display and self.params.author_penalty:
+            return diversify_authors(rk["order"], rk["score"], self.art.meta.author_id, self.params.author_penalty)[:k]
+        return rk["order"][:k]
 
 
 @dataclass
@@ -125,6 +129,11 @@ def shelf_life_models(art: Artifacts, prior: np.ndarray, ablations: bool = False
     out = [ShelfLife(key="shelf_life", name=name, art=art, params=p, prior=prior,
                      description="For you as served: item-kNN + ALS fold-in blend, fame-gated prediction boost, "
                                  "prediction floor; young adult included, no other content filters.")]
+    if p.author_penalty:
+        out.append(ShelfLife(key="shelf_life_display", name="Best match as displayed (author variety)", kind="display",
+                             art=art, params=p, prior=prior, display=True,
+                             description=f"The same model with the Recommendations page's display step: repeat authors "
+                                         f"nudged down (author_penalty={p.author_penalty}). Diagnostic; not the model's score."))
     if ablations:
         for key, nm, kw in (
             ("item_knn_only", "item-kNN only", dict(a_override=0.0, beta_pop=0.0, gamma_quality=0.0, pred_floor_offset=None)),

@@ -56,7 +56,8 @@ PARAM_DEFAULTS = {"a_max": 1.0, "recency_half_life": None}
 
 
 def norm_params(p: dict) -> str:
-    return json.dumps({**PARAM_DEFAULTS, **p}, sort_keys=True)
+    """Model settings that define a version. author_penalty is a display step, not part of the model."""
+    return json.dumps({k: v for k, v in {**PARAM_DEFAULTS, **p}.items() if k != "author_penalty"}, sort_keys=True)
 
 
 def version_labels(report: dict, versions: list[dict]) -> dict[str, str]:
