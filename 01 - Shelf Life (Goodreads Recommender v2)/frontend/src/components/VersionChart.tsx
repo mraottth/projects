@@ -20,8 +20,8 @@ export interface Version {
 export interface Reference { key: string; label: string; metrics: Record<string, Record<string, number>> }
 
 export const METRIC_LABEL: Record<string, string> = {
-  "ndcg@10": "NDCG@10", "recall@10": "Recall@10", "precision@10": "Precision@10",
-  "ndcg@20": "NDCG@20", "recall@20": "Recall@20", "precision@20": "Precision@20",
+  "ndcg@10": "NDCG@10", "precision@10": "Precision@10", "recall@10": "Recall@10",
+  "ndcg@20": "NDCG@20", "precision@20": "Precision@20", "recall@20": "Recall@20",
 };
 const fmtDate = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 const PAD = { l: 76, r: 20, t: 30, b: 54 };

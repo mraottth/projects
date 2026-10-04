@@ -11,7 +11,7 @@ EXPOSURE = [
     "Catalog membership (at least 20 raters in the dataset) is counted over all users.",
 ]
 LABEL = {"precision": "Precision", "recall": "Recall", "ndcg": "NDCG"}
-COLS = [("precision", 10), ("recall", 10), ("ndcg", 10), ("precision", 20), ("recall", 20), ("ndcg", 20)]
+COLS = [("ndcg", 10), ("precision", 10), ("recall", 10), ("ndcg", 20), ("precision", 20), ("recall", 20)]   # NDCG first, everywhere
 
 
 def _n(n: int) -> str:

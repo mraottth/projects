@@ -23,7 +23,7 @@ from build_changelog import ROOT, git_commits, parse_decisions  # noqa: E402
 
 EVAL = ROOT / "eval"
 OUT = ROOT / "frontend" / "src" / "evaluations.json"
-METRICS = ["ndcg@10", "recall@10", "precision@10", "ndcg@20", "recall@20", "precision@20"]
+METRICS = ["ndcg@10", "precision@10", "recall@10", "ndcg@20", "precision@20", "recall@20"]   # NDCG, Precision, Recall
 STAMP = re.compile(r"^(\d{4}-\d{2}-\d{2})_(\d{2})(\d{2})(?:_(.+))?$")
 
 
