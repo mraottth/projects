@@ -949,10 +949,10 @@ button.chip:hover { background: #f1f0eb; }
 .ms-blur.on { opacity: 1; }
 .ms-blur.right { right: 0; width: 170px; mask-image: linear-gradient(to right, transparent, #000 70%); -webkit-mask-image: linear-gradient(to right, transparent, #000 70%); }
 .ms-blur.left { left: 0; width: 60px; mask-image: linear-gradient(to left, transparent, #000 80%); -webkit-mask-image: linear-gradient(to left, transparent, #000 80%); }
-.ms-track { position: relative; display: flex; list-style: none; margin: 0; padding: 24px 18px 8px 6px; width: max-content; }
-.ms-track::before { content: ""; position: absolute; left: 0; right: 0; top: 56px; height: 2px; background: var(--ring); }
+.ms-track { position: relative; display: flex; list-style: none; margin: 0; padding: 30px 18px 8px 6px; width: max-content; }
+.ms-track::before { content: ""; position: absolute; left: 0; right: 0; top: 62px; height: 2px; background: var(--ring); }
 .ms-item { position: relative; width: 218px; flex: 0 0 auto; scroll-snap-align: start; display: flex; }
-.ms-node { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; padding: 0 12px 6px; background: none; border: 0;
+.ms-node { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; padding: 0 12px 6px; background: none; border: 0;
   border-radius: 14px; cursor: pointer; text-align: center; font: inherit; color: var(--ink); }
 .ms-node:hover, .ms-node.on { background: color-mix(in srgb, var(--c, #8a8577) 6%, transparent); }
 .ms-dot { display: grid; place-items: center; width: 64px; height: 64px; flex: 0 0 auto; border-radius: 50%; font-size: 1.85rem; position: relative; z-index: 1;
@@ -973,7 +973,13 @@ button.chip:hover { background: #f1f0eb; }
 @media (prefers-reduced-motion: reduce) { .ms-panel-body { animation: none; } }
 .ms-title { font-size: 1rem; font-weight: 700; line-height: 1.25; }
 .ms-node.on .ms-title { color: color-mix(in srgb, var(--c, #8a8577) 85%, black); }
-.ms-sum { font-size: 0.86rem; line-height: 1.45; color: var(--ink-2); display: -webkit-box; -webkit-line-clamp: 10; -webkit-box-orient: vertical; overflow: hidden; }
+/* Milestone number above the icon. */
+.ms-num { position: absolute; top: -24px; left: 50%; transform: translateX(-50%); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.03em;
+  color: var(--muted); font-variant-numeric: tabular-nums; }
+/* The summary takes whatever height the card has left; when it doesn't fit, its last visible line fades out
+   instead of being cut through. */
+.ms-sum { flex: 1 1 0; min-height: 0; align-self: stretch; font-size: 0.86rem; line-height: 1.45; color: var(--ink-2); overflow: hidden;
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 2.2em), transparent); -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 2.2em), transparent); }
 .ms-meta { margin-top: auto; font-size: 0.76rem; color: var(--muted); }
 /* Details panel: opens to the right of the timeline, which narrows to make room; scrolls on its own. */
 .ms-panel { flex: 0 0 0; min-width: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; visibility: hidden;
@@ -1018,7 +1024,7 @@ button.chip:hover { background: #f1f0eb; }
   .ms-blur.right { width: 90px; }
   .ms-item { width: 176px; }
   .ms-dot { width: 52px; height: 52px; font-size: 1.5rem; }
-  .ms-track::before { top: 50px; }
+  .ms-track::before { top: 56px; }
   .ms-sum { display: none; }   /* the popover shows the summary; phones don't have the height */
   /* Phones: the details panel is a bottom sheet over the page instead. */
   .ms-panel, .ms-panel.open { position: fixed; left: 0; right: 0; bottom: 0; z-index: 60; max-height: 70vh; flex: none; transition: none;

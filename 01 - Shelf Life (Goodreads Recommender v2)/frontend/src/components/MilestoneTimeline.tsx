@@ -205,6 +205,7 @@ export function MilestoneTimeline({ milestones, prompts, categories, onShowPromp
                             onPointerLeave={(e) => { if (e.pointerType === "mouse") cancelPending(); }}
                             onFocus={(e) => { if (e.currentTarget.matches(":focus-visible")) preview(x.id, true); }}
                             onClick={() => toggle(x.id)}>
+                      <span className="ms-num">{x.id.replace(/^M0*/, "M")}</span>
                       <span className="ms-dot" aria-hidden="true">
                         {x.icon}
                         {pending?.id === x.id && (
