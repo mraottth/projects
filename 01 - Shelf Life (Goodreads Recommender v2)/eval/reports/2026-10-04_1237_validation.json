@@ -1,0 +1,632 @@
+{
+  "rows": [
+    {
+      "key": "shelf_life",
+      "name": "Hybrid: SVD++ + item-kNN residual (validation)",
+      "kind": "model",
+      "description": "For you as served: item-kNN + ALS fold-in blend, fame-gated prediction boost, prediction floor; young adult included, no other content filters. Rating: the predicted rating a book card shows, reconstructed with item_means=goodreads, calibration=evidence, predictor=hybrid:best_svdpp.",
+      "n_users": 2527,
+      "by_n": {
+        "1": {
+          "precision@10": 0.02342698909342289,
+          "recall@10": 0.023377586156129837,
+          "ndcg@10": 0.035843636840581894,
+          "precision@20": 0.017491096630692482,
+          "recall@20": 0.03419221565127373,
+          "ndcg@20": 0.0367150604724884,
+          "coverage": 0.11143210111185023,
+          "popularity": 6.9666428565979,
+          "authors10": 8.474079936683815,
+          "top_author10": 2.3252869014641866
+        },
+        "3": {
+          "precision@10": 0.0332014262676239,
+          "recall@10": 0.03278707340359688,
+          "ndcg@10": 0.05115201324224472,
+          "precision@20": 0.024238228797912598,
+          "recall@20": 0.046546343713998795,
+          "ndcg@20": 0.05174636468291283,
+          "coverage": 0.12784377078779816,
+          "popularity": 6.715640544891357,
+          "authors10": 8.094578551642263,
+          "top_author10": 2.581717451523546
+        },
+        "5": {
+          "precision@10": 0.037554413080215454,
+          "recall@10": 0.03829722851514816,
+          "ndcg@10": 0.0570969395339489,
+          "precision@20": 0.026434509083628654,
+          "recall@20": 0.051753073930740356,
+          "ndcg@20": 0.05655156075954437,
+          "coverage": 0.11193575976432577,
+          "popularity": 6.922119617462158,
+          "authors10": 8.23229125445192,
+          "top_author10": 2.4645825089038387
+        },
+        "10": {
+          "precision@10": 0.04768500104546547,
+          "recall@10": 0.04817600175738335,
+          "ndcg@10": 0.06945402920246124,
+          "precision@20": 0.03488326072692871,
+          "recall@20": 0.06615053117275238,
+          "ndcg@20": 0.06985744088888168,
+          "coverage": 0.09472583863917133,
+          "popularity": 7.204300403594971,
+          "authors10": 8.135338345864662,
+          "top_author10": 2.4697269489513256
+        },
+        "25": {
+          "precision@10": 0.05464978516101837,
+          "recall@10": 0.05210651084780693,
+          "ndcg@10": 0.07622719556093216,
+          "precision@20": 0.04133359715342522,
+          "recall@20": 0.07394280284643173,
+          "ndcg@20": 0.07749821990728378,
+          "coverage": 0.08231492920269885,
+          "popularity": 7.432941913604736,
+          "authors10": 8.246933122279383,
+          "top_author10": 2.3593193510091015
+        },
+        "-1": {
+          "precision@10": 0.06390977650880814,
+          "recall@10": 0.05533056706190109,
+          "ndcg@10": 0.08653820306062698,
+          "precision@20": 0.04833795130252838,
+          "recall@20": 0.07856904715299606,
+          "ndcg@20": 0.08646785467863083,
+          "coverage": 0.07958757008457665,
+          "popularity": 7.490328788757324,
+          "authors10": 8.35180055401662,
+          "top_author10": 2.2777997625643054
+        }
+      }
+    },
+    {
+      "key": "shelf_life_display",
+      "name": "Best match as displayed (author variety)",
+      "kind": "display",
+      "description": "The same model with the Recommendations page's display step: repeat authors nudged down (author_penalty=0.5). Diagnostic; not the model's score.",
+      "n_users": 2527,
+      "by_n": {
+        "1": {
+          "precision@10": 0.022160664200782776,
+          "recall@10": 0.021722514182329178,
+          "ndcg@10": 0.034326743334531784,
+          "precision@20": 0.016699641942977905,
+          "recall@20": 0.03238667547702789,
+          "ndcg@20": 0.03521629050374031,
+          "coverage": 0.10984510120688017,
+          "popularity": 7.000403881072998,
+          "authors10": 9.298377522754254,
+          "top_author10": 1.6458250890383854
+        },
+        "3": {
+          "precision@10": 0.03205381706357002,
+          "recall@10": 0.031971607357263565,
+          "ndcg@10": 0.04994684085249901,
+          "precision@20": 0.023367630317807198,
+          "recall@20": 0.044530387967824936,
+          "ndcg@20": 0.050262536853551865,
+          "coverage": 0.1260096930533118,
+          "popularity": 6.755814552307129,
+          "authors10": 8.920854768500197,
+          "top_author10": 1.9109616145627226
+        },
+        "5": {
+          "precision@10": 0.03620894253253937,
+          "recall@10": 0.03713459149003029,
+          "ndcg@10": 0.055810581892728806,
+          "precision@20": 0.025920063257217407,
+          "recall@20": 0.05060865730047226,
+          "ndcg@20": 0.05562784522771835,
+          "coverage": 0.11054832272165732,
+          "popularity": 6.969177722930908,
+          "authors10": 8.975069252077562,
+          "top_author10": 1.8654531064503364
+        },
+        "10": {
+          "precision@10": 0.046141672879457474,
+          "recall@10": 0.04594219848513603,
+          "ndcg@10": 0.06791159510612488,
+          "precision@20": 0.03393351659178734,
+          "recall@20": 0.06458858400583267,
+          "ndcg@20": 0.06856139004230499,
+          "coverage": 0.09347144350470399,
+          "popularity": 7.26215124130249,
+          "authors10": 8.936288088642659,
+          "top_author10": 1.8555599525128612
+        },
+        "25": {
+          "precision@10": 0.05255243554711342,
+          "recall@10": 0.0502508170902729,
+          "ndcg@10": 0.07436295598745346,
+          "precision@20": 0.04024535045027733,
+          "recall@20": 0.07169196754693985,
+          "ndcg@20": 0.07584322243928909,
+          "coverage": 0.0811175520288891,
+          "popularity": 7.480307579040527,
+          "authors10": 8.989315393747527,
+          "top_author10": 1.807281361297982
+        },
+        "-1": {
+          "precision@10": 0.06303918361663818,
+          "recall@10": 0.05397528409957886,
+          "ndcg@10": 0.0852791890501976,
+          "precision@20": 0.047032054513692856,
+          "recall@20": 0.0759320855140686,
+          "ndcg@20": 0.08459793031215668,
+          "coverage": 0.0784472108714245,
+          "popularity": 7.53157901763916,
+          "authors10": 9.047091412742382,
+          "top_author10": 1.7546497823506133
+        }
+      }
+    }
+  ],
+  "head_to_head": [],
+  "best_2023": null,
+  "rating_rows": [
+    {
+      "key": "shelf_life",
+      "name": "Hybrid: SVD++ + item-kNN residual (validation)",
+      "kind": "model",
+      "description": "For you as served: item-kNN + ALS fold-in blend, fame-gated prediction boost, prediction floor; young adult included, no other content filters. Rating: the predicted rating a book card shows, reconstructed with item_means=goodreads, calibration=evidence, predictor=hybrid:best_svdpp.",
+      "n_users": 2527,
+      "by_n": {
+        "1": {
+          "mae": 0.7349754571914673,
+          "rmse": 0.9231513142585754,
+          "pearson": 0.39793831423034026,
+          "spearman": 0.32836461067199707,
+          "spearman_users": 0.9220419469726949,
+          "within1": 0.7404809594154358,
+          "within05": 0.3948037028312683,
+          "bias": -0.10908474773168564,
+          "nmae": 0.702237606048584,
+          "sd_pred": 0.42614540459726474,
+          "sd_actual": 1.0110889825092388,
+          "fallback": 0.0
+        },
+        "3": {
+          "mae": 0.6983062624931335,
+          "rmse": 0.8931395411491394,
+          "pearson": 0.4579415570904017,
+          "spearman": 0.33110541105270386,
+          "spearman_users": 0.9220419469726949,
+          "within1": 0.7657933235168457,
+          "within05": 0.43466880917549133,
+          "bias": -0.08200899511575699,
+          "nmae": 0.6989526748657227,
+          "sd_pred": 0.4965825606033359,
+          "sd_actual": 1.0110889825092388,
+          "fallback": 0.0
+        },
+        "5": {
+          "mae": 0.6808509826660156,
+          "rmse": 0.8787755966186523,
+          "pearson": 0.48683435853731205,
+          "spearman": 0.3347668945789337,
+          "spearman_users": 0.9220419469726949,
+          "within1": 0.7745789885520935,
+          "within05": 0.4551220238208771,
+          "bias": -0.08016715198755264,
+          "nmae": 0.6995410919189453,
+          "sd_pred": 0.5273836876380662,
+          "sd_actual": 1.0110889825092388,
+          "fallback": 0.0
+        },
+        "10": {
+          "mae": 0.6645469665527344,
+          "rmse": 0.8664640188217163,
+          "pearson": 0.5130349929302278,
+          "spearman": 0.3366413712501526,
+          "spearman_users": 0.9220419469726949,
+          "within1": 0.7856695055961609,
+          "within05": 0.46969273686408997,
+          "bias": -0.058733101934194565,
+          "nmae": 0.7048142552375793,
+          "sd_pred": 0.5590627854422472,
+          "sd_actual": 1.0110889825092388,
+          "fallback": 0.0
+        },
+        "25": {
+          "mae": 0.6594175696372986,
+          "rmse": 0.863993227481842,
+          "pearson": 0.5287237380765091,
+          "spearman": 0.33602669835090637,
+          "spearman_users": 0.9220419469726949,
+          "within1": 0.7878737449645996,
+          "within05": 0.4777625799179077,
+          "bias": -0.04926959052681923,
+          "nmae": 0.7118992805480957,
+          "sd_pred": 0.6068276133678954,
+          "sd_actual": 1.0110889825092388,
+          "fallback": 0.0
+        },
+        "-1": {
+          "mae": 0.660531759262085,
+          "rmse": 0.8672325611114502,
+          "pearson": 0.5281222042997563,
+          "spearman": 0.3370305895805359,
+          "spearman_users": 0.9220419469726949,
+          "within1": 0.7873250246047974,
+          "within05": 0.47911953926086426,
+          "bias": -0.03549091890454292,
+          "nmae": 0.7082069516181946,
+          "sd_pred": 0.6581707500320149,
+          "sd_actual": 1.0110889825092388,
+          "fallback": 0.0
+        }
+      },
+      "calibration": {
+        "edges": [
+          1.0,
+          1.5,
+          2.0,
+          2.5,
+          3.0,
+          3.5,
+          4.0,
+          4.5,
+          5.0
+        ],
+        "n": [
+          49,
+          271,
+          963,
+          3238,
+          8016,
+          13430,
+          15240,
+          14125
+        ],
+        "mean_pred": [
+          1.3180602059072377,
+          1.8028096448891278,
+          2.304594682879661,
+          2.800444490015691,
+          3.2781018052926796,
+          3.764834919352187,
+          4.2490064914145185,
+          4.7466193242030865
+        ],
+        "mean_actual": [
+          2.020408163265306,
+          2.3431734317343174,
+          2.6303219106957423,
+          3.01266213712168,
+          3.375499001996008,
+          3.7638123603871927,
+          4.148031496062992,
+          4.600566371681416
+        ]
+      },
+      "by_star": {
+        "n": [
+          1281,
+          3664,
+          10912,
+          19893,
+          19582
+        ],
+        "bias": [
+          2.1493969171145855,
+          1.3666128421844874,
+          0.6144043433307902,
+          -0.029991256485384213,
+          -0.6237997535592189
+        ],
+        "mae": [
+          2.1493969171145855,
+          1.380865804493167,
+          0.723883143923849,
+          0.44428545223104343,
+          0.6237997535592189
+        ]
+      },
+      "by_style": [
+        {
+          "style": "narrow",
+          "users": 843,
+          "mae": 0.5171389579772949,
+          "nmae": 0.7225349545478821,
+          "spearman": 0.30842822790145874,
+          "bias": -0.019914381206035614
+        },
+        {
+          "style": "typical",
+          "users": 841,
+          "mae": 0.6576752066612244,
+          "nmae": 0.7130608558654785,
+          "spearman": 0.35060855746269226,
+          "bias": -0.02316490188241005
+        },
+        {
+          "style": "wide",
+          "users": 843,
+          "mae": 0.8067742586135864,
+          "nmae": 0.6890363097190857,
+          "spearman": 0.3493615686893463,
+          "bias": -0.06336423754692078
+        }
+      ]
+    },
+    {
+      "key": "shelf_life_raw",
+      "name": "Shelf Life, uncalibrated rating",
+      "kind": "ablation",
+      "description": "Ablation: the raw predicted rating (item mean + the user's offset + item-item residual), before calibration to the user's rating scale.",
+      "n_users": 2527,
+      "by_n": {
+        "1": {
+          "mae": 0.7349754571914673,
+          "rmse": 0.9231513142585754,
+          "pearson": 0.39793831423034026,
+          "spearman": 0.32836461067199707,
+          "spearman_users": 0.9220419469726949,
+          "within1": 0.7404809594154358,
+          "within05": 0.3948037028312683,
+          "bias": -0.10908474773168564,
+          "nmae": 0.702237606048584,
+          "sd_pred": 0.42614540459726474,
+          "sd_actual": 1.0110889825092388,
+          "fallback": 0.0
+        },
+        "3": {
+          "mae": 0.6983062624931335,
+          "rmse": 0.8931395411491394,
+          "pearson": 0.4579415570904017,
+          "spearman": 0.33110541105270386,
+          "spearman_users": 0.9220419469726949,
+          "within1": 0.7657933235168457,
+          "within05": 0.43466880917549133,
+          "bias": -0.08200899511575699,
+          "nmae": 0.6989526748657227,
+          "sd_pred": 0.4965825606033359,
+          "sd_actual": 1.0110889825092388,
+          "fallback": 0.0
+        },
+        "5": {
+          "mae": 0.6805070638656616,
+          "rmse": 0.8780701756477356,
+          "pearson": 0.4873084775641819,
+          "spearman": 0.3348984122276306,
+          "spearman_users": 0.9220419469726949,
+          "within1": 0.7753520011901855,
+          "within05": 0.45537492632865906,
+          "bias": -0.07923970371484756,
+          "nmae": 0.6990157961845398,
+          "sd_pred": 0.5245034826841034,
+          "sd_actual": 1.0110889825092388,
+          "fallback": 0.0
+        },
+        "10": {
+          "mae": 0.6631463170051575,
+          "rmse": 0.8644668459892273,
+          "pearson": 0.5149811860767789,
+          "spearman": 0.33968979120254517,
+          "spearman_users": 0.9220419469726949,
+          "within1": 0.7863592505455017,
+          "within05": 0.46922779083251953,
+          "bias": -0.05903882160782814,
+          "nmae": 0.7028211951255798,
+          "sd_pred": 0.5524213741913605,
+          "sd_actual": 1.0110889825092388,
+          "fallback": 0.0
+        },
+        "25": {
+          "mae": 0.655902087688446,
+          "rmse": 0.858917236328125,
+          "pearson": 0.5340366554375877,
+          "spearman": 0.33835169672966003,
+          "spearman_users": 0.9220419469726949,
+          "within1": 0.7892740964889526,
+          "within05": 0.4770605266094208,
+          "bias": -0.05132304131984711,
+          "nmae": 0.7068372368812561,
+          "sd_pred": 0.5895576248664975,
+          "sd_actual": 1.0110889825092388,
+          "fallback": 0.0
+        },
+        "-1": {
+          "mae": 0.65447998046875,
+          "rmse": 0.8585977554321289,
+          "pearson": 0.5420652592747498,
+          "spearman": 0.33919966220855713,
+          "spearman_users": 0.9220419469726949,
+          "within1": 0.7901012897491455,
+          "within05": 0.47939571738243103,
+          "bias": -0.03949078917503357,
+          "nmae": 0.7000086307525635,
+          "sd_pred": 0.6104090344380005,
+          "sd_actual": 1.0110889825092388,
+          "fallback": 0.0
+        }
+      },
+      "calibration": {
+        "edges": [
+          1.0,
+          1.5,
+          2.0,
+          2.5,
+          3.0,
+          3.5,
+          4.0,
+          4.5,
+          5.0
+        ],
+        "n": [
+          26,
+          128,
+          622,
+          2884,
+          8319,
+          15214,
+          16174,
+          11965
+        ],
+        "mean_pred": [
+          1.278247778232281,
+          1.826515344902873,
+          2.3199250544765753,
+          2.8078610642442428,
+          3.284850968637064,
+          3.765232909692639,
+          4.2421731580626,
+          4.75229132664637
+        ],
+        "mean_actual": [
+          2.0,
+          2.0390625,
+          2.4356913183279745,
+          2.9049930651872398,
+          3.329486717153504,
+          3.7641645852504273,
+          4.199517744528255,
+          4.657918930213121
+        ]
+      },
+      "by_star": {
+        "n": [
+          1281,
+          3664,
+          10912,
+          19893,
+          19582
+        ],
+        "bias": [
+          2.1981775036647297,
+          1.3931797948141285,
+          0.6209993439117485,
+          -0.04832402427637672,
+          -0.647003110808282
+        ],
+        "mae": [
+          2.1981775036647297,
+          1.3993815639458889,
+          0.691235137977733,
+          0.4018657318710268,
+          0.647003110808282
+        ]
+      },
+      "by_style": [
+        {
+          "style": "narrow",
+          "users": 843,
+          "mae": 0.5072904229164124,
+          "nmae": 0.706836462020874,
+          "spearman": 0.3135072886943817,
+          "bias": -0.007141224108636379
+        },
+        {
+          "style": "typical",
+          "users": 841,
+          "mae": 0.6511921286582947,
+          "nmae": 0.7059593200683594,
+          "spearman": 0.35148146748542786,
+          "bias": -0.031255438923835754
+        },
+        {
+          "style": "wide",
+          "users": 843,
+          "mae": 0.8049495220184326,
+          "nmae": 0.6872442960739136,
+          "spearman": 0.3501932621002197,
+          "bias": -0.08005616813898087
+        }
+      ]
+    }
+  ],
+  "rating_head_to_head": [],
+  "rating_best_2023": null,
+  "rating_styles": {
+    "cuts": [
+      0.833,
+      1.015
+    ],
+    "pop_sd": 1.0466193328522075,
+    "groups": [
+      {
+        "style": "narrow",
+        "users": 843
+      },
+      {
+        "style": "typical",
+        "users": 841
+      },
+      {
+        "style": "wide",
+        "users": 843
+      }
+    ]
+  },
+  "stamp": "2026-10-04_1237",
+  "commit": "e49f528",
+  "dirty": false,
+  "set": "validation",
+  "users_arg": null,
+  "n_users": 2527,
+  "split_hash": "54b863801d57",
+  "split": {
+    "holdout_frac": 0.3,
+    "min_ratings": 10,
+    "min_visible": 7,
+    "min_hidden_relevant": 3,
+    "relevant_min_rating": 4,
+    "val_frac": 0.3,
+    "seed": 42,
+    "order_by": "read_date_then_added"
+  },
+  "runtime_s": 367.25084590911865,
+  "notes": [
+    "Rating model reconstructed for this run (item_means=goodreads, calibration=evidence, predictor=hybrid:best_svdpp); see goodrec/eval/rating.py. It runs on today's data and artifacts."
+  ],
+  "buckets": [
+    1,
+    3,
+    5,
+    10,
+    25,
+    -1
+  ],
+  "model": {
+    "key": "shelf_life",
+    "name": "Hybrid: SVD++ + item-kNN residual (validation)",
+    "description": "For you as served: item-kNN + ALS fold-in blend, fame-gated prediction boost, prediction floor; young adult included, no other content filters. Rating: the predicted rating a book card shows, reconstructed with item_means=goodreads, calibration=evidence, predictor=hybrid:best_svdpp."
+  },
+  "params": {
+    "k_a": 20,
+    "beta_pop": 0.0,
+    "gamma_quality": 0.0,
+    "candidates": 300,
+    "alpha": 30.0,
+    "regularization": 1.0,
+    "confidence": {
+      "5": 1.0,
+      "4": 0.7,
+      "3": 0.3,
+      "0": 0.2
+    },
+    "ii_prior_mean": 3.0,
+    "ii_prior_weight": 5.0,
+    "beta_pop_many": -0.5,
+    "a_override": null,
+    "a_max": 0.4,
+    "recency_half_life": 25,
+    "author_penalty": 0.5,
+    "pred_floor_offset": 0.25,
+    "delta_pred": 0.75,
+    "pred_fame_lo": 4.0,
+    "pred_fame_hi": 5.5,
+    "pred_pool": 50
+  },
+  "params_text": "k_a=20, beta_pop=0.0, gamma_quality=0.0, candidates=300, alpha=30.0, regularization=1.0, confidence={5: 1.0, 4: 0.7, 3: 0.3, 0: 0.2}, ii_prior_mean=3.0, ii_prior_weight=5.0, beta_pop_many=-0.5, a_override=None, a_max=0.4, recency_half_life=25, author_penalty=0.5, pred_floor_offset=0.25, delta_pred=0.75, pred_fame_lo=4.0, pred_fame_hi=5.5, pred_pool=50",
+  "rating": {
+    "item_means": "goodreads",
+    "calibration": "evidence",
+    "predictor": "hybrid:best_svdpp"
+  },
+  "rating_text": "item_means=goodreads, calibration=evidence, predictor=hybrid:best_svdpp",
+  "artifacts": "artifacts",
+  "artifacts_built": "2026-10-03 12:01"
+}

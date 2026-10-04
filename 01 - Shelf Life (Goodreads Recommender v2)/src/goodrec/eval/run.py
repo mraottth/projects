@@ -237,7 +237,8 @@ def main(set_: str = "test", users: int | None = None, models: str | None = None
     for point in grid_points(grid) if grid else []:
         label = ", ".join(f"{k}={v}" for k, v in point.items())
         recs.append(ShelfLife(key="grid_" + "_".join(f"{k}{v}" for k, v in point.items()), name=f"grid: {label}",
-                              kind="ablation", art=art, prior=prior, description=f"Grid point: {label}.",
+                              kind="ablation", art=ranking_artifacts(art, rsettings, rart), prior=prior,
+                              description=f"Grid point: {label}.",
                               params=Params.from_config(**point), display="author_penalty" in point))
 
     notes = []
