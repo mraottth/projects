@@ -29,7 +29,8 @@ export function fillCovers(own: FlowBook[], wall: FlowBook[]): FlowBook[] {
 
 /** /api/recommend body for an import result (the store updates asynchronously, so don't read it yet). */
 export function importBody(res: ImportResult) {
-  return { ratings: res.rated.map((b) => ({ id: b.id, rating: b.rating })), read: res.read_unrated, to_read: res.to_read };
+  return { ratings: res.rated.map((b) => ({ id: b.id, rating: b.rating, ...(b.date ? { date: b.date } : {}) })),
+           read: res.read_unrated, to_read: res.to_read };
 }
 
 // Deterministic "random" per cover, so the flow looks organic without jitter between renders.

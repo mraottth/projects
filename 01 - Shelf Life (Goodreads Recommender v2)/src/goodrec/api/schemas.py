@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 class Rating(BaseModel):
     id: int                       # Goodreads work_id
     rating: int = Field(ge=1, le=5)
+    date: str | None = None       # YYYY-MM-DD read (else shelved / rated here); orders ratings for recency
 
 
 class FilterSpec(BaseModel):

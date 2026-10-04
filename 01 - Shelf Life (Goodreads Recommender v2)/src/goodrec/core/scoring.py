@@ -20,7 +20,7 @@ class UserInput:
     ratings: dict[int, int]                       # work_idx -> 1..5
     read: set[int] = field(default_factory=set)   # read but unrated
     dismissed: set[int] = field(default_factory=set)
-    recency: dict[int, float] | None = None       # work_idx -> 0..1 weight of each rating (None: all 1)
+    dates: dict[int, int] | None = None           # work_idx -> yyyymmdd read (else shelved / rated); for recency
 
     @property
     def seen(self) -> set[int]:
@@ -66,7 +66,7 @@ class Params:
     beta_pop_many: float = 0.0        # popularity weight for a user with many ratings (interpolated by a(n))
     a_override: float | None = None   # force the ALS weight (eval: 0 = item-item only, 1 = ALS only)
     a_max: float = 1.0                # cap on the ALS weight a(n), however many ratings
-    recency_half_life: float | None = None  # eval: weight the k-th most recent rating by 0.5 ** (k / half-life)
+    recency_half_life: float | None = None  # weight a rating by 0.5 ** (k / half-life), k = ratings dated later
     pred_floor_offset: float | None = None  # For you: drop books predicted below (user average - offset)
     delta_pred: float = 0.0           # Best match: weight on z(predicted rating), scaled by a(n) and fame (config: 0.75)
     pred_fame_lo: float = 4.0         # log10 Goodreads ratings count where fame weight starts (10k)...
@@ -81,6 +81,7 @@ class Params:
                  pred_floor_offset=b.get("pred_floor_offset"), delta_pred=b.get("delta_pred", 0.0),
                  pred_fame_lo=b.get("pred_fame_lo", 4.0), pred_fame_hi=b.get("pred_fame_hi", 6.0),
                  pred_pool=b.get("pred_pool", 50), a_max=b.get("a_max", 1.0),
+                 recency_half_life=b.get("recency_half_life"),
                  candidates=b["candidates"], alpha=a["alpha"], regularization=a["regularization"],
                  confidence={int(k): float(v) for k, v in a["confidence"].items()})
         p.update(overrides)
@@ -98,17 +99,22 @@ class RawScores:
     cache: dict = field(default_factory=dict)   # per-user derived rankings (see recommend())
 
 
-def recency_weights(oldest_first: list[int], half_life: float) -> dict[int, float]:
-    """0.5 ** (k / half_life) for the k-th most recent item (the last one in the list has weight 1)."""
-    n = len(oldest_first)
-    return {i: 0.5 ** ((n - 1 - k) / half_life) for k, i in enumerate(oldest_first)}
+def recency_from_dates(ratings, dates: dict[int, int] | None, half_life: float | None) -> dict[int, float]:
+    """Weight of each rated item: 0.5 ** (k / half_life), where k is the number of ratings dated strictly later.
+    Same-date ratings share a weight (a session of ratings made today is neutral), undated ratings count as
+    older than every dated one, and with no dates (or no half-life) every weight is 1."""
+    if not half_life or not dates:
+        return {}
+    d = np.array([dates.get(i, 0) or 0 for i in ratings], dtype=np.int64)    # 0 = undated: the oldest
+    later = len(d) - np.searchsorted(np.sort(d), d, side="right")
+    return {i: float(0.5 ** (k / half_life)) for i, k in zip(ratings, later)}
 
 
 def fold_in(art: Artifacts, user: UserInput, p: Params) -> np.ndarray | None:
     """Solve the ALS user vector for a new user given fixed item factors (implicit's recalculate_user).
-    With `user.recency`, each rating's confidence boost is scaled by its recency weight."""
+    With dates and a recency half-life, each rating's confidence boost is scaled by its recency weight."""
     items, conf = [], []
-    rec = user.recency or {}
+    rec = recency_from_dates(user.ratings, user.dates, p.recency_half_life)
     for i, r in user.ratings.items():
         g = p.confidence.get(int(r), 0.0) * rec.get(i, 1.0)
         if g > 0:
@@ -130,12 +136,12 @@ def fold_in(art: Artifacts, user: UserInput, p: Params) -> np.ndarray | None:
 
 def item_item_weights(user: UserInput, p: Params) -> dict[int, float]:
     """w_i = r_i - b_u, with b_u a user mean shrunk toward the prior (so one 5-star rating counts), scaled by
-    each rating's recency weight when `user.recency` is set."""
+    each rating's recency weight when the user has dates and p.recency_half_life is set."""
     if not user.ratings:
         return {}
     r = np.asarray(list(user.ratings.values()), dtype=np.float32)
     b_u = (r.sum() + p.ii_prior_mean * p.ii_prior_weight) / (len(r) + p.ii_prior_weight)
-    rec = user.recency or {}
+    rec = recency_from_dates(user.ratings, user.dates, p.recency_half_life)
     return {i: float(v - b_u) * rec.get(i, 1.0) for i, v in user.ratings.items()}
 
 

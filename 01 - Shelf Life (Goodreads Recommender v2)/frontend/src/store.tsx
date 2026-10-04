@@ -11,8 +11,13 @@ export type ShelfBook = Pick<Book, "id" | "title" | "author" | "cover_url" | "co
  */
 type Source = "import" | "manual";
 
+/**
+ * `date` (YYYY-MM-DD) is when the book was read (Goodreads "Date Read", else "Date Added") or, for ratings made
+ * here, the day it was rated. Recommendations weight recent reading more; entries without a date (saved before
+ * dates were kept) count as the oldest, and a shelf with no dates is scored as before.
+ */
 interface ShelfState {
-  ratings: Record<number, { rating: number; book: ShelfBook; source?: Source }>;
+  ratings: Record<number, { rating: number; book: ShelfBook; source?: Source; date?: string }>;
   read: number[];          // read without a rating (from the import and/or marked here)
   manualRead: number[];    // subset of `read` the user marked on this site (kept on re-import)
   toRead: number[];
@@ -44,6 +49,9 @@ function load(): ShelfState {
   }
 }
 
+/** Today's date in the visitor's time zone, as YYYY-MM-DD. */
+const today = () => new Date().toLocaleDateString("en-CA");
+
 const slim = (b: Book): ShelfBook => ({
   id: b.id, title: b.title, author: b.author, cover_url: b.cover_url, cover_url_small: b.cover_url_small,
   isbn: b.isbn, genre: b.genre, year: b.year,
@@ -61,7 +69,7 @@ interface ShelfApi extends ShelfState {
   markRead: (id: number) => void;
   applyImport: (res: ImportResult, mode: ImportMode, demo?: boolean) => void;
   clear: () => void;
-  requestBody: () => { ratings: { id: number; rating: number }[]; read: number[]; to_read: number[]; dismissed: number[] };
+  requestBody: () => { ratings: { id: number; rating: number; date?: string }[]; read: number[]; to_read: number[]; dismissed: number[] };
   /** requestBody plus reviews and outside-the-catalog books, for the Assistant tab. */
   chatShelf: () => object;
 }
@@ -77,7 +85,7 @@ export function ShelfProvider({ children }: { children: ReactNode }) {
 
   const rate = useCallback((book: Book, rating: number) => setS((p) => ({
     ...p,
-    ratings: { ...p.ratings, [book.id]: { rating, book: slim(book), source: "manual" } },
+    ratings: { ...p.ratings, [book.id]: { rating, book: slim(book), source: "manual", date: today() } },
     toRead: p.toRead.filter((i) => i !== book.id),
     dismissed: p.dismissed.filter((i) => i !== book.id),
   })), []);
@@ -103,7 +111,7 @@ export function ShelfProvider({ children }: { children: ReactNode }) {
     const keep = mode === "replace" ? {} : Object.fromEntries(Object.entries(p.ratings).filter(([, v]) => v.source === "manual"));
     const ratings: ShelfState["ratings"] = { ...keep };
     for (const r of res.rated) {
-      if (!(r.id in keep)) ratings[r.id] = { rating: r.rating, book: slim(r), source: "import" };
+      if (!(r.id in keep)) ratings[r.id] = { rating: r.rating, book: slim(r), source: "import", ...(r.date ? { date: r.date } : {}) };
     }
     const manualRead = mode === "replace" ? [] : p.manualRead;
     return {
@@ -120,7 +128,7 @@ export function ShelfProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<ShelfApi>(() => {
     const requestBody = () => ({
-      ratings: Object.entries(s.ratings).map(([id, v]) => ({ id: Number(id), rating: v.rating })),
+      ratings: Object.entries(s.ratings).map(([id, v]) => ({ id: Number(id), rating: v.rating, ...(v.date ? { date: v.date } : {}) })),
       read: s.read, to_read: s.toRead, dismissed: s.dismissed,
     });
     return {
