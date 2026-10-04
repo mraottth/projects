@@ -1,7 +1,7 @@
 {
  "session": "fe7c091a-5174-49e5-9f91-126c647e9612",
  "omitted_api_errors": 12,
- "omitted": 27,
+ "omitted": 28,
  "entries": [
   {
    "time": "2026-09-26T23:22:59.503Z",
@@ -959,8 +959,17 @@
    "time": "2026-10-04T03:31:03.383Z",
    "kind": "prompt",
    "text": "0.5 is good",
-   "reply": null,
+   "reply": "Author variety at 0.5 is on, and the report list is grouped and re-sorted as you asked. Everything is pushed on `br-author-variety`; nothing is merged or deployed yet.\n\n**Author variety (0.5)**\n- **Your list:** on the demo library (the same Sanderson pile-up), the Best match top 10 goes from five Sanderson books clustered at #1, 2, 5, 6 and 9 to four spread out at #1, 3, 7 and 10. Rothfuss, Weir, Remarque, Lynch, Ryan and Cline fill the gaps. \"Sort by predicted rating\" is unchanged.\n- **The Assistant** follows the page's order, since it uses the same recommendation call.\n- **Cost on test readers:** the model still scores 0.0874, so v5 stays champion and the chart is unaffected. The displayed list scores 0.0860, 1.6% lower. Distinct authors in the top 10 rise from 8.4 to 9.1, and the most from one author falls from 2.3 to 1.7.\n- **Reports** now include a \"Best match as displayed\" row and an author-variety table, so the cost stays visible.\n- **Docs:** D-049 records that this partly reverses D-006, with the numbers and your choice. There's also About page text and a \"More authors in Best match\" milestone.\n\n**Report cards (your mid-turn request)**\n- **One card per model version**, ordered by when the version was made: v5 (champion, open), v4, v3, then v2 and v1 at the bottom, despite being re-scored today.\n- **Inside each card:** the version's report of record, with its other runs nested and individually expandable. v5 has 3 others, v4 has 2, and v3 has 8 (the validation sweeps, the earlier-split run and the leak-fix runs).\n- **Earlier evaluations:** runs from before the time-based test sit in a final card.\n- **Chart link:** \"View report\" on the chart opens and scrolls to the right version's card.\n\nThe 72 tests pass and the browser checks found no errors. Your local server is running this version with your API key.\n\n`br-author-variety` also carries the two unmerged branches before it:\n- the newest-first toggle on the milestone strip;\n- the hover and v# naming changes.\n\nMerging ships all three. Should I merge and deploy?",
    "id": "fe7c091a-135",
+   "session": "fe7c091a"
+  },
+  {
+   "time": "2026-10-04T03:33:50.373Z",
+   "kind": "prompt",
+   "text": "[screenshot]\n\nI notice there are a bunch of entries for some models in the evaluation logs. Can we get those collapsed to 1 for each model iteration? Also, lets sort by the date the model version was created - not when it was tested. That way v1 and v2 will be the oldest rather than near the newest (given their rescoring)",
+   "reply": null,
+   "queued": true,
+   "id": "fe7c091a-135a",
    "session": "fe7c091a"
   }
  ]
