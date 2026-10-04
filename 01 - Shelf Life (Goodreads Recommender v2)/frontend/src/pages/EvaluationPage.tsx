@@ -74,7 +74,7 @@ export function EvaluationPage() {
               <span className="ev-report-title">{r.model ?? r.title.replace(/^Eval /, "")}</span>
               {r.ndcg10 != null && <span className="ev-report-score">NDCG@10 {r.ndcg10.toFixed(4)}</span>}
             </summary>
-            {open.has(r.id) && <div className="ev-report-body"><Markdown text={r.markdown} /></div>}
+            {open.has(r.id) && <div className="ev-report-body"><Markdown text={r.markdown} heat /></div>}
           </details>
         ))}
       </div>
