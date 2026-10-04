@@ -251,28 +251,6 @@
   ]
  },
  {
-  "id": "M13",
-  "date": "2026-09-27",
-  "icon": "🗂️",
-  "category": "docs",
-  "title": "Portfolio repo reorganized",
-  "summary": "The portfolio's folders are numbered so Shelf Life comes first on GitHub, and the root README follows the same order.",
-  "prompts": [
-   "fe7c091a-072",
-   "fe7c091a-073",
-   "fe7c091a-074",
-   "fe7c091a-075",
-   "fe7c091a-077",
-   "fe7c091a-078"
-  ],
-  "commits": [
-   "3148292"
-  ],
-  "decisions": [
-   "D-028"
-  ]
- },
- {
   "id": "M14",
   "date": "2026-09-28",
   "icon": "🎬",
