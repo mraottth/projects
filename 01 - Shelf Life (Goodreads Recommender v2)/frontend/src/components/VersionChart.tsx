@@ -152,8 +152,10 @@ export function VersionChart({ versions, references, buckets, onViewReport }: {
                    onClick={() => toggle(vv.id)}
                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(vv.id); } }}>
                   <circle className="ev-hit" cx={x(k)} cy={y(val(vv.metrics))} r={18} />
-                  <circle className="ev-dot" cx={x(k)} cy={y(val(vv.metrics))} r={vv.champion ? 8 : 6.5} />
-                  <text className="ev-val" x={x(k)} y={y(val(vv.metrics)) - 14} textAnchor="middle">{val(vv.metrics).toFixed(3)}</text>
+                  {vv.champion
+                    ? <text className="ev-trophy" x={x(k)} y={y(val(vv.metrics))} textAnchor="middle" dominantBaseline="central">🏆</text>
+                    : <circle className="ev-dot" cx={x(k)} cy={y(val(vv.metrics))} r={6.5} />}
+                  <text className="ev-val" x={x(k)} y={y(val(vv.metrics)) - (vv.champion ? 20 : 14)} textAnchor="middle">{val(vv.metrics).toFixed(3)}</text>
                   <text className="ev-xlabel" x={x(k)} y={H - PAD.b + 22} textAnchor="middle">{vv.champion ? "🏆 " : ""}{vv.id}</text>
                   <text className="ev-xsub" x={x(k)} y={H - PAD.b + 38} textAnchor="middle">{fmtDate(vv.date).replace(/, \d{4}$/, "")}</text>
                 </g>

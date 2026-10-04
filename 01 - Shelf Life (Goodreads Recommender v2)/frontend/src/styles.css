@@ -1035,7 +1035,8 @@ button.chip:hover { background: #f1f0eb; }
 .ev-point { cursor: pointer; outline: none; -webkit-tap-highlight-color: transparent; }
 .ev-hit { fill: transparent; }
 .ev-dot { fill: var(--card); stroke: var(--accent); stroke-width: 3; transition: r 0.15s ease; }
-.ev-point.champion .ev-dot { fill: var(--star); stroke: #b37d00; }
+.ev-trophy { font-size: 24px; transition: filter 0.15s ease; }
+.ev-point:hover .ev-trophy, .ev-point.on .ev-trophy { filter: drop-shadow(0 0 4px rgba(232, 162, 0, 0.6)); }
 .ev-point:hover .ev-dot, .ev-point.on .ev-dot { stroke-width: 4; filter: drop-shadow(0 0 4px rgba(42, 120, 214, 0.45)); }
 .ev-point:focus-visible .ev-dot { stroke: var(--ink); }
 .ev-val { fill: var(--ink-2); font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
