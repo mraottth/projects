@@ -179,3 +179,32 @@ def test_mf_predictor_never_sees_hidden_ratings(built, monkeypatch):
     monkeypatch.setattr(recs[0], "rate", lambda u, i: seen.append(orig(u, i).tolist()) or np.array(seen[-1]))
     run._work((0, np.array([0, 1])))
     assert seen[:2] == seen[2:]
+
+
+def test_sweep_config_parsing():
+    from goodrec.eval.tune_rating import parse_configs
+    a, b = parse_configs("kind=mf,k=16,reg=0.02,reg_b=0 | kind=svdpp,k=8,reg_y=0.4,epochs=3")
+    assert (a.kind, a.k, a.reg, a.reg_b) == ("mf", 16, 0.02, 0.0)
+    assert (b.kind, b.k, b.reg_y, b.epochs) == ("svdpp", 8, 0.4, 3)
+
+
+@needs_data
+def test_sweep_scores_match_the_harness(built):
+    """The sweep's fast evaluator and the evaluation harness give the same per-reader MAE for the same model."""
+    from goodrec.config import load_config
+    from goodrec.core.scoring import Params
+    from goodrec.eval import run
+    from goodrec.eval.models import ShelfLife
+    from goodrec.eval.rating import RatingSettings, population_sd
+    from goodrec.eval.split import load_split
+    from goodrec.eval.tune_rating import BUCKETS, evaluate
+    art, prior, m = built
+    cfg = load_config()["eval"]
+    cases = load_split(cfg=cfg).select("validation", 12, seed=cfg["seed"])
+    fast = evaluate(m, cases, population_sd(prior), workers=1)
+    rart = dataclasses.replace(art, rating_mode="mf", rating_mf=m, rating_calibration="none")
+    rec = ShelfLife(key="m", name="m", description="", art=art, prior=prior, params=Params.from_config(), tracks=("rating",),
+                    rating=RatingSettings(calibration="none", predictor="mf:x"), rating_art=rart)
+    run._STATE.update(fallback=np.clip(art.meta.bayes, 1, 5), pop_sd=population_sd(prior))
+    harness = run.evaluate([rec], cases, BUCKETS, cfg, 1)["m"]["rmet"]
+    np.testing.assert_allclose(fast[:, :, 0], harness[:, :, 0], rtol=1e-4)

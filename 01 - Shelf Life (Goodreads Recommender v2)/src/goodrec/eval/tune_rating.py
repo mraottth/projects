@@ -134,6 +134,83 @@ def refine(best: dict, kind: str) -> list[TrainConfig]:
     return out
 
 
+def parse_configs(spec: str) -> list[TrainConfig]:
+    """"kind=mf,k=16,reg_b=0.001 | kind=mf,k=4" -> TrainConfigs (unset fields keep their defaults)."""
+    out = []
+    for part in filter(None, (x.strip() for x in spec.split("|"))):
+        kw = {}
+        for kv in part.split(","):
+            k, _, v = kv.strip().partition("=")
+            kw[k] = v if k == "kind" else (int(v) if k in ("k", "epochs", "seed") else float(v))
+        out.append(TrainConfig(**kw))
+    return out
+
+
+def extend(report_path, configs: list[TrainConfig], workers: int | None = None) -> None:
+    """Stage 3: run extra configurations (e.g. past a grid edge) on the same readers and fold them into an
+    existing sweep report, rewriting it and the best_<kind> models if they improve."""
+    cfg = load_config()["eval"]
+    workers = workers or cfg["workers"]
+    rep = orjson.loads(report_path.with_suffix(".json").read_bytes())
+    cases = load_split(cfg=cfg).select("validation", rep["n_users"] if rep["n_users"] < 2527 else None, seed=cfg["seed"])
+    prior = np.asarray(orjson.loads((ARTIFACTS_DIR / "population_stats.json").read_bytes())["rating_dist"])
+    pop_sd, data = population_sd(prior), load_training()
+    best = {k: next(x for x in rep["results"] if x["label"] == v) for k, v in rep["best"].items()}
+    for c in configs:
+        r = fit(c, cases, pop_sd, workers, data)
+        r["stage"] = "3"
+        model = r.pop("_model")
+        rep["results"].append(r)
+        if c.kind not in best or r["score"] < best[c.kind]["score"]:
+            best[c.kind] = r
+            rep["best"][c.kind] = r["label"]
+            model.name = f"best_{c.kind}: {r['label']}"
+            model.save(MODELS_DIR / f"best_{c.kind}.npz")
+    report_path.with_suffix(".json").write_bytes(orjson.dumps(rep, option=orjson.OPT_INDENT_2 | orjson.OPT_SERIALIZE_NUMPY))
+    report_path.with_suffix(".md").write_text(render(rep))
+    print(f"  report updated: {report_path}; best: {rep['best']}")
+
+
+def combine(report_path, workers: int | None = None) -> None:
+    """Stage 4: each kind's best model on its own (mf) and under the item-item residual (hybrid), with each
+    calibration mode, as the app would show it (eval harness, rating track only), next to today's item-kNN.
+    Adds a table to the sweep report."""
+    import dataclasses as dc
+
+    from goodrec.core.artifacts import load_artifacts
+    from goodrec.core.scoring import Params
+    from goodrec.eval import run
+    from goodrec.eval.models import ShelfLife
+    from goodrec.eval.rating import RatingSettings, rating_artifacts
+
+    cfg = load_config()
+    ev = cfg["eval"]
+    workers = workers or ev["workers"]
+    rep = orjson.loads(report_path.with_suffix(".json").read_bytes())
+    cases = load_split(cfg=ev).select("validation", rep["n_users"] if rep["n_users"] < 2527 else None, seed=ev["seed"])
+    prior = np.asarray(orjson.loads((ARTIFACTS_DIR / "population_stats.json").read_bytes())["rating_dist"])
+    art = dc.replace(load_artifacts(with_readers=False), rating_mode="knn", rating_mf=None, rating_calibration="evidence")
+    run._STATE.update(fallback=np.clip(art.meta.bayes, 1, 5).astype(np.float64), pop_sd=population_sd(prior))
+    recs = []
+    predictors = ["knn"] + [f"{mode}:best_{k}" for k in rep["best"] for mode in ("mf", "hybrid")]
+    for pred in predictors:
+        for cal in ("evidence", "full", "none"):
+            s = RatingSettings(calibration=cal, predictor=pred)
+            recs.append(ShelfLife(key=f"{pred}|{cal}", name=f"{pred} · calibration {cal}", description="", art=art,
+                                  prior=prior, params=Params.from_config(), tracks=("rating",), rating=s,
+                                  rating_art=rating_artifacts(art, s, cfg["blend"]["bayes_m"])))
+    res = run.evaluate(recs, cases, BUCKETS, ev, workers)
+    rows = []
+    for r in recs:
+        rows.append({"predictor": r.rating.predictor, "calibration": r.rating.calibration,
+                     **summary(res[r.key]["rmet"].astype(np.float64))})
+        print(f"  {r.name}: score {rows[-1]['score']:.4f} (all {rows[-1]['mae']['-1']:.4f})", flush=True)
+    rep["combined"] = rows
+    report_path.with_suffix(".json").write_bytes(orjson.dumps(rep, option=orjson.OPT_INDENT_2 | orjson.OPT_SERIALIZE_NUMPY))
+    report_path.with_suffix(".md").write_text(render(rep))
+    print(f"  report updated: {report_path}")
+
+
 def main(users: int | None = None, workers: int | None = None, quick: bool = False, kinds: str = "mf,svdpp") -> None:
     cfg = load_config()["eval"]
     workers = workers or cfg["workers"]
@@ -211,6 +288,20 @@ def render(r: dict) -> str:
                          f"{x['score']:.4f} | {x['mae']['1']:.4f} | {x['mae']['5']:.4f} | {x['mae']['-1']:.4f} | "
                          f"{x['rmse_all']:.4f} | {x['spearman_all']:.3f} | {x['minutes']:.1f} |")
         lines.append("")
+    if r.get("combined"):
+        lines += ["## As displayed: hybrid and calibration", "",
+                  "Each kind's best model on its own (mf) or under today's item-item residual correction (hybrid), "
+                  "with each calibration mode (evidence = today's evidence-weighted stretch to the reader's own "
+                  "rating histogram; full = the whole stretch for every book; none = uncalibrated), scored through "
+                  "the evaluation harness exactly as the app would show it. knn is today's predictor.", "",
+                  "| Predictor | calibration | score | MAE n=1 | MAE n=5 | MAE all | RMSE all | Spearman all |",
+                  "|---|---|---|---|---|---|---|---|"]
+        best_c = min(r["combined"], key=lambda x: x["score"])
+        for x in sorted(r["combined"], key=lambda x: x["score"]):
+            star = "**" if x is best_c else ""
+            lines.append(f"| {star}{x['predictor']}{star} | {x['calibration']} | {x['score']:.4f} | {x['mae']['1']:.4f} | "
+                         f"{x['mae']['5']:.4f} | {x['mae']['-1']:.4f} | {x['rmse_all']:.4f} | {x['spearman_all']:.3f} |")
+        lines.append("")
     lines += [f"Best: " + "; ".join(f"{k}: {v}" for k, v in r["best"].items()) + ".", "",
               f"Tuned against the champion of {r.get('base_report')}."]
     return "\n".join(lines) + "\n"
@@ -222,4 +313,15 @@ if __name__ == "__main__":
     ap.add_argument("--workers", type=int, default=None)
     ap.add_argument("--quick", action="store_true")
     ap.add_argument("--kinds", default="mf,svdpp")
-    main(**vars(ap.parse_args()))
+    ap.add_argument("--extend", default=None, metavar="REPORT", help="add configurations to an existing sweep report")
+    ap.add_argument("--configs", default="", help='with --extend: "kind=mf,k=16,reg_b=0.001 | kind=mf,k=4"')
+    ap.add_argument("--combine", default=None, metavar="REPORT", help="hybrid / calibration comparison for a sweep")
+    a = ap.parse_args()
+    if a.combine:
+        from pathlib import Path
+        combine(Path(a.combine), a.workers)
+    elif a.extend:
+        from pathlib import Path
+        extend(Path(a.extend), parse_configs(a.configs), a.workers)
+    else:
+        main(a.users, a.workers, a.quick, a.kinds)
