@@ -33,7 +33,7 @@ def _pct(x) -> str:
 def render(r: dict) -> str:
     """`r` is the run summary written to the JSON report (see run.summarize)."""
     m = r["model"]
-    buckets = r["buckets"]
+    buckets = sorted(r["buckets"], key=lambda n: (n >= 0, -n))     # full history first, then 25, 10, 5, 3, 1
     lines = [
         f"# Eval {r['stamp']}: {m['name']}", "",
         "## Model", "",
