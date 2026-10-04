@@ -11,7 +11,7 @@ EXPOSURE = [
     "Catalog membership (at least 20 raters in the dataset) is counted over all users.",
 ]
 LABEL = {"precision": "Precision", "recall": "Recall", "ndcg": "NDCG"}
-COLS = [("precision", 10), ("recall", 10), ("ndcg", 10), ("precision", 20), ("recall", 20), ("ndcg", 20)]
+COLS = [("ndcg", 10), ("precision", 10), ("recall", 10), ("ndcg", 20), ("precision", 20), ("recall", 20)]   # NDCG first, everywhere
 
 
 def _n(n: int) -> str:
@@ -33,7 +33,7 @@ def _pct(x) -> str:
 def render(r: dict) -> str:
     """`r` is the run summary written to the JSON report (see run.summarize)."""
     m = r["model"]
-    buckets = r["buckets"]
+    buckets = sorted(r["buckets"], key=lambda n: (n >= 0, -n))     # full history first, then 25, 10, 5, 3, 1
     lines = [
         f"# Eval {r['stamp']}: {m['name']}", "",
         "## Model", "",
@@ -67,23 +67,32 @@ def render(r: dict) -> str:
             lines.append(f"| {label} | " + " | ".join(_f(cell[f'{a}@{k}']) for a, k in COLS) + " |")
         lines.append("")
 
+    identical = False
     lines += ["## Head-to-head (NDCG@10, per user)", "",
               f"How **{m['name']}** compares with each baseline on the same users. Ties are common: many users "
               "score 0 under both. The CI is a bootstrap 95% interval on the mean per-user difference; lift is "
               "that difference relative to the baseline's mean.", ""]
     for n in buckets:
         lines += [f"### {_n(n)}", "",
-                  "| vs | users | wins | ties | losses | mean diff [95% CI] | lift | median gain when it wins |",
+                  "| Comparison | users | wins | ties | losses | mean diff [95% CI] | lift | median gain when it wins |",
                   "|---|---|---|---|---|---|---|---|"]
         for h in r["head_to_head"]:
             c = h["by_n"][str(n)]
             if not c.get("n"):
                 continue
-            lines.append(f"| {h['name']} | {c['n']:,} | {_pct(c['win'])} | {_pct(c['tie'])} | {_pct(c['loss'])} | "
+            if c["tie"] >= 1 - 1e-9:      # the two models ranked every user's books identically
+                identical = True
+                lines.append(f"| vs. {h['name']} | {c['n']:,} | – | 100% | – | identical rankings† | – | – |")
+                continue
+            lines.append(f"| vs. {h['name']} | {c['n']:,} | {_pct(c['win'])} | {_pct(c['tie'])} | {_pct(c['loss'])} | "
                          f"{c['mean_diff']:+.4f} [{c['ci95'][0]:+.4f}, {c['ci95'][1]:+.4f}] | "
                          f"{_lift(c['lift'])} | {c['median_gain_when_win']:.4f} |")
         lines.append("")
 
+    if identical:
+        lines += ["† Identical rankings: both models ranked every user's books the same at that history size, so they "
+                  "can't differ. For example, recency weighting needs rating dates, and the truncated histories carry "
+                  "none, so it only changes full-history results.", ""]
     lines += ["## Diagnostics (not used to rank models)", "",
               "Catalog coverage: share of the catalog appearing in any user's top 20. Popularity: mean "
               "log(1 + training readers) of top-10 books (lower = less popularity bias).", "",

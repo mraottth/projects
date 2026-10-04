@@ -149,11 +149,11 @@ export function MilestoneTimeline({ milestones, prompts, categories, onShowPromp
   const m = milestones.find((x) => x.id === openId);
 
   return (
-    <section className={`ms${m ? " open" : ""}`} aria-label="Project milestones" ref={section} style={{ height }}
+    <section className={`ms${m ? " open" : ""}`} aria-label="Product milestones" ref={section} style={{ height }}
              onPointerEnter={() => window.clearTimeout(closeTimer.current)}
              onPointerLeave={(e) => { if (e.pointerType === "mouse") leaveSoon(); }}>
       <div className="ms-head">
-        <h2>Milestones</h2>
+        <h2>Product Milestones</h2>
         <span className="muted small">Hover a milestone to see the prompts and commits behind it; click to keep it open. Scroll sideways for more →</span>
         <span className="ms-arrows">
           <button type="button" className="ghost small" aria-label="Earlier milestones" disabled={!edges.left} onClick={() => scrollBy(-1)}>‹</button>

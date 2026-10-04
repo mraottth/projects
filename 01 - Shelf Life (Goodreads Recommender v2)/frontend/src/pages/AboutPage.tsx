@@ -48,8 +48,9 @@ export function AboutPage({ go }: { go: (v: "changelog" | "evaluation") => void 
         taste loved, with a reason for each pick and an estimate of how many stars you&apos;d give it.
       </p>
       <p className="about-actions">
-        <button type="button" className="primary" onClick={() => go("changelog")}>How this was built →</button>
-        <a className="primary-link" href={REPO_URL} target="_blank" rel="noreferrer">View the code on GitHub ↗</a>
+        <button type="button" className="primary" onClick={() => go("changelog")}>How Shelf Life was built →</button>
+        <button type="button" className="primary" onClick={() => go("evaluation")}>Evaluation Timeline →</button>
+        <a className="primary" href={REPO_URL} target="_blank" rel="noreferrer">View the code on GitHub ↗</a>
       </p>
 
       <h2>The data</h2>

@@ -48,7 +48,8 @@ export function EvaluationPage() {
         books they went on to love (4–5★) show up near the top of their recommendations, given everything they read
         before. The main score is NDCG@10; higher is better. Since launch, full-history NDCG@10 has gone from{" "}
         {first?.metrics["-1"]["ndcg@10"].toFixed(3)} to {last?.metrics["-1"]["ndcg@10"].toFixed(3)} ({gain >= 0 ? "+" : ""}
-        {(100 * gain).toFixed(0)}%).
+        {(100 * gain).toFixed(0)}%). The first two versions predate this test, so they were re-scored with their own
+        settings on today&apos;s data.
       </p>
 
       <VersionChart versions={d.versions} references={d.references} buckets={d.buckets} onViewReport={viewReport} />
@@ -69,11 +70,11 @@ export function EvaluationPage() {
                    }}>
             <summary>
               <span className="ev-report-date">{fmtDate(r.date)}{r.time ? ` · ${r.time}` : ""}</span>
-              <span className={`ev-kind${r.champion ? " champion" : ""}`}>{r.champion ? "★ Current champion" : r.kind}</span>
+              <span className={`ev-kind${r.champion ? " champion" : ""}`}>{r.champion ? "🏆 Current champion" : r.kind}</span>
               <span className="ev-report-title">{r.model ?? r.title.replace(/^Eval /, "")}</span>
               {r.ndcg10 != null && <span className="ev-report-score">NDCG@10 {r.ndcg10.toFixed(4)}</span>}
             </summary>
-            {open.has(r.id) && <div className="ev-report-body"><Markdown text={r.markdown} /></div>}
+            {open.has(r.id) && <div className="ev-report-body"><Markdown text={r.markdown} heat /></div>}
           </details>
         ))}
       </div>

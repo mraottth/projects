@@ -19,11 +19,11 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from build_changelog import ROOT, git_commits  # noqa: E402
+from build_changelog import ROOT, git_commits, parse_decisions  # noqa: E402
 
 EVAL = ROOT / "eval"
 OUT = ROOT / "frontend" / "src" / "evaluations.json"
-METRICS = ["ndcg@10", "recall@10", "precision@10", "ndcg@20", "recall@20", "precision@20"]
+METRICS = ["ndcg@10", "precision@10", "recall@10", "ndcg@20", "precision@20", "recall@20"]   # NDCG, Precision, Recall
 STAMP = re.compile(r"^(\d{4}-\d{2}-\d{2})_(\d{2})(\d{2})(?:_(.+))?$")
 
 
@@ -79,7 +79,8 @@ def build_reports(champion: dict | None) -> list[dict]:
     return champ + rest
 
 
-def build_versions(commits: list[dict], champion: dict | None) -> list[dict]:
+def build_versions(commits: list[dict], champion: dict | None, decisions: dict) -> list[dict]:
+    """Versions with their metrics, resolved commits and decisions (title and sections from DECISIONS.md)."""
     by_short = lambda s: next((c for c in commits if c["hash"].startswith(s)), None)  # noqa: E731
     versions = []
     for v in load_json(EVAL / "versions.json", []):
@@ -93,8 +94,15 @@ def build_versions(commits: list[dict], champion: dict | None) -> list[dict]:
             if c is None:
                 raise SystemExit(f"build_evaluations: version {v['id']} names an unknown commit {short}")
             resolved.append({"short": c["short"], "subject": c["subject"], "url": c["url"]})
+        decs = []
+        for did in v.get("decisions", []):
+            if did not in decisions:
+                raise SystemExit(f"build_evaluations: version {v['id']} names an unknown decision {did}")
+            d = decisions[did]
+            decs.append({"id": did, "title": d["title"], "sections": d["sections"]})
         champ = next((h for h in report.get("head_to_head", []) if h["key"] == "champion"), None)
-        versions.append({**v, "commits": resolved, "metrics": metrics_of(sl), "n_users": report["n_users"],
+        versions.append({**v, "commits": resolved, "decisions": decs,
+                         "metrics": metrics_of(sl), "n_users": report["n_users"],
                          "split_hash": report["split_hash"], "_vs_champion": champ,
                          "champion": bool(champion) and Path(champion["report"]).stem == v["report"]})
     # The paired CI applies when the report's previous best is the previous version (same full-history NDCG@10).
@@ -111,14 +119,15 @@ def build_versions(commits: list[dict], champion: dict | None) -> list[dict]:
 def build() -> dict:
     champion = load_json(EVAL / "champion.json")
     commits = git_commits()
-    versions = build_versions(commits, champion)
+    decisions = {d["id"]: d for d in parse_decisions((ROOT / "DECISIONS.md").read_text(encoding="utf-8"))}
+    versions = build_versions(commits, champion, decisions)
     latest = load_json(EVAL / "reports" / f"{versions[-1]['report']}.json") if versions else {}
     refs = []
-    for key, label in (("popular", "Most popular books"), (latest.get("best_2023"), "Best 2023 method")):
+    # Baselines for comparison: the 2023 project's best method (its similar-readers lists) and popular books.
+    for key, label in ((latest.get("best_2023"), "2023 Book Recommender performance"), ("popular", "Most popular books")):
         r = row(latest, key) if key else None
         if r:
-            refs.append({"key": r["key"], "label": f"{label} ({r['name']})" if key != "popular" else label,
-                         "metrics": metrics_of(r)})
+            refs.append({"key": r["key"], "label": label, "metrics": metrics_of(r)})
     return {"versions": versions, "references": refs, "reports": build_reports(champion), "metrics": METRICS,
             "buckets": latest.get("buckets", [1, 3, 5, 10, 25, -1])}
 
