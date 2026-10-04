@@ -208,10 +208,10 @@ export function Markdown({ text, books, onOpen, heat = false }: {
       continue;
     }
     const li = line.match(/^\s*([-*•]|\d+[.)])\s+(.*)$/);
-    const h = line.match(/^#{1,4}\s+(.*)$/);
+    const h = line.match(/^(#{1,4})\s+(.*)$/);
     const q = line.match(/^\s*>\s?(.*)$/);
     if (!line.trim()) flush();
-    else if (h) { flush(); out.push(<h4 key={out.length}>{inline(h[1], ctx)}</h4>); }
+    else if (h) { flush(); out.push(<h4 key={out.length} className={`md-h${h[1].length}`}>{inline(h[2], ctx)}</h4>); }
     else if (q) { if (para.length || list) flush(); quote.push(q[1]); }
     else if (li) {
       const ordered = /\d/.test(li[1]);
