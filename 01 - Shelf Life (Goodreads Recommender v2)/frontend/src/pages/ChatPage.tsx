@@ -184,7 +184,7 @@ export function ChatPage({ go, onOpen, seed, clearSeed }: {
           : <button type="submit" className="primary" disabled={!input.trim()}>Send</button>}
       </form>
       <p className="muted small chat-privacy">
-        Answers come from Claude (Anthropic). Your ratings, reviews and shelves are sent with each message; nothing is stored on
+        Answers come from Claude (Anthropic). Your ratings, reading dates, reviews and shelves are sent with each message; nothing is stored on
         our server. Books marked with a cover are in our catalog; others come from the assistant's own knowledge or the web.
       </p>
     </div>
