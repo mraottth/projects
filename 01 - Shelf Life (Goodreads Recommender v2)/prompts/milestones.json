@@ -526,7 +526,7 @@
   "icon": "🎨",
   "category": "model",
   "title": "More authors in Best match",
-  "summary": "After a list with five Brandon Sanderson books in the top 10, the Best match list now nudges repeat authors down a little, as a display step that leaves the model and its evaluation untouched. It costs 1.6% of NDCG@10 on test readers and adds about one more distinct author to each top 10.",
+  "summary": "When a reader loves several books by one author, Best match could fill up with that author. Now each further book by an author already near the top is nudged down a little, so other authors get a look in. It's a display step that leaves the model and its evaluation untouched; on test readers it costs 1.6% of NDCG@10 and adds about one more distinct author to each top 10.",
   "prompts": [
    "fe7c091a-132",
    "fe7c091a-133",
