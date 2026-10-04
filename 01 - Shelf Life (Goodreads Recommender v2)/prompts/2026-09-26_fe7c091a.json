@@ -1,7 +1,7 @@
 {
  "session": "fe7c091a-5174-49e5-9f91-126c647e9612",
  "omitted_api_errors": 12,
- "omitted": 32,
+ "omitted": 33,
  "entries": [
   {
    "time": "2026-09-26T23:22:59.503Z",
@@ -1168,6 +1168,15 @@
    "text": "Hmm, no you can scrap it. It's visually less clear and we have CIs presented elsewhere. We'll keep the change that removed \"The first two versions predate this test, so they were re-scored with their own settings on today's data.\"",
    "reply": "The chart-interval work is scrapped. I deleted its branch locally and on GitHub, and the local site no longer shows it. The only thing kept is the intro edit: the Ranking intro drops \"The first two versions predate this test, so they were re-scored with their own settings on today's data.\" Each re-scored version's panel still shows its \"Re-scored on today's data\" badge.\n\nThat edit is on a new branch, `br-intro-trim`, pushed but not merged or deployed. It also has two small bookkeeping additions:\n- **Decision D-054:** records that the chart intervals were tried in three designs and dropped as less clear. The intervals in the version panel and the reports are unchanged.\n- **Prompt log:** labels for this whole thread.\n\nThe Rating intro still has its own similar sentence: \"The first two versions used an earlier rating model, reconstructed for this test on today's data.\" I left it, since you only mentioned the Ranking one; say if it should go too.\n\nWant me to merge and deploy?",
    "id": "fe7c091a-155",
+   "session": "fe7c091a"
+  },
+  {
+   "time": "2026-10-04T22:02:23.792Z",
+   "kind": "prompt",
+   "text": "[screenshot]\n\nCan you add Milestone numbers above each icon in the timeline? A subtle gray M1, M2 etc should work. Also some of the text is getting cut off (see screenshot)",
+   "reply": null,
+   "queued": true,
+   "id": "fe7c091a-156a",
    "session": "fe7c091a"
   }
  ]
