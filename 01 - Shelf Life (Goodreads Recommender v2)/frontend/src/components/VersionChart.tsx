@@ -7,7 +7,7 @@ import { Markdown } from "./Markdown";
  * (and it stays when the mouse moves away), and clicking (or Enter/Space) pins it until clicked again, × or Escape. The panel never covers the chart.
  * Labelled dashed lines are baselines for comparison on the same test readers. `track` picks the evaluation track:
  * ranking (NDCG / Precision / Recall; baselines the 2023 Book Recommender and popular books) or rating prediction
- * (MAE and friends, several lower-is-better; baselines the book average, book average + user offset, 2023).
+ * (MAE and friends, several lower-is-better; baselines the book average and the 2023 Book Recommender).
  * The chart and panel share one height that fits the viewport; the SVG is drawn at its measured size.
  */
 

@@ -244,11 +244,10 @@ def build() -> dict:
         r = row(latest, key) if key else None
         if r:
             refs.append({"key": r["key"], "label": label, "metrics": metrics_of(r)})
-    # Rating baselines: the book average (the requested baseline), the book average + the user's offset (the
-    # strong one: it already knows harsh from generous raters) and the 2023 project's better rating method.
+    # Rating baselines: the 2023 project's better rating method and the book average.
     rrefs = []
     for key, label in ((latest.get("rating_best_2023"), "2023 Book Recommender performance"),
-                       ("book_avg", "Book average"), ("bias", "Book average + user offset")):
+                       ("book_avg", "Book average")):
         r = rating_row(latest, key) if key else None
         if r:
             rrefs.append({"key": r["key"], "label": label, "metrics": metrics_of(r, RMETRICS)})
