@@ -934,14 +934,9 @@ button.chip:hover { background: #f1f0eb; }
 .ms-blur.on { opacity: 1; }
 .ms-blur.right { right: 0; width: 170px; mask-image: linear-gradient(to right, transparent, #000 70%); -webkit-mask-image: linear-gradient(to right, transparent, #000 70%); }
 .ms-blur.left { left: 0; width: 60px; mask-image: linear-gradient(to left, transparent, #000 80%); -webkit-mask-image: linear-gradient(to left, transparent, #000 80%); }
-.ms-track { position: relative; display: flex; list-style: none; margin: 0; padding: 52px 18px 8px 6px; width: max-content; }
-.ms-track::before { content: ""; position: absolute; left: 0; right: 0; top: 84px; height: 2px; background: var(--ring); }
+.ms-track { position: relative; display: flex; list-style: none; margin: 0; padding: 24px 18px 8px 6px; width: max-content; }
+.ms-track::before { content: ""; position: absolute; left: 0; right: 0; top: 56px; height: 2px; background: var(--ring); }
 .ms-item { position: relative; width: 218px; flex: 0 0 auto; scroll-snap-align: start; display: flex; }
-.ms-item.new-day::before { content: ""; position: absolute; left: 0; top: -14px; bottom: 0; border-left: 2px dashed var(--ring); }
-.ms-day { position: absolute; left: 8px; top: -44px; font-size: 0.92rem; font-weight: 700; color: #fff; background: var(--ink);
-  padding: 4px 12px; border-radius: 999px; white-space: nowrap; letter-spacing: 0.01em; }
-.ms-gap { flex: 0 0 auto; width: 84px; display: flex; align-items: flex-start; justify-content: center; padding-top: 22px; }
-.ms-gap span { font-size: 0.78rem; font-weight: 600; color: var(--ink-2); background: var(--card); padding: 3px 8px; border-radius: 999px; border: 1px dashed var(--muted); white-space: nowrap; }
 .ms-node { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; padding: 0 12px 6px; background: none; border: 0;
   border-radius: 14px; cursor: pointer; text-align: center; font: inherit; color: var(--ink); }
 .ms-node:hover, .ms-node.on { background: color-mix(in srgb, var(--c, #8a8577) 6%, transparent); }
@@ -1003,7 +998,7 @@ button.chip:hover { background: #f1f0eb; }
   .ms-blur.right { width: 90px; }
   .ms-item { width: 176px; }
   .ms-dot { width: 52px; height: 52px; font-size: 1.5rem; }
-  .ms-track::before { top: 78px; }
+  .ms-track::before { top: 50px; }
   .ms-sum { display: none; }   /* the popover shows the summary; phones don't have the height */
   /* Phones: the details panel is a bottom sheet over the page instead. */
   .ms-panel, .ms-panel.open { position: fixed; left: 0; right: 0; bottom: 0; z-index: 60; max-height: 70vh; flex: none; transition: none;
