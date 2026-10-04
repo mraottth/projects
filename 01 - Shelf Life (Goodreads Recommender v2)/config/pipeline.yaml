@@ -18,6 +18,10 @@ catalog:
   min_user_ratings: 3       # users kept in the training matrix
   ya_min_share: 0.22        # YA flag: parent genre Young Adult, or >= this share of UCSD genre votes are "young-adult"
 
+rating_model:              # predicted-rating model (core.scoring.predict_ratings; DECISIONS D-052)
+  mode: knn                # knn = item mean + offset + item-item residual | mf | hybrid (needs artifacts/rating_mf.npz, s11)
+  calibration: evidence    # evidence | full | none (how the display calibration is applied)
+
 eval:
   n_test_users: 10000        # s05: users held out of all model training
   min_test_user_ratings: 10  # s05

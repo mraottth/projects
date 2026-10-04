@@ -56,6 +56,11 @@ class Artifacts:
     user_factors: np.ndarray | None = None   # (U x F) float32, L2-normalized
     readers: sparse.csr_matrix | None = None  # (U x N) int8: 1-5 rating, 6 = read unrated
     params: dict = field(default_factory=dict)
+    # Rating predictor (config rating_model, D-052): "knn" = item mean + offset + item-item residual; "mf" = a
+    # factorization model (core.rating_mf, artifacts/rating_mf.npz); "hybrid" = the item-item residual on top of it.
+    rating_mode: str = "knn"
+    rating_mf: object = None
+    rating_calibration: str = "evidence"      # "evidence" | "full" | "none"
 
     @property
     def db_path(self) -> Path:
@@ -87,7 +92,15 @@ def load_artifacts(root: Path = ARTIFACTS_DIR, with_readers: bool = True) -> Art
         readers = sparse.load_npz(root / "readers_csr.npz").tocsr()
         uf = np.load(root / "user_factors.npy").astype(np.float32)
     manifest = root / "manifest.json"
+    from goodrec.config import load_config
+    rcfg = load_config().get("rating_model", {}) or {}
+    mode = rcfg.get("mode", "knn")
+    mf = None
+    if mode != "knn":
+        from goodrec.core.rating_mf import MFModel
+        mf = MFModel.load(root / "rating_mf.npz")
     return Artifacts(
+        rating_mode=mode, rating_mf=mf, rating_calibration=rcfg.get("calibration", "evidence"),
         root=root,
         Y=np.load(root / "item_factors.npy"),
         YtY=np.load(root / "yty.npy"),
