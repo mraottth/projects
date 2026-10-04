@@ -49,6 +49,7 @@ export function AboutPage({ go }: { go: (v: "changelog" | "evaluation") => void 
       </p>
       <p className="about-actions">
         <button type="button" className="primary" onClick={() => go("changelog")}>How this was built →</button>
+        <button type="button" className="primary" onClick={() => go("evaluation")}>Evaluation Timeline →</button>
         <a className="primary-link" href={REPO_URL} target="_blank" rel="noreferrer">View the code on GitHub ↗</a>
       </p>
 

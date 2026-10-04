@@ -913,7 +913,7 @@ button.chip:hover { background: #f1f0eb; }
 .ms-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; }
 .ms-head h2 { margin: 0; font-size: 1.2rem; }
 .ms-arrows { margin-left: auto; display: inline-flex; gap: 6px; }
-.ms-arrows button { width: 34px; padding: 3px 0; font-size: 1.15rem; line-height: 1; }
+.ms-arrows button, .ms-arrows button.small { width: 44px; height: 38px; padding: 0 0 3px; font-size: 1.7rem; line-height: 1; border-radius: 10px; }
 .ms-arrows button:disabled { opacity: 0.35; cursor: default; }
 .ms-progress { position: relative; height: 8px; margin: 12px 0 4px; border-radius: 999px; background: #ecebe6; cursor: pointer; touch-action: none; }
 .ms-progress:hover { background: #e3e2dc; }
