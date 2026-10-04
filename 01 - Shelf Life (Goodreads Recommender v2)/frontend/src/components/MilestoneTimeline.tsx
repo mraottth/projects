@@ -229,6 +229,8 @@ export function MilestoneTimeline({ milestones, prompts, categories, onShowPromp
           </div>
         </div>
 
+        {/* Phones: the details panel is a bottom sheet; tapping the dimmed page around it closes it. */}
+        {m && <div className="ms-backdrop" aria-hidden="true" onClick={close} />}
         <aside id="ms-panel" ref={panel} className={`ms-panel${m ? ` open cl-${m.category}` : ""}`}
                aria-label={m ? `${m.title}: details` : "Milestone details"} aria-hidden={!m}>
           {m && (
