@@ -116,7 +116,7 @@ def population_stats(cat: pl.DataFrame, meta: dict, names: dict) -> dict:
                                genre=pl.Series(meta["parent_genre"][widx_arr].astype(np.int64)))
     bias = (rated.group_by("user_idx").agg(pl.len().alias("n"), (pl.col("rating") - pl.col("item_mean")).mean().alias("b"))
                  .filter(pl.col("n") >= 10)["b"].to_numpy())
-    by_genre = rated.filter(pl.col("genre") >= 0).group_by("genre").agg(pl.len().alias("n"), pl.col("rating").mean().alias("avg"))
+    by_genre = rated.filter(pl.col("genre") >= 0).group_by("genre").agg(pl.len().alias("n"), pl.col("rating").mean().alias("avg")).sort("genre")
     return {
         "books_read": {"values": vals.tolist(), "cum_frac": np.round(cum, 6).tolist(), "n_readers": int(len(counts)),
                        "median": float(np.median(counts)), "p90": float(np.percentile(counts, 90))},

@@ -131,7 +131,8 @@ def built():
     import orjson
 
     from goodrec.core.artifacts import load_artifacts
-    art = load_artifacts(with_readers=False)
+    art = dataclasses.replace(load_artifacts(with_readers=False), rating_mode="knn", rating_mf=None,
+                              rating_calibration="evidence")
     prior = np.asarray(orjson.loads((ARTIFACTS_DIR / "population_stats.json").read_bytes())["rating_dist"])
     rng = np.random.default_rng(0)
     m = MFModel(kind="svdpp", mu=3.9, bi=rng.normal(0, 0.3, art.meta.n).astype(np.float32),
@@ -208,3 +209,17 @@ def test_sweep_scores_match_the_harness(built):
     run._STATE.update(fallback=np.clip(art.meta.bayes, 1, 5), pop_sd=population_sd(prior))
     harness = run.evaluate([rec], cases, BUCKETS, cfg, 1)["m"]["rmet"]
     np.testing.assert_allclose(fast[:, :, 0], harness[:, :, 0], rtol=1e-4)
+
+
+@needs_data
+def test_production_rating_model_matches_config():
+    """artifacts/rating_mf.npz is what s11 builds from config rating_model, and load_artifacts wires it in."""
+    from goodrec.config import load_config
+    from goodrec.core.artifacts import load_artifacts
+    rm = load_config()["rating_model"]
+    art = load_artifacts(with_readers=False)
+    assert (art.rating_mode, art.rating_calibration) == (rm["mode"], rm.get("calibration", "evidence"))
+    if rm["mode"] != "knn":
+        t = rm["train"]
+        m = art.rating_mf
+        assert (m.kind, m.k, m.lam_b, m.lam_p) == (t["kind"], t["k"], t["lam_b"], t["lam_p"])
