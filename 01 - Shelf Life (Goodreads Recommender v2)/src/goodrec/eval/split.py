@@ -40,16 +40,19 @@ class Case:
     read: np.ndarray          # read-unrated work_idx shelved before the split
     hidden: np.ndarray        # work_idx shelved on or after the split
     hidden_r: np.ndarray
+    visible_d: np.ndarray | None = None   # yyyymmdd order date of each visible rating (not part of the split hash)
 
     def relevant(self, min_rating: int) -> set[int]:
         return set(self.hidden[self.hidden_r >= min_rating].tolist())
 
     def user_input(self, n: int) -> UserInput:
-        """The model's input: the n most recent visible ratings (n < 0: all of them, plus read-unrated books).
-        Truncated histories simulate people who rate a handful of books, so they carry ratings only."""
+        """The model's input: the n most recent visible ratings (n < 0: all of them, plus read-unrated books and
+        each rating's date, like an import). Truncated histories simulate people who rate a handful of books on
+        the site, so they carry ratings only."""
         if n < 0:
+            dates = dict(zip(self.visible.tolist(), self.visible_d.tolist())) if self.visible_d is not None else None
             return UserInput(ratings=dict(zip(self.visible.tolist(), self.visible_r.tolist())),
-                             read=set(self.read.tolist()))
+                             read=set(self.read.tolist()), dates=dates)
         return UserInput(ratings=dict(zip(self.visible[-n:].tolist(), self.visible_r[-n:].tolist())))
 
 
@@ -73,7 +76,7 @@ def order_dates(read_date: np.ndarray, date_added: np.ndarray) -> np.ndarray:
 
 def split_user(dates: np.ndarray, items: np.ndarray, ratings: np.ndarray, cfg: dict, rng: np.random.Generator):
     """Split one user's history. `ratings` 0 = read but unrated. Returns (visible, visible_r, read, hidden,
-    hidden_r, split_date) or None if the user isn't eligible."""
+    hidden_r, split_date, visible dates) or None if the user isn't eligible."""
     rated = ratings > 0
     d, it, r = dates[rated], items[rated], ratings[rated]
     if len(r) < cfg["min_ratings"]:
@@ -90,7 +93,7 @@ def split_user(dates: np.ndarray, items: np.ndarray, ratings: np.ndarray, cfg: d
     split_date = int(d[cut])
     unrated = ~rated
     read = items[unrated & (dates < split_date)]
-    return it[:cut], r[:cut], read, it[cut:], hid_r, split_date
+    return it[:cut], r[:cut], read, it[cut:], hid_r, split_date, d[:cut]
 
 
 @dataclass
@@ -125,8 +128,8 @@ def build_split(cfg: dict | None = None) -> Split:
                          g["work_idx"].to_numpy().astype(np.int32),
                          g["rating"].to_numpy().astype(np.int8), cfg, rng)
         if out:
-            vis, vis_r, read, hid, hid_r, sd = out
-            cases.append(Case(int(u), True, sd, vis, vis_r, read, hid, hid_r))
+            vis, vis_r, read, hid, hid_r, sd, vis_d = out
+            cases.append(Case(int(u), True, sd, vis, vis_r, read, hid, hid_r, vis_d.astype(np.int32)))
     # Validation / test assignment: one fixed permutation of the eligible users.
     perm = np.random.default_rng(cfg["seed"] + 1).permutation(len(cases))
     for i in perm[: int(round(cfg["val_frac"] * len(cases)))]:
@@ -155,7 +158,7 @@ def save_split(s: Split, path=SPLIT_PATH) -> None:
     arrays = {"user": np.array([c.user for c in cs], np.int64), "is_test": np.array([c.is_test for c in cs]),
               "split_date": np.array([c.split_date for c in cs], np.int32)}
     for name, dtype in (("visible", np.int32), ("visible_r", np.int8), ("read", np.int32), ("hidden", np.int32),
-                        ("hidden_r", np.int8)):
+                        ("hidden_r", np.int8), ("visible_d", np.int32)):
         arrays[name], arrays[name + "_ptr"] = _flat([getattr(c, name) for c in cs], dtype)
     np.savez_compressed(path, hash=np.array(s.hash), params=np.array(repr(sorted(s.params.items()))), **arrays)
 
@@ -167,12 +170,12 @@ def load_split(path=SPLIT_PATH, cfg: dict | None = None) -> Split:
     if path.exists():
         with np.load(path) as f:
             z = {k: f[k] for k in f.files}         # each NpzFile access re-reads the array
-        if str(z["params"]) == repr(sorted(params.items())):
+        if str(z["params"]) == repr(sorted(params.items())) and "visible_d" in z:
             def part(name, i):
                 p = z[name + "_ptr"]
                 return z[name][p[i]:p[i + 1]]
             cases = [Case(int(u), bool(t), int(sd), part("visible", i), part("visible_r", i), part("read", i),
-                          part("hidden", i), part("hidden_r", i))
+                          part("hidden", i), part("hidden_r", i), part("visible_d", i))
                      for i, (u, t, sd) in enumerate(zip(z["user"], z["is_test"], z["split_date"]))]
             return Split(cases, str(z["hash"]), params)
     s = build_split(cfg)

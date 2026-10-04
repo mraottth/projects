@@ -71,19 +71,20 @@ def _user(n_days: int, per_day: int = 1, hidden_rating: int = 5):
 
 def test_split_user_hidden_is_later_and_disjoint():
     dates, items, ratings = _user(20)
-    vis, vis_r, read, hid, hid_r, split_date = split_user(dates, items, ratings, CFG, np.random.default_rng(0))
+    vis, vis_r, read, hid, hid_r, split_date, vis_d = split_user(dates, items, ratings, CFG, np.random.default_rng(0))
     assert not set(vis.tolist()) & set(hid.tolist())
     by_item = dict(zip(items.tolist(), dates.tolist()))
     assert max(by_item[i] for i in vis.tolist()) < split_date <= min(by_item[i] for i in hid.tolist())
     assert len(vis) == 14 and len(hid) == 6
     assert list(vis) == sorted(vis, key=lambda i: by_item[i])   # oldest first
+    assert vis_d.tolist() == [by_item[i] for i in vis.tolist()]
 
 
 def test_split_user_excludes_reads_after_the_split():
     dates, items, ratings = _user(20)
     ratings[2] = 0                                         # read (unrated) early: visible
     ratings[-1] = 0                                        # read (unrated) after the split: excluded everywhere
-    vis, _, read, hid, _, _ = split_user(dates, items, ratings, CFG, np.random.default_rng(0))
+    vis, _, read, hid, _, _, _ = split_user(dates, items, ratings, CFG, np.random.default_rng(0))
     assert read.tolist() == [2]
     assert 19 not in vis.tolist() + hid.tolist()
 
@@ -146,6 +147,9 @@ def test_split_sets_are_disjoint_and_stable():
     assert val and test and not val & test
     assert set(np.load(INTERIM_DIR / "test_users.npy").tolist()) >= val | test
     assert load_split().hash == s.hash
+    c = s.cases[0]
+    assert c.visible_d is not None and len(c.visible_d) == len(c.visible)
+    assert list(c.visible_d) == sorted(c.visible_d)
 
 
 @needs_data
@@ -170,13 +174,17 @@ def test_a_max_caps_the_taste_model_share():
     assert recommend(art, user, Filters(), Params.from_config(a_max=0.5), limit=5)["alpha"] == pytest.approx(0.5)
 
 
-def test_recency_weights_and_neutral_default():
-    from goodrec.core.scoring import Params, item_item_weights, recency_weights
-    w = recency_weights([7, 8, 9], half_life=1.0)
-    assert w == {7: 0.25, 8: 0.5, 9: 1.0}
-    p = Params.from_config()
-    user = UserInput(ratings={7: 5, 8: 3, 9: 4})
-    assert item_item_weights(user, p) == item_item_weights(UserInput(ratings=user.ratings, recency={7: 1.0, 8: 1.0, 9: 1.0}), p)
+def test_recency_from_dates_ties_undated_and_neutral():
+    from goodrec.core.scoring import Params, item_item_weights, recency_from_dates
+    ratings = {1: 5, 2: 4, 3: 4, 4: 3}
+    w = recency_from_dates(ratings, {1: 20170301, 2: 20170301, 3: 20160101}, half_life=1.0)
+    assert w == {1: 1.0, 2: 1.0, 3: 0.25, 4: 0.125}          # same date shares; undated (4) is oldest
+    assert recency_from_dates(ratings, {}, 25) == {} and recency_from_dates(ratings, {1: 20170101}, None) == {}
+    same_day = recency_from_dates(ratings, {i: 20260101 for i in ratings}, 25)
+    assert set(same_day.values()) == {1.0}                   # a session of ratings made today is neutral
+    p = Params.from_config(recency_half_life=25)
+    user = UserInput(ratings=ratings)
+    assert item_item_weights(user, p) == item_item_weights(UserInput(ratings=ratings, dates={}), p)
 
 
 @needs_data
@@ -187,6 +195,7 @@ def test_full_recency_reproduces_scores():
     p = Params.from_config()
     user = UserInput(ratings={0: 5, 4: 4, 9: 2, 50: 5})
     a = raw_scores(art, user, p)
-    b = raw_scores(art, UserInput(ratings=user.ratings, recency={i: 1.0 for i in user.ratings}), p)
+    b = raw_scores(art, UserInput(ratings=user.ratings, dates={i: 20170101 for i in user.ratings}),
+                   Params.from_config(recency_half_life=25))          # one shared date: every weight is 1
     np.testing.assert_array_equal(a.s_als, b.s_als)
     np.testing.assert_array_equal(a.s_ii, b.s_ii)
