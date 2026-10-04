@@ -42,15 +42,17 @@ function cellNumber(c: string): number | null {
 }
 
 /** Subtle conditional formatting for numeric table columns (Evaluation report cards): signed columns green or
- * red by sign, "wins" / "losses" green / red by value, other numeric columns a light blue scale. User counts,
- * ties and text cells are left plain. */
+ * red by sign (reversed for error differences, where negative is better), "wins" / "losses" green / red by
+ * value, other numeric columns a light blue scale. User counts, ties, bias (signed but neither good nor bad) and
+ * text cells are left plain. */
 function heatStyles(head: string[], rows: string[][]): (CSSProperties | undefined)[][] {
   const styles = rows.map((r) => r.map(() => undefined as CSSProperties | undefined));
   head.forEach((h, i) => {
-    if (i === 0 || /users|tie/i.test(h)) return;
+    if (i === 0 || /users|tie|^bias|^ratings$/i.test(h)) return;
+    const lowerBetter = /^MAE diff|^relative$/i.test(h);
     const vals = rows.map((r) => cellNumber(r[i] ?? ""));
     if (vals.filter((v) => v !== null).length < 2) return;
-    const signed = rows.some((r) => /^\s*[+\u2212]/.test((r[i] ?? "").replace(/\*\*/g, "")));
+    const signed = lowerBetter || rows.some((r) => /^\s*[+\u2212]/.test((r[i] ?? "").replace(/\*\*/g, "")));
     const nums = vals.filter((v): v is number => v !== null);
     const lo = Math.min(...nums), hi = Math.max(...nums);
     const rgb = signed ? null : /loss/i.test(h) ? "208, 59, 59" : /win/i.test(h) ? "29, 122, 60" : "42, 120, 214";
@@ -59,7 +61,7 @@ function heatStyles(head: string[], rows: string[][]): (CSSProperties | undefine
       if (v === null) return;
       if (signed) {
         if (Math.abs(v) < 1e-12) return;
-        styles[j][i] = { background: v > 0 ? "rgba(29, 122, 60, 0.11)" : "rgba(208, 59, 59, 0.11)" };
+        styles[j][i] = { background: (v > 0) !== lowerBetter ? "rgba(29, 122, 60, 0.11)" : "rgba(208, 59, 59, 0.11)" };
       } else if (hi > lo) {
         styles[j][i] = { background: `rgba(${rgb}, ${(0.03 + 0.17 * (v - lo) / (hi - lo)).toFixed(3)})` };
       }
@@ -75,7 +77,12 @@ function colGroup(h: string): string {
   if (/@10$/.test(t)) return "k10";
   if (/@20$/.test(t)) return "k20";
   if (/^(wins|ties|losses)$/.test(t)) return "wlt";
-  if (/^(mean diff|lift|median gain)/.test(t)) return "gain";
+  if (/^(mean diff|mae diff|lift|relative|median gain)/.test(t)) return "gain";
+  if (/^(mae|rmse|mae\/σ)$/.test(t)) return "err";
+  if (/^(pearson|spearman)$/.test(t)) return "corr";
+  if (/^±/.test(t)) return "within";
+  if (/^(bias|mae|mae\/σ|spearman) (narrow|typical|wide)$/.test(t)) return `style-${t.split(" ")[0]}`;
+  if (/^(bias|mae) \d★$/.test(t)) return `star-${t.split(" ")[0]}`;
   if (/^coverage/.test(t)) return "coverage";
   if (/^popularity/.test(t)) return "popularity";
   if (/^authors /.test(t)) return "authors";
@@ -88,12 +95,16 @@ function colGroup(h: string): string {
 const GROUP_LABEL: Record<string, string> = {
   k10: "Top 10", k20: "Top 20", coverage: "Coverage", popularity: "Popularity",
   authors: "Distinct authors", oneauthor: "Most from one author",
+  err: "Error (lower is better)", corr: "Correlation", within: "Within",
+  "style-mae": "MAE", "style-mae/σ": "Scale-adjusted MAE", "style-spearman": "Spearman", "style-bias": "Bias",
+  "star-bias": "Bias", "star-mae": "MAE",
 };
 function subLabel(h: string, g: string): string {
   const t = h.replace(/\*\*/g, "").trim();
   if (g === "k10" || g === "k20") return t.replace(/@(10|20)$/, "");
   if (g === "coverage" || g === "popularity") return t.replace(/^(coverage|popularity)\s+/i, "");
   if (g === "authors" || g === "oneauthor") return t.replace(/^(authors|one author)\s+/i, "");
+  if (/^(style-|star-)/.test(g)) return t.replace(/^\S+\s+/, "");
   return t;
 }
 
@@ -103,7 +114,7 @@ function rowGroup(first: string): number {
   if (/^\*\*.*\*\*$/.test(t)) return 0;
   if (/^Previous best/.test(t)) return 1;
   if (/^Best match as displayed/.test(t)) return 1;
-  if (/^(item-kNN only|ALS only|Shelf Life, no |grid: )/.test(t)) return 3;
+  if (/^(item-kNN only|ALS only|Shelf Life, no |Shelf Life, uncalibrated|grid: )/.test(t)) return 3;
   return 2;
 }
 

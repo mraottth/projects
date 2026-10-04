@@ -112,7 +112,7 @@ export function App() {
         )}
         {url.view === "about" && <Suspense fallback={<div className="spinner" />}><AboutPage go={go} /></Suspense>}
         {url.view === "changelog" && <Suspense fallback={<div className="spinner" />}><ChangelogPage /></Suspense>}
-        {url.view === "evaluation" && <Suspense fallback={<div className="spinner" />}><EvaluationPage /></Suspense>}
+        {url.view === "evaluation" && <Suspense fallback={<div className="spinner" />}><EvaluationPage track={url.track} setTrack={(track) => update({ track })} /></Suspense>}
         {url.view === "explore" && (
           <ExplorePage filters={url.explore} setFilters={(explore) => update({ explore })}
                        sort={url.browseSort} setSort={(browseSort) => update({ browseSort })} onOpen={onOpen} />
