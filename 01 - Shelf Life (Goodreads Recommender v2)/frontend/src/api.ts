@@ -91,7 +91,7 @@ export type ChatTier = "simple" | "complex";
 export interface ChatStatus { enabled: boolean; models: Record<ChatTier, string>; per_visitor_daily: number; max_turns: number }
 
 export interface ImportResult {
-  rated: (Book & { rating: number; match: string })[];
+  rated: (Book & { rating: number; match: string; date?: string })[];   // date: YYYY-MM-DD read (else added)
   read_unrated: number[];
   to_read: number[];
   unmatched: OutsideBook[];
