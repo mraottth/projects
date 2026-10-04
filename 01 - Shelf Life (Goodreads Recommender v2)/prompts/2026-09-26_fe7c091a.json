@@ -989,6 +989,15 @@
    "queued": true,
    "id": "fe7c091a-136b",
    "session": "fe7c091a"
+  },
+  {
+   "time": "2026-10-04T04:18:15.789Z",
+   "kind": "prompt",
+   "text": "the description on 'More authors in best match' mentions Brandon Sanderson, which is particular to my ratings. Update that to describe the general use case we made that product change for.",
+   "reply": null,
+   "queued": true,
+   "id": "fe7c091a-136c",
+   "session": "fe7c091a"
   }
  ]
 }
