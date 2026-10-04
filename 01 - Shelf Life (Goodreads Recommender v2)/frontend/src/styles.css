@@ -924,11 +924,11 @@ button.chip:hover { background: #f1f0eb; }
 .ms-head h2 { margin: 0; font-size: 1.2rem; }
 .ms-arrows { margin-left: auto; display: inline-flex; gap: 6px; }
 .ms-arrows button, .ms-arrows button.small { width: 44px; height: 38px; padding: 0 0 3px; font-size: 1.7rem; line-height: 1; border-radius: 10px; }
-.ms-arrows button.ms-order { width: auto; padding: 0 12px; font-size: 0.85rem; margin-right: 4px; }
+.ms-order { display: inline-flex; align-items: center; gap: 6px; margin-right: 6px; font-size: 0.85rem; color: var(--ink-2); }
+.ms-order select { font: inherit; color: var(--ink); padding: 5px 6px; border-radius: 8px; border: 1px solid var(--ring); background: var(--card); }
 .ms-arrows button:disabled { opacity: 0.35; cursor: default; }
 .ms-progress-row { display: flex; align-items: center; gap: 10px; margin: 12px 0 4px; }
 .ms-end { flex: 0 0 auto; font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
-.ms-order { white-space: nowrap; }
 .ms-arrows { align-items: center; }
 .ms-progress { position: relative; flex: 1; height: 8px; border-radius: 999px; background: #ecebe6; cursor: pointer; touch-action: none; }
 .ms-progress:hover { background: #e3e2dc; }
