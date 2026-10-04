@@ -67,6 +67,7 @@ def render(r: dict) -> str:
             lines.append(f"| {label} | " + " | ".join(_f(cell[f'{a}@{k}']) for a, k in COLS) + " |")
         lines.append("")
 
+    identical = False
     lines += ["## Head-to-head (NDCG@10, per user)", "",
               f"How **{m['name']}** compares with each baseline on the same users. Ties are common: many users "
               "score 0 under both. The CI is a bootstrap 95% interval on the mean per-user difference; lift is "
@@ -79,11 +80,19 @@ def render(r: dict) -> str:
             c = h["by_n"][str(n)]
             if not c.get("n"):
                 continue
+            if c["tie"] >= 1 - 1e-9:      # the two models ranked every user's books identically
+                identical = True
+                lines.append(f"| {h['name']} | {c['n']:,} | – | 100% | – | identical rankings† | – | – |")
+                continue
             lines.append(f"| {h['name']} | {c['n']:,} | {_pct(c['win'])} | {_pct(c['tie'])} | {_pct(c['loss'])} | "
                          f"{c['mean_diff']:+.4f} [{c['ci95'][0]:+.4f}, {c['ci95'][1]:+.4f}] | "
                          f"{_lift(c['lift'])} | {c['median_gain_when_win']:.4f} |")
         lines.append("")
 
+    if identical:
+        lines += ["† Identical rankings: both models ranked every user's books the same at that history size, so they "
+                  "can't differ. For example, recency weighting needs rating dates, and the truncated histories carry "
+                  "none, so it only changes full-history results.", ""]
     lines += ["## Diagnostics (not used to rank models)", "",
               "Catalog coverage: share of the catalog appearing in any user's top 20. Popularity: mean "
               "log(1 + training readers) of top-10 books (lower = less popularity bias).", "",
