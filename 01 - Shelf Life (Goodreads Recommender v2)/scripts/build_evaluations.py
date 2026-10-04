@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from build_changelog import ROOT, git_commits, load_prompts, parse_decisions  # noqa: E402
+from build_changelog import ROOT, git_commits, parse_decisions  # noqa: E402
 
 EVAL = ROOT / "eval"
 OUT = ROOT / "frontend" / "src" / "evaluations.json"
@@ -79,9 +79,8 @@ def build_reports(champion: dict | None) -> list[dict]:
     return champ + rest
 
 
-def build_versions(commits: list[dict], champion: dict | None, decisions: dict, prompts: dict) -> list[dict]:
-    """Versions with their metrics, resolved commits, decisions (DECISIONS.md) and the prompts those decisions
-    cite (prompts/), in order and without repeats."""
+def build_versions(commits: list[dict], champion: dict | None, decisions: dict) -> list[dict]:
+    """Versions with their metrics, resolved commits and decisions (title and sections from DECISIONS.md)."""
     by_short = lambda s: next((c for c in commits if c["hash"].startswith(s)), None)  # noqa: E731
     versions = []
     for v in load_json(EVAL / "versions.json", []):
@@ -101,10 +100,8 @@ def build_versions(commits: list[dict], champion: dict | None, decisions: dict, 
                 raise SystemExit(f"build_evaluations: version {v['id']} names an unknown decision {did}")
             d = decisions[did]
             decs.append({"id": did, "title": d["title"], "sections": d["sections"]})
-        pids = list(dict.fromkeys(pid for d in decs for pid in decisions[d["id"]]["prompts"]))
-        prs = [{"id": pid, "kind": prompts[pid]["kind"], "text": prompts[pid]["text"]} for pid in pids if pid in prompts]
         champ = next((h for h in report.get("head_to_head", []) if h["key"] == "champion"), None)
-        versions.append({**v, "commits": resolved, "decisions": decs, "prompts": prs,
+        versions.append({**v, "commits": resolved, "decisions": decs,
                          "metrics": metrics_of(sl), "n_users": report["n_users"],
                          "split_hash": report["split_hash"], "_vs_champion": champ,
                          "champion": bool(champion) and Path(champion["report"]).stem == v["report"]})
@@ -123,8 +120,7 @@ def build() -> dict:
     champion = load_json(EVAL / "champion.json")
     commits = git_commits()
     decisions = {d["id"]: d for d in parse_decisions((ROOT / "DECISIONS.md").read_text(encoding="utf-8"))}
-    prompts = {p["id"]: p for p in load_prompts(ROOT / "prompts")}
-    versions = build_versions(commits, champion, decisions, prompts)
+    versions = build_versions(commits, champion, decisions)
     latest = load_json(EVAL / "reports" / f"{versions[-1]['report']}.json") if versions else {}
     refs = []
     # Baselines for comparison: the 2023 project's best method (its similar-readers lists) and popular books.
