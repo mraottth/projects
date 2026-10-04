@@ -74,7 +74,7 @@ def render(r: dict) -> str:
               "that difference relative to the baseline's mean.", ""]
     for n in buckets:
         lines += [f"### {_n(n)}", "",
-                  "| vs | users | wins | ties | losses | mean diff [95% CI] | lift | median gain when it wins |",
+                  "| Comparison | users | wins | ties | losses | mean diff [95% CI] | lift | median gain when it wins |",
                   "|---|---|---|---|---|---|---|---|"]
         for h in r["head_to_head"]:
             c = h["by_n"][str(n)]
@@ -82,9 +82,9 @@ def render(r: dict) -> str:
                 continue
             if c["tie"] >= 1 - 1e-9:      # the two models ranked every user's books identically
                 identical = True
-                lines.append(f"| {h['name']} | {c['n']:,} | – | 100% | – | identical rankings† | – | – |")
+                lines.append(f"| vs. {h['name']} | {c['n']:,} | – | 100% | – | identical rankings† | – | – |")
                 continue
-            lines.append(f"| {h['name']} | {c['n']:,} | {_pct(c['win'])} | {_pct(c['tie'])} | {_pct(c['loss'])} | "
+            lines.append(f"| vs. {h['name']} | {c['n']:,} | {_pct(c['win'])} | {_pct(c['tie'])} | {_pct(c['loss'])} | "
                          f"{c['mean_diff']:+.4f} [{c['ci95'][0]:+.4f}, {c['ci95'][1]:+.4f}] | "
                          f"{_lift(c['lift'])} | {c['median_gain_when_win']:.4f} |")
         lines.append("")
