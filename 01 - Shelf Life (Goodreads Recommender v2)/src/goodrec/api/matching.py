@@ -9,6 +9,7 @@ Shelves: My Rating > 0 -> rating; Exclusive Shelf 'read' with rating 0 -> read-u
 """
 
 import csv
+import datetime as dt
 import html
 import io
 import re
@@ -28,6 +29,20 @@ def clean_review(text: str | None) -> str:
     text = html.unescape(re.sub(r"<[^>]+>", "", text))
     text = re.sub(r"\n{3,}", "\n\n", text).strip()
     return text if len(text) <= MAX_REVIEW else text[:MAX_REVIEW].rsplit(" ", 1)[0] + "…"
+
+
+def export_date(text: str | None) -> str | None:
+    """A Goodreads export date ("2023/05/14") as ISO "2023-05-14"; None if blank, malformed or in the future."""
+    try:
+        d = dt.datetime.strptime((text or "").strip(), "%Y/%m/%d").date()
+    except ValueError:
+        return None
+    return d.isoformat() if d <= dt.date.today() else None
+
+
+def read_date(row: dict) -> str | None:
+    """When the book was read ("Date Read"), else when it was shelved ("Date Added"): orders ratings for recency."""
+    return export_date(row.get("Date Read")) or export_date(row.get("Date Added"))
 
 
 def match_row(cat: Catalog, row: dict) -> tuple[int | None, str | None]:
@@ -89,8 +104,12 @@ def parse_export(cat: Catalog, raw: bytes) -> dict:
             reviews[idx] = review
         if 1 <= rating <= 5:
             prev = rated.get(idx)
-            if prev is None or rating > prev["rating"]:  # duplicate editions -> keep the max
-                rated[idx] = {"idx": idx, "rating": rating, "match": how}
+            date = read_date(row)
+            if prev is None or rating > prev["rating"]:  # duplicate editions -> keep the max rating, latest date
+                rated[idx] = {"idx": idx, "rating": rating, "match": how,
+                              "date": max(filter(None, (date, prev and prev["date"])), default=None)}
+            elif date and (prev["date"] is None or date > prev["date"]):
+                prev["date"] = date
         elif shelf == "read" or shelf == "currently-reading":
             read_unrated.add(idx)
         elif shelf == "to-read":

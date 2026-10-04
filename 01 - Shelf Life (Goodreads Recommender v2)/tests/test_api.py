@@ -458,3 +458,26 @@ def test_demo_library(client):
     assert len(res["rated"]) > 150 and len(res["to_read"]) > 200   # the rest are mostly post-2017 (outside the catalog)
     assert res["stats"]["rows"] > 700 and res["stats"]["match_rate"] > 0.5
     assert {"reviews", "unmatched", "unmatched_to_read"} <= res.keys()
+
+
+def test_export_dates_prefer_date_read():
+    from goodrec.api.matching import export_date, read_date
+    assert read_date({"Date Read": "2021/03/09", "Date Added": "2020/01/01"}) == "2021-03-09"
+    assert read_date({"Date Read": "", "Date Added": "2020/01/01"}) == "2020-01-01"
+    assert read_date({"Date Read": "not a date", "Date Added": ""}) is None
+    assert export_date("2999/01/01") is None               # in the future
+
+
+def test_import_returns_dates_and_recency_changes_ranking(client):
+    with open(FIXTURE, "rb") as f:
+        res = client.post("/api/import", files={"file": ("export.csv", f, "text/csv")}).json()
+    rated = res["rated"]
+    assert sum(1 for r in rated if r["date"]) / len(rated) > 0.9
+    dated = [{"id": r["id"], "rating": r["rating"], "date": r["date"]} for r in rated]
+    undated = [{"id": r["id"], "rating": r["rating"]} for r in rated]
+    top = lambda body: [b["id"] for b in client.post("/api/recommend", json={"ratings": body, "limit": 20}).json()["for_you"]]  # noqa: E731
+    assert top(dated) != top(undated)                      # recent reads count more
+    same_day = [{**r, "date": "2026-01-01"} for r in undated]
+    assert top(same_day) == top(undated)                   # one shared date: no recency effect
+    bad = [{**r, "date": "yesterday"} for r in undated]
+    assert top(bad) == top(undated)                        # invalid dates are ignored, not rejected

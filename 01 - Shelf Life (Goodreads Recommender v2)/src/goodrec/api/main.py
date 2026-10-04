@@ -83,10 +83,23 @@ def _to_idx(ids) -> list[int]:
     return [idx_of[i] for i in ids if i in idx_of]
 
 
+def _dates(ratings) -> dict[int, int]:
+    """work_idx -> yyyymmdd for ratings with a valid ISO date (when read, else shelved or rated here). Recency
+    weighting (Params.recency_half_life) uses them; invalid or missing dates are ignored (counted as oldest)."""
+    idx_of = state["cat"].idx_of
+    out = {}
+    for r in ratings:
+        d = (r.date or "")[:10]
+        if r.id in idx_of and len(d) == 10 and d[4] == d[7] == "-" and (d[:4] + d[5:7] + d[8:]).isdigit():
+            out[idx_of[r.id]] = int(d[:4] + d[5:7] + d[8:])
+    return out
+
+
 def _user(req: RecommendRequest) -> UserInput:
     idx_of = state["cat"].idx_of
     ratings = {idx_of[r.id]: r.rating for r in req.ratings if r.id in idx_of}
-    return UserInput(ratings=ratings, read=set(_to_idx(req.read)), dismissed=set(_to_idx(req.dismissed)))
+    return UserInput(ratings=ratings, read=set(_to_idx(req.read)), dismissed=set(_to_idx(req.dismissed)),
+                     dates=_dates(req.ratings))
 
 
 def _filters(f: FilterSpec) -> Filters:
@@ -103,7 +116,8 @@ def _filters(f: FilterSpec) -> Filters:
 
 
 def _raw(user: UserInput) -> RawScores:
-    key = hashlib.sha1(orjson.dumps([sorted(user.ratings.items()), sorted(user.read)])).hexdigest()
+    key = hashlib.sha1(orjson.dumps([sorted(user.ratings.items()), sorted(user.read),
+                                     sorted((user.dates or {}).items())])).hexdigest()
     raw = state["cache"].get(key)
     if raw is None:
         raw = raw_scores(state["art"], user, state["params"])
@@ -239,7 +253,7 @@ def insights(req: InsightsRequest):
     # Genre mix: share of your liked books per parent genre vs. what your nearest readers read.
     genre_mix = []
     if len(ratings) >= MIN_RATINGS_FOR_READERS:
-        user = UserInput(ratings=ratings, read=books - set(ratings))
+        user = UserInput(ratings=ratings, read=books - set(ratings), dates=_dates(req.ratings))
         raw = _raw(user)
         sr = similar_readers(art, raw.u, np.ones(m.n, dtype=bool), limit=1) if raw.u is not None else None
         if sr:
@@ -280,7 +294,7 @@ def book_personal(work_id: int, req: InsightsRequest):
     ratings = {cat.idx_of[r.id]: r.rating for r in req.ratings if r.id in cat.idx_of}
     if not ratings:
         return {"predicted_rating": None, "readers_avg": None, "readers_n": None}
-    user = UserInput(ratings=ratings, read={cat.idx_of[i] for i in req.read if i in cat.idx_of})
+    user = UserInput(ratings=ratings, read={cat.idx_of[i] for i in req.read if i in cat.idx_of}, dates=_dates(req.ratings))
     raw = _raw(user)
     shown = _shown(user, [idx], raw)[0]
     out = {"predicted_rating": round(float(shown), 2), "readers_avg": None, "readers_n": None}
@@ -319,7 +333,7 @@ def _import_payload(res: dict) -> dict:
     id_of = state["cat"].id_of
     rated_books = {b["id"]: b for b in _decorate([r["idx"] for r in res["rated"]])}
     return {
-        "rated": [{**rated_books[id_of[r["idx"]]], "rating": r["rating"], "match": r["match"]}
+        "rated": [{**rated_books[id_of[r["idx"]]], "rating": r["rating"], "match": r["match"], "date": r["date"]}
                   for r in res["rated"] if id_of[r["idx"]] in rated_books],
         "read_unrated": [id_of[i] for i in res["read_unrated"]],
         "to_read": [id_of[i] for i in res["to_read"]],
@@ -358,7 +372,7 @@ def browse(req: BrowseRequest):
     books = _decorate(page)
     if req.ratings:
         idx_of = cat.idx_of
-        user = UserInput(ratings={idx_of[r.id]: r.rating for r in req.ratings if r.id in idx_of})
+        user = UserInput(ratings={idx_of[r.id]: r.rating for r in req.ratings if r.id in idx_of}, dates=_dates(req.ratings))
         for b, pr in zip(books, _shown(user, page, _raw(user) if user.ratings else None)):
             b["predicted_rating"] = round(float(pr), 2)
     return {"books": books, "total": int(len(idx)), "ms": round((time.time() - t) * 1000, 1)}
