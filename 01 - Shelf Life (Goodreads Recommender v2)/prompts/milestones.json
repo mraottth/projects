@@ -462,7 +462,8 @@
   "summary": "Under the new evaluation the taste model was overweighted for long reading histories. Capping its share of the blend at 40% raised NDCG@10 on test readers by 15% (0.067 to 0.077). Weighting recent reads more would add about 12% more, once the app keeps rating dates.",
   "prompts": [
    "fe7c091a-114",
-   "fe7c091a-115"
+   "fe7c091a-115",
+   "fe7c091a-116"
   ],
   "commits": [
    "c7e2c2a",
@@ -470,7 +471,8 @@
    "0740cac",
    "70a21cd",
    "bae5ba5",
-   "68a1886"
+   "68a1886",
+   "db4cdbb"
   ],
   "decisions": [
    "D-045",
