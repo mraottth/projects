@@ -1,7 +1,7 @@
 {
  "session": "fe7c091a-5174-49e5-9f91-126c647e9612",
  "omitted_api_errors": 12,
- "omitted": 28,
+ "omitted": 29,
  "entries": [
   {
    "time": "2026-09-26T23:22:59.503Z",
@@ -997,6 +997,14 @@
    "reply": null,
    "queued": true,
    "id": "fe7c091a-136c",
+   "session": "fe7c091a"
+  },
+  {
+   "time": "2026-10-04T11:59:59.683Z",
+   "kind": "prompt",
+   "text": "one quick design change on mobile - on the milestone timeline, the cards that pop up take over the screen (which is fine) but when you scroll down on them you lose the 'x' button making it hard to navigate back to the timeline. Let's make it so you can get back there by 1) clicking outside the card, and 2) having the header of the card stick to the top as you scroll so the title so the x button is always visible",
+   "reply": "On phones, the milestone card can now always be closed. It's pushed on `br-ms-sheet`; nothing is merged or deployed yet.\n\n1. **Tap outside to close:** the page behind the card dims, and tapping anywhere on that dimmed area closes the card. This only applies on phones; desktop has no overlay.\n2. **Sticky header:** the card's header (icon, title, date and ×) stays at the top while the details scroll beneath it, so the × is always reachable. It keeps the card's colored stripe and gets a thin divider. The desktop side panel gets the same sticky header, since it scrolls too.\n\nThe × is also a slightly bigger tap target on phones.\n\nOn a phone-sized screen in the browser:\n- the header held its position after scrolling 900px down the card;\n- × closed the card;\n- tapping the dimmed page above closed it;\n- desktop shows no backdrop and the sticky header works there too.\n\nThere were no errors, and the 73 tests pass.\n\nShould I merge and deploy?",
+   "id": "fe7c091a-137",
    "session": "fe7c091a"
   }
  ]
