@@ -914,6 +914,14 @@
    "reply": "The About page now has three matching buttons: \"How Shelf Life was built →\", \"Evaluation Timeline →\" and \"View the code on GitHub ↗\". The GitHub one still opens in a new tab.\n\nThey sit side by side at equal widths, 245px each on desktop. At first the GitHub label wrapped onto two lines and stretched all three buttons taller, so I trimmed the padding slightly and kept every label on one line. On phones they stack full-width.\n\nIt's pushed on `br-eval-page-3` with all the Evaluation page rounds, not merged or deployed. Your local server shows the new version. Should I merge and deploy?",
    "id": "fe7c091a-128",
    "session": "fe7c091a"
+  },
+  {
+   "time": "2026-10-04T02:56:48.563Z",
+   "kind": "prompt",
+   "text": "Let's add a button on the changelog timeline to show the most recent first and switch back. And let's add 'Newer' 'Older' labels at the ends of the scrollbar to make the direction clear",
+   "reply": null,
+   "id": "fe7c091a-130",
+   "session": "fe7c091a"
   }
  ]
 }
