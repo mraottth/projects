@@ -51,7 +51,44 @@ def report_kind(stem: str, report: dict | None) -> str:
     return "Test set"
 
 
-def build_reports(champion: dict | None) -> list[dict]:
+# Settings added after early reports were written, with the value those reports implicitly used.
+PARAM_DEFAULTS = {"a_max": 1.0, "recency_half_life": None}
+
+
+def norm_params(p: dict) -> str:
+    return json.dumps({**PARAM_DEFAULTS, **p}, sort_keys=True)
+
+
+def version_labels(report: dict, versions: list[dict]) -> dict[str, str]:
+    """Model names in a report -> the page's version names ("v5 · Recent reading counts more"): the model under
+    test is matched by its settings, the previous best by the champion report it cites. Other rows keep their names."""
+    by_params = {v["_params"]: v for v in versions}
+    by_report = {v["report"]: v for v in versions}
+    out = {}
+    v = by_params.get(norm_params(report.get("params", {})))
+    if v:
+        name = report["model"]["name"]
+        extra = re.search(r"\((before|after) leak fix\)", name)
+        out[name] = f"{v['id']} · {v['title']}" + (f" ({extra.group(0)[1:-1]})" if extra else "")
+    champ = row(report, "champion")
+    m = re.search(r"reports/([^)\s]+)\.md", champ["description"]) if champ else None
+    if m and m.group(1) in by_report:
+        cv = by_report[m.group(1)]
+        out[champ["name"]] = f"Previous best: {cv['id']} · {cv['title']}"
+    return out
+
+
+def relabel(text: str, labels: dict[str, str]) -> str:
+    """Replace model names, longest first, through placeholders so one replacement can't feed another."""
+    keys = sorted(labels, key=len, reverse=True)
+    for i, k in enumerate(keys):
+        text = text.replace(k, f"\x00{i}\x00")
+    for i, k in enumerate(keys):
+        text = text.replace(f"\x00{i}\x00", labels[k])
+    return text
+
+
+def build_reports(champion: dict | None, versions: list[dict]) -> list[dict]:
     champ_stem = Path(champion["report"]).stem if champion else None
     out = []
     for md in sorted((EVAL / "reports").glob("*.md")):
@@ -63,10 +100,12 @@ def build_reports(champion: dict | None) -> list[dict]:
         time = f"{m.group(2)}:{m.group(3)}" if m and STAMP.match(stem) else ""
         new_format = bool(report and "rows" in report)
         sl = row(report, "shelf_life") if new_format else None
+        labels = version_labels(report, versions) if new_format else {}
+        text = relabel(text, labels)
         out.append({
             "id": stem, "date": date, "time": time, "kind": report_kind(stem, report),
             "title": text.split("\n", 1)[0].lstrip("# ").strip(),
-            "model": report["model"]["name"] if new_format else None,
+            "model": labels.get(report["model"]["name"], report["model"]["name"]) if new_format else None,
             "set": report.get("set") if new_format else None,
             "n_users": report.get("n_users") if new_format else None,
             "split_hash": report.get("split_hash") if new_format else None,
@@ -101,7 +140,7 @@ def build_versions(commits: list[dict], champion: dict | None, decisions: dict) 
             d = decisions[did]
             decs.append({"id": did, "title": d["title"], "sections": d["sections"]})
         champ = next((h for h in report.get("head_to_head", []) if h["key"] == "champion"), None)
-        versions.append({**v, "commits": resolved, "decisions": decs,
+        versions.append({**v, "commits": resolved, "decisions": decs, "_params": norm_params(report.get("params", {})),
                          "metrics": metrics_of(sl), "n_users": report["n_users"],
                          "split_hash": report["split_hash"], "_vs_champion": champ,
                          "champion": bool(champion) and Path(champion["report"]).stem == v["report"]})
@@ -116,6 +155,10 @@ def build_versions(commits: list[dict], champion: dict | None, decisions: dict) 
     return versions
 
 
+def strip_private(versions: list[dict]) -> list[dict]:
+    return [{k: x for k, x in v.items() if not k.startswith("_")} for v in versions]
+
+
 def build() -> dict:
     champion = load_json(EVAL / "champion.json")
     commits = git_commits()
@@ -128,7 +171,7 @@ def build() -> dict:
         r = row(latest, key) if key else None
         if r:
             refs.append({"key": r["key"], "label": label, "metrics": metrics_of(r)})
-    return {"versions": versions, "references": refs, "reports": build_reports(champion), "metrics": METRICS,
+    return {"versions": strip_private(versions), "references": refs, "reports": build_reports(champion, versions), "metrics": METRICS,
             "buckets": latest.get("buckets", [1, 3, 5, 10, 25, -1])}
 
 

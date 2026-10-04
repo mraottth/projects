@@ -48,3 +48,12 @@ def test_paired_ci_only_against_the_previous_version(data):
             assert ch["ci95"][0] <= ch["mean_diff"] <= ch["ci95"][1]
             gap = cur["metrics"]["-1"]["ndcg@10"] - prev["metrics"]["-1"]["ndcg@10"]
             assert ch["mean_diff"] == pytest.approx(gap, abs=1e-6)
+
+
+def test_report_tables_use_version_names(data):
+    champ = data["reports"][0]
+    v = next(x for x in data["versions"] if x["champion"])
+    assert champ["model"] == f"{v['id']} · {v['title']}"
+    assert f"**{v['id']} · {v['title']}**" in champ["markdown"]          # the model's row in the metric tables
+    prev = data["versions"][[x["id"] for x in data["versions"]].index(v["id"]) - 1]
+    assert f"vs. Previous best: {prev['id']} · {prev['title']}" in champ["markdown"]
