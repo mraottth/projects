@@ -489,3 +489,25 @@ Categories: `ui` · `model` · `eval` · `data` · `assistant` · `infra` · `do
 **Decision.** Remove the 2023 notebook's gradient-descent matrix factorization from the evaluation baselines. The 2023 similar-readers and SVD methods stay.
 
 **Why.** The 2023 web app never served it; it existed only in the notebook. And because of how NumPy handles repeated indices in its update (D-042), each step learned from a single rating per reader and book, so it scored close to random (NDCG@10 0.0012 against random's 0.0002). It also accounted for most of the first full run's 3 h 51 min.
+
+## D-045 · Cap the taste model's share of the blend at 0.4
+- **Date:** 2026-10-03
+- **Category:** model
+- **Prompts:** fe7c091a-114
+- **Commits:** c7e2c2a, 70a21cd, 68a1886, 9ba1059
+
+**Decision.** The blend gives the taste model (ALS) a weight of a(n) = n/(n+20), now capped at 0.4 (`blend.a_max`), and the popularity penalty for heavy readers goes from -0.3 to -0.5. Readers with up to about 13 ratings are almost unaffected; above that, the similar-books model keeps at least 60% of the say.
+
+**Context.** The temporal evaluation showed the similar-books model alone beating the blend with long histories (test NDCG@10 0.0759 against 0.0668). The old weights were tuned with the random-holdout evaluation, which favoured the taste model.
+
+**Numbers.** Chosen on the validation users only: a 30-point sweep (k_a, a_max, beta_pop_many) on 1,000 users, then the four best on all 2,527 (full-history NDCG@10 0.0682 → 0.0777, +0.0096, 95% CI +0.0074 to +0.0115, with no history size significantly worse). Re-checking the prediction boost and floor at this setting changed NDCG@10 by at most 0.0003, so they stay. Confirmed on the 5,895 test users against the champion: full history 0.0668 → 0.0770 (+0.0102, CI +0.0088 to +0.0118; wins for 16.9% of users, losses for 9.9%), 25 ratings +0.0011 (CI +0.0004 to +0.0019), 5 ratings -0.0003 (CI -0.0005 to -0.0001, from the steeper popularity penalty), other sizes unchanged (`eval/reports/2026-10-03_2023_shelf_life.md`).
+
+## D-046 · Recent ratings should count more; this needs rating dates in the app
+- **Date:** 2026-10-03
+- **Category:** model
+- **Prompts:** fe7c091a-114, fe7c091a-115
+- **Commits:** 0740cac, 9ba1059
+
+**Finding.** Weighting each rating by how recent it is (the k-th most recent counts 0.5^(k/25)) raises full-history NDCG@10 on the validation users from 0.0777 to 0.0872 (+0.0095, 95% CI +0.0075 to +0.0116), on top of the blend cap (D-045). Half-lives of 10, 50 and 100 gained less (+0.0076, +0.0074, +0.0052). Shorter histories are essentially unchanged, since a handful of ratings are all recent. The order comes from when each book was read (date shelved when no read date is given).
+
+**Decision.** Not shipped yet. The app keeps no dates for ratings: Goodreads imports drop "Date Read" and "Date Added", and ratings made on the site aren't timestamped. Shipping it means keeping those dates from import to scoring, which is planned as a separate step for the user to approve. The scoring code supports it already (`UserInput.recency`, `recency_weights()`), with no effect while no dates are passed.

@@ -25,7 +25,7 @@ make deploy          # Cloud Build + Cloud Run (project v2-book-recommender, us-
 PYTHONPATH=src uv run pytest tests/test_api.py::test_filters -q         # single test
 PYTHONPATH=src uv run python -m goodrec.pipeline.s07_item_knn --force   # re-run one stage (stages skip if outputs exist)
 PYTHONPATH=src uv run python -m goodrec.eval.run --set validation --users 300 --models shelf_life,popular   # quick check
-PYTHONPATH=src uv run python -m goodrec.eval.run --set validation --grid  # blend grid (validation only; tuning never uses test)
+PYTHONPATH=src uv run python -m goodrec.eval.run --set validation --users 1000 --models shelf_life --grid "k_a=20,50;a_max=0.5,1.0"   # Params grid (validation only)
 PYTHONPATH=src uv run python -m goodrec.eval.run --ablations --promote    # full test run; record as champion if it wins
 PYTHONPATH=src uv run python -m goodrec.eval.tune_als --users 800       # ALS hyperparameter sweep (validation users)
 ```

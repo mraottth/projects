@@ -54,8 +54,10 @@ als:
 blend:
   candidates: 300
   k_a: 20                   # tuned 2026-09-26 (eval grid): a(n) = n / (n + k_a)
+  a_max: 0.4                # cap on a(n), the taste model's (ALS) share of the blend. Temporal eval (validation,
+                            # 2,527 users, with beta_pop_many -0.5): full-history NDCG@10 0.0682 -> 0.0777; same at <= 10 ratings
   beta_pop: 0.0             # tuned: popularity weight for new users (interpolated by a(n))...
-  beta_pop_many: -0.3       # ...toward this for heavy raters (penalty raised NDCG at n=all + coverage)
+  beta_pop_many: -0.5       # ...toward this for heavy raters (temporal eval 2026-10-03: -0.5 with a_max 0.4; was -0.3)
   gamma_quality: 0.0        # tuned (quality prior did not help NDCG)
   pred_floor_offset: 0.25   # For you drops books predicted below (your average - 0.25); null = off. Eval: -4% NDCG full history (vs -10% at 0.0)
   # Best match: + a(n) * delta_pred * fame * z(predicted rating). fame = 0 at 10^lo Goodreads ratings, 1 at 10^hi,

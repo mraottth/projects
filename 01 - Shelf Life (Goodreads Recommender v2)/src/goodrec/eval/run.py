@@ -9,7 +9,7 @@ eval/reports/<stamp>_<model>.md/.json and per-user results to eval/runs/.
 
   uv run python -m goodrec.eval.run                          # test set, all baselines
   uv run python -m goodrec.eval.run --set validation --users 300 --models shelf_life,popular   # quick check
-  uv run python -m goodrec.eval.run --set validation --grid  # tune blend params (validation only)
+  uv run python -m goodrec.eval.run --set validation --models shelf_life --grid "k_a=20,50;a_max=0.5,1.0"
   uv run python -m goodrec.eval.run --promote                # make this model the champion if it beats it
 """
 
@@ -145,6 +145,22 @@ def params_from_json(d: dict) -> Params:
     return Params(**d)
 
 
+def grid_points(spec: str) -> list[dict]:
+    """"k_a=20,50;a_max=0.5,1.0" -> every combination, as Params overrides. "null"/"none" mean None."""
+    def value(v: str):
+        v = v.strip()
+        if v.lower() in ("null", "none"):
+            return None
+        return int(v) if v.lstrip("-").isdigit() else float(v)
+    axes = []
+    for part in filter(None, (x.strip() for x in spec.split(";"))):
+        name, _, vals = part.partition("=")
+        if not vals or name.strip() not in {f.name for f in dataclasses.fields(Params)}:
+            raise SystemExit(f"--grid: bad axis {part!r} (expected param=v1,v2,... with a Params field)")
+        axes.append([(name.strip(), value(v)) for v in vals.split(",")])
+    return [dict(combo) for combo in itertools.product(*axes)]
+
+
 def cache_path(rec: Recommender, split_hash: str, set_: str, users: int | None, cfg: dict) -> Path:
     """Where a baseline's per-user results are cached. Baselines don't change between runs unless their
     code, the split, the evaluation settings or the artifacts do, and all of those are in the key."""
@@ -161,7 +177,7 @@ def load_champion() -> dict | None:
 
 
 def main(set_: str = "test", users: int | None = None, models: str | None = None, ablations: bool = False,
-         grid: bool = False, workers: int | None = None, promote: bool = False, name: str | None = None,
+         grid: str | None = None, workers: int | None = None, promote: bool = False, name: str | None = None,
          fresh: bool = False) -> None:
     if grid and set_ != "validation":
         raise SystemExit("--grid tunes parameters, so it only runs on --set validation.")
@@ -183,13 +199,13 @@ def main(set_: str = "test", users: int | None = None, models: str | None = None
     if wanted is None or wanted & {"similar_readers_2023", "svd_2023"}:
         from goodrec.eval.legacy2023 import legacy_baselines
         recs += legacy_baselines(art, cfg["subsample"])
-    if grid:
-        for k_a, beta, gamma in itertools.product([2, 8, 20], [0.0, 0.1, 0.3], [0.0, 0.1, 0.3]):
-            recs.append(ShelfLife(key=f"grid_ka{k_a}_b{beta}_g{gamma}", name=f"grid k_a={k_a} β={beta} γ={gamma}",
-                                  kind="ablation", art=art, prior=prior, description="Blend grid point.",
-                                  params=Params.from_config(k_a=k_a, beta_pop=beta, gamma_quality=gamma)))
     if wanted:
         recs = [r for r in recs if r.key in wanted or r.key == "shelf_life"]
+    for point in grid_points(grid) if grid else []:
+        label = ", ".join(f"{k}={v}" for k, v in point.items())
+        recs.append(ShelfLife(key="grid_" + "_".join(f"{k}{v}" for k, v in point.items()), name=f"grid: {label}",
+                              kind="ablation", art=art, prior=prior, description=f"Grid point: {label}.",
+                              params=Params.from_config(**point)))
 
     notes = []
     champ = load_champion()
@@ -344,7 +360,8 @@ if __name__ == "__main__":
     ap.add_argument("--users", type=int, default=None, help="evaluate a fixed random subsample of this many users")
     ap.add_argument("--models", default=None, help="comma-separated model keys (shelf_life is always included)")
     ap.add_argument("--ablations", action="store_true")
-    ap.add_argument("--grid", action="store_true", help="also sweep blend params (validation only)")
+    ap.add_argument("--grid", default=None, metavar="SPEC",
+                    help='sweep Params, e.g. "k_a=20,50;a_max=0.5,1.0" (validation only)')
     ap.add_argument("--workers", type=int, default=None)
     ap.add_argument("--promote", action="store_true", help="record this model as the champion if it beats it")
     ap.add_argument("--name", default=None, help="label for the model under test")

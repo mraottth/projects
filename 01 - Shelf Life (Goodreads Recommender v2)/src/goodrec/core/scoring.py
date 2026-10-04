@@ -20,6 +20,7 @@ class UserInput:
     ratings: dict[int, int]                       # work_idx -> 1..5
     read: set[int] = field(default_factory=set)   # read but unrated
     dismissed: set[int] = field(default_factory=set)
+    recency: dict[int, float] | None = None       # work_idx -> 0..1 weight of each rating (None: all 1)
 
     @property
     def seen(self) -> set[int]:
@@ -64,6 +65,8 @@ class Params:
     ii_prior_weight: float = 5.0
     beta_pop_many: float = 0.0        # popularity weight for a user with many ratings (interpolated by a(n))
     a_override: float | None = None   # force the ALS weight (eval: 0 = item-item only, 1 = ALS only)
+    a_max: float = 1.0                # cap on the ALS weight a(n), however many ratings
+    recency_half_life: float | None = None  # eval: weight the k-th most recent rating by 0.5 ** (k / half-life)
     pred_floor_offset: float | None = None  # For you: drop books predicted below (user average - offset)
     delta_pred: float = 0.0           # Best match: weight on z(predicted rating), scaled by a(n) and fame (config: 0.75)
     pred_fame_lo: float = 4.0         # log10 Goodreads ratings count where fame weight starts (10k)...
@@ -77,7 +80,7 @@ class Params:
         p = dict(k_a=b["k_a"], beta_pop=b["beta_pop"], beta_pop_many=b.get("beta_pop_many", b["beta_pop"]), gamma_quality=b["gamma_quality"],
                  pred_floor_offset=b.get("pred_floor_offset"), delta_pred=b.get("delta_pred", 0.0),
                  pred_fame_lo=b.get("pred_fame_lo", 4.0), pred_fame_hi=b.get("pred_fame_hi", 6.0),
-                 pred_pool=b.get("pred_pool", 50),
+                 pred_pool=b.get("pred_pool", 50), a_max=b.get("a_max", 1.0),
                  candidates=b["candidates"], alpha=a["alpha"], regularization=a["regularization"],
                  confidence={int(k): float(v) for k, v in a["confidence"].items()})
         p.update(overrides)
@@ -95,11 +98,19 @@ class RawScores:
     cache: dict = field(default_factory=dict)   # per-user derived rankings (see recommend())
 
 
+def recency_weights(oldest_first: list[int], half_life: float) -> dict[int, float]:
+    """0.5 ** (k / half_life) for the k-th most recent item (the last one in the list has weight 1)."""
+    n = len(oldest_first)
+    return {i: 0.5 ** ((n - 1 - k) / half_life) for k, i in enumerate(oldest_first)}
+
+
 def fold_in(art: Artifacts, user: UserInput, p: Params) -> np.ndarray | None:
-    """Solve the ALS user vector for a new user given fixed item factors (implicit's recalculate_user)."""
+    """Solve the ALS user vector for a new user given fixed item factors (implicit's recalculate_user).
+    With `user.recency`, each rating's confidence boost is scaled by its recency weight."""
     items, conf = [], []
+    rec = user.recency or {}
     for i, r in user.ratings.items():
-        g = p.confidence.get(int(r), 0.0)
+        g = p.confidence.get(int(r), 0.0) * rec.get(i, 1.0)
         if g > 0:
             items.append(i)
             conf.append(1 + p.alpha * g)
@@ -118,12 +129,14 @@ def fold_in(art: Artifacts, user: UserInput, p: Params) -> np.ndarray | None:
 
 
 def item_item_weights(user: UserInput, p: Params) -> dict[int, float]:
-    """w_i = r_i - b_u, with b_u a user mean shrunk toward the prior (so one 5-star rating counts)."""
+    """w_i = r_i - b_u, with b_u a user mean shrunk toward the prior (so one 5-star rating counts), scaled by
+    each rating's recency weight when `user.recency` is set."""
     if not user.ratings:
         return {}
     r = np.asarray(list(user.ratings.values()), dtype=np.float32)
     b_u = (r.sum() + p.ii_prior_mean * p.ii_prior_weight) / (len(r) + p.ii_prior_weight)
-    return {i: float(v - b_u) for i, v in user.ratings.items()}
+    rec = user.recency or {}
+    return {i: float(v - b_u) * rec.get(i, 1.0) for i, v in user.ratings.items()}
 
 
 def item_item_scores(art: Artifacts, weights: dict[int, float]) -> np.ndarray:
@@ -245,7 +258,7 @@ def _pool(art: Artifacts, raw: RawScores, mask: np.ndarray, p: Params):
     cand = np.union1d(top_als, top_ii)
     if len(cand) == 0:
         cand = _top(m.log_pop, idx, p.candidates)
-    a = raw.n / (raw.n + p.k_a) if raw.u is not None else 0.0
+    a = min(raw.n / (raw.n + p.k_a), p.a_max) if raw.u is not None else 0.0
     if p.a_override is not None:
         a = p.a_override
         if a >= 1.0 and raw.u is not None:
@@ -594,7 +607,7 @@ def recommend(art: Artifacts, user: UserInput, f: Filters, p: Params, limit: int
     return {
         "items": items, "ranks": ranks, "scores": rk["score"][items], "source": rk["source"][items],
         "predicted": preds, "because": explain(art, raw, items), "next_in_series": [int(i) in nxt for i in items],
-        "total": int(mask.sum()), "alpha": raw.n / (raw.n + p.k_a) if raw.n else 0.0,
+        "total": int(mask.sum()), "alpha": min(raw.n / (raw.n + p.k_a), p.a_max) if raw.n else 0.0,
     }
 
 
