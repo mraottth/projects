@@ -1019,9 +1019,6 @@ button.chip:hover { background: #f1f0eb; }
 .ev-plot { position: relative; flex: 1; min-height: 0; }
 .ev-plot svg { position: absolute; inset: 0; }
 .ev-hint { margin: 4px 0 0; }
-.ev-legend { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin-left: auto; font-size: 0.85rem; color: var(--ink-2); }
-.ev-legend-item { display: inline-flex; align-items: center; gap: 6px; }
-.ev-legend-item line { stroke-width: 2; stroke-dasharray: 5 4; }
 .ev-axisline { stroke: var(--ink-2); stroke-width: 1.5; }
 .ev-plot svg { display: block; overflow: visible; }
 .ev-grid { stroke: var(--grid); }
@@ -1051,7 +1048,9 @@ button.chip:hover { background: #f1f0eb; }
 .ev-pop p { margin: 6px 0; line-height: 1.45; }
 .ev-badge { display: inline-block; padding: 1px 8px; border-radius: 999px; background: #fff4d6; color: #7a5a00; font-size: 0.78rem; font-weight: 600; }
 .ev-delta { width: 100%; }
-.ev-delta tr.sel td { font-weight: 700; }
+.ev-delta tr.sel td { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.ev-onchart { margin-left: 6px; padding: 0 6px; border-radius: 999px; font-size: 0.72rem; color: var(--accent-ink);
+  background: color-mix(in srgb, var(--accent) 14%, white); white-space: nowrap; }
 .ev-delta td.up { color: #1d7a3c; }
 .ev-delta td { white-space: nowrap; }
 .ev-pct { display: block; font-size: 0.82em; opacity: 0.85; }
@@ -1059,7 +1058,6 @@ button.chip:hover { background: #f1f0eb; }
 .ev-list summary { cursor: pointer; line-height: 1.4; }
 .ev-sec { margin: 6px 0 0 14px; font-size: 0.88rem; }
 .ev-sec-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-2); }
-.ev-ptext { margin: 6px 0 0 14px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.88rem; line-height: 1.5; }
 .ev-delta td.down { color: var(--error); }
 .ev-reports { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
 .ev-report > summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; cursor: pointer; list-style: none; }
@@ -1078,7 +1076,6 @@ button.chip:hover { background: #f1f0eb; }
   .ev-chart { min-height: 0; }
   .ev-body { flex-direction: column; }
   .ev-plot svg { position: static; }
-  .ev-legend { margin-left: 0; }
   .ev-pop { flex: none; max-height: none; }
   .ev-report-score { margin-left: 0; }
 }

@@ -5,16 +5,15 @@ import { Markdown } from "./Markdown";
  * Model versions (x) against an evaluation metric (y) for the Evaluation page. A details panel beside the chart
  * (below it on phones) shows the current champion by default; hovering a version's point with a mouse previews
  * it, and clicking (or Enter/Space) pins it until clicked again, × or Escape. The panel never covers the chart.
- * Dashed lines are baselines for comparison (the 2023 Book Recommender, popular books) on the same test readers.
+ * Labelled dashed lines are baselines for comparison (the 2023 Book Recommender, popular books) on the same test readers.
  * The chart and panel share one height that fits the viewport; the SVG is drawn at its measured size.
  */
 
 export interface VersionCommit { short: string; subject: string; url: string }
 export interface VersionDecision { id: string; title: string; sections: { label: string; text: string }[] }
-export interface VersionPrompt { id: string; kind: string; text: string }
 export interface Version {
   id: string; date: string; title: string; summary: string; settings: string; rescored: boolean; report: string;
-  commits: VersionCommit[]; decisions: VersionDecision[]; prompts: VersionPrompt[]; champion: boolean; n_users: number;
+  commits: VersionCommit[]; decisions: VersionDecision[]; champion: boolean; n_users: number;
   metrics: Record<string, Record<string, number>>;            // n ("1".."25", "-1" = full history) -> metric -> value
   ci_vs_previous?: Record<string, { mean_diff: number; ci95: [number, number]; win: number; loss: number }>;
 }
@@ -24,22 +23,17 @@ export const METRIC_LABEL: Record<string, string> = {
   "ndcg@10": "NDCG@10", "recall@10": "Recall@10", "precision@10": "Precision@10",
   "ndcg@20": "NDCG@20", "recall@20": "Recall@20", "precision@20": "Precision@20",
 };
-const KIND: Record<string, string> = {
-  prompt: "Prompt", answer: "Answer to Claude's question", "plan-comment": "Comment on Claude's plan",
-  "plan-feedback": "Feedback on Claude's plan",
-};
 const fmtDate = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 const PAD = { l: 76, r: 20, t: 30, b: 54 };
 const PHONE = "(max-width: 640px)";
 
-/** Axis from 0 to a round number comfortably above `max` (at least ~12% headroom), in 4–6 even steps. */
+/** Axis from 0 in exactly five even, round steps, topping out comfortably above `max` (at least ~12% headroom),
+ * so every metric gets the same gridlines. */
 function niceTicks(max: number): number[] {
-  const target = max * 1.12;
-  const raw = target / 5;
+  const raw = (max * 1.12) / 5;
   const pow = 10 ** Math.floor(Math.log10(raw));
-  const step = [1, 2, 2.5, 5, 10].map((m) => m * pow).find((s) => s >= raw) ?? raw;
-  const n = Math.max(1, Math.ceil(target / step - 1e-9));
-  return Array.from({ length: n + 1 }, (_, i) => +(i * step).toFixed(6));
+  const step = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].map((m) => m * pow).find((s) => s >= raw - 1e-12) ?? raw;
+  return Array.from({ length: 6 }, (_, i) => +(i * step).toFixed(6));
 }
 
 export function VersionChart({ versions, references, buckets, onViewReport }: {
@@ -126,14 +120,6 @@ export function VersionChart({ versions, references, buckets, onViewReport }: {
             ))}
           </select>
         </label>
-        <span className="ev-legend" aria-label="Baselines for comparison">
-          <span className="muted small">Baselines for comparison:</span>
-          {references.map((r, k) => (
-            <span key={r.key} className={`ev-legend-item ev-ref-${k}`}>
-              <svg width="26" height="8" aria-hidden="true"><line x1="0" x2="26" y1="4" y2="4" /></svg>{r.label}
-            </span>
-          ))}
-        </span>
       </div>
 
       <div className="ev-body">
@@ -192,14 +178,15 @@ export function VersionChart({ versions, references, buckets, onViewReport }: {
               {v.rescored && <> <span className="ev-badge">Re-scored on today&apos;s data</span></>}</p>
             <h4>{prev ? `Change from ${prev.id}` : "Scores"} · {n === "-1" ? "full history" : `${n} most recent rating${n === "1" ? "" : "s"}`}</h4>
             <table className="viz-table ev-delta">
-              <thead><tr><th>Metric</th><th>{v.id}</th>{prev && <><th>{prev.id}</th><th>Change</th></>}</tr></thead>
+              <thead><tr><th>Metric</th><th>{v.id}{v.champion ? " 🏆" : ""}</th>{prev && <><th>{prev.id}{prev.champion ? " 🏆" : ""}</th><th>Change</th></>}</tr></thead>
               <tbody>
                 {Object.keys(METRIC_LABEL).map((mk) => {
                   const a = v.metrics[n]?.[mk] ?? 0, b = prev?.metrics[n]?.[mk] ?? 0;
                   const d = a - b, pct = b ? (100 * d) / b : 0;
                   return (
                     <tr key={mk} className={mk === metric ? "sel" : ""}>
-                      <td>{METRIC_LABEL[mk]}</td><td>{a.toFixed(4)}</td>
+                      <td>{METRIC_LABEL[mk]}{mk === metric && <span className="ev-onchart" title="The metric shown on the chart"> on chart</span>}</td>
+                      <td>{a.toFixed(4)}</td>
                       {prev && <><td>{b.toFixed(4)}</td>
                         <td className={Math.abs(d) < 5e-5 ? "" : d > 0 ? "up" : "down"}>
                           {d >= 0 ? "+" : "−"}{Math.abs(d).toFixed(4)}{b ? <span className="ev-pct"> ({pct >= 0 ? "+" : "−"}{Math.abs(pct).toFixed(1)}%)</span> : null}
@@ -225,21 +212,6 @@ export function VersionChart({ versions, references, buckets, onViewReport }: {
                       <details>
                         <summary><span className="cl-hash">{d.id}</span> {d.title}</summary>
                         {d.sections.map((s) => <div key={s.label} className="ev-sec"><div className="ev-sec-label">{s.label}</div><Markdown text={s.text} /></div>)}
-                      </details>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-            {v.prompts.length > 0 && (
-              <>
-                <h4>{v.prompts.length === 1 ? "The prompt" : `The ${v.prompts.length} prompts`} behind it</h4>
-                <ul className="ev-list">
-                  {v.prompts.map((p) => (
-                    <li key={p.id}>
-                      <details>
-                        <summary><span className="cl-kind small">{KIND[p.kind] ?? "Prompt"}</span> {p.text.length > 90 ? `${p.text.slice(0, 90).trimEnd()}…` : p.text}</summary>
-                        <p className="ev-ptext">{p.text}</p>
                       </details>
                     </li>
                   ))}
