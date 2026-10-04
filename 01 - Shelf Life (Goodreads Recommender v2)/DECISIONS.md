@@ -596,3 +596,60 @@ So most of the gain over book averages comes from the reader's offset; the simil
 Each version was re-run on the test set against the previous one, so the chart shows per-reader intervals between neighbours. Reconstructed versions run on today's data and artifacts; the page says so. This was the user's choice ("Reconstruct them").
 
 **Numbers (full-history MAE).** v1 0.677, v2 0.755, v3–v5 0.675 (v4 and v5 change only the ranking: identical predictions). Full calibration made predictions worse (v2 vs v1: +0.078, CI 0.074 to 0.083), and the evidence gate recovered it (v3 vs v2: −0.080), matching the earlier finding behind D-027. Track 1 numbers of all five re-runs match the earlier reports exactly.
+
+## D-052 · Predict ratings with a factorization model under the item-kNN residual
+- **Date:** 2026-10-04
+- **Category:** model
+- **Prompts:** fe7c091a-143, fe7c091a-144, fe7c091a-145, fe7c091a-146
+- **Commits:** a325aa9, c05c7a4, 854dfe3, e49f528, ab2c868, aa67b98, cf0a36e, 5c9e05e
+
+**Decision.** Predicted ratings start from a biased matrix-factorization model, r̂ = μ + b_u + b_i + p_u·q_i with 16 factors. Today's item-item residual correction and evidence-weighted calibration go on top (the "hybrid"). This is v6, and the predictor is used everywhere: cards, the predicted-rating sort, and the For you floor and boost (the user's choice).
+- **Fitting a new reader.** Book parameters are trained on the training readers by SGD (numba, `pipeline/train_rating_mf.py`, s11). A reader is fitted at request time by a ridge solve over their own ratings: λ_b = 2 on their offset, λ_p = 20 on their taste vector. Their own books get leave-one-out predictions, so a rating never predicts itself. Serving stays NumPy.
+- **Size and speed.** The model file is 7 MB, and a whole-catalog prediction costs a few ms more than before.
+
+**Context.** The rating track (D-050) showed the item-kNN predictor barely beating "book average + reader offset". The user asked to try SVD with biases and latent factors, SVD++, and anything else worth trying, each over a sensible range of hyperparameters, and to promote a clear winner.
+
+**How it was chosen** (validation readers only; score = per-reader MAE averaged over history sizes 1–25 and all).
+- **36 distinct configurations, 22 biased MF and 14 SVD++** (`eval/reports/rating_sweep_2026-10-04_1207.md`). Biased MF covered:
+  - k ∈ {4, 8, 16, 32, 64, 128}, factor regularization 0.012–0.1, bias regularization 0–0.1, learning rate 0.003–0.01;
+  - best epoch checked every 5;
+  - fold-in penalties λ_b ∈ {0.5, 2, 5, 15} × λ_p ∈ {1, 5, 20, 50, 150, 500}.
+- **Results:**
+  - Biased MF reached 0.6808 (today's displayed rating: 0.6916).
+  - Every factor count from 4 to 128 lands within 0.002, so most of the gain comes from the learned book and reader biases, and less bias regularization helped.
+  - SVD++ (implicit factors from every book rated or read) peaked at 0.6831. It overfits within 5–15 epochs and is weakest for one-rating readers.
+  - Under the item-item residual, MF reached 0.6788 calibrated (0.6779 uncalibrated); calibration costs about 0.001 but keeps predictions spread out (D-027), so it stays.
+  - On validation the MF hybrid's NDCG@10 was 0.0864 vs 0.0870. Re-tuning the boost and floor (delta_pred × pred_floor_offset) moved it only within 0.0864–0.0868, so the ranking settings are unchanged.
+
+**Test set** (5,895 readers, one run per finalist against v5, full history):
+
+| Finalist | MAE | MAE vs v5 (95% CI) | NDCG@10 | NDCG@10 vs v5 (95% CI) |
+|---|---|---|---|---|
+| **MF hybrid** | 0.6643 | −0.0110 [−0.0124, −0.0095] | 0.0875 | +0.0001 [−0.0004, +0.0007] |
+| Biased MF alone | 0.6688 | −0.0065 | 0.0869 | −0.0004 (not significant) |
+| SVD++ hybrid | 0.6695 | −0.0058 | 0.0869 | −0.0004 (not significant) |
+
+All three qualify under D-053. The MF hybrid gains the most.
+- **The promotion run** (`eval/reports/2026-10-04_1505_shelf_life.md`, the production model rebuilt by s11, identical bit for bit) reproduced it exactly.
+- **v6 against v5:**
+  - MAE by history size: 0.728 vs 0.740 at 1 rating, 0.701 vs 0.716 at 3, 0.672 vs 0.685 at 10, 0.664 vs 0.675 at all.
+  - Full history: RMSE 0.874 vs 0.879, per-reader Spearman 0.335 vs 0.314, 78.3% within one star vs 77.6%.
+  - v6 is more accurate for 59% of readers.
+  - Against book average + offset: −0.0134 [−0.0152, −0.0116].
+  - Better for narrow, typical and wide raters alike (0.503 / 0.663 / 0.818 vs 0.521 / 0.672 / 0.826).
+
+**Alternatives considered.** SVD++ (above). Biased MF alone (less accurate, and a slightly lower NDCG@10). A learned linear blend of the predictors was not tried: the hybrid already uses both signals and needs no extra fitting. Re-tuning the boost and floor for the new predictor (no measurable gain).
+
+## D-053 · Promote a rating-model improvement that leaves the ranking at least as good
+- **Date:** 2026-10-04
+- **Category:** eval
+- **Prompts:** fe7c091a-144
+- **Commits:** 854dfe3
+
+**Decision.** `promote_if_better` accepts either of two paths, both on full history against the champion:
+- **Ranking path:** NDCG@10 is higher and per-reader MAE isn't significantly worse (the D-050 rule).
+- **Rating path:** per-reader MAE is significantly better (95% bootstrap CI of the difference entirely below 0) and NDCG@10 isn't significantly worse (its CI not entirely below 0).
+
+**Context.** D-050 made NDCG@10 decide promotions, with MAE as a guardrail. A change aimed at rating prediction could never qualify on its own, even with a clear MAE gain and an unchanged ranking. The user chose "MAE better, NDCG not worse" for a clear winner.
+
+**Alternatives considered.** Requiring NDCG@10 to be at least the champion's (stricter; a pure rating change would pass or fail on ranking noise). Promoting on MAE alone (offered only if the new model were limited to the displayed rating; the user chose to use it everywhere).
