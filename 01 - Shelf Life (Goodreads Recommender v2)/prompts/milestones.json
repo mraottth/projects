@@ -459,7 +459,7 @@
   "icon": "📈",
   "category": "model",
   "title": "Re-tuned for recent taste",
-  "summary": "Under the new evaluation the taste model was overweighted for long reading histories. Capping its share of the blend at 40% raised NDCG@10 on test readers by 15% (0.067 to 0.077). Weighting recent reads more would add about 12% more, once the app keeps rating dates.",
+  "summary": "Under the new evaluation the taste model was overweighted for long reading histories, and old reads counted as much as recent ones. Capping the taste model's share at 40% and weighting recent reading more (using the reading dates from a Goodreads import) raised NDCG@10 on test readers from 0.067 to 0.087, about 30%.",
   "prompts": [
    "fe7c091a-114",
    "fe7c091a-115",
@@ -472,11 +472,19 @@
    "70a21cd",
    "bae5ba5",
    "68a1886",
-   "db4cdbb"
+   "db4cdbb",
+   "9ac0ca0",
+   "1145474",
+   "ff5efd2",
+   "5d7f534",
+   "a832fe3",
+   "56d0c8d",
+   "e4a5dfb"
   ],
   "decisions": [
    "D-045",
-   "D-046"
+   "D-046",
+   "D-047"
   ]
  }
 ]
