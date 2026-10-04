@@ -67,6 +67,8 @@ def split_sections(text: str) -> dict:
 def report_kind(stem: str, report: dict | None) -> str:
     if stem.startswith("als_sweep"):
         return "ALS sweep (earlier evaluation)"
+    if stem.startswith("rating_sweep"):
+        return "Rating model sweep (validation)"
     m = STAMP.match(stem)
     if not m or not m.group(4):
         return "Earlier evaluation (random holdout)"
@@ -79,10 +81,14 @@ def report_kind(stem: str, report: dict | None) -> str:
 PARAM_DEFAULTS = {"a_max": 1.0, "recency_half_life": None}
 
 
-def norm_params(p: dict) -> str:
-    """Model settings that define a version. author_penalty is a display step, not part of the model."""
+def norm_params(p: dict, rating: dict | None = None) -> str:
+    """Model settings that define a version: the ranking Params (author_penalty is a display step, not part of
+    the model) plus the rating predictor (v6 changed only that; reports before it have none = item-kNN).
+    Reconstructed item means / calibration (D-051) don't define a version."""
     num = lambda v: float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else v  # noqa: E731  1 == 1.0
-    return json.dumps({k: num(v) for k, v in {**PARAM_DEFAULTS, **p}.items() if k != "author_penalty"}, sort_keys=True)
+    key = {k: num(v) for k, v in {**PARAM_DEFAULTS, **p}.items() if k != "author_penalty"}
+    key["\x01predictor"] = (rating or {}).get("predictor", "knn")
+    return json.dumps(key, sort_keys=True)
 
 
 def version_labels(report: dict, versions: list[dict]) -> dict[str, str]:
@@ -91,7 +97,7 @@ def version_labels(report: dict, versions: list[dict]) -> dict[str, str]:
     by_params = {v["_params"]: v for v in versions}
     by_report = {v["report"]: v for v in versions}
     out = {}
-    v = by_params.get(norm_params(report.get("params", {})))
+    v = by_params.get(norm_params(report.get("params", {}), report.get("rating")))
     if v:
         out["\x01version"] = v["id"]
         name = report["model"]["name"]
@@ -122,14 +128,22 @@ def build_reports(champion: dict | None, versions: list[dict]) -> list[dict]:
         stem = md.stem
         text = md.read_text(encoding="utf-8")
         report = load_json(md.with_suffix(".json"))
-        m = STAMP.match(stem) or re.search(r"(\d{4}-\d{2}-\d{2})", stem)
+        m = STAMP.match(stem) or re.search(r"(\d{4}-\d{2}-\d{2})_?(\d{2})?(\d{2})?", stem)
         date = m.group(1) if m else ""
-        time = f"{m.group(2)}:{m.group(3)}" if m and STAMP.match(stem) else ""
+        time = f"{m.group(2)}:{m.group(3)}" if m and m.group(2) else ""
         new_format = bool(report and "rows" in report)
         sl = row(report, "shelf_life") if new_format else None
         rsl = rating_row(report, "shelf_life") if new_format else None
         labels = version_labels(report, versions) if new_format else {}
         version = labels.pop("\x01version", None)
+        if version is None and new_format and STAMP.match(stem):
+            # Candidate and validation runs (other settings or models) belong to the version that was current
+            # when they ran: the latest version whose report of record is older.
+            older = [v for v in versions if v["report"] <= stem]
+            version = max(older, key=lambda v: v["report"])["id"] if older else None
+        if stem.startswith("rating_sweep") and report and report.get("base_report"):   # tuned against this version
+            base = Path(report["base_report"]).stem
+            version = next((v["id"] for v in versions if v["report"] == base), None)
         text = relabel(text, labels)
         kind = report_kind(stem, report)
         if new_format and versions and report.get("split_hash") != versions[-1]["split_hash"]:
@@ -175,7 +189,7 @@ def build_versions(commits: list[dict], champion: dict | None, decisions: dict) 
             decs.append({"id": did, "title": d["title"], "sections": d["sections"]})
         champ = next((h for h in report.get("head_to_head", []) if h["key"] == "champion"), None)
         rchamp = next((h for h in report.get("rating_head_to_head", []) if h["key"] == "champion"), None)
-        versions.append({**v, "commits": resolved, "decisions": decs, "_params": norm_params(report.get("params", {})),
+        versions.append({**v, "commits": resolved, "decisions": decs, "_params": norm_params(report.get("params", {}), report.get("rating")),
                          "metrics": metrics_of(sl), "rmetrics": metrics_of(rsl, RMETRICS) if rsl else None,
                          "n_users": report["n_users"], "split_hash": report["split_hash"],
                          "_vs_champion": champ, "_rvs_champion": rchamp,
@@ -230,11 +244,10 @@ def build() -> dict:
         r = row(latest, key) if key else None
         if r:
             refs.append({"key": r["key"], "label": label, "metrics": metrics_of(r)})
-    # Rating baselines: the book average (the requested baseline), the book average + the user's offset (the
-    # strong one: it already knows harsh from generous raters) and the 2023 project's better rating method.
+    # Rating baselines: the 2023 project's better rating method and the book average.
     rrefs = []
     for key, label in ((latest.get("rating_best_2023"), "2023 Book Recommender performance"),
-                       ("book_avg", "Book average"), ("bias", "Book average + user offset")):
+                       ("book_avg", "Book average")):
         r = rating_row(latest, key) if key else None
         if r:
             rrefs.append({"key": r["key"], "label": label, "metrics": metrics_of(r, RMETRICS)})

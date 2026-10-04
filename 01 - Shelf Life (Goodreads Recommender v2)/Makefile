@@ -24,6 +24,7 @@ artifacts: genres  ## models + search DB + packaging
 	$(PY) $(P).s07_item_knn
 	$(PY) $(P).s08_als
 	$(PY) $(P).s09_search_db
+	$(PY) $(P).s11_rating_mf   # before s10, which hashes it into the manifest
 	$(PY) $(P).s10_package
 
 eval:            ## temporal hide-and-predict evaluation vs baselines -> eval/reports/ (see goodrec.eval.run)

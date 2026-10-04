@@ -97,11 +97,10 @@ export function EvaluationPage({ track, setTrack }: { track: Track; setTrack: (t
   const maeOf = (v?: Version) => v?.rmetrics?.["-1"]?.mae;
   const mae0 = maeOf(first), mae1 = maeOf(last);
   const bookAvg = d.rating_references.find((r) => r.key === "book_avg")?.metrics["-1"]?.mae;
-  const bias = d.rating_references.find((r) => r.key === "bias")?.metrics["-1"]?.mae;
 
   return (
     <article className="evaluation">
-      <h1>How the model improved</h1>
+      <h1>Evaluation Timeline</h1>
       <div className="seg ev-track" role="tablist" aria-label="Evaluation track">
         {([["ranking", "Ranking"], ["rating", "Rating prediction"]] as [Track, string][]).map(([t, label]) => (
           <button key={t} type="button" role="tab" aria-selected={track === t} className={track === t ? "on" : ""}
@@ -127,8 +126,7 @@ export function EvaluationPage({ track, setTrack }: { track: Track; setTrack: (t
         {mae0 != null && mae1 != null && <>
           {" "}Since launch, full-history MAE has gone from {mae0.toFixed(3)} to {mae1.toFixed(3)}
           {" "}({mae1 <= mae0 ? "−" : "+"}{Math.abs(100 * (mae1 / mae0 - 1)).toFixed(Math.abs(mae1 / mae0 - 1) < 0.01 ? 1 : 0)}%)
-          {bookAvg != null && <>; predicting each book&apos;s average rating scores {bookAvg.toFixed(3)}</>}
-          {bias != null && <>, and adding the reader&apos;s usual offset from book averages scores {bias.toFixed(3)}</>}.
+          {bookAvg != null && <>; predicting each book&apos;s average rating scores {bookAvg.toFixed(3)}</>}.
         </>}
         {" "}The first two versions used an earlier rating model, reconstructed for this test on today&apos;s data.
       </p>

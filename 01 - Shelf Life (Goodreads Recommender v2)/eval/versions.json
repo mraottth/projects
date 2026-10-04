@@ -58,5 +58,17 @@
   "rating": {"item_means": "goodreads", "calibration": "evidence"},
   "commits": ["9ac0ca0", "1145474", "ff5efd2", "5d7f534"],
   "decisions": ["D-046", "D-047"]
+ },
+ {
+  "id": "v6",
+  "date": "2026-10-04",
+  "title": "Factorization rating model",
+  "summary": "Predicted ratings now start from a matrix-factorization model (16 latent factors with book and reader biases) fitted to each reader's own ratings, then add the similar-books correction as before. Predictions are about 1.6% closer to the rating readers actually gave, with the biggest gains for short histories; the recommendations themselves are unchanged.",
+  "settings": "Rating model: biased MF (k = 16) + item-kNN residual, evidence calibration; ranking settings as v5.",
+  "rescored": false,
+  "report": "2026-10-04_1505_shelf_life",
+  "rating": {"item_means": "goodreads", "calibration": "evidence", "predictor": "hybrid:production"},
+  "commits": ["a325aa9", "c05c7a4", "854dfe3", "cf0a36e", "5c9e05e"],
+  "decisions": ["D-052", "D-053"]
  }
 ]

@@ -574,5 +574,33 @@
    "D-050",
    "D-051"
   ]
+ },
+ {
+  "id": "M24",
+  "date": "2026-10-04",
+  "icon": "🧮",
+  "category": "model",
+  "title": "Predicted ratings from matrix factorization",
+  "summary": "Using the new rating track, 36 matrix-factorization variants (SVD with biases and latent factors, and SVD++) were tuned on validation readers. The winner, a 16-factor model with the similar-books correction on top, makes predicted ratings about 1.6% closer to readers' actual ratings at every history length while leaving recommendations unchanged, and became v6.",
+  "prompts": [
+   "fe7c091a-143",
+   "fe7c091a-144",
+   "fe7c091a-145",
+   "fe7c091a-146"
+  ],
+  "commits": [
+   "a325aa9",
+   "c05c7a4",
+   "854dfe3",
+   "e49f528",
+   "ab2c868",
+   "aa67b98",
+   "cf0a36e",
+   "5c9e05e"
+  ],
+  "decisions": [
+   "D-052",
+   "D-053"
+  ]
  }
 ]

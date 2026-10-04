@@ -158,7 +158,7 @@ def shelf_life_models(art: Artifacts, prior: np.ndarray, ablations: bool = False
     if rs.calibration != "none":
         out.append(ShelfLife(key="shelf_life_raw", name="Shelf Life, uncalibrated rating", kind="ablation",
                              tracks=("rating",), art=art, params=p, prior=prior, rating_art=rating_art,
-                             rating=RatingSettings(item_means=rs.item_means, calibration="none"),
+                             rating=RatingSettings(item_means=rs.item_means, calibration="none", predictor=rs.predictor),
                              description="Ablation: the raw predicted rating (item mean + the user's offset + "
                                          "item-item residual), before calibration to the user's rating scale."))
     if p.author_penalty:

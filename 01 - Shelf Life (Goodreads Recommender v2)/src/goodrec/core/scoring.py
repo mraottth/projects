@@ -385,19 +385,31 @@ def predict_ratings(art: Artifacts, user: UserInput, items, shrink: float = 0.5,
     With return_evidence, also returns each item's evidence weight den / (den + CALIB_EVIDENCE_K) in [0, 1):
     how much its prediction rests on the user's own ratings of similar books (den = summed similarity to
     them). apply_calibration stretches each prediction in proportion to it.
+
+    art.rating_mode (config rating_model, D-052) swaps the baseline: "mf" predicts with a factorization model
+    folded in from the user's ratings (core.rating_mf), "hybrid" adds the item-item residual on top of it;
+    "knn" (above) is the default. art.rating_calibration "full" makes every evidence weight 1.
     """
     m = art.meta
     items = np.asarray(items, dtype=np.int64)
+    mf = art.rating_mf if art.rating_mode in ("mf", "hybrid") else None
+    full = art.rating_calibration == "full"          # every book gets the whole calibration stretch
     if len(items) == 0:
         return (np.zeros(0, np.float32), np.zeros(0, np.float32)) if return_evidence else np.zeros(0, np.float32)
     if not user.ratings:
-        base = np.clip(m.bayes[items], 1, 5).astype(np.float32)
-        return (base, np.zeros(len(items), np.float32)) if return_evidence else base
+        base = (mf.predict({}, items, user.read) if mf is not None else np.clip(m.bayes[items], 1, 5)).astype(np.float32)
+        return (base, np.full(len(items), float(full), np.float32)) if return_evidence else base
     uniq, inv = np.unique(items, return_inverse=True)
     ri = np.fromiter(user.ratings, dtype=np.int64)
     rv = np.fromiter(user.ratings.values(), dtype=np.float64)
-    b_u = float((rv - m.bayes[ri]).sum() / (len(ri) + user_shrink))
-    resid = rv - (m.bayes[ri] + b_u)
+    if mf is None:
+        b_u = float((rv - m.bayes[ri]).sum() / (len(ri) + user_shrink))
+        resid = rv - (m.bayes[ri] + b_u)
+        base_j = m.bayes[uniq] + b_u
+    else:                       # factorization baseline: in-sample on rated books, leave-one-out for targets
+        fit = mf.fold_in(user.ratings, user.read)
+        resid = rv - mf.predict(user.ratings, ri, clip=False, loo=False, fit=fit)
+        base_j = mf.predict(user.ratings, uniq, clip=False, fit=fit)
 
     col_of = np.full(m.n, -1, np.int64)
     col_of[ri] = np.arange(len(ri))
@@ -417,10 +429,11 @@ def predict_ratings(art: Artifacts, user: UserInput, items, shrink: float = 0.5,
 
     num = P @ resid
     den = np.asarray(P.sum(axis=1)).ravel()
-    pred = m.bayes[uniq] + b_u + num / (den + shrink)
+    pred = base_j if art.rating_mode == "mf" else base_j + num / (den + shrink)
     out = np.clip(pred, 1, 5).astype(np.float32)[inv]
     if return_evidence:
-        return out, (den / (den + CALIB_EVIDENCE_K)).astype(np.float32)[inv]
+        ev = np.ones(len(den)) if full else den / (den + CALIB_EVIDENCE_K)
+        return out, ev.astype(np.float32)[inv]
     return out
 
 
@@ -573,7 +586,7 @@ def calibration(art: Artifacts, user: UserInput, prior: np.ndarray) -> tuple[np.
     (knots_x, knots_y, weight) where weight = n / (n + CALIB_PRIOR_WEIGHT) blends mapped with raw.
     """
     n = len(user.ratings)
-    if n < CALIB_MIN_RATINGS:
+    if n < CALIB_MIN_RATINGS or art.rating_calibration == "none":
         return None
     ri = np.fromiter(user.ratings, dtype=np.int64)
     rv = np.fromiter(user.ratings.values(), dtype=np.int64)

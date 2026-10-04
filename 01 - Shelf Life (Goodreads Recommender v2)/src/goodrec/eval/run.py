@@ -44,8 +44,8 @@ from goodrec.eval.metrics import (METRICS, POOL_LEN, RATING_COLS, at_k, paired, 
                                   rating_pool, rating_user)
 from goodrec.eval.models import (Recommender, ShelfLife, rating_baselines, shelf_life_models,  # noqa: E402
                                  simple_baselines)
-from goodrec.eval.rating import (STYLES, RatingSettings, population_sd, rating_artifacts, rating_style,  # noqa: E402
-                                 user_sigma)
+from goodrec.eval.rating import (STYLES, RatingSettings, population_sd, ranking_artifacts,  # noqa: E402
+                                 rating_artifacts, rating_style, user_sigma)
 from goodrec.eval.split import load_split  # noqa: E402
 
 EVAL_DIR = ROOT / "eval"
@@ -199,6 +199,9 @@ def main(set_: str = "test", users: int | None = None, models: str | None = None
     if promote and (params or rating):
         raise SystemExit("--params and --rating re-score other settings; they can't be promoted (change the config instead).")
     rsettings = RatingSettings.parse(rating)
+    rm = load_config().get("rating_model", {}) or {}
+    if not rating and rm.get("mode", "knn") != "knn":          # production's configured rating model
+        rsettings = RatingSettings(predictor=f"{rm['mode']}:production", calibration=rm.get("calibration", "evidence"))
     overrides = {}
     if params:
         points = grid_points(params)
@@ -213,14 +216,17 @@ def main(set_: str = "test", users: int | None = None, models: str | None = None
     split = load_split(cfg=cfg)
     cases = split.select(set_, users, seed=cfg["seed"])
     buckets = cfg["n_buckets"]
-    art = load_artifacts(with_readers=False)
+    # Start from the item-kNN predictor; the rating settings (run's and champion's) add any other model.
+    art = dataclasses.replace(load_artifacts(with_readers=False), rating_mode="knn", rating_mf=None,
+                              rating_calibration="evidence")
     prior = np.asarray(orjson.loads((ARTIFACTS_DIR / "population_stats.json").read_bytes())["rating_dist"])
     bayes_m = full_cfg["blend"]["bayes_m"]
     _STATE.update(fallback=np.clip(art.meta.bayes, 1, 5).astype(np.float64), pop_sd=population_sd(prior))
 
-    recs = shelf_life_models(art, prior, ablations=ablations, name=name or "Shelf Life (current config)",
-                             params=Params.from_config(**overrides), rating=rsettings,
-                             rating_art=rating_artifacts(art, rsettings, bayes_m))
+    rart = rating_artifacts(art, rsettings, bayes_m)
+    recs = shelf_life_models(ranking_artifacts(art, rsettings, rart), prior, ablations=ablations,
+                             name=name or "Shelf Life (current config)",
+                             params=Params.from_config(**overrides), rating=rsettings, rating_art=rart)
     recs += simple_baselines(art) + rating_baselines(art)
     wanted = set(models.split(",")) if models else None
     if wanted is None or wanted & {"similar_readers_2023", "svd_2023"}:
@@ -231,7 +237,8 @@ def main(set_: str = "test", users: int | None = None, models: str | None = None
     for point in grid_points(grid) if grid else []:
         label = ", ".join(f"{k}={v}" for k, v in point.items())
         recs.append(ShelfLife(key="grid_" + "_".join(f"{k}{v}" for k, v in point.items()), name=f"grid: {label}",
-                              kind="ablation", art=art, prior=prior, description=f"Grid point: {label}.",
+                              kind="ablation", art=ranking_artifacts(art, rsettings, rart), prior=prior,
+                              description=f"Grid point: {label}.",
                               params=Params.from_config(**point), display="author_penalty" in point))
 
     notes = []
@@ -246,8 +253,10 @@ def main(set_: str = "test", users: int | None = None, models: str | None = None
         same_split = champ.get("split_hash") == split.hash and champ.get("set") == set_ and not users
         runs = EVAL_DIR / champ["runs"] if champ.get("runs") else None
         crs = RatingSettings(**champ.get("rating", {}))
-        live = dict(key="champion", name=f"Previous best: {champ['name']}", kind="baseline", art=art, prior=prior,
-                    params=params_from_json(champ["params"]), rating=crs, rating_art=rating_artifacts(art, crs, bayes_m),
+        crart = rating_artifacts(art, crs, bayes_m)
+        live = dict(key="champion", name=f"Previous best: {champ['name']}", kind="baseline",
+                    art=ranking_artifacts(art, crs, crart), prior=prior,
+                    params=params_from_json(champ["params"]), rating=crs, rating_art=crart,
                     description=f"Champion from {champ.get('commit', '?')} ({champ.get('report', '')}), "
                                 "re-run on the current artifacts.")
         if same_split and runs and runs.exists():
@@ -442,18 +451,18 @@ def summarize_rating(recs_sorted, res, cases, buckets, cfg, pop_sd: float) -> di
 
 
 def promote_if_better(summary: dict, champ: dict | None, stamp: str, set_: str, md, runs_dir) -> None:
-    """Champion = best full-history NDCG@10, with a rating guardrail: not if its per-user MAE is significantly worse
-    than the champion's (the bootstrap CI of the MAE difference lies entirely above 0)."""
+    """Promote when (D-050, D-053), on full history against the champion:
+    - NDCG@10 is higher and per-user MAE isn't significantly worse (CI of the MAE difference not entirely > 0); or
+    - per-user MAE is significantly better (CI entirely < 0) and NDCG@10 isn't significantly worse (its CI not
+      entirely < 0): a rating-model improvement that leaves the ranking at least as good."""
     score = next(r for r in summary["rows"] if r["key"] == "shelf_life")["by_n"]["-1"]["ndcg@10"]
     mae = next(r for r in summary["rating_rows"] if r["key"] == "shelf_life")["by_n"]["-1"]["mae"]
     prev = next((r for r in summary["rows"] if r["key"] == "champion"), None)
-    if prev and score <= prev["by_n"]["-1"]["ndcg@10"]:
-        print(f"  not promoted: NDCG@10 {score:.4f} <= previous best {prev['by_n']['-1']['ndcg@10']:.4f}")
-        return
     guard = next((h["by_n"]["-1"] for h in summary["rating_head_to_head"] if h["key"] == "champion"), None)
-    if not rating_guardrail_ok(guard):
-        print(f"  not promoted: rating MAE significantly worse than the previous best "
-              f"({guard['mean_diff']:+.4f}, 95% CI [{guard['ci95'][0]:+.4f}, {guard['ci95'][1]:+.4f}])")
+    rank = next((h["by_n"]["-1"] for h in summary["head_to_head"] if h["key"] == "champion"), None)
+    ok, why = promotion_decision(score, prev["by_n"]["-1"]["ndcg@10"] if prev else None, guard, rank)
+    if not ok:
+        print(f"  not promoted: {why}")
         return
     src = runs_dir / f"{stamp}_{set_}_shelf_life.npz"
     keep = runs_dir / f"champion_{stamp}.npz"
@@ -464,6 +473,23 @@ def promote_if_better(summary: dict, champ: dict | None, stamp: str, set_: str, 
            "report": str(md.relative_to(EVAL_DIR)), "runs": str(keep.relative_to(EVAL_DIR)), "promoted": stamp}
     CHAMPION.write_bytes(orjson.dumps(rec, option=orjson.OPT_INDENT_2 | orjson.OPT_NON_STR_KEYS))
     print(f"  promoted to champion (NDCG@10 {score:.4f}" + (f", previous {prev['by_n']['-1']['ndcg@10']:.4f})" if prev else ")"))
+
+
+def promotion_decision(ndcg: float, prev_ndcg: float | None, mae_vs: dict | None, ndcg_vs: dict | None) -> tuple[bool, str]:
+    """(promote?, reason). mae_vs / ndcg_vs: paired() results of the model against the champion (full history)."""
+    if prev_ndcg is None:
+        return True, "no previous best"
+    sig = lambda c: bool(c and c.get("n"))  # noqa: E731
+    if ndcg > prev_ndcg:
+        if rating_guardrail_ok(mae_vs):
+            return True, f"NDCG@10 {ndcg:.4f} > {prev_ndcg:.4f}"
+        return False, (f"rating MAE significantly worse than the previous best ({mae_vs['mean_diff']:+.4f}, "
+                       f"95% CI [{mae_vs['ci95'][0]:+.4f}, {mae_vs['ci95'][1]:+.4f}])")
+    if sig(mae_vs) and mae_vs["ci95"][1] < 0:
+        if sig(ndcg_vs) and ndcg_vs["ci95"][1] < 0:
+            return False, "MAE significantly better, but NDCG@10 significantly worse"
+        return True, f"MAE significantly better ({mae_vs['mean_diff']:+.4f}) and NDCG@10 not significantly worse"
+    return False, f"NDCG@10 {ndcg:.4f} <= previous best {prev_ndcg:.4f} and MAE not significantly better"
 
 
 def rating_guardrail_ok(vs_champion: dict | None) -> bool:

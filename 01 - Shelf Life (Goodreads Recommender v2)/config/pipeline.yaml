@@ -18,6 +18,20 @@ catalog:
   min_user_ratings: 3       # users kept in the training matrix
   ya_min_share: 0.22        # YA flag: parent genre Young Adult, or >= this share of UCSD genre votes are "young-adult"
 
+rating_model:              # predicted-rating model (core.scoring.predict_ratings; DECISIONS D-052)
+  mode: hybrid             # knn = item mean + offset + item-item residual | mf | hybrid (needs artifacts/rating_mf.npz, s11)
+  calibration: evidence    # evidence | full | none (how the display calibration is applied)
+  train:                   # s11: the sweep's winner (eval/reports/rating_sweep_2026-10-04_1207.md), reproduced exactly
+    kind: mf               # biased MF (SVD); svdpp was tried and lost
+    k: 16
+    lr: 0.005
+    reg: 0.02
+    reg_b: 0.0
+    epochs: 20             # best epoch on the validation readers
+    seed: 0
+    lam_b: 2.0             # fold-in ridge penalties (reader offset, taste vector)
+    lam_p: 20.0
+
 eval:
   n_test_users: 10000        # s05: users held out of all model training
   min_test_user_ratings: 10  # s05

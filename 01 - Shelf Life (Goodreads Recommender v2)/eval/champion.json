@@ -1,6 +1,6 @@
 {
   "key": "shelf_life",
-  "name": "v5 \u00b7 Recent reading counts more",
+  "name": "v6 · Rating model: biased MF + item-kNN residual",
   "params": {
     "k_a": 20,
     "beta_pop": 0.0,
@@ -27,16 +27,17 @@
     "pred_fame_hi": 5.5,
     "pred_pool": 50
   },
-  "commit": "8fd70c5",
-  "split_hash": "54b863801d57",
-  "set": "test",
-  "ndcg@10": 0.08735690265893936,
-  "report": "reports/2026-10-04_1002_shelf_life.md",
-  "runs": "runs/champion_2026-10-04_1002.npz",
-  "promoted": "2026-10-03_2141",
   "rating": {
     "item_means": "goodreads",
-    "calibration": "evidence"
+    "calibration": "evidence",
+    "predictor": "hybrid:production"
   },
-  "mae": 0.6752972602844238
+  "commit": "5c9e05e",
+  "split_hash": "54b863801d57",
+  "set": "test",
+  "ndcg@10": 0.08749159425497055,
+  "mae": 0.6643343567848206,
+  "report": "reports/2026-10-04_1505_shelf_life.md",
+  "runs": "runs/champion_2026-10-04_1505.npz",
+  "promoted": "2026-10-04_1505"
 }

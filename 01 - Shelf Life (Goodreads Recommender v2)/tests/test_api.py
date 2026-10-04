@@ -293,20 +293,31 @@ def test_ranks_are_stable_under_filters(client):
 
 
 def test_vectorized_predictions_match_reference():
-    """predict_ratings (sparse, vectorized) == the original per-pair loop."""
+    """predict_ratings (sparse, vectorized) == the original per-pair loop, for the item-kNN predictor and for the
+    hybrid (the same residual on a factorization baseline, D-052) when production has a factorization model."""
+    import dataclasses
+
     import numpy as np
 
     from goodrec.api.main import state
     from goodrec.core.scoring import UserInput, predict_ratings
 
-    art = state["art"]
-    m = art.meta
+    knn = dataclasses.replace(state["art"], rating_mode="knn", rating_mf=None)
+    m = knn.meta
+    mf = state["art"].rating_mf
 
-    def reference(user, items, shrink=0.5, user_shrink=5.0):
+    def reference(user, items, shrink=0.5, user_shrink=5.0, hybrid=False):
+        art = knn
         ri = np.fromiter(user.ratings, dtype=np.int64)
         rv = np.fromiter(user.ratings.values(), dtype=np.float64)
         b_u = (rv - m.bayes[ri]).sum() / (len(ri) + user_shrink)
-        resid = dict(zip(ri.tolist(), (rv - (m.bayes[ri] + b_u)).tolist()))
+        if hybrid:
+            base_r = mf.predict(user.ratings, ri, clip=False, loo=False)
+            base = dict(zip(items.tolist(), mf.predict(user.ratings, items, clip=False).tolist()))
+        else:
+            base_r = m.bayes[ri] + b_u
+            base = {int(j): m.bayes[j] + b_u for j in items}
+        resid = dict(zip(ri.tolist(), (rv - base_r).tolist()))
         rated = set(ri.tolist())
         out = []
         for j in items:
@@ -317,14 +328,17 @@ def test_vectorized_predictions_match_reference():
                     pairs[int(i)] = max(pairs.get(int(i), 0.0), float(art.nbr_sim[i][hit[0]]))
             num = sum(s * resid[i] for i, s in pairs.items())
             den = sum(abs(s) for s in pairs.values())
-            out.append(np.clip(m.bayes[j] + b_u + num / (den + shrink), 1, 5))
+            out.append(np.clip(base[int(j)] + num / (den + shrink), 1, 5))
         return np.array(out)
 
     rng = np.random.default_rng(1)
     for n in (1, 5, 40):
         user = UserInput(ratings={int(i): int(rng.integers(1, 6)) for i in rng.choice(3000, n, replace=False)})
         items = rng.choice(m.n, 150, replace=False)
-        assert np.allclose(predict_ratings(art, user, items), reference(user, items), atol=1e-5)
+        assert np.allclose(predict_ratings(knn, user, items), reference(user, items), atol=1e-5)
+        if mf is not None:
+            hy = dataclasses.replace(knn, rating_mode="hybrid", rating_mf=mf)
+            assert np.allclose(predict_ratings(hy, user, items), reference(user, items, hybrid=True), atol=1e-5)
 
 
 def test_prediction_calibration():

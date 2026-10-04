@@ -22,6 +22,7 @@ pipeline = [
     "requests>=2.32",
     "tqdm>=4.66",
     "implicit>=0.7.2",
+    "numba>=0.60",       # rating MF / SVD++ training (pipeline.train_rating_mf); serving folds in with NumPy
 ]
 dev = [
     "pytest>=8",
