@@ -148,22 +148,23 @@ export function AboutPage({ go }: { go: (v: "changelog") => void }) {
         <div>
           <dt>The blend</dt>
           <dd>
-            With only a few ratings, the ranking leans on similar books; as you rate more, the taste model gets more say.
+            With only a few ratings, the ranking leans on similar books; as you rate more, the taste model gets more say, up to 40%.
             A few light rules sit on top: heavy readers are steered away from the obvious bestsellers, well-known books
             you&apos;d probably love get a small boost, books you&apos;d likely rate below your usual are left out, and
             later books in a series wait until you&apos;ve read the earlier ones.
             <Tech>
               <p>Candidates are the union of each model&apos;s top 300 after filters. Each signal is z-scored within that
                 candidate set and combined with weights that depend on the number of ratings <em>n</em>:</p>
-              <TeX block>{String.raw`\begin{gathered}\mathrm{final}=a\,z(\mathrm{als})+(1-a)\,z(\mathrm{ii})+\beta\,z\big(\log(1+\mathrm{readers})\big)+a\,\delta\,f\,z(\hat r)\\[4pt] a(n)=\frac{n}{n+20},\qquad \beta(n)=(1-a)\cdot 0+a\cdot(-0.3),\qquad f=\mathrm{clip}\Big(\frac{\log_{10}\mathrm{ratings}-4}{1.5},0,1\Big)\end{gathered}`}</TeX>
+              <TeX block>{String.raw`\begin{gathered}\mathrm{final}=a\,z(\mathrm{als})+(1-a)\,z(\mathrm{ii})+\beta\,z\big(\log(1+\mathrm{readers})\big)+a\,\delta\,f\,z(\hat r)\\[4pt] a(n)=\min\Big(\frac{n}{n+20},\,0.4\Big),\qquad \beta(n)=(1-a)\cdot 0+a\cdot(-0.5),\qquad f=\mathrm{clip}\Big(\frac{\log_{10}\mathrm{ratings}-4}{1.5},0,1\Big)\end{gathered}`}</TeX>
               <p>
-                k<sub>a</sub> = 20 came from a grid search. Popularity helped cold-start users slightly and hurt users with full
-                histories; a penalty of β = −0.3 raised full-history NDCG@20 from 0.128 to 0.132 and increased catalog
-                coverage, which is why β is interpolated rather than fixed. A Bayesian quality prior (γ) didn&apos;t help and is
-                off. The last term is the prediction boost: <TeX>{String.raw`\hat r`}</TeX> is your predicted rating, δ = 0.75,
+                k<sub>a</sub> = 20 came from an earlier grid search. The 0.4 cap and the heavy-reader popularity penalty
+                β = −0.5 were tuned on the temporal evaluation&apos;s validation readers, where they raised full-history
+                NDCG@10 by 14% (0.068 → 0.078); with long histories the similar-books model predicts what people read next
+                better than the taste model. Popularity helps cold-start users slightly and hurts users with full histories,
+                which is why β is interpolated rather than fixed. A Bayesian quality prior (γ) didn&apos;t help and is off. The last term is the prediction boost: <TeX>{String.raw`\hat r`}</TeX> is your predicted rating, δ = 0.75,
                 and the fame weight <em>f</em> goes from 0 at 10k Goodreads ratings to 1 at about 316k. The 50 best
-                fame-weighted predictions are also added to the candidate pool. On held-out users it costs about 4% of
-                full-history NDCG@20 (about 2% with 10 ratings); without the fame gate the same boost cost about 14%.
+                fame-weighted predictions are also added to the candidate pool. In the temporal evaluation it adds about 3%
+                to full-history NDCG@10.
                 &ldquo;Sort by predicted rating&rdquo; re-orders the same candidate pool. Series rule: hide{" "}
                 <code>series_pos &gt; 1</code> unless it&apos;s the lowest unread volume after the furthest one you&apos;ve read.
               </p>
@@ -265,8 +266,8 @@ export function AboutPage({ go }: { go: (v: "changelog") => void }) {
       <table className="viz-table about-table">
         <thead><tr><th>Method</th><th>1 rating</th><th>3 ratings</th><th>10 ratings</th><th>Full history</th></tr></thead>
         <tbody>
-          <tr><td><strong>Shelf Life (blend)</strong></td><td><strong>0.039</strong></td><td><strong>0.053</strong></td><td><strong>0.068</strong></td><td>0.067</td></tr>
-          <tr><td>Similar books only</td><td>0.038</td><td>0.052</td><td>0.067</td><td><strong>0.076</strong></td></tr>
+          <tr><td><strong>Shelf Life (blend)</strong></td><td><strong>0.039</strong></td><td><strong>0.053</strong></td><td><strong>0.068</strong></td><td><strong>0.077</strong></td></tr>
+          <tr><td>Similar books only</td><td>0.038</td><td>0.052</td><td>0.067</td><td>0.076</td></tr>
           <tr><td>Taste model only</td><td>0.030</td><td>0.039</td><td>0.051</td><td>0.049</td></tr>
           <tr><td>The 2023 version of this project</td><td>0.034</td><td>0.035</td><td>0.037</td><td>0.040</td></tr>
           <tr><td>Most popular books</td><td>0.019</td><td>0.019</td><td>0.020</td><td>0.023</td></tr>
@@ -274,10 +275,10 @@ export function AboutPage({ go }: { go: (v: "changelog") => void }) {
       </table>
       <ul>
         <li><strong>It learns quickly.</strong> Scores rise by about 75% between 1 and 10 ratings, and with 10 or more it
-          does about 3× better than recommending the most popular books and 1.7–1.8× better than the 2023 version.</li>
-        <li><strong>Blending helps most early on.</strong> With up to 10 ratings the blend matches or beats either model
-          alone. With a long history, the similar-books model on its own currently scores higher, so the blend&apos;s
-          weighting is being re-tuned.</li>
+          does about 3× better than recommending the most popular books and 1.8–1.9× better than the 2023 version.</li>
+        <li><strong>Blending wins.</strong> The blend matches or beats either model on its own at every history length.
+          With a long history the similar-books model does most of the work: capping the taste model&apos;s share at 40%
+          raised full-history scores by 15%.</li>
         <li><strong>Predicted ratings are close.</strong> They&apos;re typically within about 0.87 stars of the rating
           people actually gave, compared with 0.96 stars for just using each book&apos;s average.</li>
       </ul>
