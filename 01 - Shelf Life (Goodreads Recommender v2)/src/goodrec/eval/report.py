@@ -174,6 +174,7 @@ def _rating_track(r: dict, buckets: list[int]) -> list[str]:
                          f"{_pct(spread)} |")
         lines.append("")
 
+    identical = False
     lines += ["### Head-to-head (MAE, per user)", "",
               f"How **{m['name']}** compares with each baseline on per-user MAE. A win is a lower MAE. MAE diff is the "
               "model's MAE minus the baseline's (negative = more accurate), with a bootstrap 95% interval; relative is "
@@ -186,10 +187,18 @@ def _rating_track(r: dict, buckets: list[int]) -> list[str]:
             c = h["by_n"][str(n)]
             if not c.get("n"):
                 continue
+            if c["tie"] >= 1 - 1e-9:      # same predicted ratings for every user (e.g. a ranking-only change)
+                identical = True
+                lines.append(f"| vs. {h['name']} | {c['n']:,} | – | 100% | – | identical predictions† | – | – |")
+                continue
+            rel = "–" if c["lift"] is None else f"{100 * c['lift']:+.1f}%"
             lines.append(f"| vs. {h['name']} | {c['n']:,} | {_pct(c['win'])} | {_pct(c['tie'])} | {_pct(c['loss'])} | "
                          f"{c['mean_diff']:+.4f} [{c['ci95'][0]:+.4f}, {c['ci95'][1]:+.4f}] | "
-                         f"{_lift(c['lift'])} | {c['median_gain_when_win']:.4f} |")
+                         f"{rel} | {c['median_gain_when_win']:.4f} |")
         lines.append("")
+    if identical:
+        lines += ["† Identical predictions: both models predicted the same rating for every hidden book. Changes to "
+                  "the ranking alone (the blend, recency, the boost) don't touch the predicted rating.", ""]
 
     g = st["groups"]
     lines += ["### By rating style (full history)", "",
