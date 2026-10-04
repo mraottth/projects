@@ -497,14 +497,19 @@
   "summary": "A new page charts every model version on the same test readers, from launch (NDCG@10 0.064) to recency weighting (0.087), with what changed and the commits behind each step, and lists every evaluation report with the champion's first.",
   "prompts": [
    "fe7c091a-118",
-   "fe7c091a-119"
+   "fe7c091a-119",
+   "fe7c091a-120",
+   "fe7c091a-121"
   ],
   "commits": [
    "053f12a",
    "7dd48db",
    "7e854c6",
    "40268df",
-   "3cb8a41"
+   "3cb8a41",
+   "3e1c267",
+   "66a2a0b",
+   "37f00e8"
   ],
   "decisions": [
    "D-048"
