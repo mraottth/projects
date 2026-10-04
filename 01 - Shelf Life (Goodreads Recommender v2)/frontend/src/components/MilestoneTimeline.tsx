@@ -30,6 +30,8 @@ export function MilestoneTimeline({ milestones, prompts, categories, onShowPromp
   onShowPrompt: (id: string) => void; onShowDecision: (id: string) => void;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
+  const [newestFirst, setNewestFirst] = useState(false);
+  const shown = newestFirst ? [...milestones].reverse() : milestones;
   const [pinned, setPinned] = useState(false);
   const [pending, setPending] = useState<{ id: string; ms: number } | null>(null);   // hovered milestone and its wait
   const [ringDone, setRingDone] = useState(false);                 // its ring has filled and is fading out
@@ -55,6 +57,14 @@ export function MilestoneTimeline({ milestones, prompts, categories, onShowPromp
     window.addEventListener("resize", fit);
     return () => window.removeEventListener("resize", fit);
   }, []);
+
+  // After the order flips, start at the beginning of the reversed strip (the newest or the oldest milestone).
+  const firstOrder = useRef(true);
+  useLayoutEffect(() => {
+    if (firstOrder.current) { firstOrder.current = false; return; }
+    if (scroller.current) scroller.current.scrollLeft = 0;
+    updateEdges();
+  }, [newestFirst]);
 
   const updateEdges = () => {
     const el = scroller.current;
@@ -156,23 +166,33 @@ export function MilestoneTimeline({ milestones, prompts, categories, onShowPromp
         <h2>Product Milestones</h2>
         <span className="muted small">Hover a milestone to see the prompts and commits behind it; click to keep it open. Scroll sideways for more →</span>
         <span className="ms-arrows">
-          <button type="button" className="ghost small" aria-label="Earlier milestones" disabled={!edges.left} onClick={() => scrollBy(-1)}>‹</button>
-          <button type="button" className="ghost small" aria-label="Later milestones" disabled={!edges.right} onClick={() => scrollBy(1)}>›</button>
+          <button type="button" className="ghost small ms-order" aria-pressed={newestFirst}
+                  onClick={() => setNewestFirst((v) => !v)}>
+            {newestFirst ? "Newest first" : "Oldest first"} ⇅
+          </button>
+          <button type="button" className="ghost small" aria-label={newestFirst ? "Newer milestones" : "Older milestones"}
+                  disabled={!edges.left} onClick={() => scrollBy(-1)}>‹</button>
+          <button type="button" className="ghost small" aria-label={newestFirst ? "Older milestones" : "Newer milestones"}
+                  disabled={!edges.right} onClick={() => scrollBy(1)}>›</button>
         </span>
       </div>
 
       <div className="ms-body">
         <div className="ms-left">
-          <div className="ms-progress" role="scrollbar" aria-controls="ms-scroller" aria-orientation="horizontal"
-               aria-valuenow={Math.round(progress.left / Math.max(100 - progress.width, 1) * 100)} aria-valuemin={0} aria-valuemax={100}
-               onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); seek(e); }}
-               onPointerMove={(e) => { if (e.buttons) seek(e); }}>
-            <div className="ms-thumb" style={{ left: `${progress.left}%`, width: `${progress.width}%` }} />
+          <div className="ms-progress-row">
+            <span className="ms-end" aria-hidden="true">{newestFirst ? "Newer" : "Older"}</span>
+            <div className="ms-progress" role="scrollbar" aria-controls="ms-scroller" aria-orientation="horizontal"
+                 aria-valuenow={Math.round(progress.left / Math.max(100 - progress.width, 1) * 100)} aria-valuemin={0} aria-valuemax={100}
+                 onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); seek(e); }}
+                 onPointerMove={(e) => { if (e.buttons) seek(e); }}>
+              <div className="ms-thumb" style={{ left: `${progress.left}%`, width: `${progress.width}%` }} />
+            </div>
+            <span className="ms-end" aria-hidden="true">{newestFirst ? "Older" : "Newer"}</span>
           </div>
           <div className="ms-viewport">
             <div id="ms-scroller" className={`ms-scroll${edges.left ? " fade-left" : ""}${edges.right ? " fade-right" : ""}`} ref={scroller} onScroll={updateEdges}>
               <ol className="ms-track">
-                {milestones.map((x) => (
+                {shown.map((x) => (
                   <li key={x.id} className="ms-item">
                     <button type="button" className={`ms-node cl-${x.category}${openId === x.id ? " on" : ""}${openId === x.id && pinned ? " pinned" : ""}`}
                             ref={(el) => { if (el) nodes.current.set(x.id, el); else nodes.current.delete(x.id); }}

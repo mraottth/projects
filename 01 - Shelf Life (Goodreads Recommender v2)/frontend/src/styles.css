@@ -924,15 +924,20 @@ button.chip:hover { background: #f1f0eb; }
 .ms-head h2 { margin: 0; font-size: 1.2rem; }
 .ms-arrows { margin-left: auto; display: inline-flex; gap: 6px; }
 .ms-arrows button, .ms-arrows button.small { width: 44px; height: 38px; padding: 0 0 3px; font-size: 1.7rem; line-height: 1; border-radius: 10px; }
+.ms-arrows button.ms-order { width: auto; padding: 0 12px; font-size: 0.85rem; margin-right: 4px; }
 .ms-arrows button:disabled { opacity: 0.35; cursor: default; }
-.ms-progress { position: relative; height: 8px; margin: 12px 0 4px; border-radius: 999px; background: #ecebe6; cursor: pointer; touch-action: none; }
+.ms-progress-row { display: flex; align-items: center; gap: 10px; margin: 12px 0 4px; }
+.ms-end { flex: 0 0 auto; font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.ms-order { white-space: nowrap; }
+.ms-arrows { align-items: center; }
+.ms-progress { position: relative; flex: 1; height: 8px; border-radius: 999px; background: #ecebe6; cursor: pointer; touch-action: none; }
 .ms-progress:hover { background: #e3e2dc; }
 .ms-thumb { position: absolute; top: 0; bottom: 0; border-radius: 999px; background: var(--accent); min-width: 24px; }
 .ms-body { flex: 1; min-height: 0; display: flex; margin: 0 -18px -10px; }
 .ms-left { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
-.ms-left .ms-progress { margin-inline: 18px; }
+.ms-left .ms-progress-row { margin-inline: 18px; }
 .ms-viewport { position: relative; flex: 1; min-height: 0; display: flex; }
-.ms-scroll { flex: 1; min-width: 0; display: flex; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x proximity; scroll-padding-inline: 24px;
+.ms-scroll { flex: 1; min-width: 0; display: flex; overflow-x: auto; overflow-y: hidden; overflow-anchor: none; scroll-snap-type: x proximity; scroll-padding-inline: 24px;
   scrollbar-width: none; padding: 0 18px; }
 .ms-scroll::-webkit-scrollbar { display: none; }
 /* Edges with more to scroll to: the content fades out (mask) and what's left is blurred (overlay). */
@@ -1003,7 +1008,7 @@ button.chip:hover { background: #f1f0eb; }
 @media (max-width: 640px) {
   .ms { padding: 14px 14px 8px; }
   .ms-body { margin: 0 -14px -8px; }
-  .ms-left .ms-progress { margin-inline: 14px; }
+  .ms-left .ms-progress-row { margin-inline: 14px; }
   .ms-scroll { padding: 0 14px; scroll-padding-inline: 20px; }
   .ms-blur.right { width: 90px; }
   .ms-item { width: 176px; }
