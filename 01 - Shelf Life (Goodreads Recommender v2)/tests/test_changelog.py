@@ -136,3 +136,22 @@ def test_messages_sent_mid_turn_are_logged_without_renumbering(tmp_path):
     assert entries[0]["reply"] == "Both done." and entries[1]["reply"] is None
     export_prompts.render("abcdef12-0000", entries)
     assert [e["id"] for e in entries] == ["abcdef12-001", "abcdef12-001a", "abcdef12-002"]
+
+
+def test_redaction_scrubs_session_links_usernames_and_local_values(tmp_path, monkeypatch):
+    """scripts/redact.py: built-in rules, plus literal values from the git-ignored .redact.local.json."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("redact", ROOT / "scripts" / "redact.py")
+    rd = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(rd)
+    local = tmp_path / "local.json"
+    local.write_text('[["my-secret-project", "<gcp-project>"]]')
+    monkeypatch.setattr(rd, "LOCAL", local)
+    monkeypatch.setattr(rd, "_local", None)
+    text = ("see https://claude.ai/code/session_0123abcdEFGH4567ijkl and claude --teleport session_0123abcdEFGH4567ijkl; "
+            "transcripts in ~/.claude/projects/-Users-someone-Desktop-x/ and /Users/someone/code; project my-secret-project")
+    out = rd.redact(text)
+    assert "session_0123" not in out and "someone" not in out and "my-secret-project" not in out
+    assert "<Claude Code session link>" in out and "<session id>" in out and "<gcp-project>" in out
+    assert rd.redact("nothing to hide") == "nothing to hide"
+    assert not (ROOT / ".redact.local.json").exists() or ".redact.local.json" in (ROOT / ".gitignore").read_text()
