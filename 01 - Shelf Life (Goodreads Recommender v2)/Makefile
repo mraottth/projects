@@ -49,9 +49,11 @@ docker:
 	docker build -t goodrec .
 
 # ---- Cloud Run (one warm instance to avoid cold starts). Needs `gcloud auth login`; builds remotely with Cloud Build, no local Docker.
-GCP_PROJECT ?= v2-book-recommender
+# The GCP project id lives in .deploy.local.mk (git-ignored), e.g. `GCP_PROJECT := my-project`, so it isn't published.
+-include .deploy.local.mk
+GCP_PROJECT ?= $(error set GCP_PROJECT in .deploy.local.mk or on the command line)
 GCP_REGION  ?= us-central1
-IMAGE       := $(GCP_REGION)-docker.pkg.dev/$(GCP_PROJECT)/goodrec/app
+IMAGE        = $(GCP_REGION)-docker.pkg.dev/$(GCP_PROJECT)/goodrec/app
 
 deploy:          ## build the image in Cloud Build and deploy to Cloud Run (uploads artifacts/)
 	python3 scripts/code_links.py

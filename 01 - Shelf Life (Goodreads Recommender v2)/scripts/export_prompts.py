@@ -22,6 +22,9 @@ import re
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from redact import redact  # noqa: E402  (scrubs details that shouldn't be public; scripts/redact.py)
+
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "prompts"
 REPO_PREFIXES = [(str(ROOT.parent) + "/", ""), (str(Path.home()) + "/", "~/")]
@@ -207,7 +210,7 @@ def render(session: str, entries: list[dict]) -> tuple[str, str, str] | None:
             md += ["<details><summary>Claude's plan (approved)</summary>", "", e["plan"], "", "</details>", ""]
         md += ["---", ""]
     meta = {"session": session, "omitted_api_errors": len(failed), "omitted": len(omitted), "entries": entries}
-    return stem, "\n".join(md), json.dumps(meta, ensure_ascii=False, indent=1) + "\n"
+    return stem, redact("\n".join(md)), redact(json.dumps(meta, ensure_ascii=False, indent=1)) + "\n"
 
 
 def load_omit() -> dict:

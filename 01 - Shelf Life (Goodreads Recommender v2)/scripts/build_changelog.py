@@ -25,6 +25,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from redact import redact  # noqa: E402  (scrubs details that shouldn't be public; scripts/redact.py)
+
 ROOT = Path(__file__).resolve().parents[1]
 REPO = ROOT.parent
 OUT = ROOT / "frontend" / "src" / "changelog.json"
@@ -55,8 +58,8 @@ def git_commits(repo: Path = REPO) -> list[dict]:
         full, short, when, author, subject, body, files = rec.split(SEP_FIELD)
         session = re.search(r"^Claude-Session:\s*(\S+)", body, re.M)
         commits.append({
-            "hash": full, "short": short, "time": when, "author": author, "subject": subject.strip(),
-            "body": TRAILER.sub("", body).strip(), "files": len([f for f in files.split("\n") if f.strip()]),
+            "hash": full, "short": short, "time": when, "author": author, "subject": redact(subject.strip()),
+            "body": redact(TRAILER.sub("", body).strip()), "files": len([f for f in files.split("\n") if f.strip()]),
             "web_session": bool(session), "url": f"{GITHUB}/commit/{full}",
         })
     return commits
