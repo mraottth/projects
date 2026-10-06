@@ -754,15 +754,17 @@ They chose the catalog and pool sizes at a decision point after profiling the fi
 ## D-056 · The 2023 Book Recommender as the first point of each dataset's line
 - **Date:** 2026-10-06
 - **Category:** ui
-- **Prompts:** fe7c091a-167
+- **Prompts:** fe7c091a-167, fe7c091a-168
 
-**Decision.** On the Evaluation chart the 2023 Book Recommender is no longer a dashed baseline across the chart. It's the first point of the line, styled differently from versions (a hollow diamond, "2023 · before v1").
+**Decision.** On the Evaluation chart the 2023 Book Recommender is no longer a dashed baseline across the chart. It's the first point of the line, v0 ("from 2023"), styled differently from versions (a hollow amber diamond).
 
 The chart now has one segment per dataset ("era"). Each era has its own test split, so scores are only compared within an era:
-- **Reviews era:** 2023 → v1 … v6.
-- **Interactions era:** 2023 → v6 on the new test (the bridge, a hollow point) → v7.
+- **Trained on reviews only:** v0 → v1 … v6.
+- **Trained on all shelves:** v0 → v6 on the new test (the bridge, a hollow point) → v7.
 
-The popularity and book-average baselines stay as dashed lines, drawn across their own era only. The panel's "change from" compares each point with the previous point on its line, with the paired per-reader CI from the report's head-to-head:
+Each era has a coloured header with a rule across its part of the plot.
+
+The popularity and book-average baselines stay as dashed lines ("Baseline: Popular books"), drawn across their own era only. The panel's "change from" compares each point with the previous point on its line, with the paired per-reader CI from the report's head-to-head:
 - v1 is compared with 2023;
 - v7 is compared with the bridge.
 
