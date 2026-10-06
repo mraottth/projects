@@ -1,4 +1,4 @@
-"""Evaluation page data (scripts/build_evaluations.py): versions, references and the report list."""
+"""Evaluation page data (scripts/build_evaluations.py): versions, dataset eras and the report list."""
 
 import importlib.util
 import json
@@ -27,7 +27,32 @@ def test_every_version_resolves_its_report_and_commits(data):
     for v in data["versions"]:
         assert set(v["metrics"]["-1"]) == set(be.METRICS)
         assert v["commits"] and all(c["url"].startswith("https://github.com/") for c in v["commits"])
-    assert len({v["split_hash"] for v in data["versions"]}) == 1      # all scored on the same split
+    for era in data["eras"]:                                           # one test split per dataset era
+        assert len({v["split_hash"] for v in data["versions"] if v["id"] in era["versions"]}) == 1
+
+
+def previous_point(data, v):
+    """The point before version `v` on its era's line: 2023, the bridge, or the previous version."""
+    era = next(e for e in data["eras"] if v["id"] in e["versions"])
+    i = era["versions"].index(v["id"])
+    if i:
+        prev = next(x for x in data["versions"] if x["id"] == era["versions"][i - 1])
+        return prev["metrics"], prev["rmetrics"]
+    p = era["bridge"] or era["baseline"]
+    return p["metrics"], p["rmetrics"]
+
+
+def test_eras_start_from_2023_and_bridge_the_previous_dataset(data):
+    eras = data["eras"]
+    assert [v["id"] for v in data["versions"]] == [i for e in eras for i in e["versions"]]
+    for k, era in enumerate(eras):
+        b = era["baseline"]
+        assert b["id"] == "2023" and set(b["metrics"]["-1"]) == set(be.METRICS)
+        assert set(b["rmetrics"]["-1"]) == set(be.RMETRICS)
+        assert (era["bridge"] is None) == (k == 0)
+        if era["bridge"]:
+            assert era["bridge"]["of"] == eras[k - 1]["versions"][-1]
+        assert all(set(r["metrics"]["-1"]) == set(be.RMETRICS) for r in era["rating_references"])
 
 
 def test_champion_is_flagged_and_first(data):
@@ -44,13 +69,13 @@ def test_only_markdown_reports_are_listed(data):
     assert ids == {p.stem for p in (ROOT / "eval" / "reports").glob("*.md")}
 
 
-def test_paired_ci_only_against_the_previous_version(data):
-    vs = data["versions"]
-    for prev, cur in zip(vs, vs[1:]):
+def test_paired_ci_only_against_the_previous_point(data):
+    assert any("ci_vs_previous" in v for v in data["versions"])
+    for cur in data["versions"]:
         if "ci_vs_previous" in cur:
             ch = cur["ci_vs_previous"]["-1"]
             assert ch["ci95"][0] <= ch["mean_diff"] <= ch["ci95"][1]
-            gap = cur["metrics"]["-1"]["ndcg@10"] - prev["metrics"]["-1"]["ndcg@10"]
+            gap = cur["metrics"]["-1"]["ndcg@10"] - previous_point(data, cur)[0]["-1"]["ndcg@10"]
             assert ch["mean_diff"] == pytest.approx(gap, abs=1e-6)
 
 
@@ -90,10 +115,9 @@ def test_versions_carry_rating_metrics(data):
     for v in data["versions"]:
         if v["rmetrics"] is not None:
             assert set(v["rmetrics"]["-1"]) == set(be.RMETRICS)
-    for prev, cur in zip(data["versions"], data["versions"][1:]):
+    for cur in data["versions"]:
         if "rci_vs_previous" in cur:
             ch = cur["rci_vs_previous"]["-1"]
             assert ch["ci95"][0] <= ch["mean_diff"] <= ch["ci95"][1]
-            gap = cur["rmetrics"]["-1"]["mae"] - prev["rmetrics"]["-1"]["mae"]
+            gap = cur["rmetrics"]["-1"]["mae"] - previous_point(data, cur)[1]["-1"]["mae"]
             assert ch["mean_diff"] == pytest.approx(gap, abs=1e-6)
-    assert all(set(r["metrics"]["-1"]) == set(be.RMETRICS) for r in data["rating_references"])
