@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import data from "../evaluations.json";
 import { Markdown } from "../components/Markdown";
-import { VersionChart, type Reference, type Track, type Version } from "../components/VersionChart";
+import { VersionChart, type Era, type Track, type Version } from "../components/VersionChart";
 
 /**
  * Evaluation: how the recommender improved, version by version (chart), and the evaluation reports
@@ -21,10 +21,7 @@ interface Group {
   id: string; title: string; date: string; champion: boolean; ndcg10: number | null; mae: number | null;
   main: string | null; others: string[];
 }
-interface Evaluations {
-  versions: Version[]; references: Reference[]; rating_references: Reference[]; reports: Report[]; groups: Group[];
-  buckets: number[];
-}
+interface Evaluations { versions: Version[]; eras: Era[]; reports: Report[]; groups: Group[]; buckets: number[] }
 
 const d = data as unknown as Evaluations;
 const fmtDate = (s: string) => new Date(`${s}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
@@ -92,11 +89,16 @@ export function EvaluationPage({ track, setTrack }: { track: Track; setTrack: (t
     setFocus(null);
     window.setTimeout(() => setFocus(target), 0);
   };
-  const first = d.versions[0], last = d.versions[d.versions.length - 1];
-  const gain = first && last ? last.metrics["-1"]["ndcg@10"] / first.metrics["-1"]["ndcg@10"] - 1 : 0;
-  const maeOf = (v?: Version) => v?.rmetrics?.["-1"]?.mae;
-  const mae0 = maeOf(first), mae1 = maeOf(last);
-  const bookAvg = d.rating_references.find((r) => r.key === "book_avg")?.metrics["-1"]?.mae;
+  // Headline changes, within each dataset only (each has its own test readers, so scores don't carry across).
+  const byId = Object.fromEntries(d.versions.map((v) => [v.id, v]));
+  const [era0, era1] = [d.eras[0], d.eras[d.eras.length - 1]];
+  const first = byId[era0.versions[0]], last0 = byId[era0.versions[era0.versions.length - 1]];
+  const latest = byId[era1.versions[era1.versions.length - 1]];
+  const bridge = d.eras.length > 1 ? era1.bridge : null;
+  const nd = (m?: Record<string, Record<string, number>> | null) => m?.["-1"]?.["ndcg@10"];
+  const ma = (m?: Record<string, Record<string, number>> | null) => m?.["-1"]?.mae;
+  const pct = (a?: number, b?: number) => (a != null && b ? `${a >= b ? "+" : "−"}${Math.abs(100 * (a / b - 1)).toFixed(Math.abs(a / b - 1) < 0.01 ? 1 : 0)}%` : "");
+  const bookAvg = era1.rating_references.find((r) => r.key === "book_avg")?.metrics["-1"]?.mae;
 
   return (
     <article className="evaluation">
@@ -112,9 +114,14 @@ export function EvaluationPage({ track, setTrack }: { track: Track; setTrack: (t
         Every change to the recommender is measured the same way: 10,000 readers were set aside and never used for
         training, and for each one the most recent 30% of the books they read are hidden. The question is whether the
         books they went on to love (4–5★) show up near the top of their recommendations, given everything they read
-        before. The main score is NDCG@10; higher is better. Since launch, full-history NDCG@10 has gone from{" "}
-        {first?.metrics["-1"]["ndcg@10"].toFixed(3)} to {last?.metrics["-1"]["ndcg@10"].toFixed(3)} ({gain >= 0 ? "+" : ""}
-        {(100 * gain).toFixed(0)}%).
+        before. The main score is NDCG@10; higher is better. Each line starts from the 2023 version of this project.
+        On the original data (ratings that came with a review), full-history NDCG@10 went from{" "}
+        {nd(first?.metrics)?.toFixed(3)} at launch to {nd(last0?.metrics)?.toFixed(3)} ({pct(nd(last0?.metrics), nd(first?.metrics))}).
+        {bridge && latest && <>
+          {" "}{latest.id} switched to every Goodreads shelf, with readers&apos; much longer histories, so its test has its own
+          scale: there it scores {nd(latest.metrics)?.toFixed(3)} against {nd(bridge.metrics)?.toFixed(3)} for {bridge.of}{" "}
+          ({pct(nd(latest.metrics), nd(bridge.metrics))}).
+        </>}
       </p>
       ) : (
       <p className="lead-left">
@@ -122,17 +129,17 @@ export function EvaluationPage({ track, setTrack }: { track: Track; setTrack: (t
         the reader actually gave, for every book they read after their split date (not only the ones they loved),
         on the same readers and hidden books as the ranking track. Each prediction uses only the ratings the reader
         had made before. The main score is MAE, the average miss in stars; lower is better.
-        {mae0 != null && mae1 != null && <>
-          {" "}Since launch, full-history MAE has gone from {mae0.toFixed(3)} to {mae1.toFixed(3)}
-          {" "}({mae1 <= mae0 ? "−" : "+"}{Math.abs(100 * (mae1 / mae0 - 1)).toFixed(Math.abs(mae1 / mae0 - 1) < 0.01 ? 1 : 0)}%)
+        {" "}On the original data, full-history MAE went from {ma(first?.rmetrics)?.toFixed(3)} at launch to{" "}
+        {ma(last0?.rmetrics)?.toFixed(3)} ({pct(ma(last0?.rmetrics), ma(first?.rmetrics))}).
+        {bridge && latest && <>
+          {" "}On every shelf, {latest.id} scores {ma(latest.rmetrics)?.toFixed(3)} against {ma(bridge.rmetrics)?.toFixed(3)} for {bridge.of}
           {bookAvg != null && <>; predicting each book&apos;s average rating scores {bookAvg.toFixed(3)}</>}.
         </>}
         {" "}The first two versions used an earlier rating model, reconstructed for this test on today&apos;s data.
       </p>
       )}
 
-      <VersionChart versions={d.versions} references={track === "ranking" ? d.references : d.rating_references}
-                    buckets={d.buckets} onViewReport={viewReport} track={track} />
+      <VersionChart versions={d.versions} eras={d.eras} buckets={d.buckets} onViewReport={viewReport} track={track} />
 
       <h2>Evaluation reports</h2>
       <p className="muted">

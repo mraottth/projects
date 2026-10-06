@@ -1067,6 +1067,19 @@ button.chip:hover { background: #f1f0eb; }
 .ev-point { cursor: pointer; outline: none; -webkit-tap-highlight-color: transparent; }
 .ev-hit { fill: transparent; }
 .ev-dot { fill: var(--card); stroke: var(--accent); stroke-width: 3; transition: r 0.15s ease; }
+/* An era's 2023 point (the earlier project, before v1) and its bridge (the previous era's last version on the new test). */
+.ev-diamond { fill: var(--card); stroke: #b07a2a; stroke-width: 2.5; }
+.ev-point:hover .ev-diamond, .ev-point.on .ev-diamond { stroke-width: 3.5; filter: drop-shadow(0 0 4px rgba(176, 122, 42, 0.45)); }
+.ev-baseline .ev-val, .ev-baseline .ev-xlabel { fill: #8d6122; }
+.ev-baseline .ev-xsub { font-style: italic; }
+.ev-bridge .ev-dot { stroke: var(--muted); stroke-dasharray: 3 2.5; }
+.ev-bridge .ev-val, .ev-bridge .ev-xlabel { fill: var(--muted); }
+.ev-bridge .ev-xsub { font-style: italic; }
+.ev-line-lead { stroke: #c9a46b; stroke-dasharray: 5 4; }
+.ev-xlabel.small { font-size: 10.5px; }
+.ev-trophy.small { font-size: 15px; }
+.ev-era line { stroke: var(--ring); stroke-width: 1.5; stroke-dasharray: 2 4; }
+.ev-era text { font-size: 11px; font-weight: 600; fill: var(--muted); letter-spacing: 0.02em; }
 .ev-trophy { font-size: 24px; transition: filter 0.15s ease; }
 .ev-point:hover .ev-trophy, .ev-point.on .ev-trophy { filter: drop-shadow(0 0 4px rgba(232, 162, 0, 0.6)); }
 .ev-point:hover .ev-dot, .ev-point.on .ev-dot { stroke-width: 4; filter: drop-shadow(0 0 4px rgba(42, 120, 214, 0.45)); }
