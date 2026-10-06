@@ -15,4 +15,5 @@ eval/runs/*
 .deploy.local.mk
 # experiment builds (Makefile exp-*): never committed or deployed
 artifacts_interactions/
+artifacts_reviews/
 eval_interactions/

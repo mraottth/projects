@@ -117,5 +117,11 @@ exp-artifacts: exp-setup  ## experiment pipeline: s03-s11 into the experiment fo
 exp-eval:        ## experiment evaluation (reports in eval_interactions/)
 	$(EXP_ENV) $(PY) goodrec.eval.run $(ARGS)
 
+golive-interactions:   ## swap the interactions build into artifacts/ + data/interim/ (no deploy; D-055)
+	scripts/golive_interactions.sh
+
+rollback-interactions: ## the reverse: the reviews build back into artifacts/ + data/interim/
+	scripts/golive_interactions.sh --rollback
+
 exp-serve:       ## the experiment build on http://localhost:8001 (production stays on :8000)
 	$(EXP_ENV) uv run uvicorn goodrec.api.main:app --port 8001

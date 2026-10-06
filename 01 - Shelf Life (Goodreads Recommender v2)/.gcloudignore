@@ -13,4 +13,5 @@ frontend/dist/
 *.log
 # experiment builds (Makefile exp-*): never uploaded
 artifacts_interactions/
+artifacts_reviews/
 eval_interactions/
