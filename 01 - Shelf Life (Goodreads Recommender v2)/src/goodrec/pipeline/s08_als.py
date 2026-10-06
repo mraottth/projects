@@ -61,6 +61,9 @@ def main(force: bool = False, out_dir=ARTIFACTS_DIR, **overrides) -> None:
     print(f"  ALS {C.shape} nnz={C.nnz:,} F={cfg['factors']} in {time.time() - t:.0f}s")
 
     rows = np.flatnonzero(np.diff(R.indptr) >= cfg["min_user_ratings_for_neighbors"]).astype(np.int32)
+    cap = cfg.get("max_neighbor_users")      # readers-like-you pool: a seeded random sample bounds serving memory
+    if cap and len(rows) > cap:
+        rows = np.sort(np.random.default_rng(0).choice(rows, cap, replace=False)).astype(np.int32)
     Un = U[rows]
     Un /= np.maximum(np.linalg.norm(Un, axis=1, keepdims=True), 1e-8)
 
@@ -69,7 +72,8 @@ def main(force: bool = False, out_dir=ARTIFACTS_DIR, **overrides) -> None:
     np.save(outs[1], (Y.T @ Y).astype(np.float32))
     np.save(outs[2], Un.astype(np.float16))
     np.save(outs[3], rows)
-    print(f"  user_factors for {len(rows):,} users with >= {cfg['min_user_ratings_for_neighbors']} ratings")
+    print(f"  user_factors for {len(rows):,} users with >= {cfg['min_user_ratings_for_neighbors']} ratings"
+          + (f" (random sample, cap {cap:,})" if cap else ""))
 
 
 if __name__ == "__main__":

@@ -1,7 +1,9 @@
 """s04: choose the catalog of works and their display metadata.
 
 A work is in the catalog if it has >= catalog.min_raters distinct 1-5 star raters
-in our ratings data and at least one edition in an allowed language.
+in our ratings data and at least one edition in an allowed language. With catalog.keep_works_from (a previous
+catalog.parquet, relative to the project root), that catalog's works stay in too as long as anyone rated them,
+so books users already saved don't disappear when the threshold rises.
 
 Output: data/interim/catalog.parquet with dense work_idx (0 = most rated).
 """
@@ -10,7 +12,7 @@ import argparse
 
 import polars as pl
 
-from goodrec.config import INTERIM_DIR, load_config
+from goodrec.config import INTERIM_DIR, ROOT, load_config
 from goodrec.core.textnorm import ascii_fold, is_boxset, parse_series
 from goodrec.pipeline.io import skip_if_done
 from goodrec.pipeline.s02_meta import UCSD_GENRES
@@ -31,12 +33,17 @@ def main(force: bool = False) -> None:
         return
     cfg = load_config()["catalog"]
 
+    keep = pl.Series("work_id", [], pl.Int64)
+    if cfg.get("keep_works_from"):
+        keep = pl.read_parquet(ROOT / cfg["keep_works_from"], columns=["work_id"])["work_id"]
     raters = (pl.scan_parquet(INTERIM_DIR / "ratings.parquet")
                 .filter(pl.col("rating") > 0)
                 .group_by("work_id")
                 .agg(pl.len().alias("n_raters"), pl.col("rating").mean().alias("data_avg"))
-                .filter(pl.col("n_raters") >= cfg["min_raters"])
+                .filter((pl.col("n_raters") >= cfg["min_raters"]) | pl.col("work_id").is_in(keep.implode()))
                 .collect())
+    print(f"  catalog candidates: {raters.height:,} works (>= {cfg['min_raters']} raters"
+          + (f", or one of {keep.len():,} kept from {cfg['keep_works_from']})" if keep.len() else ")"))
 
     ed = (pl.scan_parquet(INTERIM_DIR / "editions.parquet")
             .join(raters.lazy().select("work_id"), on="work_id", how="semi")
