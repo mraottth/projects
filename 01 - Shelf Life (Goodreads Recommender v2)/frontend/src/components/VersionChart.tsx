@@ -274,7 +274,7 @@ export function VersionChart({ versions, eras, buckets, onViewReport, track = "r
               {eras.length > 1 && eras.map((era, ei) => (
                 <g key={era.id} className={`ev-era ev-era-${ei}`}>
                   {ei > 0 && <line className="ev-era-divider" x1={eraX[ei].lo} x2={eraX[ei].lo} y1={6} y2={H - P.b} />}
-                  <text x={eraX[ei].lo + (ei ? 8 : 10)} y={18} textAnchor="start"><title>{era.label}</title>{era.short}</text>
+                  <text x={eraX[ei].lo + (ei ? 8 : 10)} y={18} textAnchor="start"><title>{era.label}</title>{compact ? era.short.replace(/^(Trained on|Switched to use all) /, "") : era.short}</text>
                   <line className="ev-era-rule" x1={eraX[ei].lo + (ei ? 6 : 8)} x2={eraX[ei].hi - 6} y1={25} y2={25} />
                   {!compact && era.note.map((line, li) => (
                     <text key={li} className="ev-era-note" x={eraX[ei].lo + (ei ? 8 : 10)} y={39 + 13 * li} textAnchor="start">{line}</text>

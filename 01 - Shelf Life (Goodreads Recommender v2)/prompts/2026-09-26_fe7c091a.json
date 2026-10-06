@@ -1333,8 +1333,16 @@
    "time": "2026-10-06T23:20:02.811Z",
    "kind": "answer",
    "text": "\"Which section labelling should the Evaluation chart use?\"=\"Size + subtitle (Recommended)\".",
-   "reply": null,
+   "reply": "The chart sections are now labelled by data size, so a first-time viewer can see what changed and why the scores jump.\n\n| Section | Header | Line(s) underneath |\n|---|---|---|\n| Left | **15M ratings** | only ratings that came with a written review |\n| Right | **104M ratings** | every star rating · new data and test: scores restart |\n\nThe plot moved down a little to make room for the extra lines. Phones show just the bold sizes. It's committed and pushed on `br-interactions`; nothing is deployed.\n\nv7's own title still says \"Every shelf, not just reviews\". Want it to match the new wording, for example \"Every rating, not just reviewed ones\"?\n\nWhen you're happy with the page, I can go live:\n1. Merge the branch.\n2. Run `make golive-interactions`.\n3. Spot-check the local site.\n4. Run `make deploy`.",
    "id": "fe7c091a-174",
+   "session": "fe7c091a"
+  },
+  {
+   "time": "2026-10-06T23:24:31.526Z",
+   "kind": "prompt",
+   "text": "How about \"Trained on 15M ratings\" / \"only ratings that came with a written review\" and \"Switched to use all 104M ratings\" / \"new data and test: scores restart\". You can also expand the graph portion and shrink the description card a bit to make it fit better",
+   "reply": null,
+   "id": "fe7c091a-175",
    "session": "fe7c091a"
   }
  ]

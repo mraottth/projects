@@ -1049,7 +1049,7 @@ button.chip:hover { background: #f1f0eb; }
 .ev-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; font-size: 0.92rem; }
 .ev-controls select { margin-left: 4px; font: inherit; padding: 4px 6px; border-radius: 8px; border: 1px solid var(--ring); background: var(--card); }
 .ev-body { flex: 1; min-height: 0; display: flex; gap: 16px; margin-top: 10px; }
-.ev-left { flex: 1 1 58%; min-width: 0; display: flex; flex-direction: column; }
+.ev-left { flex: 1 1 68%; min-width: 0; display: flex; flex-direction: column; }
 .ev-plot { position: relative; flex: 1; min-height: 0; }
 .ev-plot svg { position: absolute; inset: 0; }
 .ev-hint { margin: 4px 0 0; }
@@ -1096,7 +1096,7 @@ button.chip:hover { background: #f1f0eb; }
 .ev-point:hover .ev-dot, .ev-point.on .ev-dot { stroke-width: 4; filter: drop-shadow(0 0 4px rgba(42, 120, 214, 0.45)); }
 .ev-point:focus-visible .ev-dot { stroke: var(--ink); }
 .ev-val { fill: var(--ink-2); font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.ev-pop { flex: 0 0 40%; min-width: 0; overflow-y: auto; overscroll-behavior: contain; padding: 12px 14px; background: #fbfbf9;
+.ev-pop { flex: 0 0 clamp(300px, 30%, 380px); min-width: 0; overflow-y: auto; overscroll-behavior: contain; padding: 12px 14px; background: #fbfbf9;
   border: 1px solid var(--ring); border-top: 4px solid var(--accent); border-radius: 14px; font-size: 0.9rem; }
 .ev-pop-head { display: flex; gap: 10px; align-items: flex-start; }
 .ev-pop-head h3 { margin: 2px 0; font-size: 1.05rem; }

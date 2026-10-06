@@ -226,9 +226,9 @@ def paired_ci(h2h: list[dict], value: float | None, metric: str) -> dict | None:
 
 DATASET_LABEL = {"reviews": "Reviews data (15.7M ratings with a written review)",
                  "interactions": "All ratings (104M, to-read shelves excluded)"}
-DATASET_SHORT = {"reviews": "15M ratings", "interactions": "104M ratings"}       # the chart's section headers
-DATASET_NOTE = {"reviews": ["only ratings that came with a written review"],     # ... and the lines under them
-                "interactions": ["every star rating", "new data and test: scores restart"]}
+DATASET_SHORT = {"reviews": "Trained on 15M ratings", "interactions": "Switched to use all 104M ratings"}  # section headers
+DATASET_NOTE = {"reviews": ["only ratings that came with a written review"],     # ... and the line under each
+                "interactions": ["new data and test: scores restart"]}
 
 
 def build_eras(versions: list[dict]) -> list[dict]:

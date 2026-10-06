@@ -759,8 +759,8 @@ They chose the catalog and pool sizes at a decision point after profiling the fi
 **Decision.** On the Evaluation chart the 2023 Book Recommender is no longer a dashed baseline across the chart. It's the first point of the line, v0 ("2023 baseline"), styled differently from versions (a hollow amber diamond).
 
 The chart now has one segment per dataset ("era"). Each era has its own test split, so scores are only compared within an era:
-- **15M ratings** ("only ratings that came with a written review"): v0 → v1 … v6.
-- **104M ratings** ("every star rating", "new data and test: scores restart"): v0 → v6 on the new test (the bridge, a hollow point) → v7.
+- **Trained on 15M ratings** ("only ratings that came with a written review"): v0 → v1 … v6.
+- **Switched to use all 104M ratings** ("new data and test: scores restart"): v0 → v6 on the new test (the bridge, a hollow point) → v7.
 
 Each era has a coloured header with a rule across its part of the plot.
 
