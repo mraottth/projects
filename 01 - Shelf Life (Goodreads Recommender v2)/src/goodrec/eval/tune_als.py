@@ -18,7 +18,7 @@ from pathlib import Path
 import numpy as np
 import orjson
 
-from goodrec.config import ARTIFACTS_DIR, ROOT, load_config
+from goodrec.config import ARTIFACTS_DIR, EVAL_DIR, ROOT, load_config
 from goodrec.core.artifacts import load_artifacts
 from goodrec.core.scoring import Params
 from goodrec.eval.models import ShelfLife
@@ -66,7 +66,7 @@ def main(users: int = 800, workers: int | None = None) -> None:
 
     best = max(results, key=lambda r: np.mean(r[1][3:]))
     stamp = dt.datetime.now().strftime("%Y-%m-%d_%H%M")
-    out = ROOT / "eval" / "reports" / f"als_sweep_{stamp}.md"
+    out = EVAL_DIR / "reports" / f"als_sweep_{stamp}.md"
     out.write_text(f"# ALS sweep {stamp}\n\n{len(cases)} validation users (temporal split); NDCG@10.\n\n"
                    + "\n".join(lines)
                    + f"\n\nBest by mean blend NDCG: factors={best[0][0]} reg={best[0][1]} alpha={best[0][2]}\n")

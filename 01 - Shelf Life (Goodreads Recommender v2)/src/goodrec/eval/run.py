@@ -36,7 +36,7 @@ from pathlib import Path  # noqa: E402
 import numpy as np  # noqa: E402
 import orjson  # noqa: E402
 
-from goodrec.config import ARTIFACTS_DIR, ROOT, load_config  # noqa: E402
+from goodrec.config import ARTIFACTS_DIR, EVAL_DIR, ROOT, load_config  # noqa: E402  (EVAL_DIR: eval/, or GOODREC_EVAL)
 from goodrec.core.artifacts import load_artifacts  # noqa: E402
 from goodrec.core.scoring import Params  # noqa: E402
 from goodrec.eval import report  # noqa: E402
@@ -48,7 +48,6 @@ from goodrec.eval.rating import (STYLES, RatingSettings, population_sd, ranking_
                                  rating_artifacts, rating_style, user_sigma)
 from goodrec.eval.split import load_split  # noqa: E402
 
-EVAL_DIR = ROOT / "eval"
 CHAMPION = EVAL_DIR / "champion.json"
 KMAX = 20
 COLS = [f"{m}@{k}" for k in (10, 20) for m in METRICS]

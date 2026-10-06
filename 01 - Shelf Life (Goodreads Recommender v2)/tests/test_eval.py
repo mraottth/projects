@@ -207,3 +207,25 @@ def test_full_recency_reproduces_scores():
                    Params.from_config(recency_half_life=25))          # one shared date: every weight is 1
     np.testing.assert_array_equal(a.s_als, b.s_als)
     np.testing.assert_array_equal(a.s_ii, b.s_ii)
+
+
+def test_experiment_overlay_and_folders(tmp_path, monkeypatch):
+    """GOODREC_CONFIG merges an overlay over config/pipeline.yaml; GOODREC_DATA / GOODREC_EVAL move the folders."""
+    import importlib
+
+    import goodrec.config as config
+    overlay = tmp_path / "exp.yaml"
+    overlay.write_text("data:\n  files:\n    ratings: other.json.gz\ncatalog:\n  min_raters: 77\n")
+    monkeypatch.setenv("GOODREC_CONFIG", str(overlay))
+    monkeypatch.setenv("GOODREC_DATA", str(tmp_path / "interim"))
+    monkeypatch.setenv("GOODREC_EVAL", str(tmp_path / "eval"))
+    try:
+        exp = importlib.reload(config)
+        cfg = exp.load_config()
+        assert cfg["data"]["files"]["ratings"] == "other.json.gz" and cfg["catalog"]["min_raters"] == 77
+        assert cfg["data"]["files"]["books"] and cfg["catalog"]["languages"]          # the rest is kept
+        assert exp.INTERIM_DIR == tmp_path / "interim" and exp.EVAL_DIR == tmp_path / "eval"
+    finally:
+        monkeypatch.delenv("GOODREC_CONFIG"); monkeypatch.delenv("GOODREC_DATA"); monkeypatch.delenv("GOODREC_EVAL")
+        importlib.reload(config).load_config.cache_clear()
+    assert config.load_config()["data"]["files"]["ratings"] == "goodreads_reviews_dedup.json.gz"

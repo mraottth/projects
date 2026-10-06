@@ -29,7 +29,7 @@ import time
 import numpy as np
 import orjson
 
-from goodrec.config import ARTIFACTS_DIR, INTERIM_DIR, ROOT, load_config
+from goodrec.config import ARTIFACTS_DIR, EVAL_DIR, INTERIM_DIR, ROOT, load_config
 from goodrec.core.rating_mf import MFModel
 from goodrec.eval.metrics import RATING_COLS, rating_user
 from goodrec.eval.rating import population_sd, user_sigma
@@ -253,11 +253,11 @@ def main(users: int | None = None, workers: int | None = None, quick: bool = Fal
                     model.save(MODELS_DIR / f"best_{kind}.npz")
 
     stamp = dt.datetime.now().strftime("%Y-%m-%d_%H%M")
-    base = orjson.loads((ROOT / "eval" / "champion.json").read_bytes())
+    base = orjson.loads((EVAL_DIR / "champion.json").read_bytes())
     report = {"stamp": stamp, "n_users": len(cases), "set": "validation", "buckets": BUCKETS,
               "fold_grid": FOLD_GRID, "base_report": base.get("report"), "references": refs, "results": results,
               "best": {k: v["label"] for k, v in best.items()}}
-    out = ROOT / "eval" / "reports" / f"rating_sweep_{stamp}"
+    out = EVAL_DIR / "reports" / f"rating_sweep_{stamp}"
     out.with_suffix(".json").write_bytes(orjson.dumps(report, option=orjson.OPT_INDENT_2 | orjson.OPT_SERIALIZE_NUMPY))
     out.with_suffix(".md").write_text(render(report))
     print(f"  report: {out.relative_to(ROOT)}.md; best: {report['best']}")
