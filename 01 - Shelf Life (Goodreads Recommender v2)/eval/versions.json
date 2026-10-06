@@ -7,6 +7,7 @@
   "settings": "No prediction floor or boost; uncapped blend weight; popularity penalty -0.3; no recency. Ratings: item means shrunk toward the global mean, no calibration (reconstructed).",
   "rescored": true,
   "report": "2026-10-04_0916_shelf_life",
+  "dataset": "reviews",
   "rating": {"item_means": "global", "calibration": "none"},
   "commits": ["7ec278f", "7d7493b"],
   "decisions": ["D-002", "D-009"]
@@ -19,6 +20,7 @@
   "settings": "Adds the floor (average - 0.25); no prediction boost; uncapped blend weight; popularity penalty -0.3; no recency. Ratings: calibrated to the reader's scale for every book (no evidence gate), item means shrunk toward the global mean (reconstructed).",
   "rescored": true,
   "report": "2026-10-04_0926_shelf_life",
+  "dataset": "reviews",
   "rating": {"item_means": "global", "calibration": "full"},
   "commits": ["32555e9"],
   "decisions": ["D-017", "D-018"]
@@ -31,6 +33,7 @@
   "settings": "Adds the boost (0.75, fame 10k to 316k ratings); uncapped blend weight; popularity penalty -0.3; no recency. This is the first champion under the temporal evaluation.",
   "rescored": false,
   "report": "2026-10-04_0937_shelf_life",
+  "dataset": "reviews",
   "rating": {"item_means": "goodreads", "calibration": "evidence"},
   "commits": ["8511b03", "9aba0e6"],
   "decisions": ["D-025", "D-026", "D-027"]
@@ -43,6 +46,7 @@
   "settings": "a(n) = min(n/(n+20), 0.4); popularity penalty -0.5; no recency.",
   "rescored": false,
   "report": "2026-10-04_0951_shelf_life",
+  "dataset": "reviews",
   "rating": {"item_means": "goodreads", "calibration": "evidence"},
   "commits": ["c7e2c2a", "70a21cd"],
   "decisions": ["D-045"]
@@ -55,6 +59,7 @@
   "settings": "Recency half-life 25 ratings, on top of v4.",
   "rescored": false,
   "report": "2026-10-04_1002_shelf_life",
+  "dataset": "reviews",
   "rating": {"item_means": "goodreads", "calibration": "evidence"},
   "commits": ["9ac0ca0", "1145474", "ff5efd2", "5d7f534"],
   "decisions": ["D-046", "D-047"]
@@ -67,8 +72,22 @@
   "settings": "Rating model: biased MF (k = 16) + item-kNN residual, evidence calibration; ranking settings as v5.",
   "rescored": false,
   "report": "2026-10-04_1505_shelf_life",
+  "dataset": "reviews",
   "rating": {"item_means": "goodreads", "calibration": "evidence", "predictor": "hybrid:production"},
   "commits": ["a325aa9", "c05c7a4", "854dfe3", "cf0a36e", "5c9e05e"],
   "decisions": ["D-052", "D-053"]
+ },
+ {
+  "id": "v7",
+  "date": "2026-10-06",
+  "title": "Every shelf, not just reviews",
+  "summary": "The models now learn from every rating in the Goodreads dataset (104 million from 876,000 readers), not only ratings that came with a written review (15 million). The catalog keeps every earlier book and adds those with 75+ raters (144,000 books); to-read shelves are kept out. With readers' much longer histories, the ranking settings were re-tuned: the taste model may take up to 60% of the blend and takes over sooner, heavy readers get a stronger popularity penalty, and the predicted-rating boost is lighter.",
+  "settings": "Data: goodreads_interactions_dedup (to-read shelves excluded). Catalog: earlier books + 75+ raters. Readers-like-you pool: random 150k. Blend: a_max 0.6, k_a 10, popularity penalty -0.8, prediction boost 0.5, recency half-life 25.",
+  "rescored": false,
+  "dataset": "interactions",
+  "report": "2026-10-06_1302_shelf_life",
+  "rating": {"item_means": "goodreads", "calibration": "evidence", "predictor": "hybrid:production"},
+  "commits": ["d4d8c41", "434fc73", "39d7772", "bec5f67"],
+  "decisions": ["D-055"]
  }
 ]
