@@ -1,0 +1,6 @@
+# Experiment overlay: rebuild on goodreads_interactions_dedup.json.gz (every shelf event, not only reviewed
+# ratings). Merged over config/pipeline.yaml when GOODREC_CONFIG points here (make exp-*); production never
+# reads it. Settings decided at the phase-1 gate (catalog threshold, readers-like-you pool cap) go here too.
+data:
+  files:
+    ratings: goodreads_interactions_dedup.json.gz
