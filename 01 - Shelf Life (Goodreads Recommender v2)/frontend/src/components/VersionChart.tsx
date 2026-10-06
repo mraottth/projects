@@ -133,7 +133,7 @@ export function VersionChart({ versions, eras, buckets, onViewReport, track = "r
   // The points, era by era: 2023, the bridge (later eras), then the era's versions.
   const byId = Object.fromEntries(versions.map((v) => [v.id, v]));
   const points: Point[] = eras.flatMap((era, ei) => [
-    { key: `2023:${era.id}`, kind: "baseline" as const, era: ei, name: "v0", sub: "from 2023", e: era.baseline },
+    { key: `2023:${era.id}`, kind: "baseline" as const, era: ei, name: "v0", sub: "2023 baseline", e: era.baseline },
     ...(era.bridge ? [{ key: `bridge:${era.id}`, kind: "bridge" as const, era: ei, name: era.bridge.of ?? "", sub: "retest", e: era.bridge }] : []),
     ...era.versions.filter((id) => byId[id]).map((id) => ({
       key: id, kind: "version" as const, era: ei, name: id, sub: fmtDate(byId[id].date).replace(/, \d{4}$/, ""), v: byId[id] })),
@@ -146,7 +146,7 @@ export function VersionChart({ versions, eras, buckets, onViewReport, track = "r
   const ticks = track === "rating" ? bandTicks(Math.min(...ys), Math.max(...ys)) : niceTicks(Math.max(...ys, 1e-6));
   const ymin = ticks[0], ymax = ticks[ticks.length - 1];
   const decimals = track === "rating" ? Math.max(2, -Math.floor(Math.log10(ticks[1] - ticks[0]) + 1e-9)) : ymax < 0.1 ? 3 : 2;
-  // x: one slot per point, a little extra room after each v0 (its "from 2023" label is wider), a gap between eras.
+  // x: one slot per point, a little extra room after each v0 (its "2023 baseline" label is wider), a gap between eras.
   const GAP = 0.6, AFTER_V0 = 0.25;
   const slot = points.map((p, i) => i + p.era * GAP
     + AFTER_V0 * points.slice(0, i).filter((q) => q.kind === "baseline").length);
@@ -334,7 +334,7 @@ export function VersionChart({ versions, eras, buckets, onViewReport, track = "r
               <div>
                 <span className="ev-pop-id">
                   {v ? <>{v.champion ? "🏆 " : ""}{v.id}{v.champion ? " · current champion" : ""}</>
-                    : p.kind === "baseline" ? "v0 · from 2023" : `${p.name} · on the new test`}
+                    : p.kind === "baseline" ? "v0 · 2023 baseline" : `${p.name} · on the new test`}
                 </span>
                 <h3>{v ? v.title : p.kind === "baseline" ? "2023 Book Recommender" : `${p.name} on the new test`}</h3>
                 <span className="muted small">{v ? fmtDate(v.date) : eras[p.era].label}{pinned ? " · 📌 pinned" : ""}</span>

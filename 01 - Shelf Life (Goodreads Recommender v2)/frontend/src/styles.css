@@ -1040,6 +1040,10 @@ button.chip:hover { background: #f1f0eb; }
 .evaluation { max-width: 960px; margin: 0 auto; }
 .ev-chart { display: flex; flex-direction: column; margin: 18px 0 26px; padding: 16px 18px 14px; background: var(--card);
   border: 1px solid var(--ring); border-radius: 16px; box-shadow: var(--shadow); min-height: 460px; }
+/* The chart and its panel break out of the text column, like the Changelog's milestone timeline. */
+@media (min-width: 1000px) {
+  .evaluation .ev-chart { width: min(1200px, calc(100vw - 40px)); position: relative; left: 50%; transform: translateX(-50%); }
+}
 .evaluation .ev-track { margin: 2px 0 14px; }
 .evaluation .ev-track button { padding: 8px 18px; font-size: 0.95rem; }
 .ev-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; font-size: 0.92rem; }
