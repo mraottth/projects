@@ -103,7 +103,8 @@ def main(limit: int | None = None) -> None:
                     .to_numpy())
 
     catalog = {t: {"works": int(((raters >= t) & lang_ok).sum()),
-                   "ratings_in_catalog": int(raters[(raters >= t) & lang_ok].sum())} for t in THRESHOLDS}
+                   "ratings_in_catalog": int(raters[(raters >= t) & lang_ok].sum()),
+                   "todays_books_kept": int(((raters >= t) & lang_ok & in_cat_now).sum())} for t in THRESHOLDS}
     rep = {
         "file": src.name, "rows": n, "minutes": round((time.time() - t0) / 60, 1), "kinds": kinds,
         "readers": nu,
@@ -141,9 +142,12 @@ def render(r: dict) -> str:
              f"- Test readers: {r['test_readers']['present']:,} of {r['test_readers']['today']:,} present. Ratings per "
              f"test reader, median / p90: now " + " / ".join(f"{x:.0f}" for x in r['test_readers']['ratings_now_p50_p90'])
              + ", after " + " / ".join(f"{x:.0f}" for x in r['test_readers']['ratings_after_p50_p90']) + ".", "",
-             "| Rater threshold | Catalog works | Ratings on those works |", "|---|---|---|"]
+             f"| Rater threshold | Catalog works | Ratings on those works | Today's {r['current_catalog_works']:,} books kept |",
+             "|---|---|---|---|"]
     for t, c in r["catalog_by_threshold"].items():
-        lines.append(f"| {t} | {c['works']:,} | {c['ratings_in_catalog']:,} |")
+        kept = c.get("todays_books_kept")
+        lines.append(f"| {t} | {c['works']:,} | {c['ratings_in_catalog']:,} | "
+                     + (f"{kept:,} ({100 * kept / r['current_catalog_works']:.1f}%)" if kept is not None else "–") + " |")
     return "\n".join(lines) + "\n"
 
 
