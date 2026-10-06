@@ -1078,8 +1078,14 @@ button.chip:hover { background: #f1f0eb; }
 .ev-line-lead { stroke: #c9a46b; stroke-dasharray: 5 4; }
 .ev-xlabel.small { font-size: 10.5px; }
 .ev-trophy.small { font-size: 15px; }
-.ev-era line { stroke: var(--ring); stroke-width: 1.5; stroke-dasharray: 2 4; }
-.ev-era text { font-size: 11px; font-weight: 600; fill: var(--muted); letter-spacing: 0.02em; }
+/* Dataset eras: a coloured header with a rule across the era's part of the plot, and a dotted divider. */
+.ev-era-divider { stroke: var(--ring); stroke-width: 1.5; stroke-dasharray: 2 4; }
+.ev-era text { font-size: 13px; font-weight: 700; letter-spacing: 0.01em; }
+.ev-era-rule { stroke-width: 2.5; stroke-linecap: round; }
+.ev-era-0 text { fill: #5b6f91; }
+.ev-era-0 .ev-era-rule { stroke: #8fa3c4; }
+.ev-era-1 text { fill: #2f7d5b; }
+.ev-era-1 .ev-era-rule { stroke: #6fb894; }
 .ev-trophy { font-size: 24px; transition: filter 0.15s ease; }
 .ev-point:hover .ev-trophy, .ev-point.on .ev-trophy { filter: drop-shadow(0 0 4px rgba(232, 162, 0, 0.6)); }
 .ev-point:hover .ev-dot, .ev-point.on .ev-dot { stroke-width: 4; filter: drop-shadow(0 0 4px rgba(42, 120, 214, 0.45)); }

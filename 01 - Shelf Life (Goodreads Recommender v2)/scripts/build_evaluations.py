@@ -226,6 +226,7 @@ def paired_ci(h2h: list[dict], value: float | None, metric: str) -> dict | None:
 
 DATASET_LABEL = {"reviews": "Reviews data (15.7M ratings with a written review)",
                  "interactions": "Every shelf (104M ratings)"}
+DATASET_SHORT = {"reviews": "Trained on reviews only", "interactions": "Trained on all shelves"}
 
 
 def build_eras(versions: list[dict]) -> list[dict]:
@@ -250,7 +251,7 @@ def build_eras(versions: list[dict]) -> list[dict]:
                 bridge = {"id": f"{prev}*", "of": prev, "label": f"{prev} on the new test", "kind": "bridge",
                           "metrics": metrics_of(c), "rmetrics": metrics_of(rc, RMETRICS) if rc else {},
                           "report": vs[0]["report"]}
-        refs = [{"key": "popular", "label": "Most popular books", "metrics": metrics_of(row(latest, "popular"))}] \
+        refs = [{"key": "popular", "label": "Popular books", "metrics": metrics_of(row(latest, "popular"))}] \
             if row(latest, "popular") else []
         rrefs = [{"key": "book_avg", "label": "Book average", "metrics": metrics_of(rating_row(latest, "book_avg"), RMETRICS)}] \
             if rating_row(latest, "book_avg") else []
@@ -266,7 +267,8 @@ def build_eras(versions: list[dict]) -> list[dict]:
             if rci:
                 v["rci_vs_previous"] = rci
             prev_pt = v
-        eras.append({"id": ds, "label": DATASET_LABEL.get(ds, ds), "versions": [v["id"] for v in vs],
+        eras.append({"id": ds, "label": DATASET_LABEL.get(ds, ds), "short": DATASET_SHORT.get(ds, ds),
+                     "versions": [v["id"] for v in vs],
                      "baseline": baseline, "bridge": bridge, "references": refs, "rating_references": rrefs})
     return eras
 

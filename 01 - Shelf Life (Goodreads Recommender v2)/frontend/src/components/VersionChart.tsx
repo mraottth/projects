@@ -33,7 +33,7 @@ interface EraPoint {
   ranking_method?: string | null; rating_method?: string | null; of?: string;
 }
 export interface Era {
-  id: string; label: string; versions: string[]; baseline: EraPoint; bridge: EraPoint | null;
+  id: string; label: string; short: string; versions: string[]; baseline: EraPoint; bridge: EraPoint | null;
   references: Reference[]; rating_references: Reference[];
 }
 /** One point on the chart: a version, an era's 2023 point or its bridge. */
@@ -133,7 +133,7 @@ export function VersionChart({ versions, eras, buckets, onViewReport, track = "r
   // The points, era by era: 2023, the bridge (later eras), then the era's versions.
   const byId = Object.fromEntries(versions.map((v) => [v.id, v]));
   const points: Point[] = eras.flatMap((era, ei) => [
-    { key: `2023:${era.id}`, kind: "baseline" as const, era: ei, name: "2023", sub: "pre-v1", e: era.baseline },
+    { key: `2023:${era.id}`, kind: "baseline" as const, era: ei, name: "v0", sub: "from 2023", e: era.baseline },
     ...(era.bridge ? [{ key: `bridge:${era.id}`, kind: "bridge" as const, era: ei, name: era.bridge.of ?? "", sub: "retest", e: era.bridge }] : []),
     ...era.versions.filter((id) => byId[id]).map((id) => ({
       key: id, kind: "version" as const, era: ei, name: id, sub: fmtDate(byId[id].date).replace(/, \d{4}$/, ""), v: byId[id] })),
@@ -146,9 +146,10 @@ export function VersionChart({ versions, eras, buckets, onViewReport, track = "r
   const ticks = track === "rating" ? bandTicks(Math.min(...ys), Math.max(...ys)) : niceTicks(Math.max(...ys, 1e-6));
   const ymin = ticks[0], ymax = ticks[ticks.length - 1];
   const decimals = track === "rating" ? Math.max(2, -Math.floor(Math.log10(ticks[1] - ticks[0]) + 1e-9)) : ymax < 0.1 ? 3 : 2;
-  // x: one slot per point, plus a gap between eras.
-  const GAP = 0.9;
-  const slot = points.map((p, i) => i + p.era * GAP);
+  // x: one slot per point, a little extra room after each v0 (its "from 2023" label is wider), a gap between eras.
+  const GAP = 0.6, AFTER_V0 = 0.25;
+  const slot = points.map((p, i) => i + p.era * GAP
+    + AFTER_V0 * points.slice(0, i).filter((q) => q.kind === "baseline").length);
   const span = Math.max(slot[slot.length - 1] ?? 0, 1);
   const x0 = PAD.l + 28, x1 = W - PAD.r - 28;
   const x = (i: number) => x0 + (slot[i] / span) * (x1 - x0);
@@ -169,20 +170,23 @@ export function VersionChart({ versions, eras, buckets, onViewReport, track = "r
   const labelPos: Record<string, { x: number; y: number; anchor: "start" | "middle" | "end"; text: string } | null> = {};
   eras.forEach((era, ei) => T.refs(era).forEach((r) => {
     const { lo, hi } = eraX[ei];
-    const short = `${r.label.replace(/^Most p/, "P").replace(/ books$/, "")} ${val(r.metrics).toFixed(3)}`;
+    const short = `${r.label.replace(/ books$/, "")} ${val(r.metrics).toFixed(3)}`;
     const ly = y(val(r.metrics));
     type Opt = { x: number; y: number; anchor: "start" | "middle" | "end" };
     const options: Opt[] = [
       { x: lo + 8, y: ly - 6, anchor: "start" }, { x: lo + 8, y: ly + 27, anchor: "start" },
       { x: hi - 8, y: ly - 6, anchor: "end" }, { x: hi - 8, y: ly + 27, anchor: "end" },
       { x: (lo + hi) / 2, y: ly - 6, anchor: "middle" }, { x: (lo + hi) / 2, y: ly + 27, anchor: "middle" },
+      ...[0.25, 0.75].flatMap((f): Opt[] => [{ x: lo + f * (hi - lo), y: ly - 6, anchor: "middle" },
+                                             { x: lo + f * (hi - lo), y: ly + 27, anchor: "middle" }]),
     ];
     // The full label where it fits, else a short one; with no room at all (a narrow era on a phone), just the line.
-    for (const text of compact ? [short] : [`${r.label} (${val(r.metrics).toFixed(3)})`, short]) {
-      const w = 6.1 * text.length;
+    for (const text of compact ? [short] : [`Baseline: ${r.label} (${val(r.metrics).toFixed(3)})`, `Baseline: ${short}`, short]) {
+      const w = 5.7 * text.length;
       const left = (o: Opt) => (o.anchor === "start" ? o.x : o.anchor === "end" ? o.x - w : o.x - w / 2);
       const box = (o: Opt): Box => ({ x0: left(o), x1: left(o) + w, y0: o.y - 11, y1: o.y + 3 });
-      const inside = (o: Opt) => left(o) >= lo + 2 && left(o) + w <= hi + 2;
+      const inside = (o: Opt) => left(o) >= lo + 2 && left(o) + w <= hi + 2
+        && o.y - 11 >= PAD.t + 4 && o.y + 3 <= H - PAD.b - 6;          // clear of the era headers and the x axis
       const pick = options.find((o) => inside(o) && !taken.some((t) => hit(t, box(o))));
       if (pick) {
         taken.push(box(pick));
@@ -206,7 +210,7 @@ export function VersionChart({ versions, eras, buckets, onViewReport, track = "r
   const prev = p && i > 0 && points[i - 1].era === p.era ? points[i - 1] : null;
   const v = p?.v ?? null;
   const ci = v ? T.pci(v)?.[n] : undefined;
-  const label = (q: Point) => (q.kind === "baseline" ? "2023" : q.kind === "bridge" ? `${q.name} retest` : q.name);
+  const label = (q: Point) => (q.kind === "baseline" ? "v0" : q.kind === "bridge" ? `${q.name} retest` : q.name);
   useEffect(() => { panel.current?.scrollTo({ top: 0 }); }, [shownKey]);
   const histLabel = n === "-1" ? "full history" : `${n} most recent rating${n === "1" ? "" : "s"}`;
 
@@ -265,11 +269,12 @@ export function VersionChart({ versions, eras, buckets, onViewReport, track = "r
               <line className="ev-axisline" x1={PAD.l} x2={W - PAD.r} y1={H - PAD.b} y2={H - PAD.b} />
               <text className="ev-axis" x={18} y={yMid} transform={`rotate(-90 18 ${yMid})`} textAnchor="middle">{axisLabel}</text>
               {eras.length > 1 && eras.map((era, ei) => (
-                <g key={era.id} className="ev-era">
-                  {ei > 0 && <line x1={eraX[ei].lo} x2={eraX[ei].lo} y1={PAD.t - 18} y2={H - PAD.b} />}
+                <g key={era.id} className={`ev-era ev-era-${ei}`}>
+                  {ei > 0 && <line className="ev-era-divider" x1={eraX[ei].lo} x2={eraX[ei].lo} y1={PAD.t - 22} y2={H - PAD.b} />}
                   <text x={eraX[ei].lo + (ei ? 8 : 10)} y={PAD.t - 12} textAnchor="start">
-                    <title>{era.label}</title>{era.label.replace(/ \(.*\)$/, "")}
+                    <title>{era.label}</title>{compact ? era.short.replace(/^Trained on /, "") : era.short}
                   </text>
+                  <line className="ev-era-rule" x1={eraX[ei].lo + (ei ? 6 : 8)} x2={eraX[ei].hi - 6} y1={PAD.t - 5} y2={PAD.t - 5} />
                 </g>
               ))}
               {eras.map((era, ei) => T.refs(era).map((r, k) => {
@@ -298,7 +303,7 @@ export function VersionChart({ versions, eras, buckets, onViewReport, track = "r
                 return (
                   <g key={q.key} className={`ev-point ev-${q.kind}${q.v?.champion ? " champion" : ""}${shownKey === q.key ? " on" : ""}`}
                      role="button" tabIndex={0}
-                     aria-label={`${q.kind === "version" ? `${q.name}: ${q.v!.title}` : q.kind === "baseline" ? "2023 Book Recommender" : `${q.name} on the new test`}, ${T.labels[metric]} ${pv(q).toFixed(4)}`}
+                     aria-label={`${q.kind === "version" ? `${q.name}: ${q.v!.title}` : q.kind === "baseline" ? "v0: the 2023 Book Recommender" : `${q.name} on the new test`}, ${T.labels[metric]} ${pv(q).toFixed(4)}`}
                      aria-pressed={openId === q.key && pinned}
                      onPointerEnter={(e) => { if (e.pointerType === "mouse") show(q.key); }}
                      onFocus={(e) => { if ((e.currentTarget as Element).matches(":focus-visible")) show(q.key); }}
@@ -312,7 +317,7 @@ export function VersionChart({ versions, eras, buckets, onViewReport, track = "r
                         : <circle className="ev-dot" cx={x(k)} cy={cy} r={compact ? 4.5 : 6.5} />}
                     {!compact && <text className="ev-val" x={x(k)} y={cy - (q.v?.champion ? 20 : 14)} textAnchor="middle">{pv(q).toFixed(3)}</text>}
                     <text className={`ev-xlabel${compact ? " small" : ""}`} x={x(k)} y={H - PAD.b + 20} textAnchor="middle">
-                      {q.kind === "baseline" && compact ? "’23" : q.name}</text>
+                      {q.name}</text>
                     {!compact && <text className="ev-xsub" x={x(k)} y={H - PAD.b + 38} textAnchor="middle">{q.sub}</text>}
                   </g>
                 );
@@ -329,7 +334,7 @@ export function VersionChart({ versions, eras, buckets, onViewReport, track = "r
               <div>
                 <span className="ev-pop-id">
                   {v ? <>{v.champion ? "🏆 " : ""}{v.id}{v.champion ? " · current champion" : ""}</>
-                    : p.kind === "baseline" ? "Before v1 · 2023" : `${p.name} · on the new test`}
+                    : p.kind === "baseline" ? "v0 · from 2023" : `${p.name} · on the new test`}
                 </span>
                 <h3>{v ? v.title : p.kind === "baseline" ? "2023 Book Recommender" : `${p.name} on the new test`}</h3>
                 <span className="muted small">{v ? fmtDate(v.date) : eras[p.era].label}{pinned ? " · 📌 pinned" : ""}</span>

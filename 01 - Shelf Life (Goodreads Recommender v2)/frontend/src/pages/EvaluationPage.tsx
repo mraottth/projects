@@ -103,18 +103,12 @@ export function EvaluationPage({ track, setTrack }: { track: Track; setTrack: (t
   return (
     <article className="evaluation">
       <h1>Evaluation Timeline</h1>
-      <div className="seg ev-track" role="tablist" aria-label="Evaluation track">
-        {([["ranking", "Ranking"], ["rating", "Rating prediction"]] as [Track, string][]).map(([t, label]) => (
-          <button key={t} type="button" role="tab" aria-selected={track === t} className={track === t ? "on" : ""}
-                  onClick={() => setTrack(t)}>{label}</button>
-        ))}
-      </div>
       {track === "ranking" ? (
       <p className="lead-left">
         Every change to the recommender is measured the same way: 10,000 readers were set aside and never used for
         training, and for each one the most recent 30% of the books they read are hidden. The question is whether the
         books they went on to love (4–5★) show up near the top of their recommendations, given everything they read
-        before. The main score is NDCG@10; higher is better. Each line starts from the 2023 version of this project.
+        before. The main score is NDCG@10; higher is better. Each line starts from v0, the 2023 version of this project.
         On the original data (ratings that came with a review), full-history NDCG@10 went from{" "}
         {nd(first?.metrics)?.toFixed(3)} at launch to {nd(last0?.metrics)?.toFixed(3)} ({pct(nd(last0?.metrics), nd(first?.metrics))}).
         {bridge && latest && <>
@@ -139,6 +133,12 @@ export function EvaluationPage({ track, setTrack }: { track: Track; setTrack: (t
       </p>
       )}
 
+      <div className="seg ev-track" role="tablist" aria-label="Evaluation track">
+        {([["ranking", "Ranking"], ["rating", "Rating prediction"]] as [Track, string][]).map(([t, label]) => (
+          <button key={t} type="button" role="tab" aria-selected={track === t} className={track === t ? "on" : ""}
+                  onClick={() => setTrack(t)}>{label}</button>
+        ))}
+      </div>
       <VersionChart versions={d.versions} eras={d.eras} buckets={d.buckets} onViewReport={viewReport} track={track} />
 
       <h2>Evaluation reports</h2>
