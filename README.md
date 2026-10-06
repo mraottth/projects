@@ -5,7 +5,7 @@
 **[Try the live app →](https://goodrec-137926939938.us-central1.run.app)** (no Goodreads account needed: click *See a demo*)
 
 **Description:**
-A web app that recommends books from your Goodreads history. Upload your Goodreads library export (or search and rate a few books), and it ranks ~105,000 books for you, predicts the stars you'd give each one, and explains every pick ("because you liked…"). Built on the UCSD Book Graph: 15.7M ratings from 465k readers.
+A web app that recommends books from your Goodreads history. Upload your Goodreads library export (or search and rate a few books), and it ranks ~144,000 books for you, predicts the stars you'd give each one, and explains every pick ("because you liked…"). Built on the UCSD Book Graph: 104M ratings from 876k readers.
 
 * **Hybrid recommender:** item-item similarity blended with an implicit-feedback ALS taste model, folded in for each new user at request time. The blend shifts from one to the other as you rate more books.
 * **Measured offline:** tuned on 9,906 held-out readers no model saw (NDCG@20 of 0.139 with a full history, vs. 0.036 for "most popular").
