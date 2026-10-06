@@ -4,3 +4,12 @@
 data:
   files:
     ratings: goodreads_interactions_dedup.json.gz
+
+# Phase-1 gate (eval_interactions/profile.md, decided with the user 2026-10-05):
+catalog:
+  min_raters: 75                          # new books need 75+ raters ...
+  keep_works_from: data/interim/catalog.parquet   # ... and every book in today's catalog stays (no saved book disappears)
+als:
+  max_neighbor_users: 150000              # readers-like-you pool: a seeded random 150k of ~676k eligible
+eval:
+  keep_test_users_from: data/interim      # hold out today's 10,000 test readers (by Goodreads user id) for the bridge
