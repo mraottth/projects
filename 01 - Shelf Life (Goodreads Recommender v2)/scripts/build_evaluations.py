@@ -225,8 +225,8 @@ def paired_ci(h2h: list[dict], value: float | None, metric: str) -> dict | None:
 
 
 DATASET_LABEL = {"reviews": "Reviews data (15.7M ratings with a written review)",
-                 "interactions": "Every shelf (104M ratings)"}
-DATASET_SHORT = {"reviews": "Trained on reviews only", "interactions": "Trained on all shelves"}
+                 "interactions": "All ratings (104M, to-read shelves excluded)"}
+DATASET_SHORT = {"reviews": "Trained on reviews only", "interactions": "Switched to all ratings"}
 
 
 def build_eras(versions: list[dict]) -> list[dict]:

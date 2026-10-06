@@ -272,7 +272,7 @@ export function VersionChart({ versions, eras, buckets, onViewReport, track = "r
                 <g key={era.id} className={`ev-era ev-era-${ei}`}>
                   {ei > 0 && <line className="ev-era-divider" x1={eraX[ei].lo} x2={eraX[ei].lo} y1={PAD.t - 22} y2={H - PAD.b} />}
                   <text x={eraX[ei].lo + (ei ? 8 : 10)} y={PAD.t - 12} textAnchor="start">
-                    <title>{era.label}</title>{compact ? era.short.replace(/^Trained on /, "") : era.short}
+                    <title>{era.label}</title>{compact ? era.short.replace(/^(Trained on|Switched to) /, "") : era.short}
                   </text>
                   <line className="ev-era-rule" x1={eraX[ei].lo + (ei ? 6 : 8)} x2={eraX[ei].hi - 6} y1={PAD.t - 5} y2={PAD.t - 5} />
                 </g>

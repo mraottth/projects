@@ -760,7 +760,7 @@ They chose the catalog and pool sizes at a decision point after profiling the fi
 
 The chart now has one segment per dataset ("era"). Each era has its own test split, so scores are only compared within an era:
 - **Trained on reviews only:** v0 → v1 … v6.
-- **Trained on all shelves:** v0 → v6 on the new test (the bridge, a hollow point) → v7.
+- **Switched to all ratings:** v0 → v6 on the new test (the bridge, a hollow point) → v7.
 
 Each era has a coloured header with a rule across its part of the plot.
 
