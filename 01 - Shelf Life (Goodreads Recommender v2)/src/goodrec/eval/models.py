@@ -247,3 +247,64 @@ def simple_baselines(art: Artifacts) -> list[Recommender]:
                              description="Popular books within the parent genres the user rates most "
                                          "(rating-weighted genre share x within-genre popularity)."),
     ]
+
+
+def catalog_ids(art: Artifacts) -> np.ndarray:
+    """Goodreads work_id of each work_idx in a build (from its catalog.db)."""
+    import sqlite3
+    con = sqlite3.connect(art.db_path)
+    rows = con.execute("SELECT work_idx, work_id FROM works").fetchall()
+    con.close()
+    ids = np.zeros(art.meta.n, np.int64)
+    for i, w in rows:
+        ids[i] = w
+    return ids
+
+
+@dataclass
+class ForeignShelfLife(Recommender):
+    """A Shelf Life model from another build (its own artifacts and catalog), evaluated on this build's split.
+
+    The bridge for a data swap (D-055): readers' books are translated to the other catalog by Goodreads work_id
+    (books it doesn't have are dropped from its input), its recommendations are translated back, and books
+    outside its catalog get no prediction from it: the harness fills them with this build's book average and
+    reports the share. That fallback knows the newer data, so it can only flatter the other build."""
+    art: Artifacts = None             # the other build
+    params: Params = None
+    prior: np.ndarray | None = None   # that build's rating distribution
+    to_other: np.ndarray = field(default=None, repr=False)    # this build's work_idx -> other's (or -1)
+    to_this: np.ndarray = field(default=None, repr=False)     # other's work_idx -> this build's (or -1)
+    kind: str = "baseline"
+    tracks: tuple = ("ranking", "rating")
+
+    @classmethod
+    def build(cls, this: Artifacts, other: Artifacts, **kw) -> "ForeignShelfLife":
+        a, b = catalog_ids(this), catalog_ids(other)
+        pos_b = {int(w): i for i, w in enumerate(b)}
+        pos_a = {int(w): i for i, w in enumerate(a)}
+        to_other = np.array([pos_b.get(int(w), -1) for w in a], np.int64)
+        to_this = np.array([pos_a.get(int(w), -1) for w in b], np.int64)
+        return cls(art=other, to_other=to_other, to_this=to_this, **kw)
+
+    def translate(self, user: UserInput) -> UserInput:
+        m = self.to_other
+        ratings = {int(m[i]): r for i, r in user.ratings.items() if m[i] >= 0}
+        read = {int(m[i]) for i in user.read if m[i] >= 0}
+        dates = {int(m[i]): d for i, d in user.dates.items() if m[i] >= 0} if user.dates else None
+        return UserInput(ratings=ratings, read=read, dates=dates)
+
+    def recommend(self, user, k, rng):
+        u = self.translate(user)
+        raw = raw_scores(self.art, u, self.params)
+        order = ranking(self.art, raw, u, self.params, "match", self.prior, include_ya=True)["order"]
+        back = self.to_this[order[: k * 2]]
+        return back[back >= 0][:k]
+
+    def rate(self, user, items):
+        u = self.translate(user)
+        mapped = self.to_other[np.asarray(items, dtype=np.int64)]
+        out = np.full(len(mapped), np.nan)
+        ok = mapped >= 0
+        if ok.any():
+            out[ok] = model_ratings(self.art, u, mapped[ok], RatingSettings(), self.prior)
+        return out
