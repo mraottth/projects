@@ -91,13 +91,23 @@ def norm_params(p: dict, rating: dict | None = None) -> str:
     return json.dumps(key, sort_keys=True)
 
 
+def dataset_of(report: dict | None, versions: list[dict]) -> str:
+    """Which dataset a report's split belongs to (versions record theirs); unknown splits count as the first's."""
+    by_split = {v["split_hash"]: v.get("dataset", "reviews") for v in versions}
+    return by_split.get((report or {}).get("split_hash"), versions[0].get("dataset", "reviews") if versions else "reviews")
+
+
+def version_key(report: dict, dataset: str) -> str:
+    return norm_params(report.get("params", {}), report.get("rating")) + "|" + dataset
+
+
 def version_labels(report: dict, versions: list[dict]) -> dict[str, str]:
     """Model names in a report -> the page's version names ("v5 · Recent reading counts more"): the model under
     test is matched by its settings, the previous best by the champion report it cites. Other rows keep their names."""
     by_params = {v["_params"]: v for v in versions}
     by_report = {v["report"]: v for v in versions}
     out = {}
-    v = by_params.get(norm_params(report.get("params", {}), report.get("rating")))
+    v = by_params.get(version_key(report, dataset_of(report, versions)))
     if v:
         out["\x01version"] = v["id"]
         name = report["model"]["name"]
@@ -137,16 +147,22 @@ def build_reports(champion: dict | None, versions: list[dict]) -> list[dict]:
         labels = version_labels(report, versions) if new_format else {}
         version = labels.pop("\x01version", None)
         if version is None and new_format and STAMP.match(stem):
-            # Candidate and validation runs (other settings or models) belong to the version that was current
-            # when they ran: the latest version whose report of record is older.
-            older = [v for v in versions if v["report"] <= stem]
-            version = max(older, key=lambda v: v["report"])["id"] if older else None
+            # Candidate and validation runs (other settings or models) belong to a version of the same dataset:
+            # the one current when they ran (the latest whose report of record is older), else the first one
+            # after them (runs that led up to a dataset's first version).
+            ds = dataset_of(report, versions)
+            same = [v for v in versions if v.get("dataset", "reviews") == ds] or versions
+            older = [v for v in same if v["report"] <= stem]
+            newer = [v for v in same if v["report"] > stem]
+            version = (max(older, key=lambda v: v["report"]) if older
+                       else min(newer, key=lambda v: v["report"]) if newer else None)
+            version = version["id"] if version else None
         if stem.startswith("rating_sweep") and report and report.get("base_report"):   # tuned against this version
             base = Path(report["base_report"]).stem
             version = next((v["id"] for v in versions if v["report"] == base), None)
         text = relabel(text, labels)
         kind = report_kind(stem, report)
-        if new_format and versions and report.get("split_hash") != versions[-1]["split_hash"]:
+        if new_format and versions and report.get("split_hash") not in {v["split_hash"] for v in versions}:
             kind += " (earlier split)"
         out.append({
             "id": stem, "date": date, "time": time, "kind": kind, "version": version,
@@ -187,29 +203,80 @@ def build_versions(commits: list[dict], champion: dict | None, decisions: dict) 
                 raise SystemExit(f"build_evaluations: version {v['id']} names an unknown decision {did}")
             d = decisions[did]
             decs.append({"id": did, "title": d["title"], "sections": d["sections"]})
-        champ = next((h for h in report.get("head_to_head", []) if h["key"] == "champion"), None)
-        rchamp = next((h for h in report.get("rating_head_to_head", []) if h["key"] == "champion"), None)
-        versions.append({**v, "commits": resolved, "decisions": decs, "_params": norm_params(report.get("params", {}), report.get("rating")),
+        versions.append({**v, "dataset": v.get("dataset", "reviews"), "commits": resolved, "decisions": decs,
+                         "_params": version_key(report, v.get("dataset", "reviews")), "_report": report,
                          "metrics": metrics_of(sl), "rmetrics": metrics_of(rsl, RMETRICS) if rsl else None,
                          "n_users": report["n_users"], "split_hash": report["split_hash"],
-                         "_vs_champion": champ, "_rvs_champion": rchamp,
                          "champion": bool(champion) and Path(champion["report"]).stem == v["report"]})
-    # The paired CIs apply when the report's previous best is the previous version (same full-history score).
-    ci = lambda ch: {n: {"mean_diff": c["mean_diff"], "ci95": c["ci95"], "win": c["win"], "loss": c["loss"]}  # noqa: E731
-                     for n, c in ch["by_n"].items() if c.get("n")}
-    for prev, cur in zip(versions, versions[1:]):
-        ch, rch = cur["_vs_champion"], cur["_rvs_champion"]
-        if ch and abs(ch["by_n"]["-1"]["mean_b"] - prev["metrics"]["-1"]["ndcg@10"]) < 1e-6:
-            cur["ci_vs_previous"] = ci(ch)
-        if rch and prev["rmetrics"] and abs(rch["by_n"]["-1"]["mean_b"] - prev["rmetrics"]["-1"]["mae"]) < 1e-6:
-            cur["rci_vs_previous"] = ci(rch)
-    for v in versions:
-        v.pop("_vs_champion")
-        v.pop("_rvs_champion")
     return versions
 
 
-def strip_private(versions: list[dict]) -> list[dict]:
+def paired_ci(h2h: list[dict], value: float | None, metric: str) -> dict | None:
+    """The head-to-head (from a version's report) whose baseline scored `value`: the paired per-reader CI of the
+    change from the previous point on the chart (the previous version, a dataset's bridge, or the 2023 point)."""
+    if value is None:
+        return None
+    for h in h2h:
+        c = h["by_n"].get("-1", {})
+        if c.get("n") and abs(c["mean_b"] - value) < 1e-6:
+            return {n: {"mean_diff": x["mean_diff"], "ci95": x["ci95"], "win": x["win"], "loss": x["loss"]}
+                    for n, x in h["by_n"].items() if x.get("n")}
+    return None
+
+
+DATASET_LABEL = {"reviews": "Reviews data (15.7M ratings with a written review)",
+                 "interactions": "All ratings (104M, to-read shelves excluded)"}
+DATASET_SHORT = {"reviews": "Trained on 15M ratings", "interactions": "Switched to use all 104M ratings"}  # section headers
+DATASET_NOTE = {"reviews": ["only ratings that came with a written review"],     # ... and the line under each
+                "interactions": ["new data and test: scores restart"]}
+
+
+def build_eras(versions: list[dict]) -> list[dict]:
+    """One era per dataset, in order. Scores are only comparable within an era (each has its own test split). An
+    era's chart starts with the 2023 Book Recommender's best method on that era's test (and, after the first era,
+    the previous era's last version run on the new test: the bridge), so every line starts from where 2023 was."""
+    eras = []
+    for ds in dict.fromkeys(v["dataset"] for v in versions):
+        vs = [v for v in versions if v["dataset"] == ds]
+        latest = vs[-1]["_report"]
+        b, rb = row(latest, latest.get("best_2023")), rating_row(latest, latest.get("rating_best_2023"))
+        baseline = {"id": "2023", "label": "2023 Book Recommender", "kind": "baseline",
+                    "ranking_method": b["name"] if b else None, "rating_method": rb["name"] if rb else None,
+                    "metrics": metrics_of(b) if b else {}, "rmetrics": metrics_of(rb, RMETRICS) if rb else {},
+                    "report": vs[-1]["report"]}
+        bridge = None
+        if eras:                                      # the previous era's last version on this era's test
+            prev = eras[-1]["versions"][-1]
+            first = vs[0]["_report"]
+            c, rc = row(first, "champion"), rating_row(first, "champion")
+            if c:
+                bridge = {"id": f"{prev}*", "of": prev, "label": f"{prev} on the new test", "kind": "bridge",
+                          "metrics": metrics_of(c), "rmetrics": metrics_of(rc, RMETRICS) if rc else {},
+                          "report": vs[0]["report"]}
+        refs = [{"key": "popular", "label": "Popular books", "metrics": metrics_of(row(latest, "popular"))}] \
+            if row(latest, "popular") else []
+        rrefs = [{"key": "book_avg", "label": "Book average", "metrics": metrics_of(rating_row(latest, "book_avg"), RMETRICS)}] \
+            if rating_row(latest, "book_avg") else []
+        # Change from the previous point on this era's line, with the paired CI when a report has it.
+        prev_pt = bridge or baseline
+        for v in vs:
+            rep_ = v["_report"]
+            v["previous"] = prev_pt["id"]
+            ci = paired_ci(rep_.get("head_to_head", []), (prev_pt["metrics"].get("-1") or {}).get("ndcg@10"), "ndcg@10")
+            rci = paired_ci(rep_.get("rating_head_to_head", []), (prev_pt["rmetrics"].get("-1") or {}).get("mae"), "mae")
+            if ci:
+                v["ci_vs_previous"] = ci
+            if rci:
+                v["rci_vs_previous"] = rci
+            prev_pt = v
+        eras.append({"id": ds, "label": DATASET_LABEL.get(ds, ds), "short": DATASET_SHORT.get(ds, ds),
+                     "note": DATASET_NOTE.get(ds, []),
+                     "versions": [v["id"] for v in vs],
+                     "baseline": baseline, "bridge": bridge, "references": refs, "rating_references": rrefs})
+    return eras
+
+
+def strip_private(versions: list[dict]) -> list[dict]:  # noqa: D401
     return [{k: x for k, x in v.items() if not k.startswith("_")} for v in versions]
 
 
@@ -237,22 +304,10 @@ def build() -> dict:
     commits = git_commits()
     decisions = {d["id"]: d for d in parse_decisions((ROOT / "DECISIONS.md").read_text(encoding="utf-8"))}
     versions = build_versions(commits, champion, decisions)
-    latest = load_json(EVAL / "reports" / f"{versions[-1]['report']}.json") if versions else {}
-    refs = []
-    # Baselines for comparison: the 2023 project's best method (its similar-readers lists) and popular books.
-    for key, label in ((latest.get("best_2023"), "2023 Book Recommender performance"), ("popular", "Most popular books")):
-        r = row(latest, key) if key else None
-        if r:
-            refs.append({"key": r["key"], "label": label, "metrics": metrics_of(r)})
-    # Rating baselines: the 2023 project's better rating method and the book average.
-    rrefs = []
-    for key, label in ((latest.get("rating_best_2023"), "2023 Book Recommender performance"),
-                       ("book_avg", "Book average")):
-        r = rating_row(latest, key) if key else None
-        if r:
-            rrefs.append({"key": r["key"], "label": label, "metrics": metrics_of(r, RMETRICS)})
+    eras = build_eras(versions)
+    latest = versions[-1]["_report"] if versions else {}
     reports = build_reports(champion, versions)
-    return {"versions": strip_private(versions), "references": refs, "rating_references": rrefs, "reports": reports,
+    return {"versions": strip_private(versions), "eras": eras, "reports": reports,
             "groups": build_groups(versions, reports), "metrics": METRICS, "rating_metrics": RMETRICS,
             "buckets": latest.get("buckets", [1, 3, 5, 10, 25, -1])}
 

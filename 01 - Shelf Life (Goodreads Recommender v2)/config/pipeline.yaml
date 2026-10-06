@@ -9,11 +9,13 @@ data:
     works: goodreads_book_works.json.gz
     authors: goodreads_book_authors.json.gz
     genres: goodreads_book_genres_initial.json.gz
-    # Swap to goodreads_interactions_dedup.json.gz for a much larger ratings signal.
-    ratings: goodreads_reviews_dedup.json.gz
+    # Every shelf event (DECISIONS D-055); to-read shelves are kept out of the reads (s03). Until 2026-10-06 (v1-v6):
+    # goodreads_reviews_dedup.json.gz, only ratings that came with a written review.
+    ratings: goodreads_interactions_dedup.json.gz
 
 catalog:
-  min_raters: 20            # tune: distinct raters per work (after edition collapse)
+  min_raters: 75            # distinct 1-5 star raters per work (after edition collapse) ...
+  keep_works_from: data/archive/reviews/catalog.parquet   # ... and every book of the reviews-era catalog stays (D-055)
   languages: ["", "eng", "en-US", "en-GB", "en-CA"]
   min_user_ratings: 3       # users kept in the training matrix
   ya_min_share: 0.22        # YA flag: parent genre Young Adult, or >= this share of UCSD genre votes are "young-adult"
@@ -34,6 +36,7 @@ rating_model:              # predicted-rating model (core.scoring.predict_rating
 
 eval:
   n_test_users: 10000        # s05: users held out of all model training
+  keep_test_users_from: data/archive/reviews   # s05: the same 10,000 held-out readers as the reviews era, by Goodreads id (D-055)
   min_test_user_ratings: 10  # s05
   seed: 42
   # Temporal hide-and-predict (goodrec.eval.split): each held-out user's most recent ratings are hidden.
@@ -67,14 +70,16 @@ als:
   alpha: 30.0               # tuned: confidence scale
   confidence: {5: 1.0, 4: 0.7, 3: 0.3, 0: 0.2}   # 1-2 star ratings are not positives
   min_user_ratings_for_neighbors: 10
+  max_neighbor_users: 150000   # readers-like-you pool: a seeded random sample of the ~676k eligible readers (D-055)
 
 blend:
   candidates: 300
-  k_a: 20                   # tuned 2026-09-26 (eval grid): a(n) = n / (n + k_a)
-  a_max: 0.4                # cap on a(n), the taste model's (ALS) share of the blend. Temporal eval (validation,
-                            # 2,527 users, with beta_pop_many -0.5): full-history NDCG@10 0.0682 -> 0.0777; same at <= 10 ratings
+  # Re-tuned for the interactions data (validation readers, 2026-10-06, D-055): k_a 20 -> 10, a_max 0.4 -> 0.6,
+  # beta_pop_many -0.5 -> -0.8, delta_pred 0.75 -> 0.5. Full-history NDCG@10 0.1852 -> 0.1900 on validation.
+  k_a: 10                   # a(n) = n / (n + k_a): how fast the taste model takes over (10 helps short histories)
+  a_max: 0.6                # cap on a(n), the taste model's (ALS) share of the blend (was 0.4 on the reviews data)
   beta_pop: 0.0             # tuned: popularity weight for new users (interpolated by a(n))...
-  beta_pop_many: -0.5       # ...toward this for heavy raters (temporal eval 2026-10-03: -0.5 with a_max 0.4; was -0.3)
+  beta_pop_many: -0.8       # ...toward this for heavy raters (-0.5 on the reviews data; -1.1 was worse)
   recency_half_life: 25     # a rating's weight halves for every 25 ratings dated later (date read, else shelved/rated).
                             # Validation: full-history NDCG@10 0.0777 -> 0.0870 (15: 0.0866, 40: 0.0859). No dates: no effect.
   author_penalty: 0.5       # display only (Best match as shown): each further book by an author already above it is
@@ -86,7 +91,7 @@ blend:
   # so well-known books you'd likely love move up while obscure high-average books don't.
   # Eval 2026-09-27 (993 users, NDCG@20 full history): 0.75/5.5 -> -5.6%; 0.75/6 -> -4.0%; 1.0/6 -> -6.9%; 1.0/5.5 -> -7.9%
   # Re-run after Goodreads-shrunk item means + evidence-gated calibration: 0.75/5.5 -> -4.1%; 1.0/5.5 -> -6.4%
-  delta_pred: 0.75
+  delta_pred: 0.5           # 0.75 on the reviews data; 0.5 on the interactions data's validation readers (D-055)
   pred_fame_lo: 4.0         # 10k ratings
   pred_fame_hi: 5.5         # ~316k ratings
   pred_pool: 50             # famous high-prediction books added to the candidate pool

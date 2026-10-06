@@ -13,3 +13,7 @@ eval/runs/*
 # local, never committed: values scrubbed from the public prompt log, and the deploy target
 .redact.local.json
 .deploy.local.mk
+# experiment builds (Makefile exp-*): never committed or deployed
+artifacts_interactions/
+artifacts_reviews/
+eval_interactions/

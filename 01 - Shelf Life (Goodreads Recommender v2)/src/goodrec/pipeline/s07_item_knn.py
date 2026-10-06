@@ -30,8 +30,11 @@ def center_rows(R: sparse.csr_matrix) -> sparse.csr_matrix:
     return X
 
 
-def item_knn(R: sparse.csr_matrix, k: int, shrinkage: float, min_corated: int, block: int):
+def item_knn(R: sparse.csr_matrix, k: int, shrinkage: float, min_corated: int, block: int,
+             block_bytes: float = 1.5e9):
     n_items = R.shape[1]
+    # Each block holds ~3 dense (block x n_items) float64 arrays; shrink it for big catalogs to bound memory.
+    block = max(50, min(block, int(block_bytes // (3 * 8 * n_items))))
     X = center_rows(R)
     B = R.copy()
     B.data = np.ones_like(B.data, dtype=np.float32)

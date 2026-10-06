@@ -2,7 +2,9 @@
 
 Test users are excluded from every model (item-kNN, ALS, similar readers) so
 `make eval` measures true fold-in performance. At ~5% of users the production
-cost of excluding them is negligible.
+cost of excluding them is negligible. With eval.keep_test_users_from (another build's interim folder, relative
+to the project root), the same readers are held out, matched by Goodreads user id, so models built on both
+datasets can be compared on readers neither saw.
 
 Outputs (data/interim):
   R_train.npz / R_test.npz          CSR int8, ratings 1-5 (users x work_idx)
@@ -16,7 +18,7 @@ import numpy as np
 import polars as pl
 from scipy import sparse
 
-from goodrec.config import INTERIM_DIR, load_config
+from goodrec.config import INTERIM_DIR, ROOT, load_config
 from goodrec.pipeline.io import skip_if_done
 
 
@@ -40,10 +42,19 @@ def main(force: bool = False) -> None:
 
     counts = r.filter(pl.col("rating") > 0).group_by("user_idx").len()
     keep = counts.filter(pl.col("len") >= cfg["catalog"]["min_user_ratings"])
-    eligible = keep.filter(pl.col("len") >= cfg["eval"]["min_test_user_ratings"])["user_idx"].to_numpy()
-    rng = np.random.default_rng(cfg["eval"]["seed"])
-    test_users = np.sort(rng.choice(eligible, size=min(cfg["eval"]["n_test_users"], len(eligible)),
-                                    replace=False))
+    if cfg["eval"].get("keep_test_users_from"):
+        src = ROOT / cfg["eval"]["keep_test_users_from"]
+        old = pl.read_parquet(src / "users.parquet").filter(
+            pl.col("user_idx").is_in(np.load(src / "test_users.npy").tolist()))["user_id"]
+        mine = pl.read_parquet(INTERIM_DIR / "users.parquet")
+        test_users = np.sort(mine.filter(pl.col("user_id").is_in(old.implode()))["user_idx"].to_numpy())
+        test_users = np.intersect1d(test_users, keep["user_idx"].to_numpy())
+        print(f"  held-out readers: {len(test_users):,} of {old.len():,} from {cfg['eval']['keep_test_users_from']}")
+    else:
+        eligible = keep.filter(pl.col("len") >= cfg["eval"]["min_test_user_ratings"])["user_idx"].to_numpy()
+        rng = np.random.default_rng(cfg["eval"]["seed"])
+        test_users = np.sort(rng.choice(eligible, size=min(cfg["eval"]["n_test_users"], len(eligible)),
+                                        replace=False))
     train_users = np.setdiff1d(keep["user_idx"].to_numpy(), test_users)
 
     n_items = cat.height

@@ -669,3 +669,103 @@ All three qualify under D-053. The MF hybrid gains the most.
 The user's verdict on the last two: "It's visually less clear and we have CIs presented elsewhere."
 
 **Alternatives considered.** The three chart designs above. Unpaired per-version intervals would also have needed a caveat: v6's and v5's MAE intervals overlap ([0.657, 0.672] vs [0.668, 0.682]) although the per-reader paired test is clearly significant (−0.0110 [−0.0124, −0.0095]).
+
+## D-055 · Learn from all ratings: switch to the interactions data (v7)
+- **Date:** 2026-10-06
+- **Category:** data
+- **Prompts:** fe7c091a-160, fe7c091a-161, fe7c091a-162, fe7c091a-163, fe7c091a-164, fe7c091a-165, fe7c091a-166, fe7c091a-167
+- **Commits:** 9436388, 09d8fa5, 134eaac, d4d8c41, 434fc73, 39d7772, bec5f67
+
+**Decision.** Build every model from `goodreads_interactions_dedup.json.gz` (every rating readers gave, plus their read and to-read shelves) instead of `goodreads_reviews_dedup.json.gz` (only ratings that came with a written review).
+
+| | Reviews data (before) | Interactions data (now) |
+|---|---|---|
+| Ratings | 15.1M | 104.0M |
+| Readers | 465k | 876k |
+| Readers' median history | 37 ratings | 199 ratings |
+
+What changes with the switch:
+- **To-read shelves.** 116.5M rows (51% of the file) are kept out of the reads. Before, a rating of 0 meant "read, unrated"; in this file most rating-0 rows are to-read shelves.
+- **Catalog.** Every book in the earlier catalog stays, plus books with 75+ raters: 144,112 books (105,230 before), so no saved book disappears.
+- **"Readers like you" pool.** A seeded random 150k of the ~676k eligible readers.
+- **Re-tuned ranking settings** (validation readers only):
+  - taste-model cap `a_max` 0.4 → 0.6;
+  - `k_a` 20 → 10;
+  - popularity penalty for heavy readers −0.5 → −0.8;
+  - prediction boost 0.75 → 0.5;
+  - recency half-life stays at 25.
+
+**Context.** The user asked for a plan to swap the base data, covering:
+- what changes;
+- user-experience risks;
+- hosting cost;
+- build and workflow time;
+- how to evaluate the swap fairly.
+
+They chose the catalog and pool sizes at a decision point after profiling the file (`eval_interactions/profile.md`). They also asked for a guarantee that nothing on the live site changes during the experiment, which was met:
+- the experiment ran in separate folders (`GOODREC_DATA`, `GOODREC_EVAL`, `GOODREC_CONFIG`, `make exp-*`);
+- `make deploy` refuses experiment settings;
+- all 471 production files were checksummed before and after every step.
+
+**How it was evaluated.** The swap changes the training data, readers' histories and the hidden books all at once, so the old numbers can't be compared with new ones. Instead:
+- **Bridge comparison.** The same 10,000 held-out readers (matched by Goodreads user id; neither build saw them) are scored on the new test split by:
+  - v6 on its own reviews build (`ForeignShelfLife`: books translated by work id; books outside its catalog get the new data's book average, which can only flatter it);
+  - v7 on the new build.
+- **The earlier versions keep their numbers.** v1–v6 stay as the reviews-data era on the Evaluation page.
+
+**Results** (6,921 test readers, full history unless noted; paired 95% CIs):
+- **v6's settings on the new data:** better ratings everywhere, but full-history NDCG@10 was significantly worse (0.1930 vs 0.1955, −0.0025 [−0.0047, −0.0003]) and so was n=25 (−0.0037). Not promotable (D-053).
+- **After re-tuning, on validation:** full-history NDCG@10 0.1852 → 0.1900 (+2.6%); n=25 0.1292 → 0.1319. Also tried, but worse: the 0.8 cap, half-lives of 12/50/100, a −1.1 penalty and a boost of 1.0.
+- **v7 against v6 on the test:**
+  - NDCG@10 0.1973 vs 0.1955 (+0.0018 [−0.0005, +0.0042]); significantly better at n=5 (+0.0033), not significantly different elsewhere.
+  - MAE 0.659 vs 0.672 (−0.0128 [−0.0142, −0.0112]), significantly better at every history length.
+  - Precision@10 0.1725 vs 0.1681; Recall@20 0.070 vs 0.066.
+  - The top 20s cover 11.7% of the catalog (8.5% before) and are slightly less popular.
+  - Promoted under D-053.
+
+**Costs (measured).**
+- **Serving:**
+  - artifacts 426 MB (319 MB before);
+  - peak memory 528 MB (474 MB);
+  - startup 2.8 s (2.2 s);
+  - uncached recommendations 65 ms vs 51 ms (demo) and 99 ms vs 86 ms (1,000 ratings) locally.
+
+  It still fits the 1 GiB Cloud Run instance, so no hosting change.
+- **Workflow:**
+  - download 5 min, profile 7 min;
+  - `make artifacts` 58 min (item-kNN 30 min);
+  - a fresh test evaluation 75 min (42 min with cached baselines);
+  - a full validation grid point ~6.5 min;
+  - the 2023 SVD baseline is the slowest part.
+
+  This Mac's 8 GB swaps during evaluations with 6 workers.
+- **Other changes:**
+  - only 41% of ratings have a read date (83% before), so recency more often uses the shelving date;
+  - 83.7% of books have a Goodreads cover (90.7%); the rest fall back to Open Library or a placeholder.
+
+**Alternatives considered.**
+- **Catalog size:**
+  - the same 20-rater rule (313k books, about 3× the serving cost);
+  - a higher threshold alone (drops up to a quarter of today's books, and their saved ratings);
+  - today's catalog only.
+- **Reader pool:** everyone eligible, or the 150k most active (both past 1 GiB).
+- **Evaluation:** re-scoring v1–v6 on the new data (4–8 h; not done) instead of the bridge.
+
+## D-056 · The 2023 Book Recommender as the first point of each dataset's line
+- **Date:** 2026-10-06
+- **Category:** ui
+- **Prompts:** fe7c091a-167, fe7c091a-168
+
+**Decision.** On the Evaluation chart the 2023 Book Recommender is no longer a dashed baseline across the chart. It's the first point of the line, v0 ("2023 baseline"), styled differently from versions (a hollow amber diamond).
+
+The chart now has one segment per dataset ("era"). Each era has its own test split, so scores are only compared within an era:
+- **Trained on 15M ratings** ("only ratings that came with a written review"): v0 → v1 … v6.
+- **Switched to use all 104M ratings** ("new data and test: scores restart"): v0 → v6 on the new test (the bridge, a hollow point) → v7.
+
+Each era has a coloured header with a rule across its part of the plot.
+
+The popularity and book-average baselines stay as dashed lines ("Baseline: Popular books"), drawn across their own era only. The panel's "change from" compares each point with the previous point on its line, with the paired per-reader CI from the report's head-to-head:
+- v1 is compared with 2023;
+- v7 is compared with the bridge.
+
+**Context.** The user asked for the 2023 baseline to be "just another point in the line (styled differently to make it clear it's pre-v1)", in the same request as preparing the data switch. The switch needed the eras anyway.

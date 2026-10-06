@@ -1,8 +1,8 @@
 {
   "key": "shelf_life",
-  "name": "v6 · Rating model: biased MF + item-kNN residual",
+  "name": "v7 \u00b7 Interactions data, re-tuned",
   "params": {
-    "k_a": 20,
+    "k_a": 10,
     "beta_pop": 0.0,
     "gamma_quality": 0.0,
     "candidates": 300,
@@ -16,13 +16,13 @@
     },
     "ii_prior_mean": 3.0,
     "ii_prior_weight": 5.0,
-    "beta_pop_many": -0.5,
+    "beta_pop_many": -0.8,
     "a_override": null,
-    "a_max": 0.4,
+    "a_max": 0.6,
     "recency_half_life": 25,
     "author_penalty": 0.5,
     "pred_floor_offset": 0.25,
-    "delta_pred": 0.75,
+    "delta_pred": 0.5,
     "pred_fame_lo": 4.0,
     "pred_fame_hi": 5.5,
     "pred_pool": 50
@@ -32,12 +32,13 @@
     "calibration": "evidence",
     "predictor": "hybrid:production"
   },
-  "commit": "5c9e05e",
-  "split_hash": "54b863801d57",
+  "commit": "39d7772",
+  "split_hash": "fb29b2ca3f47",
   "set": "test",
-  "ndcg@10": 0.08749159425497055,
-  "mae": 0.6643343567848206,
-  "report": "reports/2026-10-04_1505_shelf_life.md",
-  "runs": "runs/champion_2026-10-04_1505.npz",
-  "promoted": "2026-10-04_1505"
+  "ndcg@10": 0.197310209274292,
+  "mae": 0.6587948799133301,
+  "report": "reports/2026-10-06_1302_shelf_life.md",
+  "runs": "runs/champion_2026-10-06_1302.npz",
+  "promoted": "2026-10-06_1302",
+  "dataset": "interactions"
 }

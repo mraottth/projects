@@ -1,0 +1,21 @@
+# Experiment overlay: rebuild on goodreads_interactions_dedup.json.gz (every shelf event, not only reviewed
+# ratings). Merged over config/pipeline.yaml when GOODREC_CONFIG points here (make exp-*); production never
+# reads it. Settings decided at the phase-1 gate (catalog threshold, readers-like-you pool cap) go here too.
+data:
+  files:
+    ratings: goodreads_interactions_dedup.json.gz
+
+# Phase-1 gate (eval_interactions/profile.md, decided with the user 2026-10-05):
+catalog:
+  min_raters: 75                          # new books need 75+ raters ...
+  keep_works_from: data/interim/catalog.parquet   # ... and every book in today's catalog stays (no saved book disappears)
+als:
+  max_neighbor_users: 150000              # readers-like-you pool: a seeded random 150k of ~676k eligible
+eval:
+  keep_test_users_from: data/interim      # hold out today's 10,000 test readers (by Goodreads user id) for the bridge
+blend:                                    # re-tuned on the interactions data's validation readers (2026-10-06);
+  a_max: 0.6                              # reports in eval_interactions/reports/2026-10-06_*_validation.md
+  k_a: 10
+  beta_pop_many: -0.8
+  delta_pred: 0.5
+  recency_half_life: 25

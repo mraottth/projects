@@ -36,7 +36,7 @@ from pathlib import Path  # noqa: E402
 import numpy as np  # noqa: E402
 import orjson  # noqa: E402
 
-from goodrec.config import ARTIFACTS_DIR, ROOT, load_config  # noqa: E402
+from goodrec.config import ARTIFACTS_DIR, EVAL_DIR, ROOT, load_config  # noqa: E402  (EVAL_DIR: eval/, or GOODREC_EVAL)
 from goodrec.core.artifacts import load_artifacts  # noqa: E402
 from goodrec.core.scoring import Params  # noqa: E402
 from goodrec.eval import report  # noqa: E402
@@ -48,7 +48,6 @@ from goodrec.eval.rating import (STYLES, RatingSettings, population_sd, ranking_
                                  rating_artifacts, rating_style, user_sigma)
 from goodrec.eval.split import load_split  # noqa: E402
 
-EVAL_DIR = ROOT / "eval"
 CHAMPION = EVAL_DIR / "champion.json"
 KMAX = 20
 COLS = [f"{m}@{k}" for k in (10, 20) for m in METRICS]
@@ -253,13 +252,25 @@ def main(set_: str = "test", users: int | None = None, models: str | None = None
         same_split = champ.get("split_hash") == split.hash and champ.get("set") == set_ and not users
         runs = EVAL_DIR / champ["runs"] if champ.get("runs") else None
         crs = RatingSettings(**champ.get("rating", {}))
-        crart = rating_artifacts(art, crs, bayes_m)
+        crart = rating_artifacts(art, crs, bayes_m) if not champ.get("artifacts") else art
         live = dict(key="champion", name=f"Previous best: {champ['name']}", kind="baseline",
                     art=ranking_artifacts(art, crs, crart), prior=prior,
                     params=params_from_json(champ["params"]), rating=crs, rating_art=crart,
                     description=f"Champion from {champ.get('commit', '?')} ({champ.get('report', '')}), "
                                 "re-run on the current artifacts.")
-        if same_split and runs and runs.exists():
+        if champ.get("artifacts"):           # a model from another build (a data swap's bridge, D-055)
+            from goodrec.eval.models import ForeignShelfLife
+            other = load_artifacts(ROOT / champ["artifacts"], with_readers=False)
+            oprior = np.asarray(orjson.loads((other.root / "population_stats.json").read_bytes())["rating_dist"])
+            recs.append(ForeignShelfLife.build(
+                art, other, key="champion", name=f"Previous best: {champ['name']}", prior=oprior,
+                params=params_from_json(champ["params"]),
+                description=f"{champ['name']} on its own build ({champ['artifacts']}, {champ.get('report', '')}): "
+                            "readers' books translated to its catalog by Goodreads work id; it can't recommend or "
+                            "rate books outside that catalog."))
+            notes.append(f"Previous best ({champ['name']}) runs on its own build, {champ['artifacts']}, "
+                         "against this build's readers and hidden books.")
+        elif same_split and runs and runs.exists():
             z = np.load(runs)
             champ_res = {"idx": np.arange(len(cases)), "met": z["met"], "tops": z["tops"]}
             if "rmet" in z.files:

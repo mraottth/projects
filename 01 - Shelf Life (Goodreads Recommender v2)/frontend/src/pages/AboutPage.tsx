@@ -60,24 +60,28 @@ export function AboutPage({ go }: { go: (v: "changelog" | "evaluation") => void 
         Goodreads shelves in late 2017.
       </p>
       <ul>
-        <li><strong>15.7 million ratings</strong> from 465,000 readers.</li>
-        <li><strong>About 105,000 books</strong>, counting every edition of a book (hardcover, paperback, translations) as
-          one, and keeping books with at least 20 readers.</li>
+        <li><strong>104 million ratings</strong> from 876,000 readers: every book they shelved as read, not only the ones
+          they wrote a review for. To-read shelves aren&apos;t counted as reads.</li>
+        <li><strong>About 144,000 books</strong>, counting every edition of a book (hardcover, paperback, translations) as
+          one, and keeping books with at least 75 raters (plus every book from the earlier, smaller catalog).</li>
         <li><strong>Genres from readers&apos; own shelves</strong> (&ldquo;cozy-mystery,&rdquo; &ldquo;space-opera&rdquo;),
           grouped into 34 genres and 205 tags.</li>
       </ul>
       <Tech>
         <ul>
           <li><strong>Source files:</strong> <code>goodreads_books</code>, <code>book_works</code>, <code>book_authors</code>,
-            <code>book_genres_initial</code> and <code>reviews_dedup</code> (15.74M rows).</li>
+            <code>book_genres_initial</code> and <code>interactions_dedup</code> (228.6M shelf events: 104.0M rated, 7.6M read
+            but unrated, 116.5M to-read). Until v7 (October 2026) the ratings came from <code>reviews_dedup</code> (15.7M
+            ratings that came with a written review).</li>
           <li><strong>Editions → works:</strong> each edition&apos;s <code>book_id</code> maps to its <code>work_id</code>. When a reader
-            rated several editions of one work, the max rating is kept. A rating of 0 means &ldquo;read, not rated&rdquo; and is
-            kept as a weak implicit signal.</li>
-          <li><strong>Catalog:</strong> works with ≥ 20 distinct 1–5★ raters (105,230 works), at least one English or unlabeled
+            rated several editions of one work, the max rating is kept. A rating of 0 on a book marked read means &ldquo;read, not
+            rated&rdquo; and is kept as a weak implicit signal; to-read shelves are kept apart.</li>
+          <li><strong>Catalog:</strong> works with ≥ 75 distinct 1–5★ raters, plus every work of the earlier catalog (144,112
+            works), at least one English or unlabeled
             edition, and a mostly Latin-script title. The display edition is Goodreads&apos; <code>best_book_id</code>. Series name
             and position are parsed from titles like &ldquo;Title (Series, #3)&rdquo;, and ranges and split editions are flagged as box sets.</li>
-          <li><strong>Training matrix:</strong> users with ≥ 3 catalog ratings, minus 10,000 held-out test users: 277,141 users ×
-            105,230 books, 10.39M ratings plus 0.29M read-unrated.</li>
+          <li><strong>Training matrix:</strong> users with ≥ 3 catalog ratings, minus 10,000 held-out test users: 748,048 users ×
+            144,112 books, 87.47M ratings plus 5.72M read-unrated. The readers-like-you pool is a random 150,000 of them.</li>
           <li><strong>Genres:</strong> shelf counts are summed across editions. The 500 most common non-status shelves were mapped
             to display names and 34 parents in a reviewed YAML file. Tag weight = shelf share × log(N / document frequency), so
             specific tags beat ubiquitous ones. A book&apos;s parent genre is the parent with the largest summed shelf share,
@@ -240,23 +244,23 @@ export function AboutPage({ go }: { go: (v: "changelog" | "evaluation") => void 
                 sum runs over your rated books linked to <em>j</em> in either direction of the top-50 neighbor lists, using
                 the larger similarity. The configuration (16 factors, regularization, 20 epochs) was chosen from 36 biased-MF
                 and SVD++ variants on the validation readers; SVD++, which also learns from which books you&apos;ve read,
-                did worse, mostly for short histories. On the evaluation&apos;s rating track (every hidden rating of 5,895
+                did worse, mostly for short histories. On the evaluation&apos;s rating track (every hidden rating of 6,921
                 test readers, MAE in stars, lower is better):</p>
               <table className="viz-table about-table">
                 <thead><tr><th>Visible ratings</th><th>1</th><th>3</th><th>5</th><th>10</th><th>25</th><th>all</th></tr></thead>
                 <tbody>
-                  <tr><td>Displayed rating</td><td>0.728</td><td>0.701</td><td>0.686</td><td>0.672</td><td>0.664</td><td><strong>0.664</strong></td></tr>
-                  <tr><td>Before calibration</td><td>0.728</td><td>0.701</td><td>0.686</td><td>0.670</td><td>0.662</td><td>0.660</td></tr>
-                  <tr><td>Before v6 (book mean + bias + residual)</td><td>0.740</td><td>0.716</td><td>0.702</td><td>0.685</td><td>0.676</td><td>0.675</td></tr>
-                  <tr><td>Book mean + your bias</td><td>0.742</td><td>0.718</td><td>0.704</td><td>0.688</td><td>0.679</td><td>0.678</td></tr>
-                  <tr><td>Book mean</td><td colSpan={6}>0.763 (doesn&apos;t use your ratings)</td></tr>
+                  <tr><td>Displayed rating</td><td>0.724</td><td>0.699</td><td>0.686</td><td>0.671</td><td>0.659</td><td><strong>0.659</strong></td></tr>
+                  <tr><td>Before calibration</td><td>0.724</td><td>0.699</td><td>0.685</td><td>0.669</td><td>0.654</td><td>0.643</td></tr>
+                  <tr><td>v6 (the same model on the reviews data)</td><td>0.726</td><td>0.703</td><td>0.691</td><td>0.677</td><td>0.668</td><td>0.672</td></tr>
+                  <tr><td>Book mean + your bias</td><td>0.719</td><td>0.702</td><td>0.692</td><td>0.679</td><td>0.668</td><td>0.667</td></tr>
+                  <tr><td>Book mean</td><td colSpan={6}>0.732 (doesn&apos;t use your ratings)</td></tr>
                 </tbody>
               </table>
-              <p>Most of the gain over the book mean comes from knowing how tough or generous a rater you are. The
-                factorization baseline adds about 0.011 stars over the previous predictor at every history length (better
-                for 59% of readers; rank correlation within a reader&apos;s books 0.335 vs 0.314), and the ranking it feeds is
-                unchanged. Calibration costs 0.004 stars of MAE but spreads predictions more like real ratings (61% of their
-                spread vs 56%).</p>
+              <p>Most of the gain over the book mean comes from knowing how tough or generous a rater you are. On the
+                reviews data, the factorization baseline (v6) made predictions about 0.011 stars closer at every history
+                length; learning from all ratings, not only reviewed ones (v7), took off another 0.013 on full histories (rank correlation within a
+                reader&apos;s books 0.349 vs 0.317 for v6). Calibration costs 0.016 stars of MAE on full histories but spreads
+                predictions more like real ratings (69% of their spread vs 58%).</p>
               <p>
                 <strong>Calibration.</strong> A least-squares predictor regresses toward your mean, so a tough grader almost
                 never sees a 4.5 (0.2% of held-out predictions for raters averaging under 3.6★, who actually give 5★ 14% of
@@ -287,7 +291,9 @@ export function AboutPage({ go }: { go: (v: "changelog" | "evaluation") => void 
         30% of the books they read were hidden, and the test asked whether the ones they went on to love (4–5★) showed
         up in their top 10 recommendations, given everything they had read before. The score (NDCG@10) rewards putting
         those books near the top; higher is better. A second track, on the same readers and hidden books, checks the
-        predicted star rating on each card against the rating the reader actually gave.{" "}
+        predicted star rating on each card against the rating the reader actually gave. The numbers below are from the
+        current data (all 104 million ratings); earlier versions were measured on a smaller dataset with shorter histories, so the
+        Evaluation page charts the two separately.{" "}
         <button type="button" className="link primary-link" onClick={() => go("evaluation")}>
           See how the model improved, version by version →
         </button>
@@ -295,26 +301,28 @@ export function AboutPage({ go }: { go: (v: "changelog" | "evaluation") => void 
       <table className="viz-table about-table">
         <thead><tr><th>Method</th><th>1 rating</th><th>3 ratings</th><th>10 ratings</th><th>Full history</th></tr></thead>
         <tbody>
-          <tr><td><strong>Shelf Life (blend)</strong></td><td><strong>0.039</strong></td><td><strong>0.053</strong></td><td><strong>0.068</strong></td><td><strong>0.087</strong></td></tr>
-          <tr><td>Similar books only</td><td>0.038</td><td>0.052</td><td>0.067</td><td>0.076</td></tr>
-          <tr><td>Taste model only</td><td>0.030</td><td>0.039</td><td>0.051</td><td>0.049</td></tr>
-          <tr><td>The 2023 version of this project</td><td>0.034</td><td>0.035</td><td>0.037</td><td>0.040</td></tr>
-          <tr><td>Most popular books</td><td>0.019</td><td>0.019</td><td>0.020</td><td>0.023</td></tr>
+          <tr><td><strong>Shelf Life (blend)</strong></td><td>0.063</td><td><strong>0.085</strong></td><td><strong>0.118</strong></td><td><strong>0.197</strong></td></tr>
+          <tr><td>Similar books only</td><td><strong>0.066</strong></td><td>0.084</td><td>0.114</td><td>0.183</td></tr>
+          <tr><td>Taste model only</td><td>0.058</td><td>0.075</td><td>0.091</td><td>0.146</td></tr>
+          <tr><td>The 2023 version of this project</td><td>0.043</td><td>0.048</td><td>0.054</td><td>0.108</td></tr>
+          <tr><td>Most popular books</td><td>0.042</td><td>0.042</td><td>0.042</td><td>0.063</td></tr>
         </tbody>
       </table>
       <ul>
-        <li><strong>It learns quickly.</strong> Scores rise by about 75% between 1 and 10 ratings, and with 10 or more it
-          does 3–4× better than recommending the most popular books and 1.8–2.2× better than the 2023 version.</li>
-        <li><strong>Blending wins.</strong> The blend matches or beats either model on its own at every history length.
-          With a long history the similar-books model does most of the work: capping the taste model&apos;s share at 40%
-          raised full-history scores by 15%.</li>
-        <li><strong>Recent reading matters.</strong> Counting recently read books more than old ones raised full-history
-          scores by another 14% (0.077 → 0.087). It uses the reading dates in a Goodreads import, so it helps most
-          for imported libraries.</li>
+        <li><strong>It learns quickly.</strong> Scores nearly double between 1 and 10 ratings, and with 10 or more it does
+          about 3× better than recommending the most popular books and about 2× better than the 2023 version.</li>
+        <li><strong>Blending wins once you&apos;ve rated a few books.</strong> From 3 ratings on, the blend beats either model
+          on its own; with a single rating the similar-books model alone is slightly ahead. With a long history the
+          blend adds about 8% over similar books alone.</li>
+        <li><strong>Recent reading matters.</strong> On the earlier data, counting recently read books more than old ones
+          raised full-history scores by 14%. It uses the reading dates in a Goodreads import, so it helps most for
+          imported libraries.</li>
+        <li><strong>More data mostly helped the predicted ratings.</strong> Learning from all ratings instead of only
+          those that came with a written review (v7) made predictions closer for the same readers at every history length, while
+          recommendations held their quality once the ranking was re-tuned for much longer reading histories.</li>
         <li><strong>Predicted ratings are close.</strong> On average they miss the rating people actually gave by 0.66
-          stars, and 78% are within one star, compared with a 0.76-star miss for just using each book&apos;s average. Most
-          of that gain comes from adjusting for how generous a rater you are; a matrix-factorization model added in v6
-          made predictions about 1.6% closer.</li>
+          stars, and 79% are within one star, compared with a 0.73-star miss for just using each book&apos;s average. Most
+          of that gain comes from adjusting for how generous a rater you are.</li>
       </ul>
       <Tech>
         <ul>
@@ -324,8 +332,9 @@ export function AboutPage({ go }: { go: (v: "changelog" | "evaluation") => void 
             a new visitor, through the same serving code.</li>
           <li><strong>Protocol:</strong> each test user&apos;s ratings are ordered by the date they read the book (the date
             shelved when no read date is given), and the most recent 30% are hidden, at a date boundary. Users need ≥ 10
-            ratings, ≥ 7 visible and ≥ 3 hidden books rated 4★ or more: 8,422 users, split once into validation (2,527, for
-            tuning) and test (5,895, reported above). Visible histories are cut to their n most recent ratings,
+            ratings, ≥ 7 visible and ≥ 3 hidden books rated 4★ or more: 9,887 users, split once into validation (2,966, for
+            tuning) and test (6,921, reported above). The held-out readers are the same 10,000 as on the earlier reviews
+            data, so v7 could be compared with v6 on readers neither had seen. Visible histories are cut to their n most recent ratings,
             n ∈ {"{1, 3, 5, 10, 25, all}"}. NDCG@10 with binary relevance on the For you list as served, young adult
             books included.</li>
           <li><strong>Caveats:</strong> the models have seen other readers&apos; ratings from after each test user&apos;s
@@ -334,8 +343,9 @@ export function AboutPage({ go }: { go: (v: "changelog" | "evaluation") => void 
             uses only the validation users.</li>
           <li><strong>Also reported</strong> in <code>eval/reports/</code>: precision and recall at 10 and 20, per-user wins,
             ties and losses against each baseline with confidence intervals, catalog coverage and the mean popularity of
-            recommendations (a popularity-bias check). The 2023 row is that project&apos;s similar-readers method, the
-            better of the two 2023 methods re-implemented on this data.</li>
+            recommendations (a popularity-bias check). The 2023 row is the better of that project&apos;s two methods on
+            full histories (its SVD; its similar-readers lists do better with very short histories), re-implemented on
+            this data.</li>
           <li><strong>Rating track:</strong> every hidden rating (1–5★), predicted from the visible ratings only. MAE is the
             main score, with RMSE, correlation (pooled, and within each reader&apos;s books), the share within one star,
             bias by actual rating, a calibration table, and results by rating style (readers grouped by how widely they
