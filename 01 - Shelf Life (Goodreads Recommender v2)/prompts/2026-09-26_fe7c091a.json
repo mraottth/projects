@@ -1283,8 +1283,24 @@
    "time": "2026-10-06T23:10:31.412Z",
    "kind": "prompt",
    "text": "Let's change \"from 2023\" to \"2023 baseline.\" Can we also make the whole graph and description card section wider similar to how it is in the product timeline?",
-   "reply": null,
+   "reply": "Both changes are done and pushed on `br-interactions`. Nothing is deployed.\n\n- **v0 label:** now reads \"2023 baseline\", on the chart and in the side panel.\n- **Wider chart:** on screens at least 1,000 px wide, the chart and its details card now span the full site width (up to 1,200 px), like the Changelog's milestone timeline. Phones keep the stacked layout.\n\nWith the extra room, both popular-books lines now fit their full \"Baseline: Popular books (…)\" label, including in the narrow \"Trained on all shelves\" section.\n\nYou can check it on your local site at `localhost:8000/?view=evaluation`.\n\nWhen you're ready, I can go live:\n1. Merge the branch.\n2. Run `make golive-interactions` to swap in the new build.\n3. Spot-check the local site.\n4. Run `make deploy`.",
    "id": "fe7c091a-169",
+   "session": "fe7c091a"
+  },
+  {
+   "time": "2026-10-06T23:12:10.258Z",
+   "kind": "prompt",
+   "text": "would it be fair to say \"Trained on all ratings\" rather than \"Trained on all shelves\"",
+   "reply": "Yes. \"Trained on all ratings\" is fair, and it's actually more accurate than \"all shelves\":\n- **It describes the real change.** Before, the models learned only from ratings that came with a written review (15.7M). Now they learn from every star rating in the dataset (104M).\n- **\"All shelves\" overstates it.** To-read shelves (116.5M entries) are deliberately left out, so the models don't use every shelf.\n\nOne small nuance: both versions also use a weak \"read but not rated\" signal. It came from the same reviews-only file before, and from the full dataset now. \"All ratings\" doesn't mention it, but it doesn't mislead either; the tooltip and the side panel already give the full description.\n\nTo keep the two sections parallel, the first header could stay \"Trained on reviews only\", or become \"Trained on reviewed ratings\". It's a one-line change. Want me to make it \"Trained on all ratings\"?",
+   "id": "fe7c091a-170",
+   "session": "fe7c091a"
+  },
+  {
+   "time": "2026-10-06T23:14:04.494Z",
+   "kind": "prompt",
+   "text": "Yeah that'd be great. Let's do \"Switched to all ratings\" and also make the vertical divider between the sections a little more prominent (just slightly)",
+   "reply": null,
+   "id": "fe7c091a-171",
    "session": "fe7c091a"
   }
  ]
