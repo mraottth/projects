@@ -33,7 +33,7 @@ interface EraPoint {
   ranking_method?: string | null; rating_method?: string | null; of?: string;
 }
 export interface Era {
-  id: string; label: string; short: string; versions: string[]; baseline: EraPoint; bridge: EraPoint | null;
+  id: string; label: string; short: string; note: string[]; versions: string[]; baseline: EraPoint; bridge: EraPoint | null;
   references: Reference[]; rating_references: Reference[];
 }
 /** One point on the chart: a version, an era's 2023 point or its bridge. */
@@ -140,6 +140,9 @@ export function VersionChart({ versions, eras, buckets, onViewReport, track = "r
   ]);
   const { w: W, h: H } = size;
   const compact = W < 520;            // phones: no value labels or dates under points (the panel has them)
+  // Room above the plot for the dataset headers: a header, its rule and up to two lines of notes (phones: header only).
+  const noteLines = compact ? 0 : Math.max(0, ...eras.map((e) => e.note.length));
+  const P = { ...PAD, t: eras.length > 1 ? (compact ? 34 : 40 + 13 * noteLines) : PAD.t };
   const val = (m: Metrics) => m[n]?.[metric] ?? 0;
   const pv = (p: Point) => val(T.get(p));
   const ys = [...points.map(pv), ...eras.flatMap((e) => T.refs(e).map((r) => val(r.metrics)))];
@@ -151,15 +154,15 @@ export function VersionChart({ versions, eras, buckets, onViewReport, track = "r
   const slot = points.map((p, i) => i + p.era * GAP
     + AFTER_V0 * points.slice(0, i).filter((q) => q.kind === "baseline").length);
   const span = Math.max(slot[slot.length - 1] ?? 0, 1);
-  const x0 = PAD.l + 28, x1 = W - PAD.r - 28;
+  const x0 = P.l + 28, x1 = W - P.r - 28;
   const x = (i: number) => x0 + (slot[i] / span) * (x1 - x0);
-  const y = (v: number) => H - PAD.b - ((v - ymin) / (ymax - ymin)) * (H - PAD.t - PAD.b);
-  const yMid = (PAD.t + H - PAD.b) / 2;
+  const y = (v: number) => H - P.b - ((v - ymin) / (ymax - ymin)) * (H - P.t - P.b);
+  const yMid = (P.t + H - P.b) / 2;
   const eraIdx = (ei: number) => points.map((p, i) => (p.era === ei ? i : -1)).filter((i) => i >= 0);
   const eraX = eras.map((_, ei) => {
     const idx = eraIdx(ei);
-    const lo = ei === 0 ? PAD.l : (x(idx[0]) + x(eraIdx(ei - 1).slice(-1)[0])) / 2;
-    const hi = ei === eras.length - 1 ? W - PAD.r : (x(idx[idx.length - 1]) + x(eraIdx(ei + 1)[0])) / 2;
+    const lo = ei === 0 ? P.l : (x(idx[0]) + x(eraIdx(ei - 1).slice(-1)[0])) / 2;
+    const hi = ei === eras.length - 1 ? W - P.r : (x(idx[idx.length - 1]) + x(eraIdx(ei + 1)[0])) / 2;
     return { lo, hi };
   });
   // Baseline labels: above or below their line, wherever they don't cover a point, its value label or another label.
@@ -186,7 +189,7 @@ export function VersionChart({ versions, eras, buckets, onViewReport, track = "r
       const left = (o: Opt) => (o.anchor === "start" ? o.x : o.anchor === "end" ? o.x - w : o.x - w / 2);
       const box = (o: Opt): Box => ({ x0: left(o), x1: left(o) + w, y0: o.y - 11, y1: o.y + 3 });
       const inside = (o: Opt) => left(o) >= lo + 2 && left(o) + w <= hi + 2
-        && o.y - 11 >= PAD.t + 4 && o.y + 3 <= H - PAD.b - 6;          // clear of the era headers and the x axis
+        && o.y - 11 >= P.t + 4 && o.y + 3 <= H - P.b - 6;          // clear of the era headers and the x axis
       const pick = options.find((o) => inside(o) && !taken.some((t) => hit(t, box(o))));
       if (pick) {
         taken.push(box(pick));
@@ -261,20 +264,21 @@ export function VersionChart({ versions, eras, buckets, onViewReport, track = "r
             <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${axisLabel} by model version`}>
               {ticks.map((t) => (
                 <g key={t}>
-                  {t > ymin && <line className="ev-grid" x1={PAD.l} x2={W - PAD.r} y1={y(t)} y2={y(t)} />}
-                  <text className="ev-tick" x={PAD.l - 10} y={y(t) + 4} textAnchor="end">{t.toFixed(decimals)}</text>
+                  {t > ymin && <line className="ev-grid" x1={P.l} x2={W - P.r} y1={y(t)} y2={y(t)} />}
+                  <text className="ev-tick" x={P.l - 10} y={y(t) + 4} textAnchor="end">{t.toFixed(decimals)}</text>
                 </g>
               ))}
-              <line className="ev-axisline" x1={PAD.l} x2={PAD.l} y1={PAD.t - 6} y2={H - PAD.b} />
-              <line className="ev-axisline" x1={PAD.l} x2={W - PAD.r} y1={H - PAD.b} y2={H - PAD.b} />
+              <line className="ev-axisline" x1={P.l} x2={P.l} y1={P.t - 6} y2={H - P.b} />
+              <line className="ev-axisline" x1={P.l} x2={W - P.r} y1={H - P.b} y2={H - P.b} />
               <text className="ev-axis" x={18} y={yMid} transform={`rotate(-90 18 ${yMid})`} textAnchor="middle">{axisLabel}</text>
               {eras.length > 1 && eras.map((era, ei) => (
                 <g key={era.id} className={`ev-era ev-era-${ei}`}>
-                  {ei > 0 && <line className="ev-era-divider" x1={eraX[ei].lo} x2={eraX[ei].lo} y1={PAD.t - 22} y2={H - PAD.b} />}
-                  <text x={eraX[ei].lo + (ei ? 8 : 10)} y={PAD.t - 12} textAnchor="start">
-                    <title>{era.label}</title>{compact ? era.short.replace(/^(Trained on|Switched to) /, "") : era.short}
-                  </text>
-                  <line className="ev-era-rule" x1={eraX[ei].lo + (ei ? 6 : 8)} x2={eraX[ei].hi - 6} y1={PAD.t - 5} y2={PAD.t - 5} />
+                  {ei > 0 && <line className="ev-era-divider" x1={eraX[ei].lo} x2={eraX[ei].lo} y1={6} y2={H - P.b} />}
+                  <text x={eraX[ei].lo + (ei ? 8 : 10)} y={18} textAnchor="start"><title>{era.label}</title>{era.short}</text>
+                  <line className="ev-era-rule" x1={eraX[ei].lo + (ei ? 6 : 8)} x2={eraX[ei].hi - 6} y1={25} y2={25} />
+                  {!compact && era.note.map((line, li) => (
+                    <text key={li} className="ev-era-note" x={eraX[ei].lo + (ei ? 8 : 10)} y={39 + 13 * li} textAnchor="start">{line}</text>
+                  ))}
                 </g>
               ))}
               {eras.map((era, ei) => T.refs(era).map((r, k) => {
@@ -316,9 +320,9 @@ export function VersionChart({ versions, eras, buckets, onViewReport, track = "r
                         ? <text className={`ev-trophy${compact ? " small" : ""}`} x={x(k)} y={cy} textAnchor="middle" dominantBaseline="central">🏆</text>
                         : <circle className="ev-dot" cx={x(k)} cy={cy} r={compact ? 4.5 : 6.5} />}
                     {!compact && <text className="ev-val" x={x(k)} y={cy - (q.v?.champion ? 20 : 14)} textAnchor="middle">{pv(q).toFixed(3)}</text>}
-                    <text className={`ev-xlabel${compact ? " small" : ""}`} x={x(k)} y={H - PAD.b + 20} textAnchor="middle">
+                    <text className={`ev-xlabel${compact ? " small" : ""}`} x={x(k)} y={H - P.b + 20} textAnchor="middle">
                       {q.name}</text>
-                    {!compact && <text className="ev-xsub" x={x(k)} y={H - PAD.b + 38} textAnchor="middle">{q.sub}</text>}
+                    {!compact && <text className="ev-xsub" x={x(k)} y={H - P.b + 38} textAnchor="middle">{q.sub}</text>}
                   </g>
                 );
               })}
