@@ -80,7 +80,7 @@
  {
   "id": "v7",
   "date": "2026-10-06",
-  "title": "Every shelf, not just reviews",
+  "title": "All ratings, not just reviewed ones",
   "summary": "The models now learn from every rating in the Goodreads dataset (104 million from 876,000 readers), not only ratings that came with a written review (15 million). The catalog keeps every earlier book and adds those with 75+ raters (144,000 books); to-read shelves are kept out. With readers' much longer histories, the ranking settings were re-tuned: the taste model may take up to 60% of the blend and takes over sooner, heavy readers get a stronger popularity penalty, and the predicted-rating boost is lighter.",
   "settings": "Data: goodreads_interactions_dedup (to-read shelves excluded). Catalog: earlier books + 75+ raters. Readers-like-you pool: random 150k. Blend: a_max 0.6, k_a 10, popularity penalty -0.8, prediction boost 0.5, recency half-life 25.",
   "rescored": false,

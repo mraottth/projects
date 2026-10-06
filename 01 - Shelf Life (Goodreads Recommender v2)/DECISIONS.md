@@ -670,13 +670,13 @@ The user's verdict on the last two: "It's visually less clear and we have CIs pr
 
 **Alternatives considered.** The three chart designs above. Unpaired per-version intervals would also have needed a caveat: v6's and v5's MAE intervals overlap ([0.657, 0.672] vs [0.668, 0.682]) although the per-reader paired test is clearly significant (−0.0110 [−0.0124, −0.0095]).
 
-## D-055 · Learn from every shelf: switch to the interactions data (v7)
+## D-055 · Learn from all ratings: switch to the interactions data (v7)
 - **Date:** 2026-10-06
 - **Category:** data
 - **Prompts:** fe7c091a-160, fe7c091a-161, fe7c091a-162, fe7c091a-163, fe7c091a-164, fe7c091a-165, fe7c091a-166, fe7c091a-167
 - **Commits:** 9436388, 09d8fa5, 134eaac, d4d8c41, 434fc73, 39d7772, bec5f67
 
-**Decision.** Build every model from `goodreads_interactions_dedup.json.gz` (every shelf event) instead of `goodreads_reviews_dedup.json.gz` (only ratings that came with a written review).
+**Decision.** Build every model from `goodreads_interactions_dedup.json.gz` (every rating readers gave, plus their read and to-read shelves) instead of `goodreads_reviews_dedup.json.gz` (only ratings that came with a written review).
 
 | | Reviews data (before) | Interactions data (now) |
 |---|---|---|

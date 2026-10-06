@@ -112,8 +112,8 @@ export function EvaluationPage({ track, setTrack }: { track: Track; setTrack: (t
         On the original data (ratings that came with a review), full-history NDCG@10 went from{" "}
         {nd(first?.metrics)?.toFixed(3)} at launch to {nd(last0?.metrics)?.toFixed(3)} ({pct(nd(last0?.metrics), nd(first?.metrics))}).
         {bridge && latest && <>
-          {" "}{latest.id} switched to every Goodreads shelf, with readers&apos; much longer histories, so its test has its own
-          scale: there it scores {nd(latest.metrics)?.toFixed(3)} against {nd(bridge.metrics)?.toFixed(3)} for {bridge.of}{" "}
+          {" "}{latest.id} switched from only the ratings that came with a written review to all 104 million ratings.
+          Readers&apos; histories are much longer, so its test has its own scale: there it scores {nd(latest.metrics)?.toFixed(3)} against {nd(bridge.metrics)?.toFixed(3)} for {bridge.of}{" "}
           ({pct(nd(latest.metrics), nd(bridge.metrics))}).
         </>}
       </p>
@@ -126,7 +126,7 @@ export function EvaluationPage({ track, setTrack }: { track: Track; setTrack: (t
         {" "}On the original data, full-history MAE went from {ma(first?.rmetrics)?.toFixed(3)} at launch to{" "}
         {ma(last0?.rmetrics)?.toFixed(3)} ({pct(ma(last0?.rmetrics), ma(first?.rmetrics))}).
         {bridge && latest && <>
-          {" "}On every shelf, {latest.id} scores {ma(latest.rmetrics)?.toFixed(3)} against {ma(bridge.rmetrics)?.toFixed(3)} for {bridge.of}
+          {" "}On all ratings, {latest.id} scores {ma(latest.rmetrics)?.toFixed(3)} against {ma(bridge.rmetrics)?.toFixed(3)} for {bridge.of}
           {bookAvg != null && <>; predicting each book&apos;s average rating scores {bookAvg.toFixed(3)}</>}.
         </>}
         {" "}The first two versions used an earlier rating model, reconstructed for this test on today&apos;s data.

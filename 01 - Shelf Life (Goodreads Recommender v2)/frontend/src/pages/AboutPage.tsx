@@ -258,7 +258,7 @@ export function AboutPage({ go }: { go: (v: "changelog" | "evaluation") => void 
               </table>
               <p>Most of the gain over the book mean comes from knowing how tough or generous a rater you are. On the
                 reviews data, the factorization baseline (v6) made predictions about 0.011 stars closer at every history
-                length; learning from every shelf (v7) took off another 0.013 on full histories (rank correlation within a
+                length; learning from all ratings, not only reviewed ones (v7), took off another 0.013 on full histories (rank correlation within a
                 reader&apos;s books 0.349 vs 0.317 for v6). Calibration costs 0.016 stars of MAE on full histories but spreads
                 predictions more like real ratings (69% of their spread vs 58%).</p>
               <p>
@@ -292,7 +292,7 @@ export function AboutPage({ go }: { go: (v: "changelog" | "evaluation") => void 
         up in their top 10 recommendations, given everything they had read before. The score (NDCG@10) rewards putting
         those books near the top; higher is better. A second track, on the same readers and hidden books, checks the
         predicted star rating on each card against the rating the reader actually gave. The numbers below are from the
-        current data (every shelf); earlier versions were measured on a smaller dataset with shorter histories, so the
+        current data (all 104 million ratings); earlier versions were measured on a smaller dataset with shorter histories, so the
         Evaluation page charts the two separately.{" "}
         <button type="button" className="link primary-link" onClick={() => go("evaluation")}>
           See how the model improved, version by version →
@@ -317,8 +317,8 @@ export function AboutPage({ go }: { go: (v: "changelog" | "evaluation") => void 
         <li><strong>Recent reading matters.</strong> On the earlier data, counting recently read books more than old ones
           raised full-history scores by 14%. It uses the reading dates in a Goodreads import, so it helps most for
           imported libraries.</li>
-        <li><strong>More data mostly helped the predicted ratings.</strong> Learning from every shelf instead of only
-          reviewed books (v7) made predictions closer for the same readers at every history length, while
+        <li><strong>More data mostly helped the predicted ratings.</strong> Learning from all ratings instead of only
+          those that came with a written review (v7) made predictions closer for the same readers at every history length, while
           recommendations held their quality once the ranking was re-tuned for much longer reading histories.</li>
         <li><strong>Predicted ratings are close.</strong> On average they miss the rating people actually gave by 0.66
           stars, and 79% are within one star, compared with a 0.73-star miss for just using each book&apos;s average. Most

@@ -608,7 +608,7 @@
   "date": "2026-10-06",
   "icon": "📚",
   "category": "data",
-  "title": "Learning from every shelf",
+  "title": "Learning from all ratings",
   "summary": "The models now learn from all 104 million ratings in the Goodreads dataset, not only the 15 million that came with a written review, and the catalog grew to about 144,000 books. The experiment ran in separate folders so the live site never changed. Compared with the previous version on the same held-out readers, predicted ratings got closer at every history length and recommendations held their quality once the ranking settings were re-tuned for much longer reading histories. The Evaluation page now shows each dataset's line separately, each starting from the 2023 version of the project.",
   "prompts": [
    "fe7c091a-160",
