@@ -756,7 +756,7 @@ They chose the catalog and pool sizes at a decision point after profiling the fi
 - **Category:** ui
 - **Prompts:** fe7c091a-167, fe7c091a-168
 
-**Decision.** On the Evaluation chart the 2023 Book Recommender is no longer a dashed baseline across the chart. It's the first point of the line, v0 ("from 2023"), styled differently from versions (a hollow amber diamond).
+**Decision.** On the Evaluation chart the 2023 Book Recommender is no longer a dashed baseline across the chart. It's the first point of the line, v0 ("2023 baseline"), styled differently from versions (a hollow amber diamond).
 
 The chart now has one segment per dataset ("era"). Each era has its own test split, so scores are only compared within an era:
 - **Trained on reviews only:** v0 → v1 … v6.

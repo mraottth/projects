@@ -1275,8 +1275,16 @@
    "time": "2026-10-06T23:00:05.190Z",
    "kind": "prompt",
    "text": "[screenshot]\n\nA couple UI issues: 1) the \"Most popular books (0.023)\" text is stuck to the x axis, 2) can you make the \"Reviews Data\" and \"Every Shelf\" headers a little more prominent? Each can be a different color and there should be an underine of the corresponding color across the section of the plotting area dedicated to it, 3) \"Reviews Data\" can say something like \"Trained on Reviews Only\" and \"Every Shelf\" can say \"Trained on All Data\" (or something to that effect), 4) 2023 can be renamed v0 and the text underneath it can say from 2023, 5) \"Most popular books\" can say \"Baseline: Popular books\". Also let's move the Ranking and Rating Prediction toggle to below the page description",
-   "reply": null,
+   "reply": "All six chart and page changes are done and pushed on `br-interactions`. They're visible on your local site at `localhost:8000/?view=evaluation`; nothing is deployed.\n\n1. **Popular-books label:** it no longer sits on the x axis. Baseline labels now stay inside the plot, clear of the axis and the section headers.\n2. **Section headers:** they're larger and bold, each in its own colour (slate blue for the first, green for the second), with a matching underline across that section of the plot.\n3. **Header text:** they now read \"Trained on reviews only\" and \"Trained on all shelves\". On phones they shorten to \"reviews only\" and \"all shelves\".\n4. **v0:** the 2023 point is now v0, with \"from 2023\" underneath, and the side panel says \"v0 · from 2023\". I added a little room after v0 so \"from 2023\" doesn't run into the next date.\n5. **Baseline wording:** the dashed lines read \"Baseline: Popular books (0.023)\" and \"Baseline: Popular 0.063\". The second one is shorter because the \"all shelves\" section is narrow.\n6. **Toggle position:** the Ranking / Rating prediction switch now sits below the page description, just above the chart.\n\nOne exception: on the rating chart, the book-average labels still show without \"Baseline:\" (\"Book average 0.763\"). In the reviews section, v2's point and its \"0.755\" label sit right on that line, so there's no free spot for the longer text. If you'd rather have the prefix there too, I could let the label sit just below the line.\n\nThe going-live steps are unchanged:\n1. Merge the branch.\n2. Run `make golive-interactions` to put the new build in place.\n3. Spot-check the local site.\n4. Deploy.\n\nShall I run them?",
    "id": "fe7c091a-168",
+   "session": "fe7c091a"
+  },
+  {
+   "time": "2026-10-06T23:10:31.412Z",
+   "kind": "prompt",
+   "text": "Let's change \"from 2023\" to \"2023 baseline.\" Can we also make the whole graph and description card section wider similar to how it is in the product timeline?",
+   "reply": null,
+   "id": "fe7c091a-169",
    "session": "fe7c091a"
   }
  ]
