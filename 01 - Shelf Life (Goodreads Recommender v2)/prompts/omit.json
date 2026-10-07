@@ -40,5 +40,8 @@
  "fe7c091a-156": "operational: a commit, push, merge or deploy request",
  "fe7c091a-157": "operational: a commit, push, merge or deploy request",
  "fe7c091a-159": "operational: a commit, push, merge or deploy request",
- "fe7c091a-176": "running the app locally: which local server runs the new model"
+ "fe7c091a-176": "running the app locally: which local server runs the new model",
+ "fe7c091a-178": "operational: a commit, push, merge or deploy request",
+ "fe7c091a-179": "environment setup: Claude Code permission settings",
+ "fe7c091a-180": "operational: a commit, push, merge or deploy request"
 }
