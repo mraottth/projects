@@ -164,7 +164,7 @@ export function MilestoneTimeline({ milestones, prompts, categories, onShowPromp
              onPointerLeave={(e) => { if (e.pointerType === "mouse") leaveSoon(); }}>
       <div className="ms-head">
         <h2>Product Milestones</h2>
-        <span className="muted small">Hover a milestone to see the prompts and commits behind it; click to keep it open. Scroll sideways for more →</span>
+        <span className="muted small">Click or hover to see the prompts &amp; commits behind milestones. Scroll for more →</span>
         <span className="ms-arrows">
           <label className="ms-order">Display{" "}
             <select value={newestFirst ? "newest" : "oldest"} onChange={(e) => setNewestFirst(e.target.value === "newest")}>
