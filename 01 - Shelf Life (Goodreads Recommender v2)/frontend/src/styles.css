@@ -366,6 +366,11 @@ button.chip:hover { background: #f1f0eb; }
 .compare-n.thin { font-style: italic; }
 .sort-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; row-gap: 8px; margin: 0 0 12px; }
 .sort-hint { margin: -4px 0 12px; }
+.view-group { display: inline-flex; align-items: center; gap: 10px; }
+.toggle-btn { background: var(--card); border: 1px solid var(--ring); border-radius: 999px; padding: 7px 12px;
+  font-size: 0.85rem; color: var(--ink-2); white-space: nowrap; }
+.toggle-btn:hover { border-color: var(--ink-2); }
+.toggle-btn.on { background: var(--ink); border-color: var(--ink); color: #fff; }
 .sort-row .flabel { margin: 0; }
 @media (max-width: 640px) {
   .compare { border-top: 0; border-left: 1px solid #d3e3f7; margin: 0; padding: 0 0 0 10px; width: auto; }

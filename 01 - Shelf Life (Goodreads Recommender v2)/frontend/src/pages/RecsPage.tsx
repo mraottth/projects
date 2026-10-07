@@ -12,20 +12,25 @@ const PAGE = 40;
 const MAP_N = 50;   // how many points fit legibly on the map
 
 const READERS_SORTS: { key: ReadersSort; label: string }[] = [
-  { key: "popularity", label: "Popularity" }, { key: "rating", label: "Their rating" }, { key: "predicted", label: "Predicted rating" },
+  { key: "popularity", label: "Popularity" }, { key: "rating", label: "Rating" }, { key: "predicted", label: "Predicted rating" },
 ];
+
+/** The one-button switch to the relative view: what each sort is compared against. */
+const COMPARE_LABEL: Record<ReadersSort, string> = {
+  popularity: "Compare to all readers", rating: "Compare to Goodreads average", predicted: "Compare to Goodreads average",
+};
 
 /** One line under the sort controls saying what the From similar readers list is ordered by. */
 function readersHint(sort: ReadersSort, relative: boolean, n: number | undefined): string {
   const who = n ? `the ${n} readers most like you` : "readers most like you";
   if (sort === "popularity") return relative
-    ? `Books ${who} read far more often than readers overall.`
+    ? `Books ${who} read far more often than readers overall: what sets them apart.`
     : `Books ${who} read most.`;
   if (sort === "rating") return relative
-    ? `Books ${who} rated furthest above the Goodreads average (at least 5 of them rated it).`
+    ? `Books ${who} rate furthest above their Goodreads average (at least 5 of them rated it).`
     : `Books ${who} rated highest (at least 5 of them rated it).`;
   return relative
-    ? `Books ${who} read where your predicted rating beats the Goodreads average by the most.`
+    ? `Books ${who} read that you're predicted to rate furthest above their Goodreads average.`
     : `Books ${who} read, by the rating we predict you'd give them.`;
 }
 
@@ -176,11 +181,10 @@ export function RecsPage({ tab, sort, setSort, readersSort, setReadersSort, rela
                             onClick={() => setReadersSort(o.key)}>{o.label}</button>
                   ))}
                 </div>
-                <div className="seg" role="group" aria-label="Absolute or relative"
-                     title="Relative compares with all readers (popularity) or with the Goodreads average (ratings)">
-                  <button type="button" className={!relative ? "on" : ""} onClick={() => setRelative(false)}>Absolute</button>
-                  <button type="button" className={relative ? "on" : ""} onClick={() => setRelative(true)}>Relative</button>
-                </div>
+                <button type="button" className={`toggle-btn${relative ? " on" : ""}`} aria-pressed={relative}
+                        onClick={() => setRelative(!relative)}>
+                  {relative && <span aria-hidden="true">✓ </span>}{COMPARE_LABEL[readersSort]}
+                </button>
               </>
             ) : (
               <div className="seg" role="group" aria-label="Sort by">
@@ -190,11 +194,13 @@ export function RecsPage({ tab, sort, setSort, readersSort, setReadersSort, rela
                 </button>
               </div>
             )}
-            <span className="flabel view-label">View</span>
-            <div className="seg" role="group" aria-label="View">
-              <button type="button" className={layout === "list" ? "on" : ""} onClick={() => setLayout("list")}>List</button>
-              <button type="button" className={layout === "map" ? "on" : ""} onClick={() => setLayout("map")}>Map</button>
-            </div>
+            <span className="view-group">
+              <span className="flabel view-label">View</span>
+              <div className="seg" role="group" aria-label="View">
+                <button type="button" className={layout === "list" ? "on" : ""} onClick={() => setLayout("list")}>List</button>
+                <button type="button" className={layout === "map" ? "on" : ""} onClick={() => setLayout("map")}>Map</button>
+              </div>
+            </span>
           </div>
           {similar && sr && <p className="muted small sort-hint">{readersHint(readersSort, relative, sr.n_neighbors)}</p>}
           <ActiveFilters filters={filters} defaults={EMPTY_FILTERS} onChange={setFilters} />
