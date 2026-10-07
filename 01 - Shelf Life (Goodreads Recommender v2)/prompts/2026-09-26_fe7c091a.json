@@ -1384,6 +1384,14 @@
    "reply": "The page heading is now **\"Product Timeline\"**, replacing \"How Shelf Life was built\", and the milestone strip is back to **\"Product Milestones\"**. It's pushed on `br-timeline-order` with the newest-first order and the highlighted counts, not merged or deployed yet. I checked it on `localhost:8000/?view=changelog`.\n\nThe About page's button that opens this page still says \"How Shelf Life was built →\". It reads fine as a link description, but I can change it to \"Product Timeline →\" if you'd like them to match.",
    "id": "fe7c091a-184",
    "session": "fe7c091a"
+  },
+  {
+   "time": "2026-10-07T01:31:00.850Z",
+   "kind": "prompt",
+   "text": "[screenshot]\n\nThe amber highlight is a little weird because it only covers half the text. Also, the product milestones line now takes up two lines (see screenshot)",
+   "reply": "Both are fixed and pushed on `br-timeline-order`, not deployed yet.\n\n- **Highlight:** the counts now sit on a full pale-amber background with slightly rounded corners, so the band no longer stops halfway up the text. Each count also stays on one line, so \"56 decisions\" no longer splits across two.\n- **Product Milestones header:** it's back on one line. The longer hint I'd added (\"…for older ones\") is what pushed the controls onto a second line, so it's back to \"Scroll sideways for more →\". I checked the header at a 1300px-wide window, which is about your screenshot's width.",
+   "id": "fe7c091a-185",
+   "session": "fe7c091a"
   }
  ]
 }
