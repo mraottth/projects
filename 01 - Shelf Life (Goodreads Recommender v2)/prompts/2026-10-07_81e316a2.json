@@ -26,6 +26,22 @@
    "reply": "The sort row is updated and pushed to `claude/compassionate-mendel-fntw1w`. I checked it with fake API responses on desktop and phone.\n\n- **Label:** the middle sort is now \"Similar readers' rating\". I used lowercase after the first word to match the site's other labels, like \"Predicted rating\".\n- **Checkbox:** \"Compared to all readers\" is now a checkbox at the right end of the row, with the List / Map switch just to its left. The checkbox only shows on From similar readers. On For you, List / Map also sits on the right now, so it stays in the same place when you switch tabs.\n- **Rating sorts:** the label says \"all readers\" for every sort, but for the two rating sorts the comparison is with the Goodreads average. Hovering the checkbox says which comparison applies.\n- **Phones:** the longer label made the sort buttons run off the screen, so on narrow screens the button text now wraps onto two lines.\n\nI also updated the README and decision D-057 to match.",
    "id": "81e316a2-003",
    "session": "81e316a2"
+  },
+  {
+   "time": "2026-10-07T16:19:34.184Z",
+   "kind": "prompt",
+   "text": "Sorry, let's go back to 'Rating'",
+   "reply": "I changed the label back to \"Rating\" and pushed it to `claude/compassionate-mendel-fntw1w`. The frontend builds. I didn't take new screenshots for a one-word label change. The checkbox and the List / Map position are still as you set them last time. I updated decision D-057 to match.",
+   "id": "81e316a2-004",
+   "session": "81e316a2"
+  },
+  {
+   "time": "2026-10-07T16:22:37.343Z",
+   "kind": "prompt",
+   "text": "can you spin up a local deploy from this session?",
+   "reply": "Not in a way you could use. There are two blockers:\n\n1. **The models aren't here.** This container has the code but no `artifacts/` or `data/`, and the API won't start without them. Rebuilding them means downloading the 7.5 GB raw data and running the full pipeline (about an hour on your Mac). The session's disk allowance probably can't hold it.\n2. **You couldn't reach the server anyway.** This session runs in a cloud container that doesn't expose ports. Even with the API running here, you'd have no URL to open; I'd only be able to drive it with headless screenshots.\n\nYour Mac already has the built artifacts, so the quickest route is to run it there:\n\n```bash\ncd \"projects/01 - Shelf Life (Goodreads Recommender v2)\"\ngit fetch origin && git checkout claude/compassionate-mendel-fntw1w\nmake serve   # API on :8000\nmake dev     # in a second terminal: Vite dev server, proxies /api to :8000\n```\n\nThen open `http://localhost:5173/?view=recs&tab=similar`. Alternatively, `make frontend` followed by `make serve` serves everything from `http://localhost:8000`.\n\nThat will also be the first test of the new sorts on real data, since the API tests that need the artifacts were skipped here. I'd run them alongside:\n\n```bash\nPYTHONPATH=src uv run pytest tests/test_api.py tests/test_chat.py -q\n```\n\nWatch the \"Compared to all readers\" views on the demo library in particular. The smoothing values there were my picks, not measured.",
+   "id": "81e316a2-005",
+   "session": "81e316a2"
   }
  ]
 }
