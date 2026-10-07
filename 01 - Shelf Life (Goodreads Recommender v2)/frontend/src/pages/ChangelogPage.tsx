@@ -4,7 +4,7 @@ import { Markdown } from "../components/Markdown";
 import { MilestoneTimeline, type Milestone } from "../components/MilestoneTimeline";
 
 /**
- * How Shelf Life was built: every prompt given to Claude Code, Claude's replies, the commits they produced and the
+ * Product Timeline: how Shelf Life was built, every prompt given to Claude Code, Claude's replies, the commits they produced and the
  * decisions along the way. Data: frontend/src/changelog.json, built by scripts/build_changelog.py from git,
  * prompts/ and DECISIONS.md.
  */
@@ -221,11 +221,12 @@ export function ChangelogPage() {
 
   return (
     <div className="changelog">
-      <h1>How Shelf Life was built</h1>
+      <h1>Product Timeline</h1>
       <p className="lead-left">
         Shelf Life was built in conversation with Claude Code. This page logs every prompt that shaped it, Claude&apos;s
-        replies, the commits they produced and the decisions along the way: {CL.prompts.length} prompts, {CL.commits.length} commits
-        and {CL.decisions.length} decisions{first ? ` since ${new Date(first).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}` : ""}.
+        replies, the commits they produced and the decisions along the way:{" "}
+        <strong className="cl-stat">{CL.prompts.length} prompts</strong>, <strong className="cl-stat">{CL.commits.length} commits</strong>{" "}
+        and <strong className="cl-stat">{CL.decisions.length} decisions</strong>{first ? ` since ${new Date(first).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}` : ""}.
         {CL.omitted_prompts > 0 && ` ${CL.omitted_prompts} purely operational prompts (commit and deploy requests, running it locally, setup) are left out.`}{" "}
         The same records are in the repo as <a href={`${CL.repo}/tree/main/01%20-%20Shelf%20Life%20%28Goodreads%20Recommender%20v2%29/prompts`} target="_blank" rel="noreferrer">prompts/</a>{" "}
         and <a href={`${CL.repo}/blob/main/01%20-%20Shelf%20Life%20%28Goodreads%20Recommender%20v2%29/DECISIONS.md`} target="_blank" rel="noreferrer">DECISIONS.md</a>.
