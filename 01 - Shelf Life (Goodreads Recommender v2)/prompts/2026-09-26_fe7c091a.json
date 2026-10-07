@@ -1368,6 +1368,14 @@
    "reply": "I've made the three changes on the `br-timeline-order` branch. They're pushed but not merged or deployed. You can see them now at `localhost:8000/?view=changelog`.\n\n- **Newest first:** the timeline now opens on M25 (\"Learning from all ratings\") and scrolls back through older milestones. The order menu still switches to oldest first, and the \"Scroll sideways for…\" hint changes to match.\n- **Title:** the strip is now called \"Product Timeline\", replacing \"Product Milestones\".\n- **Counts:** \"151 prompts\", \"219 commits\" and \"56 decisions\" in the intro are now bold and in the site's blue accent colour.\n\nI took \"the title\" to mean the timeline's own header. The page heading above it still says \"How Shelf Life was built\", so tell me if you meant that one.\n\nWhen you're happy with it, say the word and I'll merge and deploy.",
    "id": "fe7c091a-182",
    "session": "fe7c091a"
+  },
+  {
+   "time": "2026-10-07T01:27:40.369Z",
+   "kind": "prompt",
+   "text": "the accented text looks a little too much like links. Try something else",
+   "reply": "The three counts (\"152 prompts\", \"221 commits\", \"56 decisions\") are now bold black text over a soft amber highlighter band, so they no longer look like links. The amber comes from the site's star colour. You can see it at `localhost:8000/?view=changelog`.\n\nIt's pushed on `br-timeline-order` with the newest-first and title changes, not merged or deployed yet.",
+   "id": "fe7c091a-183",
+   "session": "fe7c091a"
   }
  ]
 }
