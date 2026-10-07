@@ -16,10 +16,11 @@ interface Props {
   onOpen: (id: number) => void;
   rank?: number;
   onFilter?: (f: FilterClick) => void;   // clicking author / genre / tag filters the page
+  stat?: string | null;                  // a note beside the Goodreads average, e.g. "40% of similar readers read it"
 }
 
 /** Full-width ranked row: rank | cover | details | predicted rating. */
-export function BookCard({ book, onOpen, rank, onFilter }: Props) {
+export function BookCard({ book, onOpen, rank, onFilter, stat }: Props) {
   const shelf = useShelf();
   const myRating = shelf.ratings[book.id]?.rating ?? 0;
   const seriesLabel = book.series ? `${book.series}${book.series_pos ? ` #${book.series_pos}` : ""}` : null;
@@ -48,7 +49,7 @@ export function BookCard({ book, onOpen, rank, onFilter }: Props) {
         </div>
         <div className="card-stats">
           <AvgRating value={book.avg_rating} count={book.ratings_count} />
-          {book.pct_read != null && <span className="stat-pill">{book.pct_read}% of similar readers read it</span>}
+          {stat && <span className="stat-pill">{stat}</span>}
         </div>
         <div className="card-tags">
           {book.genre && <GenreChip genre={book.genre} onClick={onFilter && (() => onFilter({ kind: "genre", value: book.genre! }))} />}

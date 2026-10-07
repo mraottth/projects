@@ -102,6 +102,8 @@ export function App() {
         {url.view === "recs" && (
           <RecsPage tab={url.tab} sort={url.sort} layout={url.layout} filters={url.filters} setTab={(tab) => update({ tab })}
                     setSort={(sort) => update({ sort })} setLayout={(layout) => update({ layout })}
+                    readersSort={url.readersSort} setReadersSort={(readersSort) => update({ readersSort })}
+                    relative={url.relative} setRelative={(relative) => update({ relative })}
                     setFilters={(filters) => update({ filters })} go={go} onOpen={onOpen} />
         )}
         {url.view === "yours" && <YourBooksPage go={go} onOpen={onOpen} />}
