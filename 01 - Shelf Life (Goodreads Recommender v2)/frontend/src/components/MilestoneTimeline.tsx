@@ -30,7 +30,7 @@ export function MilestoneTimeline({ milestones, prompts, categories, onShowPromp
   onShowPrompt: (id: string) => void; onShowDecision: (id: string) => void;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
-  const [newestFirst, setNewestFirst] = useState(false);
+  const [newestFirst, setNewestFirst] = useState(true);
   const shown = newestFirst ? [...milestones].reverse() : milestones;
   const [pinned, setPinned] = useState(false);
   const [pending, setPending] = useState<{ id: string; ms: number } | null>(null);   // hovered milestone and its wait
@@ -163,8 +163,8 @@ export function MilestoneTimeline({ milestones, prompts, categories, onShowPromp
              onPointerEnter={() => window.clearTimeout(closeTimer.current)}
              onPointerLeave={(e) => { if (e.pointerType === "mouse") leaveSoon(); }}>
       <div className="ms-head">
-        <h2>Product Milestones</h2>
-        <span className="muted small">Hover a milestone to see the prompts and commits behind it; click to keep it open. Scroll sideways for more →</span>
+        <h2>Product Timeline</h2>
+        <span className="muted small">Hover a milestone to see the prompts and commits behind it; click to keep it open. Scroll sideways for {newestFirst ? "older" : "newer"} ones →</span>
         <span className="ms-arrows">
           <label className="ms-order">Display{" "}
             <select value={newestFirst ? "newest" : "oldest"} onChange={(e) => setNewestFirst(e.target.value === "newest")}>

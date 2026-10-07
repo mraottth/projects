@@ -1147,3 +1147,6 @@ button.chip:hover { background: #f1f0eb; }
   .ev-pop { flex: none; max-height: none; }
   .ev-report-score { margin-left: 0; }
 }
+
+/* Changelog intro: the prompt / commit / decision counts */
+.cl-stat { color: var(--accent-ink); font-weight: 700; }
