@@ -12,13 +12,8 @@ const PAGE = 40;
 const MAP_N = 50;   // how many points fit legibly on the map
 
 const READERS_SORTS: { key: ReadersSort; label: string }[] = [
-  { key: "popularity", label: "Popularity" }, { key: "rating", label: "Rating" }, { key: "predicted", label: "Predicted rating" },
+  { key: "popularity", label: "Popularity" }, { key: "rating", label: "Similar readers' rating" }, { key: "predicted", label: "Predicted rating" },
 ];
-
-/** The one-button switch to the relative view: what each sort is compared against. */
-const COMPARE_LABEL: Record<ReadersSort, string> = {
-  popularity: "Compare to all readers", rating: "Compare to Goodreads average", predicted: "Compare to Goodreads average",
-};
 
 /** One line under the sort controls saying what the From similar readers list is ordered by. */
 function readersHint(sort: ReadersSort, relative: boolean, n: number | undefined): string {
@@ -181,10 +176,6 @@ export function RecsPage({ tab, sort, setSort, readersSort, setReadersSort, rela
                             onClick={() => setReadersSort(o.key)}>{o.label}</button>
                   ))}
                 </div>
-                <button type="button" className={`toggle-btn${relative ? " on" : ""}`} aria-pressed={relative}
-                        onClick={() => setRelative(!relative)}>
-                  {relative && <span aria-hidden="true">✓ </span>}{COMPARE_LABEL[readersSort]}
-                </button>
               </>
             ) : (
               <div className="seg" role="group" aria-label="Sort by">
@@ -201,6 +192,14 @@ export function RecsPage({ tab, sort, setSort, readersSort, setReadersSort, rela
                 <button type="button" className={layout === "map" ? "on" : ""} onClick={() => setLayout("map")}>Map</button>
               </div>
             </span>
+            {similar && (
+              <label className="compare-check"
+                     title={readersSort === "popularity" ? "Rank by how much more often similar readers read a book than readers overall"
+                       : "Rank by how far each rating sits above the book's Goodreads average"}>
+                <input type="checkbox" checked={relative} onChange={(e) => setRelative(e.target.checked)} />
+                Compared to all readers
+              </label>
+            )}
           </div>
           {similar && sr && <p className="muted small sort-hint">{readersHint(readersSort, relative, sr.n_neighbors)}</p>}
           <ActiveFilters filters={filters} defaults={EMPTY_FILTERS} onChange={setFilters} />
