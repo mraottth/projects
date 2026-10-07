@@ -1392,6 +1392,14 @@
    "reply": "Both are fixed and pushed on `br-timeline-order`, not deployed yet.\n\n- **Highlight:** the counts now sit on a full pale-amber background with slightly rounded corners, so the band no longer stops halfway up the text. Each count also stays on one line, so \"56 decisions\" no longer splits across two.\n- **Product Milestones header:** it's back on one line. The longer hint I'd added (\"…for older ones\") is what pushed the controls onto a second line, so it's back to \"Scroll sideways for more →\". I checked the header at a 1300px-wide window, which is about your screenshot's width.",
    "id": "fe7c091a-185",
    "session": "fe7c091a"
+  },
+  {
+   "time": "2026-10-07T01:33:03.873Z",
+   "kind": "prompt",
+   "text": "\"Hover a milestone to see the prompts and commits behind it; click to keep it open. Scroll sideways for more →\" can be changed to \"Click or hover to see the prompts & commits behind milestones. Scroll for more →\"",
+   "reply": "The milestone hint now reads \"Click or hover to see the prompts & commits behind milestones. Scroll for more →\". The header still fits on one line. It's pushed on `br-timeline-order` and not merged or deployed yet.",
+   "id": "fe7c091a-186",
+   "session": "fe7c091a"
   }
  ]
 }
