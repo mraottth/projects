@@ -34,7 +34,9 @@ class RecommendRequest(BaseModel):
     filters: FilterSpec = FilterSpec()
     limit: int = Field(40, ge=1, le=200)
     offset: int = Field(0, ge=0)
-    sort: Literal["match", "predicted"] = "match"
+    sort: Literal["match", "predicted"] = "match"                        # For you and to-read
+    readers_sort: Literal["popularity", "rating", "predicted"] = "popularity"   # From similar readers
+    readers_relative: bool = False   # vs all readers (popularity) or the Goodreads average (rating, predicted)
 
 
 class BrowseRequest(BaseModel):

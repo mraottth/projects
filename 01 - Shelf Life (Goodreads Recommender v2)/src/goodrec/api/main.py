@@ -255,7 +255,7 @@ def insights(req: InsightsRequest):
     if len(ratings) >= MIN_RATINGS_FOR_READERS:
         user = UserInput(ratings=ratings, read=books - set(ratings), dates=_dates(req.ratings))
         raw = _raw(user)
-        sr = similar_readers(art, raw.u, np.ones(m.n, dtype=bool), limit=1) if raw.u is not None else None
+        sr = similar_readers(art, raw.u) if raw.u is not None else None
         if sr:
             you = user_genre_share(art, ratings)
             order = np.argsort(-(you + sr["genre_share"]))[:8]
@@ -299,7 +299,7 @@ def book_personal(work_id: int, req: InsightsRequest):
     shown = _shown(user, [idx], raw)[0]
     out = {"predicted_rating": round(float(shown), 2), "readers_avg": None, "readers_n": None}
     if len(ratings) >= MIN_RATINGS_FOR_READERS and raw.u is not None:
-        sr = similar_readers(art, raw.u, np.ones(art.meta.n, dtype=bool), limit=1)
+        sr = similar_readers(art, raw.u)
         if sr:
             n = int(sr["item_n"][idx])
             out.update(readers_n=n, readers_avg=round(float(sr["item_avg"][idx]), 2) if n else None)
@@ -419,7 +419,7 @@ def recommend_route(req: RecommendRequest):
     if len(user.ratings) >= MIN_RATINGS_FOR_READERS and raw.u is not None:
         sr = raw.cache.get("similar_readers")
         if sr is None:
-            sr = raw.cache["similar_readers"] = similar_readers(art, raw.u, np.ones(art.meta.n, dtype=bool), limit=1)
+            sr = raw.cache["similar_readers"] = similar_readers(art, raw.u)
     if sr:
         names = art.meta.genre_names
         you = user_genre_share(art, user.ratings)
@@ -428,31 +428,33 @@ def recommend_route(req: RecommendRequest):
         ya = f.include_ya or "Young Adult" in req.filters.genres
         base = ranking(art, raw, user, p, req.sort, prior, include_ya=ya)["base_default"]   # readers tabs: no floor
 
-        def reader_list(kind: str):
-            # Stable ranks: rank within the unfiltered list for this tab + sort, then apply filters.
-            eligible = sr["pct_read_all"] > 0 if kind == "popular" else sr["item_n"] >= sr["min_raters"]
-            score = sr["pop_score"] if kind == "popular" else sr["nbr_avg"]
-            key = ("readers", kind, req.sort, ya)
-            if key not in raw.cache:
-                universe = np.flatnonzero(base & eligible)
-                if by_predicted:
-                    pr = _shown(user, universe, raw)
-                    universe = universe[np.lexsort((-score[universe], -pr))]
-                else:
-                    universe = universe[np.argsort(-score[universe], kind="stable")]
-                raw.cache[key] = universe
-            items, ranks = apply_ranking(raw.cache[key], mask & eligible, score, user.dismissed)
-            items, ranks = items[:req.limit], ranks[:req.limit]
-            preds = _shown(user, items, raw)
-            extra = [{"predicted_rating": round(float(pr), 2), "rank": int(rk) or None}
-                     | ({"pct_read": round(float(sr["pct_read_all"][i]) * 100, 1)} if kind == "popular" else {})
-                     for i, pr, rk in zip(items, preds, ranks)]
-            return _decorate(items, extra)
+        # "From similar readers": one list, sorted by popularity, their rating or the user's predicted rating,
+        # each either absolute or relative to all readers / the Goodreads average.
+        rsort, rel = req.readers_sort, req.readers_relative
+        pct, min_n = sr["pct_read_all"], sr["min_raters"]
+        eligible = sr["item_n"] >= min_n if rsort == "rating" else pct > 0
+        score = sr["score"][("popularity", rel) if rsort == "predicted" else (rsort, rel)]
+        key = ("readers", rsort, rel, ya)
+        if key not in raw.cache:
+            # Stable ranks: rank within the unfiltered list for this sort, then apply filters.
+            universe = np.flatnonzero(base & eligible)
+            if rsort == "predicted":
+                pr = _shown(user, universe, raw) - (art.meta.avg_rating[universe] if rel else 0)
+                universe = universe[np.lexsort((-score[universe], -pr))]   # ties by popularity
+            else:
+                universe = universe[np.argsort(-score[universe], kind="stable")]
+            raw.cache[key] = universe
+        items, ranks = apply_ranking(raw.cache[key], mask & eligible, score, user.dismissed)
+        items, ranks = items[:req.limit], ranks[:req.limit]
+        preds = _shown(user, items, raw)
+        rate = art.meta.reader_rate
+        extra = [{"predicted_rating": round(float(pr), 2), "rank": int(rk) or None,
+                  "pct_read": round(float(pct[i]) * 100, 1), "pct_read_overall": round(float(rate[i]) * 100, 2)}
+                 for i, pr, rk in zip(items, preds, ranks)]
 
         readers = {
-            "n_neighbors": sr["n_neighbors"],
-            "popular": reader_list("popular"),
-            "top_rated": reader_list("top_rated"),
+            "n_neighbors": sr["n_neighbors"], "sort": rsort, "relative": rel,
+            "books": _decorate(items, extra),
             "genres": [{"genre": names[g], "you": round(float(you[g]), 3),
                         "similar_readers": round(float(sr["genre_share"][g]), 3)} for g in order],
         }
@@ -460,7 +462,7 @@ def recommend_route(req: RecommendRequest):
     # Average rating among readers like you, for every book in every list (needs the neighbor set).
     if sr:
         idx_of = cat.idx_of
-        for b in for_you + to_read_picks + readers["popular"] + readers["top_rated"]:
+        for b in for_you + to_read_picks + readers["books"]:
             i = idx_of[b["id"]]
             n = int(sr["item_n"][i])
             b["readers_avg"] = round(float(sr["item_avg"][i]), 2) if n else None

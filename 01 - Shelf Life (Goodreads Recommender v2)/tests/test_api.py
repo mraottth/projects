@@ -119,8 +119,8 @@ def test_filters(client):
                                   for b in txt["for_you"])
     # similar readers appear with >= 5 ratings and respect filters
     sr = res["similar_readers"]
-    assert sr and sr["popular"] and sr["top_rated"] and sr["genres"]
-    assert all(b["genre"] in filters["genres"] for b in sr["popular"] + sr["top_rated"])
+    assert sr and sr["books"] and sr["genres"] and sr["sort"] == "popularity" and not sr["relative"]
+    assert all(b["genre"] in filters["genres"] for b in sr["books"])
 
 
 def test_series_continuations(client):
@@ -149,7 +149,8 @@ def test_predicted_ratings(client):
                [("mistborn final empire", 5), ("name of the wind", 5), ("twilight", 1), ("hunger games", 4),
                 ("way of kings", 5)]]
     res = client.post("/api/recommend", json={"ratings": ratings, "limit": 20}).json()
-    lists = [res["for_you"], res["similar_readers"]["popular"], res["similar_readers"]["top_rated"]]
+    top = client.post("/api/recommend", json={"ratings": ratings, "limit": 20, "readers_sort": "rating"}).json()
+    lists = [res["for_you"], res["similar_readers"]["books"], top["similar_readers"]["books"]]
     for books in lists:
         assert books and all(1.0 <= b["predicted_rating"] <= 5.0 for b in books)
     # A Sanderson fan should get a high predicted rating for Words of Radiance, a low one for New Moon.
@@ -172,9 +173,8 @@ def test_sort_by_predicted(client):
     ratings = _fantasy_reader(client)
     match = client.post("/api/recommend", json={"ratings": ratings, "limit": 40}).json()
     pred = client.post("/api/recommend", json={"ratings": ratings, "limit": 40, "sort": "predicted"}).json()
-    for books in (pred["for_you"], pred["similar_readers"]["popular"], pred["similar_readers"]["top_rated"]):
-        p = [b["predicted_rating"] for b in books]
-        assert p == sorted(p, reverse=True)
+    p = [b["predicted_rating"] for b in pred["for_you"]]
+    assert p == sorted(p, reverse=True)
     # Sorting by predicted draws on the whole candidate pool, so its top is at least as high as match order's.
     assert pred["for_you"][0]["predicted_rating"] >= max(b["predicted_rating"] for b in match["for_you"][:40])
     assert pred["meta"]["sort"] == "predicted"
@@ -183,17 +183,48 @@ def test_sort_by_predicted(client):
 
 def test_readers_avg_on_every_book(client):
     res = client.post("/api/recommend", json={"ratings": _fantasy_reader(client), "limit": 20}).json()
-    books = res["for_you"] + res["similar_readers"]["popular"] + res["similar_readers"]["top_rated"]
+    top = client.post("/api/recommend", json={"ratings": _fantasy_reader(client), "limit": 20,
+                                              "readers_sort": "rating"}).json()["similar_readers"]["books"]
+    books = res["for_you"] + res["similar_readers"]["books"] + top
     assert all("readers_n" in b for b in books)
     for b in books:
         if b["readers_n"]:
             assert 1.0 <= b["readers_avg"] <= 5.0
         else:
             assert b["readers_avg"] is None
-    assert all(b["readers_n"] >= 5 for b in res["similar_readers"]["top_rated"])  # top-rated requires raters
+    assert all(b["readers_n"] >= 5 for b in top)                                    # rating sort requires raters
     # Fewer than 5 ratings: no neighbor set, so no readers average.
     few = client.post("/api/recommend", json={"ratings": _fantasy_reader(client)[:2]}).json()
     assert few["similar_readers"] is None and "readers_avg" not in few["for_you"][0]
+
+
+READER_SORTS = [(s, r) for s in ("popularity", "rating", "predicted") for r in (False, True)]
+
+
+def test_from_similar_readers_sorts(client):
+    from goodrec.api.main import state
+
+    m, idx = state["art"].meta, state["cat"].idx_of
+    base = {"ratings": _fantasy_reader(client), "limit": 40}
+    lists = {}
+    for rsort, rel in READER_SORTS:
+        sr = client.post("/api/recommend", json={**base, "readers_sort": rsort, "readers_relative": rel}).json()["similar_readers"]
+        books = lists[rsort, rel] = sr["books"]
+        assert books and sr["sort"] == rsort and sr["relative"] == rel
+        assert [b["rank"] for b in books] == list(range(1, len(books) + 1))
+        assert all(b["pct_read"] > 0 and b["pct_read_overall"] >= 0 for b in books)
+        if rsort == "predicted":
+            gr = [m.avg_rating[idx[b["id"]]] if rel else 0 for b in books]
+            key = [b["predicted_rating"] - g for b, g in zip(books, gr)]
+            assert all(a >= b - 0.006 for a, b in zip(key, key[1:])), rel      # rounding to 2 places
+    # Relative popularity favors books similar readers read far more than everyone else does.
+    lift = lambda bs: sum(b["pct_read"] / max(b["pct_read_overall"], 1e-3) for b in bs) / len(bs)  # noqa: E731
+    assert lift(lists["popularity", True]) > lift(lists["popularity", False])
+    assert [b["id"] for b in lists["rating", True]] != [b["id"] for b in lists["rating", False]]
+    # Relative rating: similar readers' average above the Goodreads average, at the top of the list.
+    top = lists["rating", True][:10]
+    assert sum(b["readers_avg"] - b["avg_rating"] for b in top) / len(top) > 0
+    assert client.post("/api/recommend", json={**base, "readers_sort": "bogus"}).status_code == 422
 
 
 def test_browse(client):
@@ -280,13 +311,15 @@ def test_ranks_are_stable_under_filters(client):
         for b in filt["for_you"]:
             if b["id"] in rank_of:
                 assert b["rank"] == rank_of[b["id"]], (sort, b["title"])
-        # readers-like-you tabs keep their numbers too
-        for tab in ("popular", "top_rated"):
-            full_t = {b["id"]: b["rank"] for b in full["similar_readers"][tab]}
-            for b in filt["similar_readers"][tab]:
-                assert b["genre"] == "Science Fiction"
-                if b["id"] in full_t:
-                    assert b["rank"] == full_t[b["id"]]
+    # the From similar readers list keeps its numbers too, in every sort
+    for rsort, rel in READER_SORTS:
+        opts = {**base, "readers_sort": rsort, "readers_relative": rel}
+        full_t = {b["id"]: b["rank"] for b in client.post("/api/recommend", json=opts).json()["similar_readers"]["books"]}
+        filt = client.post("/api/recommend", json={**opts, "filters": {"genres": ["Science Fiction"]}}).json()
+        for b in filt["similar_readers"]["books"]:
+            assert b["genre"] == "Science Fiction"
+            if b["id"] in full_t:
+                assert b["rank"] == full_t[b["id"]], (rsort, rel)
     match = client.post("/api/recommend", json={**base, "limit": 50}).json()["for_you"]
     pred = client.post("/api/recommend", json={**base, "limit": 50, "sort": "predicted"}).json()["for_you"]
     assert [b["id"] for b in match] != [b["id"] for b in pred]                        # separate rankings
@@ -387,7 +420,7 @@ def test_prediction_floor(client):
         assert all(b["predicted_rating"] >= avg - offset - 0.005 for b in filt["for_you"])
         # readers-like-you tabs are not floored (visible in match order; the predicted sort puts the highest first)
         if sort == "match":
-            assert any(b["predicted_rating"] < avg - offset for b in res["similar_readers"]["popular"])
+            assert any(b["predicted_rating"] < avg - offset for b in res["similar_readers"]["books"])
 
     # Fewer than 5 ratings: no calibration, so no floor -> identical to the unfloored ranking.
     art, prior = state["art"], state["population"]["rating_dist"]
@@ -410,12 +443,13 @@ def test_young_adult_hidden_by_default(client):
     for sort in ("match", "predicted"):
         off = client.post("/api/recommend", json={**base, "sort": sort}).json()
         on = client.post("/api/recommend", json={**base, "sort": sort, "filters": {"include_ya": True}}).json()
-        for books in (off["for_you"], off["similar_readers"]["popular"], off["similar_readers"]["top_rated"]):
+        top = client.post("/api/recommend", json={**base, "sort": sort, "readers_sort": "rating"}).json()
+        for books in (off["for_you"], off["similar_readers"]["books"], top["similar_readers"]["books"]):
             assert not any(is_ya(b) for b in books)
         assert any(is_ya(b) for b in on["for_you"])
         # Including YA re-ranks: consecutive numbers 1..n over the larger universe, not gaps.
         assert [b["rank"] for b in on["for_you"]] == list(range(1, 101))
-        assert any(is_ya(b) for b in on["similar_readers"]["popular"])
+        assert any(is_ya(b) for b in on["similar_readers"]["books"])
     # Choosing the Young Adult genre implies including YA books.
     ya = client.post("/api/recommend", json={**base, "filters": {"genres": ["Young Adult"]}}).json()
     assert ya["for_you"] and all(b["genre"] == "Young Adult" for b in ya["for_you"])

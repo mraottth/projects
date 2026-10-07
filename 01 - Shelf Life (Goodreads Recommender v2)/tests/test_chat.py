@@ -29,8 +29,12 @@ def test_recommendation_tools_match_the_app(client):  # noqa: F811
     assert [b["rank"] for b in got["books"]] == [b["rank"] for b in app]
     rated = {r["id"] for r in _fantasy_reader(client)}
     assert not rated & {b["work_id"] for b in got["books"]}
-    pop = tb.run("readers_like_you", {"kind": "popular", "genres": ["Science Fiction"], "limit": 5})
+    pop = tb.run("readers_like_you", {"order": "popularity", "genres": ["Science Fiction"], "limit": 5})
     assert pop["books"] and all(b["genre"] == "Science Fiction" for b in pop["books"])
+    rel = tb.run("readers_like_you", {"order": "rating", "relative": True, "limit": 5})
+    app = client.post("/api/recommend", json={"ratings": _fantasy_reader(client), "limit": 5, "readers_sort": "rating",
+                                               "readers_relative": True}).json()["similar_readers"]["books"]
+    assert [b["work_id"] for b in rel["books"]] == [b["id"] for b in app]
     assert tb.run("get_recommendations", {"bogus": 1, "limit": 2})["books"]      # unknown args are ignored
     assert "error" in tb.run("nope", {})
 
