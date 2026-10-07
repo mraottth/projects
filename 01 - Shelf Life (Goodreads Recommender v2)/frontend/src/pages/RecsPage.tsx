@@ -12,7 +12,7 @@ const PAGE = 40;
 const MAP_N = 50;   // how many points fit legibly on the map
 
 const READERS_SORTS: { key: ReadersSort; label: string }[] = [
-  { key: "popularity", label: "Popularity" }, { key: "rating", label: "Similar readers' rating" }, { key: "predicted", label: "Predicted rating" },
+  { key: "popularity", label: "Popularity" }, { key: "rating", label: "Rating" }, { key: "predicted", label: "Predicted rating" },
 ];
 
 /** One line under the sort controls saying what the From similar readers list is ordered by. */
