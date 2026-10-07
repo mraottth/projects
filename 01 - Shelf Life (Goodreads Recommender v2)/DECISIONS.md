@@ -773,8 +773,8 @@ The popularity and book-average baselines stay as dashed lines ("Baseline: Popul
 ## D-057 · One "From similar readers" list, sortable absolute or relative
 - **Date:** 2026-10-07
 - **Category:** ui
-- **Prompts:** not captured (a Claude Code on the web session, not yet imported)
-- **Commits:** 4042e08, 98b1911, and the follow-up that replaced the switch with a Compare button
+- **Prompts:** 81e316a2-001, 81e316a2-002
+- **Commits:** 4042e08, 98b1911, f8ac63b
 
 **Decision.** The "Popular with readers like you" and "Top rated by readers like you" tabs are merged into one "From similar readers" tab. It has three sorts (Popularity, Rating, Predicted rating), shown absolute by default, and one button that switches to the relative view. The button names what each sort is compared against: "Compare to all readers" (popularity) or "Compare to Goodreads average" (rating, predicted rating). What each sort ranks by:
 - **Popularity:** the similarity-weighted share of the 300 nearest readers who read the book; relative is the lift over the share of all readers who read it, with 5 pseudo-readers added to observed and expected counts.
