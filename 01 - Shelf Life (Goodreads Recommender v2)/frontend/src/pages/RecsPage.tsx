@@ -19,10 +19,10 @@ const READERS_SORTS: { key: ReadersSort; label: string }[] = [
 function readersHint(sort: ReadersSort, relative: boolean, n: number | undefined): string {
   const who = n ? `the ${n} readers most like you` : "readers most like you";
   if (sort === "popularity") return relative
-    ? `Books ${who} read far more often than readers overall: what sets them apart.`
+    ? `Books ${who} read far more often than readers overall: what sets them apart. Weighted toward books more of them read.`
     : `Books ${who} read most.`;
   if (sort === "rating") return relative
-    ? `Books ${who} rate furthest above their Goodreads average (at least 5 of them rated it).`
+    ? `Books ${who} rate furthest above their Goodreads average (at least 5 of them rated it), weighted toward books more of them rated.`
     : `Books ${who} rated highest (at least 5 of them rated it).`;
   return relative
     ? `Books ${who} read that you're predicted to rate furthest above their Goodreads average.`
