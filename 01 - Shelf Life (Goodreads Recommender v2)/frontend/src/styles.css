@@ -1149,4 +1149,6 @@ button.chip:hover { background: #f1f0eb; }
 }
 
 /* Changelog intro: the prompt / commit / decision counts */
-.cl-stat { color: var(--accent-ink); font-weight: 700; }
+.cl-stat { font-weight: 700; color: var(--ink); padding: 0 2px; border-radius: 2px; box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  background: linear-gradient(transparent 55%, color-mix(in srgb, var(--star) 32%, transparent) 55%); }
