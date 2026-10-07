@@ -4,7 +4,7 @@ import { Markdown } from "../components/Markdown";
 import { MilestoneTimeline, type Milestone } from "../components/MilestoneTimeline";
 
 /**
- * How Shelf Life was built: every prompt given to Claude Code, Claude's replies, the commits they produced and the
+ * Product Timeline: how Shelf Life was built, every prompt given to Claude Code, Claude's replies, the commits they produced and the
  * decisions along the way. Data: frontend/src/changelog.json, built by scripts/build_changelog.py from git,
  * prompts/ and DECISIONS.md.
  */
@@ -221,7 +221,7 @@ export function ChangelogPage() {
 
   return (
     <div className="changelog">
-      <h1>How Shelf Life was built</h1>
+      <h1>Product Timeline</h1>
       <p className="lead-left">
         Shelf Life was built in conversation with Claude Code. This page logs every prompt that shaped it, Claude&apos;s
         replies, the commits they produced and the decisions along the way:{" "}

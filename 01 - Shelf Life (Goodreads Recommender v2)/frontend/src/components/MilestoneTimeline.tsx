@@ -163,7 +163,7 @@ export function MilestoneTimeline({ milestones, prompts, categories, onShowPromp
              onPointerEnter={() => window.clearTimeout(closeTimer.current)}
              onPointerLeave={(e) => { if (e.pointerType === "mouse") leaveSoon(); }}>
       <div className="ms-head">
-        <h2>Product Timeline</h2>
+        <h2>Product Milestones</h2>
         <span className="muted small">Hover a milestone to see the prompts and commits behind it; click to keep it open. Scroll sideways for {newestFirst ? "older" : "newer"} ones →</span>
         <span className="ms-arrows">
           <label className="ms-order">Display{" "}
