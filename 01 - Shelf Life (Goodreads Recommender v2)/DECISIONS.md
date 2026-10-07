@@ -769,3 +769,22 @@ The popularity and book-average baselines stay as dashed lines ("Baseline: Popul
 - v7 is compared with the bridge.
 
 **Context.** The user asked for the 2023 baseline to be "just another point in the line (styled differently to make it clear it's pre-v1)", in the same request as preparing the data switch. The switch needed the eras anyway.
+
+## D-057 · One "From similar readers" list, sortable absolute or relative
+- **Date:** 2026-10-07
+- **Category:** ui
+- **Prompts:** not captured (a Claude Code on the web session, not yet imported)
+- **Commits:** 4042e08, 98b1911
+
+**Decision.** The "Popular with readers like you" and "Top rated by readers like you" tabs are merged into one "From similar readers" tab. It has three sorts and an Absolute / Relative switch that applies to each:
+- **Popularity:** the similarity-weighted share of the 300 nearest readers who read the book; relative is the lift over the share of all readers who read it, with 5 pseudo-readers added to observed and expected counts.
+- **Their rating:** the neighbors' shrunk average (at least max(5, M/100) of them rated it); relative is how far that average sits above the Goodreads average, shrunk toward 0.
+- **Predicted rating:** the reader's calibrated predicted rating over books any neighbor read; relative subtracts the Goodreads average.
+
+Absolute popularity is now plain reach. The old Popular score divided reach by the square root of the global read rate, a midpoint between the two ends that the switch now offers. Each card's note shows the number being sorted on. Old `tab=popular` / `tab=top-rated` links open the new tab with the matching sort. The Assistant's readers_like_you tool takes the same options.
+
+**Context.** The user asked to condense the two tabs into a single page with Popularity, Rating (from similar users) and Predicted rating sorts, plus "an option to switch between relative and absolute values for all 3 of those", where relative means "books that similar readers rated higher than the Goodreads average or books that are more popular with similar readers than among all readers or books where the predicted rating is much higher than the Goodreads average."
+
+**Alternatives considered.** Keeping the square-root-damped score as "absolute" popularity (proposed by Claude, not chosen: the switch already covers both ends); unsmoothed lift, which puts books two or three neighbors read at the top.
+
+**Why.** The pseudo-reader count (5) and the rating shrinkage (5, as before) were picked by Claude without a measurement; there's no offline evaluation of these lists. For you is unchanged.
