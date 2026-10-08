@@ -1,9 +1,13 @@
 """'Readers like you': nearest training users in ALS user-embedding space, then their actual shelves.
 
-popular:   similarity-weighted share of neighbors who read the book, damped by global popularity
-           (reach / reader_rate^damping) so universally-read books don't dominate.
-top_rated: Bayesian neighbor average rating, requiring >= max(5, M/100) neighbor raters
-           (the old app's max(N/300, 5) idea).
+Per-book scores behind the "From similar readers" list (each absolute, then relative):
+popularity: similarity-weighted share of neighbors who read the book (reach); relative = lift, how many
+            times more of them read it than readers overall would predict, with POP_PRIOR pseudo-readers
+            added to both sides so a book two neighbors read doesn't top the list.
+rating:     Bayesian neighbor average rating, requiring >= max(5, M/100) neighbor raters (the old app's
+            max(N/300, 5) idea); relative = how far that average sits above the Goodreads average,
+            shrunk toward it (0) with the same prior weight.
+The predicted-rating sort lives in the API (it needs the user's calibrated predictions).
 """
 
 import numpy as np
@@ -12,6 +16,8 @@ from goodrec.config import load_config
 from goodrec.core.artifacts import Artifacts
 
 READ_UNRATED = 6
+RATING_PRIOR = 5     # neighbor-weight pseudo-ratings at the prior (item mean, or Goodreads avg for relative)
+POP_PRIOR = 5        # neighbor-weight pseudo-readers added to observed and expected readers (relative popularity)
 
 
 def neighbors(art: Artifacts, u: np.ndarray, m: int) -> tuple[np.ndarray, np.ndarray]:
@@ -22,7 +28,7 @@ def neighbors(art: Artifacts, u: np.ndarray, m: int) -> tuple[np.ndarray, np.nda
     return top, np.maximum(sims[top], 0)
 
 
-def similar_readers(art: Artifacts, u: np.ndarray | None, mask: np.ndarray, limit: int = 40) -> dict | None:
+def similar_readers(art: Artifacts, u: np.ndarray | None) -> dict | None:
     cfg = load_config()["similar_readers"]
     if u is None or art.user_factors is None or art.readers is None:
         return None
@@ -38,35 +44,28 @@ def similar_readers(art: Artifacts, u: np.ndarray | None, mask: np.ndarray, limi
     rated_bin.data[:] = 1
 
     wsum = max(float(w.sum()), 1e-8)
-    reach = np.asarray(read.T @ w).ravel() / wsum                       # weighted share who read it
+    w_read = np.asarray(read.T @ w).ravel()
+    reach = w_read / wsum                                                # weighted share who read it
     pct_read = np.asarray(read.sum(axis=0)).ravel() / m                  # unweighted, for display
+    rate = art.meta.reader_rate.astype(np.float64)                       # share of all readers who read it
+    lift = (w_read + POP_PRIOR) / (rate * wsum + POP_PRIOR)              # observed / expected readers, smoothed
     n_rated = np.asarray(rated_bin.sum(axis=0)).ravel()
     w_rated = np.asarray(rated_bin.T @ w).ravel()
     w_sum_r = np.asarray(rated.T @ w).ravel()
-    mu = art.meta.bayes
-    nbr_avg = (w_sum_r + 5 * mu) / (w_rated + 5)                         # weighted, shrunk to item mean
+    nbr_avg = (w_sum_r + RATING_PRIOR * art.meta.bayes) / (w_rated + RATING_PRIOR)   # weighted, shrunk to item mean
+    gr = art.meta.avg_rating.astype(np.float64)
+    nbr_vs_gr = (w_sum_r - w_rated * gr) / (w_rated + RATING_PRIOR)      # shrunk toward "same as Goodreads"
     raw_avg = np.divide(np.asarray(rated.sum(axis=0)).ravel(), n_rated,
                         out=np.zeros_like(n_rated, dtype=np.float64), where=n_rated > 0)
-
-    pop_score = reach / np.power(np.maximum(art.meta.reader_rate, 1e-6), cfg["pop_damping"])
-    pop_ok = mask & (pct_read > 0)
-    pop_idx = np.flatnonzero(pop_ok)
-    pop_idx = pop_idx[np.argsort(-pop_score[pop_idx])][:limit]
-
     min_raters = max(5, m // 100)
-    tr_ok = mask & (n_rated >= min_raters)
-    tr_idx = np.flatnonzero(tr_ok)
-    tr_idx = tr_idx[np.argsort(-nbr_avg[tr_idx])][:limit]
 
     return {
         "n_neighbors": int(m),
-        "popular": [{"idx": int(i), "pct_read": round(float(pct_read[i]) * 100, 1)} for i in pop_idx],
-        "top_rated": [{"idx": int(i)} for i in tr_idx],
-        # Per-book arrays (all N books): scores for ranking the readers-like-you lists, and the average
+        # Per-book arrays (all N books): scores for ranking the "From similar readers" list, and the average
         # rating among these neighbors shown on every card.
-        "pop_score": pop_score.astype(np.float32),
+        "score": {("popularity", False): reach.astype(np.float32), ("popularity", True): lift.astype(np.float32),
+                  ("rating", False): nbr_avg.astype(np.float32), ("rating", True): nbr_vs_gr.astype(np.float32)},
         "pct_read_all": pct_read.astype(np.float32),
-        "nbr_avg": nbr_avg.astype(np.float32),
         "min_raters": int(min_raters),
         "item_avg": raw_avg.astype(np.float32),
         "item_n": n_rated.astype(np.int32),

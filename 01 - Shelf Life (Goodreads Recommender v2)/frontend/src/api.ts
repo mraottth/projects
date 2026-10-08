@@ -30,7 +30,8 @@ export interface RecBook extends Book {
 }
 
 export interface ReaderBook extends Book {
-  pct_read?: number;
+  pct_read?: number;           // % of similar readers who read it
+  pct_read_overall?: number;   // % of all readers who read it
 }
 
 export interface BookDetail extends Book {
@@ -39,6 +40,8 @@ export interface BookDetail extends Book {
 }
 
 export type SortKey = "match" | "predicted";
+/** From similar readers: what to sort by; each can be absolute or relative (vs all readers / the Goodreads average). */
+export type ReadersSort = "popularity" | "rating" | "predicted";
 export type BrowseSort = "popular" | "rating" | "newest" | "oldest" | "title";
 
 export interface Filters {
@@ -69,8 +72,9 @@ export interface RecResponse {
   to_read_picks: Book[];
   similar_readers: null | {
     n_neighbors: number;
-    popular: ReaderBook[];
-    top_rated: ReaderBook[];
+    sort: ReadersSort;
+    relative: boolean;
+    books: ReaderBook[];
     genres: { genre: string; you: number; similar_readers: number }[];
   };
   meta: { n_ratings: number; sort: SortKey; your_avg: number | null; books_avg: number | null; alpha: number; total_candidates: number; min_ratings_for_readers: number; ms: number };

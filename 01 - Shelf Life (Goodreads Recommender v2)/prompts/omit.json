@@ -44,5 +44,10 @@
  "fe7c091a-178": "operational: a commit, push, merge or deploy request",
  "fe7c091a-179": "environment setup: Claude Code permission settings",
  "fe7c091a-180": "operational: a commit, push, merge or deploy request",
- "fe7c091a-187": "operational: a commit, push, merge or deploy request"
+ "fe7c091a-187": "operational: a commit, push, merge or deploy request",
+ "81e316a2-005": "operational: running the app locally",
+ "81e316a2-006": "operational: a commit, push, merge or deploy request",
+ "81e316a2-007": "operational: a commit, push, merge or deploy request",
+ "81e316a2-008": "environment setup: moving the session to another machine",
+ "fe7c091a-188": "housekeeping: continue a web session locally"
 }

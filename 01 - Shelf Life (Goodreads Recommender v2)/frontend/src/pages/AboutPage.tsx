@@ -199,7 +199,7 @@ export function AboutPage({ go }: { go: (v: "changelog" | "evaluation") => void 
                 </tbody>
               </table>
               <p>The −0.25 margin keeps most of the benefit for about a 4% cost, versus about 10% for a floor exactly at the
-                average. The Popular, Top rated and To-read lists aren&apos;t floored.</p>
+                average. The From similar readers and To-read lists aren&apos;t floored.</p>
               <CodeRefs items={[["blend", "blend()"], ["fame_weight", "fame_weight()"], ["prediction_floor", "prediction_floor()"], ["filter_mask", "filter_mask()"], ["next_in_series", "next_in_series()"], ["recommend", "recommend()"]]} />
             </Tech>
           </dd>
@@ -208,19 +208,27 @@ export function AboutPage({ go }: { go: (v: "changelog" | "evaluation") => void 
           <dt>Readers like you</dt>
           <dd>
             Using the taste model, the app finds the 300 readers whose taste is closest to yours and looks at their
-            actual shelves: &ldquo;Popular&rdquo; is what they read most, and &ldquo;Top rated&rdquo; is what they
-            rated highest. <strong>Why:</strong> seeing what real people like you loved is easy to trust. This unlocks
-            after 5 ratings.
+            actual shelves. &ldquo;From similar readers&rdquo; lists the books they read, sorted by popularity (what
+            they read most), their rating, or your predicted rating. Each sort can be <em>relative</em>: books they read
+            far more often than readers overall, books they rate well above the Goodreads average, or books you&apos;re
+            predicted to like much more than Goodreads readers do. <strong>Why:</strong> seeing what real people like
+            you loved is easy to trust, and the relative view shows what sets readers like you apart. This unlocks after
+            5 ratings.
             <Tech>
               <p>
                 Neighbors are found by cosine similarity between your folded-in ALS vector and the L2-normalized vectors of the
                 149,734 training readers with ≥ 10 ratings. The top M = 300 by cosine <em>s<sub>v</sub></em> are kept, and
                 their actual shelves are used for the lists below.
               </p>
-              <TeX block>{String.raw`\begin{gathered}\mathrm{popular}(j)=\frac{\mathrm{reach}(j)}{\mathrm{globalRate}(j)^{0.5}},\qquad \mathrm{reach}(j)=\frac{\sum_v s_v\,\mathbb{1}[v\text{ read }j]}{\sum_v s_v}\\[6pt] \mathrm{topRated}(j)=\frac{\sum_v s_v\,r_{vj}+5\,\mu_j}{\sum_v s_v+5},\quad\text{shown if}\ \ge\max(5,\,M/100)\ \text{neighbors rated } j\end{gathered}`}</TeX>
+              <TeX block>{String.raw`\begin{gathered}\mathrm{reach}(j)=\frac{R_j}{\sum_v s_v},\quad R_j=\sum_v s_v\,\mathbb{1}[v\text{ read }j],\qquad \mathrm{lift}(j)=\frac{R_j+5}{\mathrm{globalRate}(j)\sum_v s_v+5}\\[6pt] \mathrm{rating}(j)=\frac{\sum_v s_v\,r_{vj}+5\,\mu_j}{\sum_v s_v+5},\qquad \mathrm{ratingVsGoodreads}(j)=\frac{\sum_v s_v\,(r_{vj}-g_j)}{\sum_v s_v+5}\end{gathered}`}</TeX>
+              <p>Sums in the rating formulas run over neighbors who rated <em>j</em>, and the rating sorts only show books at
+                least max(5, M/100) neighbors rated. Popularity sorts by reach (absolute) or lift (relative): how many times
+                more neighbors read the book than the global read rate predicts, with 5 pseudo-readers on both sides so a
+                book two neighbors read doesn&apos;t top the list. The relative rating is the neighbors&apos; average minus
+                the Goodreads average <em>g<sub>j</sub></em>, shrunk toward 0. The predicted sort orders the books any
+                neighbor read by your predicted rating, or (relative) by your predicted rating minus <em>g<sub>j</sub></em>.</p>
               <p>The &ldquo;% of similar readers read it&rdquo; and the &ldquo;Readers like you&rdquo; average on each card are
-                unweighted over the 300 neighbors, so they&apos;re easy to interpret. The damping exponent keeps universally read
-                books from filling the popular list.</p>
+                unweighted over the 300 neighbors, so they&apos;re easy to interpret.</p>
               <CodeRefs items={[["neighbors", "neighbors()"], ["similar_readers", "similar_readers()"]]} />
             </Tech>
           </dd>

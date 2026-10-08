@@ -100,7 +100,6 @@ blend:
 similar_readers:
   n_neighbors: 300
   min_user_ratings: 5
-  pop_damping: 0.5
 
 chat:                       # "Assistant" tab (src/goodrec/api/chat.py); needs ANTHROPIC_API_KEY
   # Two tiers: a quick Haiku call labels each typed message simple/complex (starter buttons carry a fixed tier).

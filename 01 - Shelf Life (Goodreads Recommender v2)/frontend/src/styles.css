@@ -364,7 +364,12 @@ button.chip:hover { background: #f1f0eb; }
 .compare dd { margin: 0; font-weight: 600; color: var(--ink); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .compare-n { font-weight: 400; color: var(--muted); }
 .compare-n.thin { font-style: italic; }
-.sort-row { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; }
+.sort-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; row-gap: 8px; margin: 0 0 12px; }
+.sort-hint { margin: -4px 0 12px; }
+.view-group { display: inline-flex; align-items: center; gap: 10px; margin-left: auto; }
+.compare-check { display: inline-flex; align-items: center; gap: 6px; margin-left: 6px; font-size: 0.85rem; color: var(--ink-2); white-space: nowrap;
+  cursor: pointer; }
+.compare-check input { margin: 0; width: 16px; height: 16px; accent-color: var(--ink); cursor: pointer; }
 .sort-row .flabel { margin: 0; }
 @media (max-width: 640px) {
   .compare { border-top: 0; border-left: 1px solid #d3e3f7; margin: 0; padding: 0 0 0 10px; width: auto; }
@@ -389,7 +394,6 @@ button.chip:hover { background: #f1f0eb; }
 @media (max-width: 640px) { .rank-card { grid-template-columns: 40px 84px minmax(0, 1fr); } }
 
 /* ---------- recommendation map (scatter) */
-.view-label { margin-left: 14px !important; }
 .rec-map { margin: 0; padding: 14px 16px 6px; background: var(--surface-1); border: 1px solid var(--ring); border-radius: 16px; }
 .map-caption { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; font-size: 0.85rem; color: var(--ink-2); margin-bottom: 8px; }
 .map-legend { display: inline-flex; align-items: center; gap: 4px; }
@@ -782,6 +786,9 @@ button.chip:hover { background: #f1f0eb; }
   .tabs button { padding: 10px 11px; }
   .sort-row { flex-wrap: wrap; row-gap: 8px; }
   .sort-row .view-label { margin-left: 0 !important; }
+  .view-group { margin-left: 0; }
+  .sort-row .seg { max-width: 100%; border-radius: 18px; }
+  .sort-row .seg button { white-space: normal; line-height: 1.2; padding: 7px 10px; }
 }
 
 /* ---------- mobile menu: on phones the nav collapses into a drop-down behind the ☰ button (App.tsx) */

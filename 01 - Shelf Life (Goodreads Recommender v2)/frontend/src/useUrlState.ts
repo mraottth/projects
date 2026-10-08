@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { EMPTY_FILTERS, type BrowseSort, type Filters, type SortKey } from "./api";
+import { EMPTY_FILTERS, type BrowseSort, type Filters, type ReadersSort, type SortKey } from "./api";
 
 /**
  * View, tab, sort and filters live in the URL query string, so any view can be bookmarked or shared.
@@ -8,8 +8,10 @@ import { EMPTY_FILTERS, type BrowseSort, type Filters, type SortKey } from "./ap
  */
 export interface UrlState {
   view: "home" | "rate" | "import" | "recs" | "explore" | "yours" | "chat" | "about" | "changelog" | "evaluation";
-  tab: "for-you" | "popular" | "top-rated" | "to-read";
-  sort: SortKey;
+  tab: "for-you" | "similar" | "to-read";
+  sort: SortKey;                 // For you and to-read
+  readersSort: ReadersSort;      // From similar readers
+  relative: boolean;             // From similar readers: relative to all readers / the Goodreads average
   layout: "list" | "map";
   filters: Filters;          // recommendations
   explore: Filters;          // explore page
@@ -26,6 +28,9 @@ const NUM_KEYS = ["year_min", "year_max", "min_avg_rating", "min_ratings_count",
 const LIST_KEYS = ["authors_include", "authors_exclude"] as const;
 const BOOL_KEYS = ["include_children", "include_comics", "include_series_continuations", "include_ya"] as const;
 const BROWSE_SORTS: BrowseSort[] = ["popular", "rating", "newest", "oldest", "title"];
+const READERS_SORTS: ReadersSort[] = ["popularity", "rating", "predicted"];
+// Old links: the Popular and Top rated tabs became sorts of From similar readers.
+const OLD_TABS: Record<string, ReadersSort> = { popular: "popularity", "top-rated": "rating" };
 
 function parseFilters(p: URLSearchParams, defaults: Filters): Filters {
   const f: Filters = { ...defaults };
@@ -51,10 +56,14 @@ function parse(search: string): UrlState {
   const p = new URLSearchParams(search);
   const view = (p.get("view") as UrlState["view"]) ?? "home";
   const bs = p.get("bsort") as BrowseSort;
+  const tab = p.get("tab") ?? "for-you", old = OLD_TABS[tab];
+  const rs = p.get("rsort") as ReadersSort;
   return {
     view,
-    tab: (p.get("tab") as UrlState["tab"]) ?? "for-you",
+    tab: old ? "similar" : (["for-you", "similar", "to-read"].includes(tab) ? tab as UrlState["tab"] : "for-you"),
     sort: p.get("sort") === "predicted" ? "predicted" : "match",
+    readersSort: old ?? (READERS_SORTS.includes(rs) ? rs : "popularity"),
+    relative: p.get("rel") === "1",
     layout: p.get("layout") === "map" ? "map" : "list",
     filters: view === "recs" ? parseFilters(p, EMPTY_FILTERS) : { ...EMPTY_FILTERS },
     explore: view === "explore" ? parseFilters(p, EXPLORE_DEFAULTS) : { ...EXPLORE_DEFAULTS },
@@ -69,6 +78,8 @@ function serialize(s: UrlState): string {
   if (s.view === "recs") {
     if (s.tab !== "for-you") p.set("tab", s.tab);
     if (s.sort !== "match") p.set("sort", s.sort);
+    if (s.readersSort !== "popularity") p.set("rsort", s.readersSort);
+    if (s.relative) p.set("rel", "1");
     if (s.layout !== "list") p.set("layout", s.layout);
     writeFilters(p, s.filters, EMPTY_FILTERS);
   }

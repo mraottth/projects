@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, EMPTY_FILTERS, type Filters, type RecBook, type RecResponse, type SortKey } from "../api";
+import { api, EMPTY_FILTERS, type Filters, type ReaderBook, type ReadersSort, type RecBook, type RecResponse, type SortKey } from "../api";
 import { BookCard, type FilterClick } from "../components/BookCard";
 import { ActiveFilters } from "../components/ActiveFilters";
 import { FilterBar } from "../components/FilterBar";
@@ -11,10 +11,48 @@ import type { UrlState } from "../useUrlState";
 const PAGE = 40;
 const MAP_N = 50;   // how many points fit legibly on the map
 
+const READERS_SORTS: { key: ReadersSort; label: string }[] = [
+  { key: "popularity", label: "Popularity" }, { key: "rating", label: "Rating" }, { key: "predicted", label: "Predicted rating" },
+];
+
+/** One line under the sort controls saying what the From similar readers list is ordered by. */
+function readersHint(sort: ReadersSort, relative: boolean, n: number | undefined): string {
+  const who = n ? `the ${n} readers most like you` : "readers most like you";
+  if (sort === "popularity") return relative
+    ? `Books ${who} read far more often than readers overall: what sets them apart. Weighted toward books more of them read.`
+    : `Books ${who} read most.`;
+  if (sort === "rating") return relative
+    ? `Books ${who} rate furthest above their Goodreads average (at least 5 of them rated it), weighted toward books more of them rated.`
+    : `Books ${who} rated highest (at least 5 of them rated it).`;
+  return relative
+    ? `Books ${who} read that you're predicted to rate furthest above their Goodreads average.`
+    : `Books ${who} read, by the rating we predict you'd give them.`;
+}
+
+const pct = (v: number) => (v >= 10 ? v.toFixed(0) : v >= 0.1 ? v.toFixed(1) : "<0.1");
+const signed = (v: number) => `${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(2)}★`;
+
+/** The card's note for the current sort: the number the list is ordered by, in words. */
+function readersStat(b: ReaderBook, sort: ReadersSort, relative: boolean): string | null {
+  if (sort === "rating" && b.readers_avg != null) return relative
+    ? `Similar readers: ${signed(b.readers_avg - b.avg_rating)} vs Goodreads`
+    : `Similar readers rate it ★${b.readers_avg.toFixed(2)}`;
+  if (sort === "predicted" && relative && b.predicted_rating != null)
+    return `Predicted ${signed(b.predicted_rating - b.avg_rating)} vs Goodreads`;
+  if (b.pct_read == null) return null;
+  return sort === "popularity" && relative && b.pct_read_overall != null
+    ? `${pct(b.pct_read)}% of similar readers read it vs ${pct(b.pct_read_overall)}% of all readers`
+    : `${pct(b.pct_read)}% of similar readers read it`;
+}
+
 interface Props {
   tab: UrlState["tab"];
   sort: SortKey;
   setSort: (s: SortKey) => void;
+  readersSort: ReadersSort;
+  setReadersSort: (s: ReadersSort) => void;
+  relative: boolean;
+  setRelative: (r: boolean) => void;
   layout: UrlState["layout"];
   setLayout: (l: UrlState["layout"]) => void;
   filters: Filters;
@@ -24,7 +62,8 @@ interface Props {
   onOpen: (id: number) => void;
 }
 
-export function RecsPage({ tab, sort, setSort, layout, setLayout, filters, setTab, setFilters, go, onOpen }: Props) {
+export function RecsPage({ tab, sort, setSort, readersSort, setReadersSort, relative, setRelative, layout, setLayout,
+                          filters, setTab, setFilters, go, onOpen }: Props) {
   const shelf = useShelf();
   const [data, setData] = useState<RecResponse | null>(null);
   const [limit, setLimit] = useState(PAGE);
@@ -55,11 +94,12 @@ export function RecsPage({ tab, sort, setSort, layout, setLayout, filters, setTa
     window.addEventListener("resize", updateFade);
     return () => window.removeEventListener("resize", updateFade);
   }, [tab, shelf.count, updateFade]);
-  useEffect(() => setLimit(PAGE), [filters, sort]);
+  useEffect(() => setLimit(PAGE), [filters, sort, readersSort, relative]);
 
-  const [selected, setSelected] = useState<{ book: RecBook; rank: number | undefined } | null>(null);
+  const [selected, setSelected] = useState<{ book: RecBook; rank: number | undefined; stat: string | null } | null>(null);
   const effLimit = layout === "map" ? MAP_N : limit;
-  const body = JSON.stringify({ ...shelf.requestBody(), filters, limit: effLimit, sort });
+  const body = JSON.stringify({ ...shelf.requestBody(), filters, limit: effLimit, sort,
+                                readers_sort: readersSort, readers_relative: relative });
   useEffect(() => {
     if (!shelf.count) return;
     const ctl = new AbortController();
@@ -88,15 +128,12 @@ export function RecsPage({ tab, sort, setSort, layout, setLayout, filters, setTa
   const minReaders = data?.meta.min_ratings_for_readers ?? 5;
   const tabs: { key: UrlState["tab"]; label: string; show: boolean }[] = [
     { key: "for-you", label: "For you", show: true },
-    { key: "popular", label: "Popular with readers like you", show: true },
-    { key: "top-rated", label: "Top rated by readers like you", show: true },
+    { key: "similar", label: "From similar readers", show: true },
     { key: "to-read", label: `From your to-read (${shelf.toRead.length})`, show: shelf.toRead.length > 0 },
   ];
-  const list =
-    tab === "for-you" ? data?.for_you
-      : tab === "popular" ? sr?.popular
-        : tab === "top-rated" ? sr?.top_rated
-          : data?.to_read_picks;
+  const similar = tab === "similar";
+  const list = tab === "for-you" ? data?.for_you : similar ? sr?.books : data?.to_read_picks;
+  const stat = (b: ReaderBook) => (similar ? readersStat(b, readersSort, relative) : null);
 
   return (
     <div className="recs-page">
@@ -131,22 +168,44 @@ export function RecsPage({ tab, sort, setSort, layout, setLayout, filters, setTa
         <section className="recs-main">
           <div className="sort-row">
             <span className="flabel">Sort by</span>
-            <div className="seg" role="group" aria-label="Sort by">
-              <button type="button" className={sort === "match" ? "on" : ""} onClick={() => setSort("match")}>Best match</button>
-              <button type="button" className={sort === "predicted" ? "on" : ""} onClick={() => setSort("predicted")}>
-                Predicted rating
-              </button>
-            </div>
-            <span className="flabel view-label">View</span>
-            <div className="seg" role="group" aria-label="View">
-              <button type="button" className={layout === "list" ? "on" : ""} onClick={() => setLayout("list")}>List</button>
-              <button type="button" className={layout === "map" ? "on" : ""} onClick={() => setLayout("map")}>Map</button>
-            </div>
+            {similar ? (
+              <>
+                <div className="seg" role="group" aria-label="Sort by">
+                  {READERS_SORTS.map((o) => (
+                    <button key={o.key} type="button" className={readersSort === o.key ? "on" : ""}
+                            onClick={() => setReadersSort(o.key)}>{o.label}</button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="seg" role="group" aria-label="Sort by">
+                <button type="button" className={sort === "match" ? "on" : ""} onClick={() => setSort("match")}>Best match</button>
+                <button type="button" className={sort === "predicted" ? "on" : ""} onClick={() => setSort("predicted")}>
+                  Predicted rating
+                </button>
+              </div>
+            )}
+            <span className="view-group">
+              <span className="flabel view-label">View</span>
+              <div className="seg" role="group" aria-label="View">
+                <button type="button" className={layout === "list" ? "on" : ""} onClick={() => setLayout("list")}>List</button>
+                <button type="button" className={layout === "map" ? "on" : ""} onClick={() => setLayout("map")}>Map</button>
+              </div>
+            </span>
+            {similar && (
+              <label className="compare-check"
+                     title={readersSort === "popularity" ? "Rank by how much more often similar readers read a book than readers overall"
+                       : "Rank by how far each rating sits above the book's Goodreads average"}>
+                <input type="checkbox" checked={relative} onChange={(e) => setRelative(e.target.checked)} />
+                Compared to all readers
+              </label>
+            )}
           </div>
+          {similar && sr && <p className="muted small sort-hint">{readersHint(readersSort, relative, sr.n_neighbors)}</p>}
           <ActiveFilters filters={filters} defaults={EMPTY_FILTERS} onChange={setFilters} />
           {error && <p className="error">{error}</p>}
 
-          {(tab === "popular" || tab === "top-rated") && !sr && data && (
+          {similar && !sr && data && (
             <div className="notice">
               Rate at least {minReaders} books to unlock readers-like-you lists (you have {data.meta.n_ratings}).{" "}
               <button type="button" className="link" onClick={() => go("rate")}>Rate more</button>
@@ -155,12 +214,14 @@ export function RecsPage({ tab, sort, setSort, layout, setLayout, filters, setTa
 
           {layout === "map" && list ? (
             <div className={loading ? "loading-fade" : ""}>
-              <RecMap books={list.slice(0, MAP_N)} onSelect={(book, rank) => setSelected({ book: book as RecBook, rank })} />
+              <RecMap books={list.slice(0, MAP_N)}
+                      onSelect={(book, rank) => setSelected({ book: book as RecBook, rank, stat: stat(book) })} />
             </div>
           ) : (
             <ol className={`rank-list${loading ? " loading" : ""}`}>
               {list?.map((b) => (
-                <li key={b.id}><BookCard book={b} rank={b.rank ?? undefined} onOpen={onOpen} onFilter={(f) => setFilters(applyFilterClick(filters, f))} /></li>
+                <li key={b.id}><BookCard book={b} rank={b.rank ?? undefined} stat={stat(b)} onOpen={onOpen}
+                                        onFilter={(f) => setFilters(applyFilterClick(filters, f))} /></li>
               ))}
             </ol>
           )}
@@ -188,15 +249,15 @@ export function RecsPage({ tab, sort, setSort, layout, setLayout, filters, setTa
         </aside>
       </div>
 
-      {selected && <CardPopover book={selected.book} rank={selected.rank} onClose={() => setSelected(null)} onOpen={onOpen}
+      {selected && <CardPopover book={selected.book} rank={selected.rank} stat={selected.stat} onClose={() => setSelected(null)} onOpen={onOpen}
                                 onFilter={(f) => { setSelected(null); setFilters(applyFilterClick(filters, f)); }} />}
     </div>
   );
 }
 
 /** The full recommendation card for a book clicked on the map. */
-function CardPopover({ book, rank, onClose, onOpen, onFilter }: {
-  book: RecBook; rank: number | undefined; onClose: () => void; onOpen: (id: number) => void; onFilter: (f: FilterClick) => void;
+function CardPopover({ book, rank, stat, onClose, onOpen, onFilter }: {
+  book: RecBook; rank: number | undefined; stat: string | null; onClose: () => void; onOpen: (id: number) => void; onFilter: (f: FilterClick) => void;
 }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -207,7 +268,7 @@ function CardPopover({ book, rank, onClose, onOpen, onFilter }: {
     <div className="modal-backdrop" onClick={onClose}>
       <div className="card-popover" role="dialog" aria-modal="true" aria-label={book.title} onClick={(e) => e.stopPropagation()}>
         <button type="button" className="modal-close" onClick={onClose} aria-label="Close">×</button>
-        <BookCard book={book} rank={rank} onOpen={(id) => { onClose(); onOpen(id); }} onFilter={onFilter} />
+        <BookCard book={book} rank={rank} stat={stat} onOpen={(id) => { onClose(); onOpen(id); }} onFilter={onFilter} />
       </div>
     </div>
   );

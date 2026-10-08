@@ -130,11 +130,17 @@ TOOLS = [
                     "each pick, and how similar readers rated it. Use this first for any request for suggestions.",
      "input_schema": {"type": "object", "properties": FILTER_PROPS}},
     {"name": "readers_like_you",
-     "description": "Books that the ~300 readers with the most similar taste read the most ('popular') or rated highest "
-                    "('top_rated'), excluding books the user has read. Same filters as get_recommendations. "
-                    "Needs at least 5 ratings.",
-     "input_schema": {"type": "object", "properties": {"kind": {"type": "string", "enum": ["popular", "top_rated"]}, **FILTER_PROPS},
-                      "required": ["kind"]}},
+     "description": "The 'From similar readers' list: books the ~300 readers with the most similar taste have read, "
+                    "excluding books the user has read. 'order': 'popularity' (most read by them), 'rating' (their "
+                    "average rating) or 'predicted' (the user's predicted rating). 'relative': popularity compared with "
+                    "all readers (books distinctive to readers like them), or ratings compared with the Goodreads "
+                    "average (books they or the user would like more than readers generally). Same filters as "
+                    "get_recommendations. Needs at least 5 ratings.",
+     "input_schema": {"type": "object", "properties": {
+         "order": {"type": "string", "enum": ["popularity", "rating", "predicted"]},
+         "relative": {"type": "boolean", "description": "Default false."},
+         **{k: v for k, v in FILTER_PROPS.items() if k != "sort"}},
+         "required": ["order"]}},
     {"name": "search_catalog",
      "description": "Find books in the catalog (Goodreads, published through 2017) by title/author/keywords. 'books' are "
                     "ones the user hasn't read (with their predicted rating; 'you' marks to-read); 'already_read' are "
@@ -207,7 +213,7 @@ class Toolbox:
         if desc_chars and b.get("description"):
             d = b["description"]
             out["description"] = d if len(d) <= desc_chars else d[:desc_chars].rsplit(" ", 1)[0] + "…"
-        for k in ("rank", "predicted_rating", "readers_avg", "readers_n", "pct_read"):
+        for k in ("rank", "predicted_rating", "readers_avg", "readers_n", "pct_read", "pct_read_overall"):
             if b.get(k) is not None:
                 out[k] = b[k]
         if b.get("because"):
@@ -216,8 +222,9 @@ class Toolbox:
             out["next_in_series"] = True
         return out
 
-    def _rec(self, filters: dict, limit: int, sort: str) -> dict:
-        req = RecommendRequest(**self.base, filters=FilterSpec(**filters), limit=min(max(limit, 1), 20), sort=sort)
+    def _rec(self, filters: dict, limit: int, sort: str, **readers) -> dict:
+        req = RecommendRequest(**self.base, filters=FilterSpec(**filters), limit=min(max(limit, 1), 20), sort=sort,
+                               **readers)
         return api.recommend_route(req)
 
     @staticmethod
@@ -235,13 +242,13 @@ class Toolbox:
         return {"books": books, "matching_total": res["meta"]["total_candidates"],
                 "note": None if books else "No recommendations match these filters; try loosening them."}
 
-    def t_readers_like_you(self, kind: str, **args):
-        f, limit, sort = self._split(args)
-        res = self._rec(f, limit, sort)
+    def t_readers_like_you(self, order: str = "popularity", relative: bool = False, **args):
+        f, limit, _ = self._split(args)
+        res = self._rec(f, limit, "match", readers_sort=order, readers_relative=bool(relative))
         if not res["similar_readers"]:
             return {"error": "Needs at least 5 rated books in the catalog."}
         return {"n_similar_readers": res["similar_readers"]["n_neighbors"],
-                "books": [self._compact(b) for b in res["similar_readers"][kind]]}
+                "books": [self._compact(b) for b in res["similar_readers"]["books"]]}
 
     def t_search_catalog(self, query: str, limit: int = 8):
         hits = self.cat.search(query, min(limit, 10))
