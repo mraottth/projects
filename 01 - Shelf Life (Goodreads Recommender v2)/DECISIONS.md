@@ -793,7 +793,7 @@ Absolute popularity is now plain reach. The old Popular score divided reach by t
 - **Date:** 2026-10-09
 - **Category:** docs
 - **Prompts:** none (the request itself is omitted from the log, as the user asked)
-- **Commits:** see the `docs:` commit adding `prompts/trim.json`
+- **Commits:** df1f4a3, ea01fe8
 
 **Decision.** Prompts that don't affect the product stay out of the Changelog (`prompts/omit.json`), and kept prompts lose purely operational asides through `prompts/trim.json`, which holds each trimmed prompt's public text: "yeah add that note. Don't merge and deploy but spin up a local version for me to check out" becomes "yeah add that note". `export_prompts.py --refresh` (run by the Stop hook) re-applies both lists to every exported session, and `build_changelog.py` applies them again when building the site. Each session's log says how many prompts were shortened.
 
