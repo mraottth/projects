@@ -1,0 +1,11 @@
+{
+ "ec278335-010": "let's make 3 changes. First, let's get a little more spacing between the books as they move across the screen. As it is, they bunch up a bit too much causing distracting overlap. Second, let's add a mouseover tooltip on the options in the top toolbar (e.g. recommendations, assistant, your books, etc.). Just a couple words about what the user can do on each page. Finally, let's take a little bit of the technical detail out of the 'About' page. It should focus most on what models were used, the reasons, why, how they generally work, and the basic results.",
+ "ec278335-014": "wonderful! let's also reduce the amount of time the message is on the screen before the books enter on the Demo option from 1s to 0.75s.",
+ "ec278335-017": "great! a favicon would be great",
+ "ec278335-019": "I noticed that the best match recommendations have some very low predicted scores. I know we fixed that on the For You page. Would implementing the same fix be a frontend only change?",
+ "fe7c091a-039": "Yeah why don't you go ahead and do the budget alert and the search ranking change.",
+ "fe7c091a-075": "Everything looks good",
+ "fe7c091a-077": "I'd prefer the headers to not be links. The formatting before was good as it was. You can remove \"Data science and machine learning projects, most substantial first. Start with Shelf Life, a deployed book recommender you can try live.\" Finally the screenshot for Shelf Life can be the homepage with the book wall",
+ "fe7c091a-167": "Yep go ahead and do that! While you're at it, let's change the format of the evaluation timeline so that the 2023 baseline is actually just another point in the line (styled differently to make it clear it's pre-v1).",
+ "fe7c091a-189": "yeah add that note"
+}

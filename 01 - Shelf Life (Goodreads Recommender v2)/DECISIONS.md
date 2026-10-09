@@ -397,7 +397,7 @@ Categories: `ui` · `model` · `eval` · `data` · `assistant` · `infra` · `do
 ## D-036 · Log every prompt, decision and commit in the open
 - **Date:** 2026-10-03
 - **Category:** docs
-- **Prompts:** fe7c091a-090, fe7c091a-091, fe7c091a-092
+- **Prompts:** fe7c091a-090, fe7c091a-091
 
 **Decision.** Export each conversation with Claude Code to `prompts/` (automatically, via a hook), keep this file, and show both with the commits on a public changelog page. Sessions run in Claude Code on the web are imported with `claude --teleport` and the same exporter. Commits from here on are small, with messages of the form `category: summary`.
 
@@ -781,10 +781,24 @@ The popularity and book-average baselines stay as dashed lines ("Baseline: Popul
 - **Rating:** the neighbors' shrunk average (at least max(5, M/100) of them rated it); relative is how far that average sits above the Goodreads average, shrunk toward 0.
 - **Predicted rating:** the reader's calibrated predicted rating over books any neighbor read; relative subtracts the Goodreads average.
 
-Absolute popularity is now plain reach. The old Popular score divided reach by the square root of the global read rate, a midpoint between the two ends that the switch now offers. Each card's note shows the number being sorted on. Old `tab=popular` / `tab=top-rated` links open the new tab with the matching sort. The Assistant's readers_like_you tool takes the same options.
+Absolute popularity is now plain reach. The old Popular score divided reach by the square root of the global read rate, a midpoint between the two ends that the switch now offers. Each card's note shows the number being sorted on. Because the relative popularity and rating scores are damped, the order can differ from those raw numbers (e.g. +0.51★ from 57 readers above +1.0★ from 5), so with the checkbox on the line above the list says the order is weighted toward books more of them read or rated (fe7c091a-189, after Claude flagged it while checking the lists on the demo library). Old `tab=popular` / `tab=top-rated` links open the new tab with the matching sort. The Assistant's readers_like_you tool takes the same options.
 
 **Context.** The user asked to condense the two tabs into a single page with Popularity, Rating (from similar users) and Predicted rating sorts, plus "an option to switch between relative and absolute values for all 3 of those", where relative means "books that similar readers rated higher than the Goodreads average or books that are more popular with similar readers than among all readers or books where the predicted rating is much higher than the Goodreads average."
 
 **Alternatives considered.** An Absolute / Relative segmented switch (the first version; the user found it "a little confusing" and asked for absolute by default with a button for the relative view, with clearer wording); a per-sort button ("Compare to all readers" / "Compare to Goodreads average"; the user then chose the single checkbox wording). Keeping the square-root-damped score as "absolute" popularity (proposed by Claude, not chosen: the switch already covers both ends); unsmoothed lift, which puts books two or three neighbors read at the top.
 
 **Why.** The pseudo-reader count (5) and the rating shrinkage (5, as before) were picked by Claude without a measurement; there's no offline evaluation of these lists. For you is unchanged.
+
+## D-058 · Keep only the product-relevant part of each prompt in the public log
+- **Date:** 2026-10-09
+- **Category:** docs
+- **Prompts:** none (the request itself is omitted from the log, as the user asked)
+- **Commits:** df1f4a3, ea01fe8
+
+**Decision.** Prompts that don't affect the product stay out of the Changelog (`prompts/omit.json`), and kept prompts lose purely operational asides through `prompts/trim.json`, which holds each trimmed prompt's public text: "yeah add that note. Don't merge and deploy but spin up a local version for me to check out" becomes "yeah add that note". `export_prompts.py --refresh` (run by the Stop hook) re-applies both lists to every exported session, and `build_changelog.py` applies them again when building the site. Each session's log says how many prompts were shortened.
+
+Applied to 9 prompts (requests to commit, push, merge or deploy, to work on a new branch or not merge, a commit-message wording note, a deployment-instructions question). Also omitted: the question about moving a web session to another laptop (81e316a2-008, listed in omit.json but still shown because that session's file had never been regenerated) and a request to import a web session's prompts (fe7c091a-092).
+
+**Context.** The user asked to remove prompts like "how to move this session to another laptop?" and "any part of a prompt that just says things like 'push, merge, and deploy'", and that the request itself not be included.
+
+**Alternatives considered.** Editing the exported files by hand (overwritten on the next export); dropping whole prompts that mix product and operational text (loses the product request). Kept as is: "what would I need to do to deploy this?" (fe7c091a-035), which started the Cloud Run hosting work, and the question confirming the live site wouldn't change during the data experiment (fe7c091a-162), which shaped the experiment's isolation.
