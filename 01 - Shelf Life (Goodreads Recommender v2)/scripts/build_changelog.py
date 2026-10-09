@@ -77,12 +77,16 @@ def categorize_commit(c: dict, labels: dict) -> list[str]:
 
 def load_prompts(folder: Path) -> list[dict]:
     labels = load_json(folder / "categories.json", {})
+    # export_prompts.py applies these when it writes prompts/; re-applied here so the site can't lag behind them.
+    omit, cuts = load_json(folder / "omit.json", {}), load_json(folder / "trim.json", {})
     prompts = []
     for f in sorted(folder.glob("*.json")):
-        if f.name in ("categories.json", "commit_categories.json", "omit.json", "milestones.json"):
+        if f.name in ("categories.json", "commit_categories.json", "omit.json", "trim.json", "milestones.json"):
             continue
         for e in load_json(f, {}).get("entries", []):
-            e = dict(e)
+            if e["id"] in omit:
+                continue
+            e = dict(e, text=cuts.get(e["id"], e["text"]))
             e["categories"] = labels.get(e["id"], ["uncategorized"])
             prompts.append(e)
     return sorted(prompts, key=lambda e: e["time"] or "")
