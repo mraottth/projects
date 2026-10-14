@@ -7,5 +7,6 @@
  "fe7c091a-075": "Everything looks good",
  "fe7c091a-077": "I'd prefer the headers to not be links. The formatting before was good as it was. You can remove \"Data science and machine learning projects, most substantial first. Start with Shelf Life, a deployed book recommender you can try live.\" Finally the screenshot for Shelf Life can be the homepage with the book wall",
  "fe7c091a-167": "Yep go ahead and do that! While you're at it, let's change the format of the evaluation timeline so that the 2023 baseline is actually just another point in the line (styled differently to make it clear it's pre-v1).",
- "fe7c091a-189": "yeah add that note"
+ "fe7c091a-189": "yeah add that note",
+ "fe7c091a-193": "Can you update the demo file to the attached csv?"
 }
