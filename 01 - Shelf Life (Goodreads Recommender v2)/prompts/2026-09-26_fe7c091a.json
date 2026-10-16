@@ -1405,6 +1405,31 @@
    "id": "fe7c091a-189",
    "session": "fe7c091a",
    "trimmed": true
+  },
+  {
+   "time": "2026-10-14T12:42:01.015Z",
+   "kind": "prompt",
+   "text": "Can you update the demo file to the attached csv?",
+   "reply": "The demo now uses your new Goodreads export, and it's merged into `main` and live as revision **goodrec-00032**.\n\n**What changed in the demo library:**\n- *Gone with the Wind* moved from to-read to read, rated 5★.\n- The two *Shōgun* volumes are now a single edition, still rated 4★.\n- Five books joined the to-read shelf: *Martin Eden*, *The Green Mile*, *The Harafish*, *Midnight in Chernobyl* and *The AGI Chronicles*.\n\n**Checks:**\n- **Live demo:** it loads 171 rated books and 248 to-read books that match the catalog, including *Gone with the Wind* at 5★. The rated count is unchanged because *Gone with the Wind* was added and the two *Shōgun* volumes now count as one.\n- **Tests:** all 111 pass.\n- **Private content:** the export has no reviews or private notes, so nothing personal beyond ratings and shelves went public.\n\n**Prompt log:** I logged this request trimmed to \"Can you update the demo file to the attached csv?\", leaving out the merge-and-deploy part as we agreed last time.",
+   "id": "fe7c091a-193",
+   "session": "fe7c091a",
+   "trimmed": true
+  },
+  {
+   "time": "2026-10-16T01:07:23.482Z",
+   "kind": "prompt",
+   "text": "[screenshot]\n\nThe types of logs in this screenshot from the product timeline page don't really add anything. We can collapse them into something that's hidden by default but expandable if the user wants. Give me three ideas for a name to categorize them",
+   "reply": "Three name ideas for the collapsed group:\n\n1. **\"Housekeeping\"** (my pick): short, familiar, and makes clear these entries are upkeep rather than product changes. It would sit on a collapsed row like \"▸ 6 housekeeping commits\".\n2. **\"Behind the scenes\"**: friendlier for a public page, though it slightly suggests something interesting is hidden.\n3. **\"Record-keeping\"**: the most literal, since most of these commits log prompts or link decisions. It doesn't fit as well if other kinds of minor commits end up in the group later.\n\n**What goes in the group:** I'd fold in commits that aren't attached to a shown prompt, collapsed per day. That covers the prompt-log commits, decision-link fixes and merges.\n\n**The \"refresh the demo library\" commit doesn't belong here.** It only appears on its own because I deployed before that prompt had been written to the log. Its prompt (\"Can you update the demo file to the attached csv?\") is logged now, so on the next deploy the commit will sit under its prompt like the others.\n\nTell me which name you'd like, and I'll build it on a branch with the group collapsed by default.",
+   "id": "fe7c091a-194",
+   "session": "fe7c091a"
+  },
+  {
+   "time": "2026-10-16T01:08:31.204Z",
+   "kind": "prompt",
+   "text": "yeah Housekeeping is good - let's do that",
+   "reply": "The Housekeeping rows are in and running at **http://localhost:8000/?view=changelog**. They're pushed on `br-housekeeping`, not merged or deployed.\n\n- **Under a prompt:** commits that only update the prompt log fold into a grey \"▸ Housekeeping · 1 commit\" line at the bottom of that prompt's card. The real commits stay visible above it.\n- **Commits with no prompt shown:** a day's run of them becomes one slim row. The five commits from your screenshot on Oct 9 now show as \"▸ Housekeeping · 5 commits\".\n- **Expanding:** clicking a row shows the commits as before. While you're searching, the rows open automatically so matching commits aren't hidden.\n\nThere are 42 of these rows across the log, and I checked them on the page with no errors.\n\nAnything with no prompt shown goes into Housekeeping, even if it's a real change. That covers the prompt-trimming commits from Oct 9, whose prompt you asked to omit. Today every such commit is record-keeping, so it fits. The catch is a future substantive commit made without a logged prompt, which would land there too.\n\nSay the word and I'll merge and deploy.",
+   "id": "fe7c091a-195",
+   "session": "fe7c091a"
   }
  ]
 }

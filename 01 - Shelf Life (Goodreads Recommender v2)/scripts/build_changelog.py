@@ -57,9 +57,12 @@ def git_commits(repo: Path = REPO) -> list[dict]:
     for rec in out.split(SEP_REC)[1:]:
         full, short, when, author, subject, body, files = rec.split(SEP_FIELD)
         session = re.search(r"^Claude-Session:\s*(\S+)", body, re.M)
+        paths = [f for f in files.split("\n") if f.strip()]
         commits.append({
             "hash": full, "short": short, "time": when, "author": author, "subject": redact(subject.strip()),
-            "body": redact(TRAILER.sub("", body).strip()), "files": len([f for f in files.split("\n") if f.strip()]),
+            "body": redact(TRAILER.sub("", body).strip()), "files": len(paths),
+            # Only touches prompts/ (prompt-log updates, labels): the Changelog folds these into "Housekeeping".
+            "housekeeping": bool(paths) and all(f.split("/")[1:2] == ["prompts"] for f in paths),
             "web_session": bool(session), "url": f"{GITHUB}/commit/{full}",
         })
     return commits
