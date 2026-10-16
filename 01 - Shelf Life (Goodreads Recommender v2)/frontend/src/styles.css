@@ -1158,3 +1158,9 @@ button.chip:hover { background: #f1f0eb; }
 /* Changelog intro: the prompt / commit / decision counts */
 .cl-stat { white-space: nowrap; font-weight: 700; color: var(--ink); padding: 1px 4px; border-radius: 4px; box-decoration-break: clone;
   -webkit-box-decoration-break: clone; background: color-mix(in srgb, var(--star) 20%, transparent); }
+
+/* Changelog: record-keeping commits folded into a collapsed "Housekeeping" row */
+.cl-housekeeping > summary { cursor: pointer; color: var(--muted); font-size: 0.88rem; font-weight: 600; }
+.cl-housekeeping[open] > summary { margin-bottom: 6px; }
+.cl-housekeeping.nested { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--ring); }
+.cl-card.cl-standalone:has(> .cl-housekeeping:not([open])) { padding: 9px 18px; box-shadow: none; background: transparent; }

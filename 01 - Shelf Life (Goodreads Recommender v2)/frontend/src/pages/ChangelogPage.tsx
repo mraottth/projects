@@ -12,6 +12,7 @@ import { MilestoneTimeline, type Milestone } from "../components/MilestoneTimeli
 interface Commit {
   hash: string; short: string; time: string; subject: string; body: string; files: number;
   web_session: boolean; url: string; categories: string[]; prompt: string | null;
+  housekeeping: boolean;          // only touches prompts/ (prompt-log updates)
 }
 interface Prompt {
   id: string; time: string; kind: "prompt" | "answer" | "plan-comment" | "plan-feedback"; text: string;
@@ -66,8 +67,19 @@ function CommitRow({ c }: { c: Commit }) {
   );
 }
 
-function PromptCard({ p, showCommits = true }: { p: Prompt; showCommits?: boolean }) {
-  const commits = p.commits.map((s) => commitByShort.get(s)).filter((c): c is Commit => !!c);
+// Record-keeping commits (prompt-log updates, and commits whose prompt isn't shown), collapsed by default.
+function Housekeeping({ commits, open, nested = false }: { commits: Commit[]; open: boolean; nested?: boolean }) {
+  return (
+    <details className={`cl-housekeeping${nested ? " nested" : ""}`} open={open}>
+      <summary>Housekeeping · {commits.length} commit{commits.length === 1 ? "" : "s"}</summary>
+      {commits.map((c) => <CommitRow key={c.hash} c={c} />)}
+    </details>
+  );
+}
+
+function PromptCard({ p, showCommits = true, openHousekeeping = false }: { p: Prompt; showCommits?: boolean; openHousekeeping?: boolean }) {
+  const all = p.commits.map((s) => commitByShort.get(s)).filter((c): c is Commit => !!c);
+  const commits = all.filter((c) => !c.housekeeping), chores = all.filter((c) => c.housekeeping);
   return (
     <article id={p.id} className="cl-card">
       <header className="cl-card-head">
@@ -100,6 +112,7 @@ function PromptCard({ p, showCommits = true }: { p: Prompt; showCommits?: boolea
           {commits.map((c) => <CommitRow key={c.hash} c={c} />)}
         </div>
       )}
+      {showCommits && chores.length > 0 && <Housekeeping commits={chores} open={openHousekeeping} nested />}
       {!showCommits && p.commits.length > 0 && (
         <p className="muted small">Commits: {p.commits.map((s) => <a key={s} className="cl-hash" href={commitByShort.get(s)?.url}>{s} </a>)}</p>
       )}
@@ -196,7 +209,15 @@ export function ChangelogPage() {
       ...commits.filter((c) => !c.prompt || !shownPrompts.has(c.prompt)).map((c) => ({ kind: "commit" as const, c, t: c.time })),
     ];
     items.sort((a, b) => (newest ? -1 : 1) * (new Date(a.t).getTime() - new Date(b.t).getTime()));
-    return items;
+    // Consecutive same-day commits without a shown prompt fold into one Housekeeping group.
+    const out: ({ kind: "prompt"; p: Prompt; t: string } | { kind: "chores"; cs: Commit[]; t: string })[] = [];
+    for (const it of items) {
+      const last = out[out.length - 1];
+      if (it.kind === "prompt") out.push(it);
+      else if (last?.kind === "chores" && dayKey(last.t) === dayKey(it.t)) last.cs.push(it.c);
+      else out.push({ kind: "chores", cs: [it.c], t: it.t });
+    }
+    return out;
   }, [prompts, commits, newest]);
 
   const counts = useMemo(() => {
@@ -257,9 +278,10 @@ export function ChangelogPage() {
             const header = d !== lastDay ? <h2 className="cl-day">{fmtDay(it.t)}</h2> : null;
             lastDay = d;
             return (
-              <div key={it.kind === "prompt" ? it.p.id : it.c.hash}>
+              <div key={it.kind === "prompt" ? it.p.id : it.cs[0].hash}>
                 {header}
-                {it.kind === "prompt" ? <PromptCard p={it.p} /> : <div className="cl-card cl-standalone"><CommitRow c={it.c} /></div>}
+                {it.kind === "prompt" ? <PromptCard p={it.p} openHousekeeping={!!q.trim()} />
+                  : <div className="cl-card cl-standalone"><Housekeeping commits={it.cs} open={!!q.trim()} /></div>}
               </div>
             );
           })}
