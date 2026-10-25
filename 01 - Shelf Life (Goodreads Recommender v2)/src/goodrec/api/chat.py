@@ -386,7 +386,9 @@ def library_digest(shelf: ChatShelf) -> str:
 
     def line(b: dict) -> str:
         rev = " (reviewed)" if b["id"] in shelf.reviews else ""
-        return f"- {b['title']} — {b['author']} ({b['year'] or '?'}) [id {b['id']}]{rev}"
+        mine = rated.get(b["id"])
+        exact = f" [rated {mine}★]" if mine is not None and not float(mine).is_integer() else ""
+        return f"- {b['title']} — {b['author']} ({b['year'] or '?'}) [id {b['id']}]{exact}{rev}"
 
     parts = ["# This reader's library"]
     if not rated and not shelf.outside:
@@ -402,11 +404,13 @@ def library_digest(shelf: ChatShelf) -> str:
                         for g in ins["genres"][:10])
         parts.append(f"Books by genre: {top}.")
         full = len(rated) <= CFG["library_max_lines"]
-        for stars in sorted(set(rated.values()), reverse=True):   # whole stars, plus any decimal ratings (4.5)
-            ids = [i for i, r in rated.items() if r == stars and i in books]
+        # Whole-star bands: a decimal rating (Goodreads allows e.g. 4.3) sits in its band with its exact value on the line.
+        for stars in (5, 4, 3, 2, 1):
+            ids = [i for i, r in rated.items() if min(int(r), 5) == stars and i in books]
             if not ids:
                 continue
-            parts.append(f"\n## Rated {stars}★ ({len(ids)})")
+            band = stars if stars == 5 or all(float(rated[i]).is_integer() for i in ids) else f"{stars}–{stars}.9"
+            parts.append(f"\n## Rated {band}★ ({len(ids)})")
             if full or stars != 3:
                 parts.extend(line(books[i]) for i in ids)
             else:

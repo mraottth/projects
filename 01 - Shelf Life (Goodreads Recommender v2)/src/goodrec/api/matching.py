@@ -41,15 +41,15 @@ def export_date(text: str | None) -> str | None:
 
 
 def parse_rating(raw: str | None) -> float:
-    """Goodreads "My Rating" (0 = unrated). Newer exports allow decimals ("4.5"); they're kept, not rounded to whole
-    stars, since a 4.5 says something a 4 or a 5 doesn't. Anything above 0 is clamped to the 1-5 scale the models use."""
+    """Goodreads "My Rating" (0 = unrated). Newer exports allow any decimal ("4.5", "3.7", "4.25"); it's kept exactly,
+    not rounded, since a 4.5 says something a 4 or a 5 doesn't. Anything above 0 is clamped to the 1-5 scale the models use."""
     try:
         r = float(raw or 0)
     except ValueError:
         return 0
     if not r > 0:                  # 0, negative or NaN: unrated
         return 0
-    r = round(min(5.0, max(1.0, r)), 2)
+    r = min(5.0, max(1.0, r))
     return int(r) if r.is_integer() else r
 
 

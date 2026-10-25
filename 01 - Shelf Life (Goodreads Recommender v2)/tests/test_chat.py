@@ -207,5 +207,5 @@ def test_model_routing(client):  # noqa: F811
 def test_library_digest_lists_decimal_ratings(client):  # noqa: F811
     from goodrec.api.chat import ChatShelf, library_digest
     hobbit = client.get("/api/search", params={"q": "The Hobbit Tolkien"}).json()[0]["id"]
-    text = library_digest(ChatShelf(ratings=[{"id": hobbit, "rating": 4.5}]))
-    assert "## Rated 4.5★ (1)" in text
+    text = library_digest(ChatShelf(ratings=[{"id": hobbit, "rating": 4.3}]))
+    assert "## Rated 4–4.9★ (1)" in text and "[rated 4.3★]" in text      # any decimal: banded, exact value kept

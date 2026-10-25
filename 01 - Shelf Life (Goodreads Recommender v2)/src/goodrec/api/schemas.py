@@ -2,7 +2,7 @@ from typing import Annotated, Literal
 
 from pydantic import AfterValidator, BaseModel, Field
 
-# A star rating. Goodreads now allows decimals (4.5) and they're kept; whole values stay ints (5, not 5.0) so responses,
+# A star rating. Goodreads now allows any decimal (4.5, 3.7, 4.25) and it's kept exactly; whole values stay ints (5, not 5.0) so responses,
 # cache keys and the Assistant's text read as before. The training data is whole stars.
 Stars = Annotated[float, AfterValidator(lambda v: int(v) if float(v).is_integer() else v)]
 

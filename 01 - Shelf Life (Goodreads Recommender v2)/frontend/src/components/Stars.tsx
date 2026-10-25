@@ -9,7 +9,7 @@ interface Props {
 }
 
 /** Interactive 1-5 star rating; click the current value again to clear. Clicking sets whole stars; a decimal rating
- *  from a Goodreads import (4.5) shows as a partly filled star. */
+ *  from a Goodreads import (any value, e.g. 4.5 or 3.7) shows as a partly filled star with the exact number beside it. */
 export function Stars({ value, onChange, size = "md", label = "Rate" }: Props) {
   const [hover, setHover] = useState(0);
   const shown = hover || value;
@@ -28,6 +28,7 @@ export function Stars({ value, onChange, size = "md", label = "Rate" }: Props) {
         </button>
         );
       })}
+      {!hover && value % 1 !== 0 && <span className="stars-value">{value}</span>}
     </div>
   );
 }

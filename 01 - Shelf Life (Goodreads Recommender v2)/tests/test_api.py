@@ -536,7 +536,7 @@ def test_parse_rating_keeps_decimals():
     assert parse_rating("4.5") == 4.5 and parse_rating("5.0") == 5 and isinstance(parse_rating("5.0"), int)
     assert parse_rating("0") == 0 and parse_rating("") == 0 and parse_rating(None) == 0 and parse_rating("n/a") == 0
     assert parse_rating("0.5") == 1 and parse_rating("7") == 5           # clamped to the models' 1-5 scale
-    assert parse_rating("3.75") == 3.75
+    assert parse_rating("3.75") == 3.75 and parse_rating("4.3") == 4.3 and parse_rating("4.333") == 4.333   # kept exactly
 
 
 def test_decimal_ratings_through_import_and_models(client):
@@ -555,7 +555,8 @@ def test_decimal_ratings_through_import_and_models(client):
     with open(FIXTURE, "rb") as f:
         rated = client.post("/api/import", files={"file": ("export.csv", f, "text/csv")}).json()["rated"]
     whole = [{"id": r["id"], "rating": r["rating"]} for r in rated]
-    halves = [{**r, "rating": r["rating"] - 0.5} if r["rating"] >= 4 else r for r in whole]
+    decimals = [0.5, 0.3, 0.7, 0.25, 0.9]                      # any decimal, not only halves
+    halves = [{**r, "rating": r["rating"] - decimals[k % 5]} if r["rating"] >= 4 else r for k, r in enumerate(whole)]
     for path in ("/api/recommend", "/api/insights"):
         assert client.post(path, json={"ratings": halves}).status_code == 200
     a = client.post("/api/recommend", json={"ratings": whole, "limit": 20}).json()["for_you"]
@@ -566,6 +567,7 @@ def test_decimal_ratings_through_import_and_models(client):
     conf = {5: 1.0, 4: 0.7, 3: 0.3, 0: 0.2}
     assert rating_confidence(conf, 4.5) == np.float64(0.85) and rating_confidence(conf, 4) == 0.7
     assert rating_confidence(conf, 2.5) == 0.15 and rating_confidence(conf, 1) == 0.0
+    assert abs(rating_confidence(conf, 4.3) - 0.79) < 1e-9 and abs(rating_confidence(conf, 3.25) - 0.4) < 1e-9
 
     # Calibration's star histogram splits a 4.5 between 4 and 5 rather than dropping or rounding it.
     art, prior = state["art"], state["population"]["rating_dist"]
@@ -574,3 +576,5 @@ def test_decimal_ratings_through_import_and_models(client):
     whole4 = calibration(art, UserInput(ratings={i: 4 for i in range(30)}), prior)[1]
     whole5 = calibration(art, UserInput(ratings={i: 5 for i in range(30)}), prior)[1]
     assert whole4.mean() < y.mean() < whole5.mean()
+    y43 = calibration(art, UserInput(ratings={i: 4.3 for i in range(30)}), prior)[1]
+    assert whole4.mean() < y43.mean() < y.mean()                   # 4.3 sits between 4 and 4.5
