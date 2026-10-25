@@ -404,12 +404,12 @@ def library_digest(shelf: ChatShelf) -> str:
                         for g in ins["genres"][:10])
         parts.append(f"Books by genre: {top}.")
         full = len(rated) <= CFG["library_max_lines"]
-        # Whole-star bands: a decimal rating (Goodreads allows e.g. 4.3) sits in its band with its exact value on the line.
+        # Whole-star bands: a quarter-star rating (e.g. 4.25) sits in its band with its exact value on the line.
         for stars in (5, 4, 3, 2, 1):
             ids = [i for i, r in rated.items() if min(int(r), 5) == stars and i in books]
             if not ids:
                 continue
-            band = stars if stars == 5 or all(float(rated[i]).is_integer() for i in ids) else f"{stars}–{stars}.9"
+            band = stars if stars == 5 or all(float(rated[i]).is_integer() for i in ids) else f"{stars}–{stars}.75"
             parts.append(f"\n## Rated {band}★ ({len(ids)})")
             if full or stars != 3:
                 parts.extend(line(books[i]) for i in ids)

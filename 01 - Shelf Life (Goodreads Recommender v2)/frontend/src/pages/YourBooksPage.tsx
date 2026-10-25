@@ -8,7 +8,7 @@ import { GenreTable, InsightTiles } from "../components/Insights";
 import { formatCount, Stars } from "../components/Stars";
 import { useShelf } from "../store";
 
-type RatingFilter = "all" | number | "unrated";   // number: a whole-star band (4 = 4 to 4.9)
+type RatingFilter = "all" | number | "unrated";   // number: a whole-star band (4 = 4 to 4.75)
 type YourSort = "yours" | "loved-more" | "loved-less" | "goodreads" | "year" | "title";
 const SORTS: { key: YourSort; label: string }[] = [
   { key: "yours", label: "Your rating" },
@@ -69,10 +69,10 @@ export function YourBooksPage({ go, onOpen }: { go: (v: "rate" | "import") => vo
   const rated = rows.filter((r) => r.mine > 0);
   const yourAvg = rated.length ? rated.reduce((s, r) => s + r.mine, 0) / rated.length : null;
   const grAvg = rated.length ? rated.reduce((s, r) => s + r.book.avg_rating, 0) / rated.length : null;
-  // Whole-star bands: Goodreads now allows any decimal rating (4.5, 3.7), so 4 covers 4 to 4.9.
+  // Whole-star bands: Goodreads now allows quarter stars (4.25, 4.5, 4.75), so 4 covers 4 to 4.75.
   const band = (r: number) => Math.min(5, Math.floor(r));
   const levels = [5, 4, 3, 2, 1];
-  const bandLabel = (s: number) => (s < 5 && rated.some((r) => band(r.mine) === s && r.mine % 1) ? `${s}–${s}.9★` : `${s}★`);
+  const bandLabel = (s: number) => (s < 5 && rated.some((r) => band(r.mine) === s && r.mine % 1) ? `${s}–${s}.75★` : `${s}★`);
   const dist = levels.map((s) => ({ stars: s, n: rated.filter((r) => band(r.mine) === s).length }));
   const maxN = Math.max(1, ...dist.map((d) => d.n));
   const genreCounts = Object.entries(rows.reduce<Record<string, number>>((acc, r) => {

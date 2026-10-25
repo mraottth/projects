@@ -456,7 +456,7 @@ button.chip:hover { background: #f1f0eb; }
 .dist-row { display: grid; grid-template-columns: var(--dist-label, 28px) 1fr 30px; align-items: center; gap: 8px; background: none; border: 0; padding: 2px 4px; border-radius: 6px; }
 .dist-row:hover, .dist-row.on { background: #eef4fc; }
 .dist-label { font-size: 0.78rem; color: var(--ink-2); text-align: right; white-space: nowrap; }
-.dist-chart.banded { --dist-label: 46px; }   /* "4–4.9★" labels when decimal ratings are present */
+.dist-chart.banded { --dist-label: 54px; }   /* "4–4.75★" labels when quarter-star ratings are present */
 .dist-track { height: 12px; }
 .dist-bar { display: block; height: 100%; min-width: 2px; background: var(--series-1); border-radius: 0 4px 4px 0; }
 .dist-n { font-size: 0.78rem; color: var(--ink-2); text-align: left; font-variant-numeric: tabular-nums; }
