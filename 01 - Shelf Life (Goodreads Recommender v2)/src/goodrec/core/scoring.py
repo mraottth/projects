@@ -111,13 +111,20 @@ def recency_from_dates(ratings, dates: dict[int, int] | None, half_life: float |
     return {i: float(0.5 ** (k / half_life)) for i, k in zip(ratings, later)}
 
 
+def rating_confidence(confidence: dict[int, float], r: float) -> float:
+    """ALS confidence for a rating; a decimal rating (4.5) interpolates between its whole-star neighbours."""
+    lo = int(np.floor(r))
+    f = r - lo
+    return confidence.get(lo, 0.0) if f == 0 else (1 - f) * confidence.get(lo, 0.0) + f * confidence.get(lo + 1, 0.0)
+
+
 def fold_in(art: Artifacts, user: UserInput, p: Params) -> np.ndarray | None:
     """Solve the ALS user vector for a new user given fixed item factors (implicit's recalculate_user).
     With dates and a recency half-life, each rating's confidence boost is scaled by its recency weight."""
     items, conf = [], []
     rec = recency_from_dates(user.ratings, user.dates, p.recency_half_life)
     for i, r in user.ratings.items():
-        g = p.confidence.get(int(r), 0.0) * rec.get(i, 1.0)
+        g = rating_confidence(p.confidence, r) * rec.get(i, 1.0)
         if g > 0:
             items.append(i)
             conf.append(1 + p.alpha * g)
@@ -589,9 +596,15 @@ def calibration(art: Artifacts, user: UserInput, prior: np.ndarray) -> tuple[np.
     if n < CALIB_MIN_RATINGS or art.rating_calibration == "none":
         return None
     ri = np.fromiter(user.ratings, dtype=np.int64)
-    rv = np.fromiter(user.ratings.values(), dtype=np.int64)
+    rv = np.fromiter(user.ratings.values(), dtype=np.float64)
     ref = predict_ratings(art, user, ri).astype(np.float64)
-    counts = np.bincount(rv, minlength=6)[1:].astype(np.float64) + CALIB_PRIOR_WEIGHT * np.asarray(prior, dtype=np.float64)
+    # Star histogram; a decimal rating splits between its two neighbouring stars (4.5 = half a 4, half a 5).
+    lo = np.clip(np.floor(rv).astype(np.int64), 1, 5)
+    frac = np.clip(rv - lo, 0, 1)
+    hist = np.zeros(7)
+    np.add.at(hist, lo, 1 - frac)
+    np.add.at(hist, lo + 1, frac)
+    counts = hist[1:6] + CALIB_PRIOR_WEIGHT * np.asarray(prior, dtype=np.float64)
     x = np.maximum.accumulate(np.quantile(ref, _CALIB_Q)) + np.arange(len(_CALIB_Q)) * 1e-6   # strictly increasing
     y = _target_quantiles(counts, _CALIB_Q)
     return x, y, n / (n + CALIB_PRIOR_WEIGHT)

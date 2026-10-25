@@ -65,7 +65,7 @@ export function ImportPage({ toRecs }: { toRecs: (covers: FlowBook[], body: obje
           </p>
           <div className="cover-strip">
             {res.rated.slice(0, 24).map((b) => (
-              <div key={b.id} className="strip-item" title={`${b.title} — ${"★".repeat(b.rating)}`}>
+              <div key={b.id} className="strip-item" title={`${b.title} — ${b.rating}★`}>
                 <Cover book={b} size="sm" />
               </div>
             ))}

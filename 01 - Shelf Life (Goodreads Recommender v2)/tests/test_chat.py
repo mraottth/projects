@@ -202,3 +202,10 @@ def test_model_routing(client):  # noqa: F811
     assert choose_tier(fake, sticky) == "complex" and len(fake.routed) == 2                    # stays on the strong model
     fake.route = None
     assert choose_tier(fake, req()) == "complex"                                                # router failure -> strong
+
+
+def test_library_digest_lists_decimal_ratings(client):  # noqa: F811
+    from goodrec.api.chat import ChatShelf, library_digest
+    hobbit = client.get("/api/search", params={"q": "The Hobbit Tolkien"}).json()[0]["id"]
+    text = library_digest(ChatShelf(ratings=[{"id": hobbit, "rating": 4.5}]))
+    assert "## Rated 4.5★ (1)" in text

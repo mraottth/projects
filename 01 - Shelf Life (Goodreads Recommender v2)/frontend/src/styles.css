@@ -75,6 +75,9 @@ input { font: inherit; }
 .stars button { background: none; border: 0; padding: 0 1px; font-size: 1.35rem; line-height: 1; color: #d6d4cc; }
 .stars-sm button { font-size: 1.05rem; }
 .stars button.on { color: var(--star); }
+/* Decimal rating (e.g. 4.5 from a Goodreads import): the star is filled to --fill */
+.stars button.part { color: transparent; background: linear-gradient(90deg, var(--star) var(--fill), #d6d4cc var(--fill));
+  -webkit-background-clip: text; background-clip: text; }
 .stars button:disabled { cursor: default; }
 .avg { font-size: 0.85rem; color: var(--ink-2); white-space: nowrap; }
 .avg-star { color: var(--star); }

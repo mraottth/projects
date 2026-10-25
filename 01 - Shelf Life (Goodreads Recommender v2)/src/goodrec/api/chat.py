@@ -20,7 +20,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from goodrec.api.schemas import FilterSpec, InsightsRequest, Rating, RecommendRequest
+from goodrec.api.schemas import FilterSpec, InsightsRequest, Rating, RecommendRequest, Stars
 from goodrec.config import load_config
 from goodrec.core.scoring import similar_books
 
@@ -48,7 +48,7 @@ class OutsideBook(BaseModel):
     title: str
     author: str = ""
     year: str | int | None = None
-    rating: int | None = None
+    rating: Stars | None = None
     shelf: str = ""
     review: str = ""
 
@@ -157,7 +157,7 @@ TOOLS = [
                     "Goodreads export that aren't in the catalog, mostly published after 2017).",
      "input_schema": {"type": "object", "properties": {
          "shelf": {"type": "string", "enum": ["rated", "read", "to_read", "outside"]},
-         "min_rating": {"type": "integer"}, "max_rating": {"type": "integer"},
+         "min_rating": {"type": "number"}, "max_rating": {"type": "number"},
          "genre": {"type": "string", "description": "Parent genre name."},
          "text": {"type": "string", "description": "Match in title or author."},
          "limit": {"type": "integer", "maximum": 100, "description": "Default 40."}}, "required": ["shelf"]}},
@@ -293,7 +293,7 @@ class Toolbox:
                                  **({"you": s} if (s := self._status(b["id"])) else {})} for b in sims]
         return out
 
-    def t_my_library(self, shelf: str, min_rating: int | None = None, max_rating: int | None = None,
+    def t_my_library(self, shelf: str, min_rating: float | None = None, max_rating: float | None = None,
                      genre: str | None = None, text: str | None = None, limit: int = 40):
         limit = min(max(limit, 1), 100)
         t = (text or "").lower()
@@ -402,7 +402,7 @@ def library_digest(shelf: ChatShelf) -> str:
                         for g in ins["genres"][:10])
         parts.append(f"Books by genre: {top}.")
         full = len(rated) <= CFG["library_max_lines"]
-        for stars in (5, 4, 3, 2, 1):
+        for stars in sorted(set(rated.values()), reverse=True):   # whole stars, plus any decimal ratings (4.5)
             ids = [i for i, r in rated.items() if r == stars and i in books]
             if not ids:
                 continue
