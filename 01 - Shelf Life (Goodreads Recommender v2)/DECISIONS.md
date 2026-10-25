@@ -821,3 +821,22 @@ Applied to 9 prompts (requests to commit, push, merge or deploy, to work on a ne
 
 **Why.** Not measured: the evaluation data has no quarter ratings, so the effect on accuracy can't be tested offline. Every interpolation reduces exactly to the previous behaviour for whole stars, and the existing tests pass unchanged.
 
+## D-060 · Don't use book-description embeddings in the model (for now)
+- **Date:** 2026-10-25
+- **Category:** model
+- **Prompts:** fe7c091a-202, fe7c091a-203, fe7c091a-204
+- **Commits:** 7da0f35, a6343f7 (branch br-text-embeddings, kept unmerged for reference)
+
+**Decision.** Stop after the probe: description embeddings don't go into the ranking or the predicted rating. The embedding stage and probes stay on branch `br-text-embeddings`; nothing changed on `main` except this record.
+
+What was built and measured (validation readers only; the test set was not used):
+- **Embeddings:** `BAAI/bge-small-en-v1.5` (local, sentence-transformers) on title + author + description for 140,040 of 144,112 books (97.2%; editions without a description fall back to the work's longest English one), reduced to 128 dims, plus each book's top 50 neighbours by text. 29 minutes on this Mac (18 to embed on the GPU, 11 for neighbours).
+- **Ranking probe** (NDCG@10, full history): description similarity alone 0.0029 (random 0.0002); description similarity plus a popularity term 0.042 / 0.058 / 0.063 / 0.063 as the popularity weight grows (0.1, 0.3, 1, 3), against popular books 0.063, genre + popularity 0.069 and Shelf Life 0.190. The same pattern holds with 1, 3, 5 and 25 visible ratings: text plus popularity approaches popularity from below and never passes it.
+- **Neighbour comparison** (top 20): 10.9% of a book's text neighbours are among its co-rating neighbours; Spearman 0.356 between text cosine and co-rating similarity on co-rating pairs. Text neighbours share the parent genre less often (54% vs 70%), the author (13% vs 30%) and the series (14% vs 21%), and are less popular (median 161 raters vs 336). Every catalog book already has a full 50 co-rating neighbours, even below 100 raters, so the "thin co-rating evidence" case the plan targeted barely exists in this catalog.
+
+**Context.** The user suspected "a lot of predictive data in the book descriptions that we're not making use of" and asked how to work embeddings in and what the drawbacks would be. Claude proposed four steps gated by a probe (steps 1–2 build the embeddings and test them alone; steps 3–4 would add them to the ranking and the predicted rating). The user approved, saw the probe results and chose to stop: "Sounds like it'd be best to stop."
+
+**Alternatives considered.** Adding a small text term inside the ranking anyway (step 3, expected little or no gain given the probe); using text only where the evaluation can't score it, such as the book pop-up's "Similar books" or the Assistant (a user-experience call, not taken now).
+
+**Why.** Descriptions describe a book's topic, not whether readers like it; alone they rank obscure same-topic books, and with popularity they add nothing measurable. The evaluation hides books readers actually rated, which favours popular books, so it may understate text's value for niche discovery; that caveat stands, but nothing here suggests it would improve the scores used for promotion.
+
