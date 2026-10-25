@@ -75,6 +75,10 @@ input { font: inherit; }
 .stars button { background: none; border: 0; padding: 0 1px; font-size: 1.35rem; line-height: 1; color: #d6d4cc; }
 .stars-sm button { font-size: 1.05rem; }
 .stars button.on { color: var(--star); }
+/* Decimal rating (e.g. 4.5 from a Goodreads import): the star is filled to --fill */
+.stars button.part { color: transparent; background: linear-gradient(90deg, var(--star) var(--fill), #d6d4cc var(--fill));
+  -webkit-background-clip: text; background-clip: text; }
+.stars-value { align-self: center; margin-left: 4px; font-size: 0.8rem; font-weight: 600; color: var(--ink-2); }
 .stars button:disabled { cursor: default; }
 .avg { font-size: 0.85rem; color: var(--ink-2); white-space: nowrap; }
 .avg-star { color: var(--star); }
@@ -449,9 +453,10 @@ button.chip:hover { background: #f1f0eb; }
 .stat-value { font-size: 1.6rem; font-weight: 800; line-height: 1.1; }
 .stat-label { font-size: 0.78rem; color: var(--ink-2); }
 .dist-chart { margin: 0; padding: 12px 14px; background: var(--surface-1); border: 1px solid var(--ring); border-radius: 14px; display: flex; flex-direction: column; gap: 3px; }
-.dist-row { display: grid; grid-template-columns: 28px 1fr 30px; align-items: center; gap: 8px; background: none; border: 0; padding: 2px 4px; border-radius: 6px; }
+.dist-row { display: grid; grid-template-columns: var(--dist-label, 28px) 1fr 30px; align-items: center; gap: 8px; background: none; border: 0; padding: 2px 4px; border-radius: 6px; }
 .dist-row:hover, .dist-row.on { background: #eef4fc; }
-.dist-label { font-size: 0.78rem; color: var(--ink-2); text-align: right; }
+.dist-label { font-size: 0.78rem; color: var(--ink-2); text-align: right; white-space: nowrap; }
+.dist-chart.banded { --dist-label: 54px; }   /* "4–4.75★" labels when quarter-star ratings are present */
 .dist-track { height: 12px; }
 .dist-bar { display: block; height: 100%; min-width: 2px; background: var(--series-1); border-radius: 0 4px 4px 0; }
 .dist-n { font-size: 0.78rem; color: var(--ink-2); text-align: left; font-variant-numeric: tabular-nums; }

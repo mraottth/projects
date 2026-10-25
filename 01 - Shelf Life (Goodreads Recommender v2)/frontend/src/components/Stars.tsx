@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type React from "react";
 
 interface Props {
   value: number;            // 0 = unrated
@@ -7,20 +8,27 @@ interface Props {
   label?: string;
 }
 
-/** Interactive 1-5 star rating; click the current value again to clear. */
+/** Interactive 1-5 star rating; click the current value again to clear. Clicking sets whole stars; a decimal rating
+ *  from a Goodreads import (quarter stars: 4.25, 4.5, 4.75) shows as a partly filled star with the exact number beside it. */
 export function Stars({ value, onChange, size = "md", label = "Rate" }: Props) {
   const [hover, setHover] = useState(0);
   const shown = hover || value;
   return (
     <div className={`stars stars-${size}`} role="radiogroup" aria-label={label} onMouseLeave={() => setHover(0)}>
-      {[1, 2, 3, 4, 5].map((n) => (
-        <button key={n} type="button" role="radio" aria-checked={value === n} aria-label={`${n} star${n > 1 ? "s" : ""}`}
-                className={n <= shown ? "on" : ""} disabled={!onChange}
+      {[1, 2, 3, 4, 5].map((n) => {
+        const part = shown - (n - 1);              // how much of this star is filled (0-1)
+        return (
+        <button key={n} type="button" role="radio" aria-checked={value === n}
+                aria-label={`${n} star${n > 1 ? "s" : ""}${!hover && part > 0 && part < 1 ? ` (your rating: ${value})` : ""}`}
+                className={part >= 1 ? "on" : part > 0 ? "part" : ""} disabled={!onChange}
+                style={part > 0 && part < 1 ? ({ "--fill": `${Math.round(part * 100)}%` } as React.CSSProperties) : undefined}
                 onMouseEnter={() => onChange && setHover(n)}
                 onClick={(e) => { e.stopPropagation(); onChange?.(value === n ? 0 : n); }}>
           ★
         </button>
-      ))}
+        );
+      })}
+      {!hover && value % 1 !== 0 && <span className="stars-value">{value}</span>}
     </div>
   );
 }

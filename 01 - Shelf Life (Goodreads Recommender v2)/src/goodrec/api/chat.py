@@ -20,7 +20,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from goodrec.api.schemas import FilterSpec, InsightsRequest, Rating, RecommendRequest
+from goodrec.api.schemas import FilterSpec, InsightsRequest, Rating, RecommendRequest, Stars
 from goodrec.config import load_config
 from goodrec.core.scoring import similar_books
 
@@ -48,7 +48,7 @@ class OutsideBook(BaseModel):
     title: str
     author: str = ""
     year: str | int | None = None
-    rating: int | None = None
+    rating: Stars | None = None
     shelf: str = ""
     review: str = ""
 
@@ -157,7 +157,7 @@ TOOLS = [
                     "Goodreads export that aren't in the catalog, mostly published after 2017).",
      "input_schema": {"type": "object", "properties": {
          "shelf": {"type": "string", "enum": ["rated", "read", "to_read", "outside"]},
-         "min_rating": {"type": "integer"}, "max_rating": {"type": "integer"},
+         "min_rating": {"type": "number"}, "max_rating": {"type": "number"},
          "genre": {"type": "string", "description": "Parent genre name."},
          "text": {"type": "string", "description": "Match in title or author."},
          "limit": {"type": "integer", "maximum": 100, "description": "Default 40."}}, "required": ["shelf"]}},
@@ -293,7 +293,7 @@ class Toolbox:
                                  **({"you": s} if (s := self._status(b["id"])) else {})} for b in sims]
         return out
 
-    def t_my_library(self, shelf: str, min_rating: int | None = None, max_rating: int | None = None,
+    def t_my_library(self, shelf: str, min_rating: float | None = None, max_rating: float | None = None,
                      genre: str | None = None, text: str | None = None, limit: int = 40):
         limit = min(max(limit, 1), 100)
         t = (text or "").lower()
@@ -386,7 +386,9 @@ def library_digest(shelf: ChatShelf) -> str:
 
     def line(b: dict) -> str:
         rev = " (reviewed)" if b["id"] in shelf.reviews else ""
-        return f"- {b['title']} — {b['author']} ({b['year'] or '?'}) [id {b['id']}]{rev}"
+        mine = rated.get(b["id"])
+        exact = f" [rated {mine}★]" if mine is not None and not float(mine).is_integer() else ""
+        return f"- {b['title']} — {b['author']} ({b['year'] or '?'}) [id {b['id']}]{exact}{rev}"
 
     parts = ["# This reader's library"]
     if not rated and not shelf.outside:
@@ -402,11 +404,13 @@ def library_digest(shelf: ChatShelf) -> str:
                         for g in ins["genres"][:10])
         parts.append(f"Books by genre: {top}.")
         full = len(rated) <= CFG["library_max_lines"]
+        # Whole-star bands: a quarter-star rating (e.g. 4.25) sits in its band with its exact value on the line.
         for stars in (5, 4, 3, 2, 1):
-            ids = [i for i, r in rated.items() if r == stars and i in books]
+            ids = [i for i, r in rated.items() if min(int(r), 5) == stars and i in books]
             if not ids:
                 continue
-            parts.append(f"\n## Rated {stars}★ ({len(ids)})")
+            band = stars if stars == 5 or all(float(rated[i]).is_integer() for i in ids) else f"{stars}–{stars}.75"
+            parts.append(f"\n## Rated {band}★ ({len(ids)})")
             if full or stars != 3:
                 parts.extend(line(books[i]) for i in ids)
             else:

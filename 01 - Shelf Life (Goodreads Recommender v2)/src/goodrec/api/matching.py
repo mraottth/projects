@@ -40,6 +40,20 @@ def export_date(text: str | None) -> str | None:
     return d.isoformat() if d <= dt.date.today() else None
 
 
+def parse_rating(raw: str | None) -> float:
+    """Goodreads "My Rating" (0 = unrated). Goodreads now allows quarter-star ratings ("4.25", "4.5", "4.75"); they're
+    used as they are, not rounded to whole stars, since a 4.5 says something a 4 or a 5 doesn't. Anything above 0 is
+    clamped to the 1-5 scale the models use, and snapped to the nearest quarter (a stray "4.3" becomes 4.25)."""
+    try:
+        r = float(raw or 0)
+    except ValueError:
+        return 0
+    if not r > 0:                  # 0, negative or NaN: unrated
+        return 0
+    r = round(min(5.0, max(1.0, r)) * 4) / 4
+    return int(r) if r.is_integer() else r
+
+
 def read_date(row: dict) -> str | None:
     """When the book was read ("Date Read"), else when it was shelved ("Date Added"): orders ratings for recency."""
     return export_date(row.get("Date Read")) or export_date(row.get("Date Added"))
@@ -83,10 +97,7 @@ def parse_export(cat: Catalog, raw: bytes) -> dict:
     counts = {"rows": 0, "book_id": 0, "isbn": 0, "title": 0}
     for row in reader:
         counts["rows"] += 1
-        try:
-            rating = int(float(row.get("My Rating") or 0))
-        except ValueError:
-            rating = 0
+        rating = parse_rating(row.get("My Rating"))
         shelf = (row.get("Exclusive Shelf") or "").strip()
         review = clean_review(row.get("My Review"))
         idx, how = match_row(cat, row)

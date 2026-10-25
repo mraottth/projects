@@ -1,11 +1,15 @@
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import AfterValidator, BaseModel, Field
+
+# A star rating. Goodreads now allows quarter stars (4.25, 4.5, 4.75) and they're used as they are; whole values stay ints (5, not 5.0) so responses,
+# cache keys and the Assistant's text read as before. The training data is whole stars.
+Stars = Annotated[float, AfterValidator(lambda v: int(v) if float(v).is_integer() else v)]
 
 
 class Rating(BaseModel):
     id: int                       # Goodreads work_id
-    rating: int = Field(ge=1, le=5)
+    rating: Stars = Field(ge=1, le=5)
     date: str | None = None       # YYYY-MM-DD read (else shelved / rated here); orders ratings for recency
 
 

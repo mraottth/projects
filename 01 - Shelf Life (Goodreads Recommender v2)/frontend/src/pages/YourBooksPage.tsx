@@ -8,7 +8,7 @@ import { GenreTable, InsightTiles } from "../components/Insights";
 import { formatCount, Stars } from "../components/Stars";
 import { useShelf } from "../store";
 
-type RatingFilter = "all" | 1 | 2 | 3 | 4 | 5 | "unrated";
+type RatingFilter = "all" | number | "unrated";   // number: a whole-star band (4 = 4 to 4.75)
 type YourSort = "yours" | "loved-more" | "loved-less" | "goodreads" | "year" | "title";
 const SORTS: { key: YourSort; label: string }[] = [
   { key: "yours", label: "Your rating" },
@@ -69,7 +69,11 @@ export function YourBooksPage({ go, onOpen }: { go: (v: "rate" | "import") => vo
   const rated = rows.filter((r) => r.mine > 0);
   const yourAvg = rated.length ? rated.reduce((s, r) => s + r.mine, 0) / rated.length : null;
   const grAvg = rated.length ? rated.reduce((s, r) => s + r.book.avg_rating, 0) / rated.length : null;
-  const dist = [5, 4, 3, 2, 1].map((s) => ({ stars: s, n: rated.filter((r) => r.mine === s).length }));
+  // Whole-star bands: Goodreads now allows quarter stars (4.25, 4.5, 4.75), so 4 covers 4 to 4.75.
+  const band = (r: number) => Math.min(5, Math.floor(r));
+  const levels = [5, 4, 3, 2, 1];
+  const bandLabel = (s: number) => (s < 5 && rated.some((r) => band(r.mine) === s && r.mine % 1) ? `${s}–${s}.75★` : `${s}★`);
+  const dist = levels.map((s) => ({ stars: s, n: rated.filter((r) => band(r.mine) === s).length }));
   const maxN = Math.max(1, ...dist.map((d) => d.n));
   const genreCounts = Object.entries(rows.reduce<Record<string, number>>((acc, r) => {
     if (r.book.genre) acc[r.book.genre] = (acc[r.book.genre] ?? 0) + 1;
@@ -78,7 +82,7 @@ export function YourBooksPage({ go, onOpen }: { go: (v: "rate" | "import") => vo
 
   const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
   const shown = rows
-    .filter((r) => rating === "all" || (rating === "unrated" ? r.mine === 0 : r.mine === rating))
+    .filter((r) => rating === "all" || (rating === "unrated" ? r.mine === 0 : r.mine > 0 && band(r.mine) === rating))
     .filter((r) => !genre || r.book.genre === genre)
     .filter((r) => terms.every((t) => `${r.book.title} ${r.book.author} ${r.book.tags.join(" ")}`.toLowerCase().includes(t)))
     .sort((a, b) => {
@@ -113,13 +117,13 @@ export function YourBooksPage({ go, onOpen }: { go: (v: "rate" | "import") => vo
 
       <section className="yours-stats">
         {insights && <InsightTiles data={insights} />}
-        <figure className="viz-root dist-chart" aria-label="Your ratings distribution">
+        <figure className={`viz-root dist-chart${rated.some((r) => r.mine % 1) ? " banded" : ""}`} aria-label="Your ratings distribution">
           <span className="tile-title">Your ratings</span>
           {dist.map((d) => (
             <button key={d.stars} type="button" className={`dist-row${rating === d.stars ? " on" : ""}`}
-                    aria-pressed={rating === d.stars} title={`${d.n} book${d.n === 1 ? "" : "s"} rated ${d.stars}★`}
-                    onClick={() => setRating(rating === d.stars ? "all" : (d.stars as RatingFilter))}>
-              <span className="dist-label">{d.stars}★</span>
+                    aria-pressed={rating === d.stars} title={`${d.n} book${d.n === 1 ? "" : "s"} rated ${bandLabel(d.stars)}`}
+                    onClick={() => setRating(rating === d.stars ? "all" : d.stars)}>
+              <span className="dist-label">{bandLabel(d.stars)}</span>
               <span className="dist-track"><span className="dist-bar" style={{ width: `${(d.n / maxN) * 100}%` }} /></span>
               <span className="dist-n">{d.n}</span>
             </button>
@@ -155,9 +159,9 @@ export function YourBooksPage({ go, onOpen }: { go: (v: "rate" | "import") => vo
         <input className="search-within" type="search" placeholder="Search your books (title, author, tag)…" value={q}
                onChange={(e) => setQ(e.target.value)} aria-label="Search your books" />
         <div className="seg seg-wrap" role="group" aria-label="Filter by your rating">
-          {(["all", 5, 4, 3, 2, 1, "unrated"] as RatingFilter[]).map((r) => (
+          {(["all", ...levels, "unrated"] as RatingFilter[]).map((r) => (
             <button key={String(r)} type="button" className={rating === r ? "on" : ""} onClick={() => setRating(r)}>
-              {r === "all" ? "All" : r === "unrated" ? "Read, not rated" : `${r}★`}
+              {r === "all" ? "All" : r === "unrated" ? "Read, not rated" : bandLabel(r)}
             </button>
           ))}
         </div>

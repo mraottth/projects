@@ -802,3 +802,22 @@ Applied to 9 prompts (requests to commit, push, merge or deploy, to work on a ne
 **Context.** The user asked to remove prompts about the development setup and any part of a prompt that only asks to push, merge or deploy, and for the request itself not to be included. (This entry describes the trimmed text rather than quoting it, so the log doesn't bring it back.)
 
 **Alternatives considered.** Editing the exported files by hand (overwritten on the next export); dropping whole prompts that mix product and operational text (loses the product request). Kept as is: "what would I need to do to deploy this?" (fe7c091a-035), which started the Cloud Run hosting work, and the question confirming the live site wouldn't change during the data experiment (fe7c091a-162), which shaped the experiment's isolation.
+
+## D-059 · Use quarter-star ratings from Goodreads imports as they are
+- **Date:** 2026-10-25
+- **Category:** data
+- **Prompts:** fe7c091a-200
+- **Commits:** e5a5a7d, 52c5d21, 10cc518
+
+**Decision.** Goodreads now lets readers rate in 0.25 steps, so an export can hold "4.25", "4.5" or "4.75". Imports use the value as it is instead of truncating it (the old parser turned 4.75 into 4). Values above 0 are clamped to 1–5 and snapped to the nearest quarter, so a malformed "4.3" becomes 4.25; 0 still means unrated. The training data stays whole stars; at request time each model takes the quarter value directly:
+- **Predicted ratings** (rating MF fold-in and the similar-books residual) use the value as given.
+- **ALS fold-in** interpolates the per-star confidence weights linearly (4.25 gets a quarter of the way from the 4★ weight to the 5★ weight).
+- **Calibration** splits each quarter rating between its two neighbouring stars in the reader's star histogram (4.25 = 0.75 of a 4★ and 0.25 of a 5★).
+- **Display:** the star widget shows a partly filled star with the exact number beside it. Summaries group by whole-star bands so up to 17 distinct values stay readable: Your books' chart and filters show "4–4.75★" when a band holds quarter ratings, and the Assistant's library digest uses the same bands with each quarter rating's exact value on its line. Whole values stay integers in requests and responses, so everything about whole-star shelves is unchanged. Clicking stars on the site still sets whole stars.
+
+**Context.** The user: "Goodreads now allows users to rate books with decimals (using 0.25 increments)... Ideally we would use new rating decimal numbers as they are, but alternatively we could fall back to rounding." An earlier version written for arbitrary decimals was discarded before merging; this one reuses its code with the quarter-step rules.
+
+**Alternatives considered.** Rounding to whole stars (the user's fallback; loses the 4.5 vs 5 distinction); a chart row per distinct value (up to 17 rows); letting the site's own star widget set quarter stars (not requested).
+
+**Why.** Not measured: the evaluation data has no quarter ratings, so the effect on accuracy can't be tested offline. Every interpolation reduces exactly to the previous behaviour for whole stars, and the existing tests pass unchanged.
+

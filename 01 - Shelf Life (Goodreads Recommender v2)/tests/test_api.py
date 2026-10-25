@@ -529,3 +529,53 @@ def test_import_returns_dates_and_recency_changes_ranking(client):
     assert top(same_day) == top(undated)                   # one shared date: no recency effect
     bad = [{**r, "date": "yesterday"} for r in undated]
     assert top(bad) == top(undated)                        # invalid dates are ignored, not rejected
+
+
+def test_parse_rating_keeps_decimals():
+    from goodrec.api.matching import parse_rating
+    assert parse_rating("4.5") == 4.5 and parse_rating("5.0") == 5 and isinstance(parse_rating("5.0"), int)
+    assert parse_rating("0") == 0 and parse_rating("") == 0 and parse_rating(None) == 0 and parse_rating("n/a") == 0
+    assert parse_rating("0.5") == 1 and parse_rating("7") == 5           # clamped to the models' 1-5 scale
+    assert parse_rating("3.75") == 3.75 and parse_rating("4.25") == 4.25 and parse_rating("1.25") == 1.25   # quarters as they are
+    assert parse_rating("4.3") == 4.25 and parse_rating("4.4") == 4.5 and parse_rating("4.9") == 5   # snapped to a quarter
+
+
+def test_decimal_ratings_through_import_and_models(client):
+    """Newer Goodreads exports allow decimal ratings; they're kept (4.5 is not rounded to 4 or 5) and every route works."""
+    import numpy as np
+
+    from goodrec.api.main import state
+    from goodrec.core.scoring import UserInput, calibration, rating_confidence
+
+    csv = ("Book Id,Title,Author,My Rating,Exclusive Shelf\n"
+           "5907,The Hobbit,J.R.R. Tolkien,4.5,read\n"
+           "999999999,Some 2026 Novel,New Author,3.5,read\n")
+    res = client.post("/api/import", files={"file": ("export.csv", csv.encode(), "text/csv")}).json()
+    assert res["rated"][0]["rating"] == 4.5 and res["unmatched"][0]["rating"] == 3.5
+
+    with open(FIXTURE, "rb") as f:
+        rated = client.post("/api/import", files={"file": ("export.csv", f, "text/csv")}).json()["rated"]
+    whole = [{"id": r["id"], "rating": r["rating"]} for r in rated]
+    decimals = [0.25, 0.5, 0.75]                                # Goodreads' quarter stars
+    halves = [{**r, "rating": r["rating"] - decimals[k % 3]} if r["rating"] >= 4 else r for k, r in enumerate(whole)]
+    for path in ("/api/recommend", "/api/insights"):
+        assert client.post(path, json={"ratings": halves}).status_code == 200
+    a = client.post("/api/recommend", json={"ratings": whole, "limit": 20}).json()["for_you"]
+    b = client.post("/api/recommend", json={"ratings": halves, "limit": 20}).json()["for_you"]
+    assert [x["id"] for x in a] != [x["id"] for x in b] or [x["predicted_rating"] for x in a] != [x["predicted_rating"] for x in b]
+    assert client.post("/api/recommend", json={"ratings": [{"id": rated[0]["id"], "rating": 5.5}]}).status_code == 422
+
+    conf = {5: 1.0, 4: 0.7, 3: 0.3, 0: 0.2}
+    assert rating_confidence(conf, 4.5) == np.float64(0.85) and rating_confidence(conf, 4) == 0.7
+    assert rating_confidence(conf, 2.5) == 0.15 and rating_confidence(conf, 1) == 0.0
+    assert abs(rating_confidence(conf, 4.25) - 0.775) < 1e-9 and abs(rating_confidence(conf, 3.25) - 0.4) < 1e-9
+
+    # Calibration's star histogram splits a 4.5 between 4 and 5 rather than dropping or rounding it.
+    art, prior = state["art"], state["population"]["rating_dist"]
+    user = UserInput(ratings={i: 4.5 for i in range(30)})
+    _, y, _ = calibration(art, user, prior)
+    whole4 = calibration(art, UserInput(ratings={i: 4 for i in range(30)}), prior)[1]
+    whole5 = calibration(art, UserInput(ratings={i: 5 for i in range(30)}), prior)[1]
+    assert whole4.mean() < y.mean() < whole5.mean()
+    y425 = calibration(art, UserInput(ratings={i: 4.25 for i in range(30)}), prior)[1]
+    assert whole4.mean() < y425.mean() < y.mean()                  # 4.25 sits between 4 and 4.5
