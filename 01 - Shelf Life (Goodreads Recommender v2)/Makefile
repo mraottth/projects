@@ -27,6 +27,9 @@ artifacts: genres  ## models + search DB + packaging
 	$(PY) $(P).s11_rating_mf   # before s10, which hashes it into the manifest
 	$(PY) $(P).s10_package
 
+text:            ## s12: description embeddings + nearest books by text (installs the `text` group: torch)
+	uv run --group text python -m $(P).s12_text_embed
+
 eval:            ## temporal hide-and-predict evaluation vs baselines -> eval/reports/ (see goodrec.eval.run)
 	$(PY) goodrec.eval.run
 

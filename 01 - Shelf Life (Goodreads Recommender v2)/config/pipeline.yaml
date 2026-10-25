@@ -97,6 +97,12 @@ blend:
   pred_pool: 50             # famous high-prediction books added to the candidate pool
   bayes_m: 50               # item mean = dataset average shrunk toward the Goodreads-wide average by this many ratings (s10)
 
+text:                       # s12: description embeddings (DECISIONS: see the text-embeddings entry); needs `--group text`
+  model: BAAI/bge-small-en-v1.5   # local sentence-transformers model (384 dims, 512-token window)
+  dim: 128                  # PCA-reduced, float16 in artifacts/text_emb.npz
+  k: 50                     # nearest books by text (text_nbrs_*)
+  batch: 64
+
 similar_readers:
   n_neighbors: 300
   min_user_ratings: 5
