@@ -43,7 +43,7 @@ from goodrec.eval import report  # noqa: E402
 from goodrec.eval.metrics import (METRICS, POOL_LEN, RATING_COLS, at_k, paired, pooled_summary,  # noqa: E402
                                   rating_pool, rating_user)
 from goodrec.eval.models import (Recommender, ShelfLife, rating_baselines, shelf_life_models,  # noqa: E402
-                                 simple_baselines)
+                                 simple_baselines, text_baselines)
 from goodrec.eval.rating import (STYLES, RatingSettings, population_sd, ranking_artifacts,  # noqa: E402
                                  rating_artifacts, rating_style, user_sigma)
 from goodrec.eval.split import load_split  # noqa: E402
@@ -226,7 +226,7 @@ def main(set_: str = "test", users: int | None = None, models: str | None = None
     recs = shelf_life_models(ranking_artifacts(art, rsettings, rart), prior, ablations=ablations,
                              name=name or "Shelf Life (current config)",
                              params=Params.from_config(**overrides), rating=rsettings, rating_art=rart)
-    recs += simple_baselines(art) + rating_baselines(art)
+    recs += simple_baselines(art) + text_baselines(art) + rating_baselines(art)
     wanted = set(models.split(",")) if models else None
     if wanted is None or wanted & {"similar_readers_2023", "svd_2023"}:
         from goodrec.eval.legacy2023 import legacy_baselines

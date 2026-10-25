@@ -143,6 +143,52 @@ class GenrePopularBaseline(Recommender):
         return _drop_seen(idx[np.argsort(-score[idx], kind="stable")], user, k)
 
 
+@dataclass
+class TextProfileBaseline(Recommender):
+    """Content only: the user's taste vector is the sum of their rated books' description embeddings (s12), each
+    weighted by how far its rating sits from the user's own mean, so loved books pull and disliked ones push. Unread
+    books rank by cosine to that vector, plus `pop_weight` x standardized log popularity. Books without a description
+    can't score above ones with one. A probe for whether descriptions carry taste signal (see DECISIONS)."""
+    art: Artifacts = None
+    pop_weight: float = 0.0
+    emb: np.ndarray = field(default=None, repr=False)
+    base: np.ndarray = field(default=None, repr=False)
+
+    def __post_init__(self):
+        z = np.load(self.art.db_path.parent / "text_emb.npz")
+        self.emb = z["emb"].astype(np.float32)
+        lp = self.art.meta.log_pop.astype(np.float64)
+        self.base = np.where(_eligible(self.art) & z["has_text"], self.pop_weight * (lp - lp.mean()) / lp.std(), -np.inf)
+        self._popular = PopularBaseline(key="", name="", description="", art=self.art)
+
+    def recommend(self, user, k, rng):
+        items = np.fromiter(user.ratings, dtype=np.int64)
+        stars = np.fromiter(user.ratings.values(), dtype=np.float64)
+        w = stars - stars.mean() if len(stars) > 1 else stars - 3.0
+        if not np.any(w):
+            w = np.ones_like(stars)               # all the same rating: treat them as liked
+        prof = (w[:, None] * self.emb[items]).sum(axis=0)
+        norm = np.linalg.norm(prof)
+        if norm == 0:
+            return self._popular.recommend(user, k, rng)
+        score = self.emb @ (prof / norm) + self.base
+        idx = np.argpartition(-score, k + len(user.seen))[: k + len(user.seen)]
+        return _drop_seen(idx[np.argsort(-score[idx], kind="stable")], user, k)
+
+
+def text_baselines(art: Artifacts) -> list[Recommender]:
+    """Description-embedding probes; empty when the build has no text_emb.npz (s12 not run)."""
+    if not (art.db_path.parent / "text_emb.npz").exists():
+        return []
+    return [
+        TextProfileBaseline(key="text_profile", name="Description similarity", art=art,
+                            description="Content only: unread books ranked by cosine between their description "
+                                        "embedding and the user's rating-weighted taste vector (s12)."),
+    ] + [TextProfileBaseline(key=f"text_profile_pop{str(w).replace('.', '')}", name=f"Description similarity + popularity x{w}",
+                             art=art, pop_weight=w, description=f"The same, plus {w} x standardized log popularity.")
+         for w in (0.1, 0.3, 1.0, 3.0)]
+
+
 def shelf_life_models(art: Artifacts, prior: np.ndarray, ablations: bool = False,
                       name: str = "Shelf Life (current config)", params: Params | None = None,
                       rating: RatingSettings | None = None, rating_art: Artifacts | None = None) -> list[Recommender]:
