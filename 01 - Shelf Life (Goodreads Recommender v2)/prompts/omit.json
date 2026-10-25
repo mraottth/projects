@@ -59,5 +59,7 @@
  "fe7c091a-198": "reverted: decimal-rating support, discarded before merging",
  "fe7c091a-199": "operational: revert a branch and close it",
  "fe7c091a-201": "operational: a commit, push, merge or deploy request",
- "fe7c091a-205": "operational: a commit, push, merge or deploy request"
+ "fe7c091a-205": "operational: a commit, push, merge or deploy request",
+ "fe7c091a-203": "housekeeping: a clarifying question about a plan's time estimate",
+ "fe7c091a-206": "housekeeping: curating the public prompt log"
 }

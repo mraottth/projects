@@ -824,7 +824,7 @@ Applied to 9 prompts (requests to commit, push, merge or deploy, to work on a ne
 ## D-060 · Don't use book-description embeddings in the model (for now)
 - **Date:** 2026-10-25
 - **Category:** model
-- **Prompts:** fe7c091a-202, fe7c091a-203, fe7c091a-204
+- **Prompts:** fe7c091a-202, fe7c091a-204
 - **Commits:** 7da0f35, a6343f7 (branch br-text-embeddings, kept unmerged for reference)
 
 **Decision.** Stop after the probe: description embeddings don't go into the ranking or the predicted rating. The embedding stage and probes stay on branch `br-text-embeddings`; nothing changed on `main` except this record.
