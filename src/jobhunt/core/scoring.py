@@ -9,14 +9,21 @@ from jobhunt.db.connection import get_db
 SYSTEM_PROMPT = """You are helping a job seeker triage incoming postings. You will be given: their \
 candidate profile (career history/competencies/interests), their current preference profile (what \
 they tend to respond to, learned from past feedback and application outcomes -- may be empty if they're \
-just getting started), their desired sectors/industries, a few of their most recent raw feedback \
-marks, and one job posting.
+just getting started), their desired sectors/industries, their desired job titles, their minimum \
+salary, a few of their most recent raw feedback marks, and one job posting.
+
+Desired titles and minimum salary are GUIDANCE, not a filter -- do not require a literal title match. \
+If they said "Analytics Director," a posting titled "VP of Analytics," "Director of Data," or "Head \
+of Analytics" can be just as strong a match if the role's actual scope and seniority line up; judge \
+the substance of the role against their career level and the kind of work it involves, not the job \
+title string. Likewise, a posting slightly below their stated minimum salary isn't disqualifying on \
+its own -- note it in the rationale, but still rate the role on its actual merits.
 
 Rate two independent things:
 - interest_fit: how likely THIS SPECIFIC PERSON is to be genuinely interested in this role, based on \
-their stated/inferred interests, desired sectors, and what they've responded to before. A role in a \
-sector they didn't ask for should usually score lower on interest even if it's otherwise a strong \
-match -- not how good a job it is in the abstract.
+their stated/inferred interests, desired sectors, desired titles, and what they've responded to \
+before. A role in a sector they didn't ask for should usually score lower on interest even if it's \
+otherwise a strong match -- not how good a job it is in the abstract.
 - candidate_fit: how strong a candidate they'd be for this specific role, based on their competencies \
 and experience vs. what the posting asks for.
 
@@ -58,6 +65,8 @@ def score_job(
     candidate_profile: str | None,
     preference_profile: str | None,
     desired_sectors: list[str] | None = None,
+    desired_titles: list[str] | None = None,
+    salary_floor: float | None = None,
 ) -> JobScore:
     posting_text = (
         f"Title: {job['title']}\nCompany: {job['company']}\nLocation: {job.get('location') or 'unknown'}\n"
@@ -67,11 +76,15 @@ def score_job(
         f"{job.get('description_text') or ''}"
     )
     sectors_text = ", ".join(desired_sectors) if desired_sectors else "(not specified)"
+    titles_text = ", ".join(desired_titles) if desired_titles else "(not specified)"
+    salary_text = f"{salary_floor:,.0f}" if salary_floor else "(not specified)"
 
     user_content = (
         f"## Candidate profile\n{candidate_profile or '(not yet built)'}\n\n"
         f"## Preference profile\n{preference_profile or '(not yet built -- no feedback history)'}\n\n"
         f"## Desired sectors/industries\n{sectors_text}\n\n"
+        f"## Desired job titles (guidance, not a required exact match)\n{titles_text}\n\n"
+        f"## Minimum salary (guidance, not a hard cutoff)\n{salary_text}\n\n"
         f"## Recent feedback\n{_recent_feedback_text()}\n\n"
         f"## Job posting to score\n{posting_text}"
     )

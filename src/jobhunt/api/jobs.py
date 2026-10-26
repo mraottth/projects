@@ -138,6 +138,8 @@ def confirm_job(job_id: int):
             get_current_candidate_profile(),
             get_current_preference_profile(),
             get_setting("prefilter_sectors", []),
+            get_setting("prefilter_titles_include", []),
+            get_setting("salary_floor", None),
         )
     except LLMError as exc:
         raise HTTPException(502, str(exc)) from exc

@@ -30,6 +30,31 @@ class CompanySuggestion(BaseModel):
     reason: str
 
 
+BOARD_SYSTEM_PROMPT = """You suggest job boards worth monitoring for a job seeker, based on their \
+candidate profile and the roles/sectors/locations they're targeting. "Job board" here means a \
+multi-employer board, not a single company's careers page: a niche/industry board (e.g. a board \
+specific to their sector), a regional or government jobs board, a remote-work board, or a general \
+aggregator that lets you filter by role/keyword -- somewhere that lists openings across many \
+employers in one place, growing the number of postings the user sees without them having to name \
+every company by hand. Desired sector is a real constraint, not a tiebreaker.
+
+Use web search to confirm each board is real, currently active, and actually relevant to the kind \
+of role they want -- don't suggest a well-known generic board (e.g. LinkedIn, Indeed) that offers \
+no narrower reach than what the user can already search themselves.
+
+Suggest 4-8 boards. For each, give its direct URL and a one-sentence reason tied to their specific \
+profile/targets (not generic reasoning).
+
+Respond with ONLY a JSON object on the last line of your response, no other text after it:
+{"suggestions": [{"name": "...", "url": "...", "reason": "..."}, ...]}"""
+
+
+class JobBoardSuggestion(BaseModel):
+    name: str
+    url: str
+    reason: str
+
+
 def _extract_json(text: str) -> dict:
     match = re.search(r"\{.*\}", text, re.DOTALL)
     if not match:
@@ -74,3 +99,27 @@ def suggest_companies(candidate_profile: str | None, settings: dict) -> list[Com
 
     data = _extract_json(text)
     return [CompanySuggestion(**s) for s in data.get("suggestions", [])]
+
+
+def suggest_job_boards(candidate_profile: str | None, settings: dict) -> list[JobBoardSuggestion]:
+    client = get_client()
+    with llm_error_boundary("suggesting job boards to monitor"):
+        response = client.messages.create(
+            model=DEFAULT_MODEL,
+            max_tokens=3000,
+            system=BOARD_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": _profile_text(candidate_profile, settings)}],
+            tools=[{"type": "web_search_20260209", "name": "web_search", "max_uses": 5}],
+        )
+    text = "\n".join(b.text for b in response.content if b.type == "text")
+    search_uses = sum(1 for b in response.content if b.type == "server_tool_use")
+    log_call(
+        call_type="parsing",
+        model=DEFAULT_MODEL,
+        input_tokens=response.usage.input_tokens,
+        output_tokens=response.usage.output_tokens,
+        note=f"discovery:suggest_job_boards ({search_uses} web search(es))",
+    )
+
+    data = _extract_json(text)
+    return [JobBoardSuggestion(**s) for s in data.get("suggestions", [])]

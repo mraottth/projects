@@ -28,15 +28,17 @@ def score_job(job: dict, settings: dict) -> tuple[float, dict]:
             score -= 20
             reasons["no_keyword_match"] = True
 
+    # Titles are guidance, not a filter -- a literal-string miss here (e.g. "VP of Analytics" vs a
+    # stated "Analytics Director") doesn't mean the role is a bad fit, just that the cheap keyword
+    # check can't tell. Only reward a match; never penalize a non-match. Real semantic judgment of
+    # equivalent/adjacent titles happens in core/scoring.py's LLM call, which actually reads the
+    # posting.
     titles = [t.lower() for t in settings.get("prefilter_titles_include", [])]
     if titles:
         title_lower = (job.get("title") or "").lower()
         if any(t in title_lower for t in titles):
             score += 15
             reasons["title_match"] = True
-        else:
-            score -= 15
-            reasons["title_no_match"] = True
 
     sectors = [s.lower() for s in settings.get("prefilter_sectors", [])]
     if sectors:

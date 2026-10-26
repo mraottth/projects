@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, DigestEntry, Job } from "../api";
+import { api, ApiError, DigestEntry, Job } from "../api";
 import { Markdown } from "../components/Markdown";
 import { Spinner } from "../components/Spinner";
 
@@ -142,55 +142,76 @@ function PendingReview({ job, onConfirmed }: { job: Job; onConfirmed: (job: Job)
 function JobActions({ entry }: { entry: DigestEntry }) {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [tracked, setTracked] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const sendFeedback = async (value: "interested" | "not_interested") => {
+  const sendFeedback = async (value: "interested" | "not_interested" | "maybe") => {
+    setBusy(true);
+    setError(null);
     try {
       await api.submitFeedback(entry.id, value);
       setFeedback(value);
+      if (value === "interested") {
+        try {
+          await api.createApplication(entry.id);
+        } catch (e) {
+          if (!(e instanceof ApiError && e.status === 409)) throw e;
+        }
+        setTracked(true);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
-    }
-  };
-
-  const track = async () => {
-    try {
-      await api.createApplication(entry.id);
-      setTracked(true);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
     }
   };
 
   return (
     <div className="card-section form-actions">
-      <button className="ghost small" disabled={feedback === "interested"} onClick={() => sendFeedback("interested")}>
+      <button
+        className="ghost small"
+        disabled={busy || feedback === "interested"}
+        onClick={() => sendFeedback("interested")}
+      >
         Interested
+      </button>
+      <button className="ghost small" disabled={busy || feedback === "maybe"} onClick={() => sendFeedback("maybe")}>
+        Maybe
       </button>
       <button
         className="ghost small"
-        disabled={feedback === "not_interested"}
+        disabled={busy || feedback === "not_interested"}
         onClick={() => sendFeedback("not_interested")}
       >
         Not interested
       </button>
-      <button className="ghost small" disabled={tracked} onClick={track}>
-        {tracked ? "Tracking" : "Track application"}
-      </button>
+      {tracked && <span className="muted small">Added to your queue — generate docs from the job page.</span>}
       {error && <span className="error-text small">{error}</span>}
     </div>
   );
 }
 
+type FitFilter = "all" | "High" | "Med" | "Low";
+
 export default function DigestPage() {
   const [entries, setEntries] = useState<DigestEntry[]>([]);
   const [pending, setPending] = useState<Job[]>([]);
+  const [interestFilter, setInterestFilter] = useState<FitFilter>("all");
+  const [candidateFilter, setCandidateFilter] = useState<FitFilter>("all");
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
 
   const refresh = () => api.getDigestToday().then((r) => setEntries(r.entries));
 
   useEffect(() => {
     refresh();
   }, []);
+
+  const filtered = entries.filter((entry) => {
+    if (interestFilter !== "all" && entry.interest_fit !== interestFilter) return false;
+    if (candidateFilter !== "all" && entry.candidate_fit !== candidateFilter) return false;
+    if (favoritesOnly && !entry.is_favorite_company) return false;
+    return true;
+  });
 
   return (
     <div>
@@ -216,7 +237,46 @@ export default function DigestPage() {
         <p className="empty-state">No jobs yet — add one above.</p>
       )}
 
-      {entries.map((entry) => (
+      {entries.length > 0 && (
+        <div className="card">
+          <div className="form-row" style={{ marginBottom: 0 }}>
+            <div className="field" style={{ marginBottom: 0 }}>
+              <span>Interest fit</span>
+              <select value={interestFilter} onChange={(e) => setInterestFilter(e.target.value as FitFilter)}>
+                <option value="all">All</option>
+                <option value="High">High</option>
+                <option value="Med">Med</option>
+                <option value="Low">Low</option>
+              </select>
+            </div>
+            <div className="field" style={{ marginBottom: 0 }}>
+              <span>Candidate fit</span>
+              <select value={candidateFilter} onChange={(e) => setCandidateFilter(e.target.value as FitFilter)}>
+                <option value="all">All</option>
+                <option value="High">High</option>
+                <option value="Med">Med</option>
+                <option value="Low">Low</option>
+              </select>
+            </div>
+            <label className="field inline" style={{ marginBottom: 0 }}>
+              <input
+                type="checkbox"
+                checked={favoritesOnly}
+                onChange={(e) => setFavoritesOnly(e.target.checked)}
+              />
+              <span style={{ margin: 0, fontWeight: 400, color: "var(--ink)" }}>
+                Favorite companies only
+              </span>
+            </label>
+          </div>
+        </div>
+      )}
+
+      {entries.length > 0 && filtered.length === 0 && (
+        <p className="empty-state">No jobs match these filters.</p>
+      )}
+
+      {filtered.map((entry) => (
         <div className="card" key={entry.id}>
           <div className="card-header">
             <div>

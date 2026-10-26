@@ -92,14 +92,20 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   reached `interview`/`offer` says more than a bare `interested` mark). Rebuilt manually from
   Settings, or automatically by the daily pipeline once enough new signal has accumulated.
 - `src/jobhunt/core/scoring.py` — the per-job LLM call (interest-fit + candidate-fit, High/Med/Low)
-  against the candidate profile, preference profile, recent raw feedback, and the `prefilter_sectors`
-  setting (desired sectors/industries) — a role outside a stated sector is told to score lower on
-  interest even if otherwise a strong candidate-fit match.
+  against the candidate profile, preference profile, recent raw feedback, desired sectors, desired
+  titles, and minimum salary. Titles and salary are passed as explicit guidance, not a filter: the
+  prompt tells the model a differently-worded but equivalent/adjacent title (e.g. "VP of Analytics"
+  for a stated "Analytics Director") should be judged on substance, and a posting slightly below
+  the salary floor isn't disqualifying on its own. `core/prefilter.py`'s cheap rule-based pass only
+  *rewards* a literal title match and never penalizes a miss, for the same reason -- the literal
+  string check can't tell "equivalent" from "different," so it shouldn't be allowed to sink a good
+  job's scoring priority before the LLM (which can) ever sees it.
 - Desired sectors (`settings.prefilter_sectors`, edited on the Profile page's "What are you looking
   for?" card) feed three places: `core/prefilter.py`'s rule-based scorer (boost on a text match,
-  penalty on a clear miss), `core/discovery.py`'s company-suggestion prompt (treated as a real
-  constraint, not a tiebreaker — a strong brand outside the sector shouldn't get suggested anyway),
-  and `core/scoring.py` above.
+  penalty on a clear miss -- unlike titles, sector is treated as a harder constraint per the user's
+  explicit ask, not pure guidance), `core/discovery.py`'s company-suggestion prompt (treated as a
+  real constraint, not a tiebreaker — a strong brand outside the sector shouldn't get suggested
+  anyway), and `core/scoring.py` above.
 - `src/jobhunt/core/generate.py` — tailored resume/cover-letter generation, called only from a
   user action on a specific job (`api/generate.py`), never automatically.
 - `src/jobhunt/core/prefilter.py` + `core/queue.py` — the cheap rule-based pass that runs before any
@@ -133,10 +139,15 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   excludes and the daily cap entirely for a favorite's postings (`core/queue.py`'s `select_batch`
   always includes all pending favorite jobs, on top of the capped batch for everyone else), and
   `core/digest.py` flags + force-ranks them first regardless of score.
-- `src/jobhunt/core/discovery.py` — suggests companies to monitor (Claude + web search over the
-  candidate profile and desired-role settings). Returns suggestions only; nothing is persisted
-  until the user approves one from the Profile page, which then calls `company_resolver` via
-  `POST /api/sources/resolve` (or `/api/favorites` to also favorite it).
+- `src/jobhunt/core/discovery.py` — `suggest_companies()` suggests single companies to monitor, and
+  `suggest_job_boards()` suggests multi-employer boards (niche/sector boards, regional boards,
+  aggregators) -- the two are deliberately separate prompts: a board suggestion needs to describe a
+  *listing* worth polling repeatedly, not a single employer, and the model is told not to suggest
+  a generic board (LinkedIn/Indeed) that adds no reach over what the user can already search. Both
+  return suggestions only; nothing is persisted until the user approves one from the Profile page.
+  Approving a company calls `company_resolver` via `POST /api/sources/resolve` (or `/api/favorites`
+  to also favorite it); approving a board goes straight to `POST /api/sources` with
+  `kind=custom_board`, since the board's URL is already known from the suggestion.
 - `src/jobhunt/api/` — one FastAPI route module per resource: `resumes`, `jobs`, `digest`,
   `applications`, `sources`, `generate`, `settings`, `internal`, `favorites`, `discovery`.
   `api/main.py` wires all routers and serves `frontend/dist` if built.
@@ -147,6 +158,17 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   `index.css`), used in place of plain "...ing" button text for any action that calls Claude
   (profile rebuild, company discovery, resume/cover-letter generation, job scoring, favorite
   resolution) or otherwise takes noticeable time (test-fetch, run-daily-now).
+- Digest flow: marking a job "Interested" on `DigestPage` records the feedback *and* auto-creates
+  an `applications` row (status `saved`, swallowing a 409 if one already exists) -- the user
+  shouldn't need a separate "track" step for a job they just said they want. `JobDetailPage` keeps
+  a manual "Track application" button as a fallback for reaching the tracker without going through
+  digest feedback first (e.g. a job pasted in directly). The digest is also filterable client-side
+  by interest fit / candidate fit / favorite-company, reusing the scores already on each entry --
+  no new endpoint needed.
+- `api.ts`'s `APPLICATION_STATUS_LABELS` is a display-only relabeling (`saved` → "Drafting" is the
+  only real change) -- the underlying `ApplicationStatus` enum and DB `CHECK` constraint are
+  unchanged (saved/applied/phone_screen/interview/offer/rejected/withdrawn), so this is purely a
+  frontend label fix, not a schema migration.
 - Resume/cover-letter storage: `JOBHUNT_RESUME_DIR` (default `data/resumes/`) holds the actual files;
   the DB only stores the path + extracted text. In production this directory is a Cloud Run GCS-volume
   mount, so the code never needs to know it's talking to cloud storage.

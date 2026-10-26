@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api, ApiError, CompanySuggestion, ResumeSummary, Settings } from "../api";
+import { api, ApiError, CompanySuggestion, JobBoardSuggestion, ResumeSummary, Settings } from "../api";
 import { Markdown } from "../components/Markdown";
 import { Spinner } from "../components/Spinner";
 import { TagInput } from "../components/TagInput";
@@ -330,6 +330,75 @@ function DiscoverCompaniesSection() {
   );
 }
 
+function DiscoverJobBoardsSection() {
+  const [suggestions, setSuggestions] = useState<JobBoardSuggestion[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<Record<string, string>>({});
+
+  const runDiscovery = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      setSuggestions(await api.suggestJobBoards());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const approve = async (board: JobBoardSuggestion) => {
+    setStatus((s) => ({ ...s, [board.url]: "working" }));
+    try {
+      await api.createSource({
+        kind: "custom_board",
+        name: board.name,
+        config: { url: board.url },
+      });
+      setStatus((s) => ({ ...s, [board.url]: "added" }));
+    } catch (e) {
+      setStatus((s) => ({ ...s, [board.url]: e instanceof Error ? e.message : String(e) }));
+    }
+  };
+
+  return (
+    <div className="card">
+      <h2>Discover job boards</h2>
+      <p className="muted small">
+        Uses your candidate profile and desired role above, plus a web search, to suggest
+        multi-employer boards worth monitoring — broader reach than tracking one company at a
+        time. Nothing is added until you approve it.
+      </p>
+      <button className="ghost" onClick={runDiscovery} disabled={busy}>
+        {busy ? <Spinner label="Searching..." /> : "Suggest job boards"}
+      </button>
+      {error && <p className="error-text small">{error}</p>}
+
+      {suggestions.map((s) => (
+        <div key={s.url} className="card-section">
+          <div className="card-title" style={{ fontSize: "0.95rem" }}>
+            {s.name}
+          </div>
+          <p className="muted small">
+            <code className="path">{s.url}</code>
+          </p>
+          <p className="muted small">{s.reason}</p>
+          {status[s.url] ? (
+            <p className="muted small">{status[s.url]}</p>
+          ) : (
+            <div className="form-actions" style={{ marginTop: 0 }}>
+              <button className="ghost small" onClick={() => approve(s)}>
+                Monitor
+              </button>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function ProfilePage() {
   return (
     <div>
@@ -340,6 +409,7 @@ export default function ProfilePage() {
       <ResumesSection />
       <DesiredRoleSection />
       <DiscoverCompaniesSection />
+      <DiscoverJobBoardsSection />
     </div>
   );
 }

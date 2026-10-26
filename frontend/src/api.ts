@@ -52,6 +52,16 @@ export type ApplicationStatus =
   | "rejected"
   | "withdrawn";
 
+export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
+  saved: "Drafting",
+  applied: "Applied",
+  phone_screen: "Phone screen",
+  interview: "Interview",
+  offer: "Offer",
+  rejected: "Rejected",
+  withdrawn: "Withdrawn",
+};
+
 export interface Application {
   id: number;
   job_id: number;
@@ -80,6 +90,12 @@ export interface DigestEntry extends Job {
 
 export interface CompanySuggestion {
   company_name: string;
+  reason: string;
+}
+
+export interface JobBoardSuggestion {
+  name: string;
+  url: string;
   reason: string;
 }
 
@@ -290,6 +306,9 @@ export const api = {
 
   suggestCompanies: () =>
     request<CompanySuggestion[]>("/api/discovery/suggest", { method: "POST" }),
+
+  suggestJobBoards: () =>
+    request<JobBoardSuggestion[]>("/api/discovery/suggest-boards", { method: "POST" }),
 
   resolveSource: (companyName: string) =>
     request<Source>("/api/sources/resolve", {

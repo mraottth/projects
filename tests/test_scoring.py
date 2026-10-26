@@ -68,6 +68,35 @@ def test_score_job_includes_desired_sectors_in_prompt(monkeypatch):
     assert "Climate Tech, Healthcare" in captured["content"]
 
 
+def test_score_job_includes_desired_titles_and_salary_floor_in_prompt(monkeypatch):
+    fake_score = JobScore(
+        interest_fit="High",
+        interest_score=80,
+        candidate_fit="High",
+        candidate_fit_score=80,
+        summary_text="summary",
+        rationale_text="rationale",
+    )
+    fake_client = FakeAnthropicClient(parse_result=FakeParseResponse(fake_score))
+    monkeypatch.setattr(scoring, "get_client", lambda: fake_client)
+    captured = {}
+    orig_parse = fake_client.messages.parse
+
+    def spy_parse(**kwargs):
+        captured["content"] = kwargs["messages"][0]["content"]
+        return orig_parse(**kwargs)
+
+    fake_client.messages.parse = spy_parse
+
+    job_id = _insert_job()
+    with get_db() as conn:
+        job = dict(conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone())
+
+    score_job(job, None, None, desired_titles=["Analytics Director"], salary_floor=150000)
+    assert "Analytics Director" in captured["content"]
+    assert "150,000" in captured["content"]
+
+
 def test_store_score_persists_row():
     job_id = _insert_job()
     score = JobScore(

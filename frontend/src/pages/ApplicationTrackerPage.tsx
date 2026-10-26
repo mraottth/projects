@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, Application, ApplicationStatus } from "../api";
+import { api, Application, APPLICATION_STATUS_LABELS, ApplicationStatus } from "../api";
 
 const STATUSES: ApplicationStatus[] = [
   "saved",
@@ -35,7 +35,7 @@ function StatusSelect({
     <select value={app.status} disabled={busy} onChange={(e) => change(e.target.value as ApplicationStatus)}>
       {STATUSES.map((s) => (
         <option key={s} value={s}>
-          {s.replace("_", " ")}
+          {APPLICATION_STATUS_LABELS[s]}
         </option>
       ))}
     </select>
@@ -60,7 +60,7 @@ export default function ApplicationTrackerPage() {
       </p>
 
       {apps.length === 0 && (
-        <p className="empty-state">No applications tracked yet — use "Track application" on a digest card.</p>
+        <p className="empty-state">No applications tracked yet — mark a job "Interested" on the digest.</p>
       )}
 
       {apps.map((app) => (
@@ -74,7 +74,7 @@ export default function ApplicationTrackerPage() {
               </div>
               <div className="card-meta">{app.location ?? "location unknown"}</div>
             </div>
-            <span className={`pill pill-${app.status}`}>{app.status.replace("_", " ")}</span>
+            <span className={`pill pill-${app.status}`}>{APPLICATION_STATUS_LABELS[app.status]}</span>
           </div>
 
           <div className="form-row">
@@ -86,7 +86,9 @@ export default function ApplicationTrackerPage() {
 
           <div className="card-section small muted">
             <strong>History: </strong>
-            {app.history.map((h) => h.status.replace("_", " ")).join(" → ")}
+            {app.history
+              .map((h) => APPLICATION_STATUS_LABELS[h.status as ApplicationStatus] ?? h.status)
+              .join(" → ")}
           </div>
         </div>
       ))}

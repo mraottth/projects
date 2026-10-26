@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { api, Application, GeneratedDoc, Job } from "../api";
+import { api, Application, APPLICATION_STATUS_LABELS, GeneratedDoc, Job } from "../api";
 import { Markdown } from "../components/Markdown";
 import { Spinner } from "../components/Spinner";
 
@@ -131,7 +131,10 @@ export default function JobDetailPage() {
         )}
         {application && (
           <p className="muted">
-            Tracked — status: <span className={`pill pill-${application.status}`}>{application.status}</span>
+            Tracked — status:{" "}
+            <span className={`pill pill-${application.status}`}>
+              {APPLICATION_STATUS_LABELS[application.status]}
+            </span>
           </p>
         )}
 

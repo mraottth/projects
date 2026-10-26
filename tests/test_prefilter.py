@@ -9,6 +9,16 @@ def test_hard_excludes_on_excluded_keyword():
     assert "excluded_keywords" in reasons
 
 
+def test_title_mismatch_is_not_penalized():
+    # Titles are guidance, not a filter -- "VP of Analytics" shouldn't be sunk in priority just
+    # because it doesn't literally contain a stated "Analytics Director".
+    job = {"title": "VP of Analytics", "description_text": "lead the analytics org"}
+    settings = {"prefilter_titles_include": ["Analytics Director"]}
+    score, reasons = score_job(job, settings)
+    assert score == 50.0
+    assert "title_no_match" not in reasons
+
+
 def test_boosts_on_included_keyword():
     job = {"title": "Backend Engineer", "description_text": "we use Python and Postgres"}
     settings = {"prefilter_keywords_include": ["python"]}
