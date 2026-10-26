@@ -11,14 +11,42 @@ const KIND_LABELS: Record<SourceKind, string> = {
   custom_board: "Custom board (any URL)",
 };
 
-const CONFIG_FIELD: Record<SourceKind, { key: string; placeholder: string } | null> = {
-  ats_greenhouse: { key: "board_token", placeholder: "e.g. stripe" },
-  ats_lever: { key: "company_slug", placeholder: "e.g. ro" },
-  ats_ashby: { key: "board_name", placeholder: "e.g. linear" },
-  aggregator_adzuna: { key: "what", placeholder: "e.g. software engineer" },
-  aggregator_remoteok: { key: "tags", placeholder: "e.g. python,backend (optional)" },
-  custom_board: { key: "url", placeholder: "https://..." },
+const CONFIG_FIELD: Record<SourceKind, { key: string; label: string; placeholder: string } | null> = {
+  ats_greenhouse: {
+    key: "board_token",
+    label: "Job board URL or token",
+    placeholder: "https://boards.greenhouse.io/stripe",
+  },
+  ats_lever: {
+    key: "company_slug",
+    label: "Job board URL or slug",
+    placeholder: "https://jobs.lever.co/ro",
+  },
+  ats_ashby: {
+    key: "board_name",
+    label: "Job board URL or name",
+    placeholder: "https://jobs.ashbyhq.com/linear",
+  },
+  aggregator_adzuna: { key: "what", label: "Search keyword", placeholder: "e.g. software engineer" },
+  aggregator_remoteok: { key: "tags", label: "Tags (optional)", placeholder: "e.g. python,backend" },
+  custom_board: { key: "url", label: "Job board URL", placeholder: "https://blueroseresearch.org/jobs/" },
 };
+
+const URL_PATTERNS: { kind: SourceKind; configKey: string; pattern: RegExp }[] = [
+  { kind: "ats_greenhouse", configKey: "board_token", pattern: /(?:boards|job-boards)\.greenhouse\.io\/([a-z0-9_-]+)/i },
+  { kind: "ats_lever", configKey: "company_slug", pattern: /jobs\.lever\.co\/([a-z0-9_-]+)/i },
+  { kind: "ats_ashby", configKey: "board_name", pattern: /jobs\.ashbyhq\.com\/([a-z0-9_-]+)/i },
+];
+
+function detectSourceFromUrl(input: string): { kind: SourceKind; config: Record<string, string> } | null {
+  const trimmed = input.trim();
+  if (!/^https?:\/\//i.test(trimmed)) return null;
+  for (const { kind, configKey, pattern } of URL_PATTERNS) {
+    const match = trimmed.match(pattern);
+    if (match) return { kind, config: { [configKey]: match[1] } };
+  }
+  return { kind: "custom_board", config: { url: trimmed } };
+}
 
 function AddSourceForm({ onAdded }: { onAdded: (source: Source) => void }) {
   const [kind, setKind] = useState<SourceKind>("ats_greenhouse");
@@ -29,18 +57,26 @@ function AddSourceForm({ onAdded }: { onAdded: (source: Source) => void }) {
   const [busy, setBusy] = useState(false);
 
   const field = CONFIG_FIELD[kind];
+  const detected = detectSourceFromUrl(configValue);
+
+  const handleConfigChange = (value: string) => {
+    setConfigValue(value);
+    const match = detectSourceFromUrl(value);
+    if (match) setKind(match.kind);
+  };
 
   const submit = async () => {
-    if (!name.trim() || !field) return;
+    if (!name.trim() || !configValue.trim() || !field) return;
     setBusy(true);
     setError(null);
     try {
       const config =
-        field.key === "tags"
+        detected?.config ??
+        (field.key === "tags"
           ? { tags: configValue.split(",").map((t) => t.trim()).filter(Boolean) }
-          : { [field.key]: configValue.trim() };
+          : { [field.key]: configValue.trim() });
       const source = await api.createSource({
-        kind,
+        kind: detected?.kind ?? kind,
         name,
         company_name: companyName || null,
         config,
@@ -79,13 +115,21 @@ function AddSourceForm({ onAdded }: { onAdded: (source: Source) => void }) {
         />
       </div>
       <div className="fsection">
-        <span className="flabel">{field?.placeholder.startsWith("e.g.") ? field.key : "Value"}</span>
+        <span className="flabel">{field?.label ?? "Value"}</span>
         <input
           placeholder={field?.placeholder}
           value={configValue}
-          onChange={(e) => setConfigValue(e.target.value)}
+          onChange={(e) => handleConfigChange(e.target.value)}
           style={{ width: "100%" }}
         />
+        {detected && (
+          <p className="muted small">
+            Detected: {KIND_LABELS[detected.kind]} —{" "}
+            {Object.entries(detected.config)
+              .map(([k, v]) => `${k}: ${v}`)
+              .join(", ")}
+          </p>
+        )}
       </div>
       <div className="fsection" style={{ marginBottom: 0 }}>
         <span className="flabel">Company display name (optional)</span>
