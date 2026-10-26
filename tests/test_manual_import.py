@@ -1,5 +1,6 @@
 import pytest
 
+from jobhunt.core import page_fetch
 from jobhunt.ingest import manual_import
 from jobhunt.ingest.manual_import import ManualImportError, ParsedJob, parse_job_posting
 from tests.fakes import FakeAnthropicClient, FakeParseResponse
@@ -34,15 +35,17 @@ def test_parse_job_posting_from_raw_text(monkeypatch):
     assert result["url"] is None
 
 
-def test_fetch_url_text_rejects_thin_pages(monkeypatch):
+def test_fetch_url_text_rejects_thin_pages_even_after_browser_fallback(monkeypatch):
     class FakeResponse:
         text = "<html><body>Please log in</body></html>"
 
         def raise_for_status(self):
             pass
 
+    monkeypatch.setattr(page_fetch.httpx, "get", lambda *a, **k: FakeResponse())
     monkeypatch.setattr(
-        manual_import.httpx, "get", lambda *a, **k: FakeResponse()
+        page_fetch, "render_page_html", lambda *a, **k: "<html><body>still thin</body></html>"
     )
+
     with pytest.raises(ManualImportError, match="too little text"):
         manual_import.fetch_url_text("https://example.com/job/1")

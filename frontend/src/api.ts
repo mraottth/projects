@@ -75,6 +75,49 @@ export interface DigestEntry extends Job {
   rank: number;
 }
 
+export type SourceKind =
+  | "ats_greenhouse"
+  | "ats_lever"
+  | "ats_ashby"
+  | "aggregator_adzuna"
+  | "aggregator_remoteok"
+  | "custom_board";
+
+export interface Source {
+  id: number;
+  kind: SourceKind;
+  name: string;
+  company_name: string | null;
+  config: Record<string, unknown>;
+  enabled: boolean | 0 | 1;
+  poll_frequency_hours: number;
+  last_polled_at: string | null;
+  last_success_at: string | null;
+  last_error: string | null;
+}
+
+export interface Settings {
+  daily_llm_cap: number;
+  prefilter_keywords_include: string[];
+  prefilter_keywords_exclude: string[];
+  prefilter_titles_include: string[];
+  prefilter_locations: string[];
+  prefilter_remote_only: boolean;
+  salary_floor: number | null;
+}
+
+export interface LlmCall {
+  id: number;
+  call_type: string;
+  job_id: number | null;
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+  estimated_cost_usd: number | null;
+  created_at: string;
+  note: string | null;
+}
+
 export const api = {
   listResumes: () => request<ResumeSummary[]>("/api/resumes"),
 
@@ -146,4 +189,43 @@ export const api = {
 
   rebuildCandidateProfile: () =>
     request<{ text: string }>("/api/resumes/profile/rebuild", { method: "POST" }),
+
+  listSources: () => request<Source[]>("/api/sources"),
+
+  createSource: (payload: Partial<Source> & { kind: SourceKind; name: string }) =>
+    request<Source>("/api/sources", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+
+  updateSource: (id: number, payload: Partial<Source>) =>
+    request<Source>(`/api/sources/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+
+  deleteSource: (id: number) => request<{ ok: true }>(`/api/sources/${id}`, { method: "DELETE" }),
+
+  testSource: (id: number) =>
+    request<{ count: number; preview: Record<string, unknown>[] }>(`/api/sources/${id}/test`, {
+      method: "POST",
+    }),
+
+  getSettings: () => request<Settings>("/api/settings"),
+
+  putSettings: (payload: Partial<Settings>) =>
+    request<Settings>("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+
+  getUsageLog: () =>
+    request<{ calls: LlmCall[]; totals: { total_cost: number; today_cost: number; total_calls: number } }>(
+      "/api/settings/usage-log",
+    ),
+
+  runDailyNow: () => request<Record<string, unknown>>("/internal/run-daily", { method: "POST" }),
 };

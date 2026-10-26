@@ -15,9 +15,21 @@ def normalize_url(url: str) -> str:
 
 
 def compute_dedupe_key(
-    *, url: str | None, company: str, title: str, location: str | None
+    *,
+    url: str | None,
+    company: str,
+    title: str,
+    location: str | None,
+    source_id: int | None = None,
+    external_id: str | None = None,
 ) -> str:
-    if url:
+    # Prefer (source, external_id): it's the most reliable key an ATS/aggregator gives us. URL
+    # alone isn't safe for this -- Greenhouse (and others) put the actual job id in the query
+    # string (e.g. "?gh_jid=123"), which normalize_url strips, so every posting on a board would
+    # otherwise collapse onto the same key.
+    if source_id is not None and external_id:
+        basis = f"source:{source_id}:external:{external_id}"
+    elif url:
         basis = f"url:{normalize_url(url)}"
     else:
         basis = f"job:{_normalize(company)}|{_normalize(title)}|{_normalize(location or '')}"

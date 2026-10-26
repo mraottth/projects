@@ -1,16 +1,10 @@
 from typing import Literal
 
-import httpx
 from pydantic import BaseModel
 
 from jobhunt.core.dedupe import compute_dedupe_key
-from jobhunt.core.html_extract import extract_readable_text
 from jobhunt.core.llm import DEFAULT_MODEL, get_client, llm_error_boundary, log_call
-
-USER_AGENT = (
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/130.0 Safari/537.36"
-)
+from jobhunt.core.page_fetch import PageFetchError, fetch_page_text
 
 PARSE_SYSTEM_PROMPT = """You extract structured job-posting fields from raw page text or a pasted job \
 description. The text may be messy (nav/footer boilerplate, cookie banners) if it came from a web page \
@@ -39,19 +33,9 @@ class ManualImportError(Exception):
 
 def fetch_url_text(url: str) -> str:
     try:
-        resp = httpx.get(url, headers={"User-Agent": USER_AGENT}, follow_redirects=True, timeout=15.0)
-        resp.raise_for_status()
-    except httpx.HTTPError as exc:
-        raise ManualImportError(
-            f"could not fetch {url} ({exc}) -- paste the job text directly instead"
-        ) from exc
-    text = extract_readable_text(resp.text)
-    if len(text) < 200:
-        raise ManualImportError(
-            "fetched page had too little text to parse (likely a login wall or JS-rendered page) "
-            "-- paste the job text directly instead"
-        )
-    return text
+        return fetch_page_text(url)
+    except PageFetchError as exc:
+        raise ManualImportError(f"{exc} -- paste the job text directly instead") from exc
 
 
 def parse_job_posting(*, url: str | None = None, raw_text: str | None = None) -> dict:
