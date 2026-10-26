@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api, Application, GeneratedDoc, Job } from "../api";
+import { Markdown } from "../components/Markdown";
 
 interface JobWithScores extends Job {
   scores: {
@@ -10,6 +11,16 @@ interface JobWithScores extends Job {
     rationale_text: string | null;
     scored_at: string;
   }[];
+}
+
+function FitBadge({ label, value }: { label: string; value: string | null }) {
+  if (!value) return null;
+  const cls = value === "High" ? "badge-high" : value === "Med" ? "badge-med" : "badge-low";
+  return (
+    <span className={`badge ${cls}`}>
+      {label}: {value}
+    </span>
+  );
 }
 
 export default function JobDetailPage() {
@@ -73,7 +84,7 @@ export default function JobDetailPage() {
       <h1>
         {job.title} — {job.company}
       </h1>
-      <p className="muted">
+      <p className="muted" style={{ marginBottom: "18px" }}>
         {job.location ?? "location unknown"}
         {job.url && (
           <>
@@ -88,53 +99,69 @@ export default function JobDetailPage() {
       {latestScore && (
         <div className="card">
           <h2>Scoring</h2>
-          <p>
-            <strong>Interest fit:</strong> {latestScore.interest_fit} ·{" "}
-            <strong>Candidate fit:</strong> {latestScore.candidate_fit}
-          </p>
-          <p>{latestScore.summary_text}</p>
-          <p className="muted">{latestScore.rationale_text}</p>
+          <div className="badge-row">
+            <FitBadge label="Interest" value={latestScore.interest_fit} />
+            <FitBadge label="Candidate fit" value={latestScore.candidate_fit} />
+          </div>
+          {latestScore.summary_text && <p>{latestScore.summary_text}</p>}
+          {latestScore.rationale_text && (
+            <div className="muted small">
+              <Markdown text={latestScore.rationale_text} />
+            </div>
+          )}
         </div>
       )}
 
       <div className="card">
         <h2>Description</h2>
-        <p style={{ whiteSpace: "pre-wrap" }}>{job.description_text ?? "(no description available)"}</p>
+        {job.description_text ? (
+          <Markdown text={job.description_text} />
+        ) : (
+          <p className="empty-state">(no description available)</p>
+        )}
       </div>
 
       <div className="card">
         <h2>Pursuing this one?</h2>
         {!application && (
-          <button onClick={track} disabled={busy === "track"}>
+          <button className="ghost" onClick={track} disabled={busy === "track"}>
             Track application
           </button>
         )}
-        {application && <p className="muted">Tracked — status: {application.status}</p>}
+        {application && (
+          <p className="muted">
+            Tracked — status: <span className={`pill pill-${application.status}`}>{application.status}</span>
+          </p>
+        )}
 
-        <div style={{ marginTop: "0.5rem", display: "flex", gap: "0.5rem" }}>
-          <button onClick={() => generate("resume")} disabled={busy === "resume"}>
+        <div className="form-actions">
+          <button className="primary" onClick={() => generate("resume")} disabled={busy === "resume"}>
             {busy === "resume" ? "Generating..." : "Generate tailored resume"}
           </button>
-          <button onClick={() => generate("cover-letter")} disabled={busy === "cover-letter"}>
+          <button className="primary" onClick={() => generate("cover-letter")} disabled={busy === "cover-letter"}>
             {busy === "cover-letter" ? "Generating..." : "Generate cover letter"}
           </button>
         </div>
-        {error && <p style={{ color: "crimson" }}>{error}</p>}
+        {error && <p className="error-text small">{error}</p>}
       </div>
 
       {docs.map((doc) => (
         <div className="card" key={doc.id}>
           <h3>{doc.kind === "resume" ? "Tailored resume" : "Cover letter"}</h3>
-          <p className="muted">{doc.created_at}</p>
+          <p className="muted small">{doc.created_at}</p>
           {doc.file_path ? (
-            <p className="muted">Saved to: {doc.file_path}</p>
+            <p className="muted small">
+              Saved to: <code className="path">{doc.file_path}</code>
+            </p>
           ) : (
-            <p className="muted">
+            <p className="muted small">
               Not saved as a formatted file (no usable .docx template found — generated as plain
               text instead).
             </p>
           )}
-          <p style={{ whiteSpace: "pre-wrap" }}>{doc.content_text}</p>
+          <div className="card-section">
+            <Markdown text={doc.content_text} />
+          </div>
         </div>
       ))}
     </div>

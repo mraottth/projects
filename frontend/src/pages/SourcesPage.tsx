@@ -58,37 +58,49 @@ function AddSourceForm({ onAdded }: { onAdded: (source: Source) => void }) {
   return (
     <div className="card">
       <h2>Add a source</h2>
-      <select value={kind} onChange={(e) => setKind(e.target.value as SourceKind)}>
-        {Object.entries(KIND_LABELS).map(([k, label]) => (
-          <option key={k} value={k}>
-            {label}
-          </option>
-        ))}
-      </select>
-      <div style={{ marginTop: "0.4rem" }}>
+      <div className="fsection">
+        <span className="flabel">Kind</span>
+        <select value={kind} onChange={(e) => setKind(e.target.value as SourceKind)}>
+          {Object.entries(KIND_LABELS).map(([k, label]) => (
+            <option key={k} value={k}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="fsection">
+        <span className="flabel">Name</span>
         <input
-          placeholder="Name (e.g. 'Stripe careers')"
+          placeholder="e.g. 'Stripe careers'"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          style={{ width: "100%", marginBottom: "0.4rem" }}
+          style={{ width: "100%" }}
         />
+      </div>
+      <div className="fsection">
+        <span className="flabel">{field?.placeholder.startsWith("e.g.") ? field.key : "Value"}</span>
         <input
           placeholder={field?.placeholder}
           value={configValue}
           onChange={(e) => setConfigValue(e.target.value)}
-          style={{ width: "100%", marginBottom: "0.4rem" }}
-        />
-        <input
-          placeholder="Company display name (optional)"
-          value={companyName}
-          onChange={(e) => setCompanyName(e.target.value)}
-          style={{ width: "100%", marginBottom: "0.4rem" }}
+          style={{ width: "100%" }}
         />
       </div>
-      <button onClick={submit} disabled={busy}>
-        Add source
-      </button>
-      {error && <p style={{ color: "crimson" }}>{error}</p>}
+      <div className="fsection" style={{ marginBottom: 0 }}>
+        <span className="flabel">Company display name (optional)</span>
+        <input
+          placeholder="Company display name"
+          value={companyName}
+          onChange={(e) => setCompanyName(e.target.value)}
+          style={{ width: "100%" }}
+        />
+      </div>
+      <div className="form-actions">
+        <button className="primary" onClick={submit} disabled={busy}>
+          Add source
+        </button>
+      </div>
+      {error && <p className="error-text small">{error}</p>}
     </div>
   );
 }
@@ -132,42 +144,50 @@ function FavoritesSection() {
 
   return (
     <div className="card">
-      <h2>★ Favorite companies</h2>
-      <p className="muted">
+      <h2>
+        <span className="star">★</span> Favorite companies
+      </h2>
+      <p className="muted small">
         Any new posting from a favorite company always gets scored and flagged in the digest,
         regardless of the daily cap or your exclude-keyword rules.
       </p>
-      <input
-        placeholder="Company name, e.g. Anthropic"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        style={{ width: "100%", marginBottom: "0.4rem" }}
-      />
-      <button onClick={add} disabled={busy}>
-        Add favorite
-      </button>
-      {error && <p style={{ color: "crimson" }}>{error}</p>}
+      <div className="form-row">
+        <input
+          placeholder="Company name, e.g. Anthropic"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          style={{ flex: "1 1 260px" }}
+        />
+        <button className="primary" onClick={add} disabled={busy}>
+          Add favorite
+        </button>
+      </div>
+      {error && <p className="error-text small">{error}</p>}
 
       <ul>
         {favorites.map((f) => (
           <li key={f.id}>
             {f.company_name} —{" "}
-            {f.resolution_status === "resolved" && <span>resolved via {f.source_kind}</span>}
-            {f.resolution_status === "pending" && <span>resolving...</span>}
+            {f.resolution_status === "resolved" && (
+              <span className="badge badge-high">resolved via {f.source_kind}</span>
+            )}
+            {f.resolution_status === "pending" && <span className="badge badge-med">resolving...</span>}
             {f.resolution_status === "failed" && (
               <span>
-                couldn't find a board —{" "}
-                <button onClick={() => retry(f.id)} disabled={busy}>
+                <span className="badge badge-low">couldn't find a board</span>{" "}
+                <button className="link small" onClick={() => retry(f.id)} disabled={busy}>
                   retry
                 </button>
               </span>
             )}
             {" — "}
-            <button onClick={() => api.removeFavorite(f.id).then(refresh)}>remove</button>
+            <button className="link small" onClick={() => api.removeFavorite(f.id).then(refresh)}>
+              remove
+            </button>
           </li>
         ))}
       </ul>
-      {favorites.length === 0 && <p className="muted">No favorites yet.</p>}
+      {favorites.length === 0 && <p className="empty-state">No favorites yet.</p>}
     </div>
   );
 }
@@ -201,22 +221,31 @@ function SourceCard({ source, onChanged }: { source: Source; onChanged: () => vo
 
   return (
     <div className="card">
-      <h3>
-        {source.is_favorite ? "★ " : ""}
-        {source.name}
-      </h3>
-      <p className="muted">
-        {KIND_LABELS[source.kind]} · {JSON.stringify(source.config)}
-      </p>
-      {source.last_error && <p style={{ color: "crimson" }}>Last error: {source.last_error}</p>}
-      <div style={{ display: "flex", gap: "0.5rem" }}>
-        <button onClick={test} disabled={busy}>
+      <div className="card-header">
+        <div>
+          <div className="card-title">
+            {source.is_favorite && <span className="star">★ </span>}
+            {source.name}
+            {!source.enabled && <span className="pill" style={{ marginLeft: "8px" }}>disabled</span>}
+          </div>
+          <div className="card-meta">
+            {KIND_LABELS[source.kind]} · <code className="path">{JSON.stringify(source.config)}</code>
+          </div>
+        </div>
+      </div>
+      {source.last_error && <p className="error-text small">Last error: {source.last_error}</p>}
+      <div className="form-actions" style={{ marginTop: 0 }}>
+        <button className="ghost small" onClick={test} disabled={busy}>
           Test fetch
         </button>
-        <button onClick={toggle}>{source.enabled ? "Disable" : "Enable"}</button>
-        <button onClick={remove}>Delete</button>
+        <button className="ghost small" onClick={toggle}>
+          {source.enabled ? "Disable" : "Enable"}
+        </button>
+        <button className="ghost small danger" onClick={remove}>
+          Delete
+        </button>
       </div>
-      {testResult && <p className="muted">{testResult}</p>}
+      {testResult && <p className="muted small">{testResult}</p>}
     </div>
   );
 }
@@ -249,7 +278,7 @@ export default function SourcesPage() {
   return (
     <div>
       <h1>Sources</h1>
-      <p className="muted">
+      <p className="muted" style={{ marginBottom: "18px" }}>
         Company ATS boards (Greenhouse/Lever/Ashby), aggregator APIs (Adzuna/RemoteOK), and custom
         boards — any URL, including multi-employer boards. For LinkedIn/Indeed/Glassdoor, use "Add a
         job" on the Digest page instead (paste-in).
@@ -260,19 +289,24 @@ export default function SourcesPage() {
 
       <div className="card">
         <h2>Run the daily pipeline now</h2>
-        <p className="muted">
+        <p className="muted small">
           In production this runs automatically via Cloud Scheduler. Locally, trigger it manually
           to test.
         </p>
-        <button onClick={runNow} disabled={running}>
+        <button className="ghost" onClick={runNow} disabled={running}>
           {running ? "Running..." : "Run now"}
         </button>
-        {runResult && <pre style={{ whiteSpace: "pre-wrap" }}>{runResult}</pre>}
+        {runResult && (
+          <pre style={{ whiteSpace: "pre-wrap", marginTop: "10px" }}>
+            <code>{runResult}</code>
+          </pre>
+        )}
       </div>
 
       {sources.map((s) => (
         <SourceCard key={s.id} source={s} onChanged={refresh} />
       ))}
+      {sources.length === 0 && <p className="empty-state">No sources yet — add one above.</p>}
     </div>
   );
 }

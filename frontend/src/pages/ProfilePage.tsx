@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api, ApiError, CompanySuggestion, ResumeSummary, Settings } from "../api";
+import { Markdown } from "../components/Markdown";
 
 function toList(s: string): string[] {
   return s
@@ -62,64 +63,66 @@ function ResumesSection() {
     }
   };
 
+  const current = resumes.filter((r) => !r.is_archived);
+  const archived = resumes.filter((r) => r.is_archived);
+  const renderRow = (r: ResumeSummary) => (
+    <li key={r.id}>
+      <span className="tag">{r.kind === "resume" ? "resume" : "cover letter"}</span>{" "}
+      {r.is_template && <span className="star">★ </span>}
+      {r.file_name} <span className="muted small">— {r.text_length.toLocaleString()} chars</span> —{" "}
+      <button className="link small" onClick={() => api.deleteResume(r.id).then(refresh)}>
+        delete
+      </button>
+    </li>
+  );
+
   return (
     <>
       <div className="card">
         <h2>Resumes &amp; cover letters</h2>
-        <input ref={fileInput} type="file" accept=".pdf,.docx,.md,.txt" />
-        <select value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
-          <option value="resume">Resume</option>
-          <option value="cover_letter">Cover letter</option>
-        </select>
-        <button onClick={handleUpload} disabled={busy}>
-          Upload
-        </button>
-        {error && <p style={{ color: "crimson" }}>{error}</p>}
+        <div className="form-row">
+          <input ref={fileInput} type="file" accept=".pdf,.docx,.md,.txt" />
+          <select value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
+            <option value="resume">Resume</option>
+            <option value="cover_letter">Cover letter</option>
+          </select>
+          <button className="primary" onClick={handleUpload} disabled={busy}>
+            Upload
+          </button>
+        </div>
+        {error && <p className="error-text small">{error}</p>}
         {libraryPath && (
-          <p className="muted">
-            Bulk-imported from <code>{libraryPath}</code> — new tailored docs save to{" "}
-            <code>{libraryPath}/AI Generated</code>.
+          <p className="muted small">
+            Bulk-imported from <code className="path">{libraryPath}</code> — new tailored docs save to{" "}
+            <code className="path">{libraryPath}/AI Generated</code>.
           </p>
         )}
 
-        {(() => {
-          const current = resumes.filter((r) => !r.is_archived);
-          const archived = resumes.filter((r) => r.is_archived);
-          const renderRow = (r: ResumeSummary) => (
-            <li key={r.id}>
-              [{r.kind}] {r.is_template ? "★ " : ""}
-              {r.file_name} — {r.text_length} chars —{" "}
-              <button onClick={() => api.deleteResume(r.id).then(refresh)}>delete</button>
-            </li>
-          );
-          return (
-            <>
-              <ul>{current.map(renderRow)}</ul>
-              {current.length === 0 && resumes.length === 0 && <p className="muted">None yet.</p>}
-              {archived.length > 0 && (
-                <>
-                  <button onClick={() => setShowArchived((s) => !s)}>
-                    {showArchived ? "Hide" : "Show"} {archived.length} archived document
-                    {archived.length === 1 ? "" : "s"}
-                  </button>
-                  {showArchived && <ul>{archived.map(renderRow)}</ul>}
-                </>
-              )}
-            </>
-          );
-        })()}
+        <ul>{current.map(renderRow)}</ul>
+        {resumes.length === 0 && <p className="empty-state">None yet.</p>}
+        {archived.length > 0 && (
+          <>
+            <button className="link small collapsible-toggle" onClick={() => setShowArchived((s) => !s)}>
+              {showArchived ? "Hide" : "Show"} {archived.length} archived document
+              {archived.length === 1 ? "" : "s"}
+            </button>
+            {showArchived && <ul>{archived.map(renderRow)}</ul>}
+          </>
+        )}
       </div>
 
       <div className="card">
         <h2>Candidate profile</h2>
-        <p className="muted">Synthesized from everything uploaded above.</p>
-        <button onClick={handleRebuild} disabled={busy || resumes.length === 0}>
+        <p className="muted small">Synthesized from everything uploaded above.</p>
+        <button className="ghost" onClick={handleRebuild} disabled={busy || resumes.length === 0}>
           Rebuild from uploaded documents
         </button>
         {profile ? (
-          <p style={{ whiteSpace: "pre-wrap" }}>{profile}</p>
+          <div className="card-section">
+            <Markdown text={profile} />
+          </div>
         ) : (
-          <p className="muted">No profile yet — upload at least one document and rebuild.</p>
+          <p className="empty-state">No profile yet — upload at least one document and rebuild.</p>
         )}
       </div>
     </>
@@ -152,52 +155,54 @@ function DesiredRoleSection() {
   return (
     <div className="card">
       <h2>What are you looking for?</h2>
-      <p className="muted">
+      <p className="muted small">
         This drives both scoring (jobs that don't match get down-weighted) and the "discover
         companies" search below.
       </p>
 
-      <label style={{ display: "block", marginBottom: "0.5rem" }}>
-        Desired job titles
+      <div className="fsection">
+        <span className="flabel">Desired job titles</span>
         <input
           defaultValue={settings.prefilter_titles_include.join(", ")}
           onBlur={(e) => save({ prefilter_titles_include: toList(e.target.value) })}
           placeholder="e.g. Senior Backend Engineer, Staff Engineer"
-          style={{ display: "block", width: "100%" }}
+          style={{ width: "100%" }}
         />
-      </label>
+      </div>
 
-      <label style={{ display: "block", marginBottom: "0.5rem" }}>
-        Desired locations
+      <div className="fsection">
+        <span className="flabel">Desired locations</span>
         <input
           defaultValue={settings.prefilter_locations.join(", ")}
           onBlur={(e) => save({ prefilter_locations: toList(e.target.value) })}
           placeholder="e.g. New York, Remote"
-          style={{ display: "block", width: "100%" }}
+          style={{ width: "100%" }}
         />
-      </label>
+      </div>
 
-      <label style={{ display: "block", marginBottom: "0.5rem" }}>
-        <input
-          type="checkbox"
-          defaultChecked={settings.prefilter_remote_only}
-          onChange={(e) => save({ prefilter_remote_only: e.target.checked })}
-        />{" "}
-        Remote only
-      </label>
+      <div className="fsection">
+        <label className="field inline" style={{ marginBottom: 0 }}>
+          <input
+            type="checkbox"
+            defaultChecked={settings.prefilter_remote_only}
+            onChange={(e) => save({ prefilter_remote_only: e.target.checked })}
+          />
+          <span style={{ margin: 0, fontWeight: 400, color: "var(--ink)" }}>Remote only</span>
+        </label>
+      </div>
 
-      <label style={{ display: "block" }}>
-        Minimum salary
+      <div className="fsection" style={{ marginBottom: 0 }}>
+        <span className="flabel">Minimum salary</span>
         <input
           type="number"
           defaultValue={settings.salary_floor ?? ""}
           onBlur={(e) => save({ salary_floor: e.target.value ? Number(e.target.value) : null })}
-          style={{ display: "block", width: "100%" }}
+          style={{ width: "200px" }}
         />
-      </label>
+      </div>
 
-      {busy && <p className="muted">Saving...</p>}
-      {saved && !busy && <p className="muted">Saved.</p>}
+      {busy && <p className="muted small">Saving...</p>}
+      {saved && !busy && <p className="muted small">Saved.</p>}
     </div>
   );
 }
@@ -241,25 +246,31 @@ function DiscoverCompaniesSection() {
   return (
     <div className="card">
       <h2>Discover companies</h2>
-      <p className="muted">
+      <p className="muted small">
         Uses your candidate profile and desired role above, plus a web search, to suggest
         companies worth monitoring. Nothing is added until you approve it.
       </p>
-      <button onClick={runDiscovery} disabled={busy}>
+      <button className="ghost" onClick={runDiscovery} disabled={busy}>
         {busy ? "Searching..." : "Suggest companies"}
       </button>
-      {error && <p style={{ color: "crimson" }}>{error}</p>}
+      {error && <p className="error-text small">{error}</p>}
 
       {suggestions.map((s) => (
-        <div key={s.company_name} className="card" style={{ marginTop: "0.5rem" }}>
-          <strong>{s.company_name}</strong>
-          <p className="muted">{s.reason}</p>
+        <div key={s.company_name} className="card-section">
+          <div className="card-title" style={{ fontSize: "0.95rem" }}>
+            {s.company_name}
+          </div>
+          <p className="muted small">{s.reason}</p>
           {status[s.company_name] ? (
-            <p className="muted">{status[s.company_name]}</p>
+            <p className="muted small">{status[s.company_name]}</p>
           ) : (
-            <div style={{ display: "flex", gap: "0.5rem" }}>
-              <button onClick={() => approve(s.company_name, false)}>Monitor</button>
-              <button onClick={() => approve(s.company_name, true)}>Monitor &amp; favorite</button>
+            <div className="form-actions" style={{ marginTop: 0 }}>
+              <button className="ghost small" onClick={() => approve(s.company_name, false)}>
+                Monitor
+              </button>
+              <button className="ghost small" onClick={() => approve(s.company_name, true)}>
+                Monitor &amp; favorite
+              </button>
             </div>
           )}
         </div>
@@ -272,6 +283,9 @@ export default function ProfilePage() {
   return (
     <div>
       <h1>Profile</h1>
+      <p className="muted" style={{ marginBottom: "18px" }}>
+        Who you are and what you're looking for — drives scoring, generation, and discovery.
+      </p>
       <ResumesSection />
       <DesiredRoleSection />
       <DiscoverCompaniesSection />

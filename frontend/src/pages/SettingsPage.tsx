@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, LlmCall, Settings } from "../api";
+import { Markdown } from "../components/Markdown";
 
 function toList(s: string): string[] {
   return s
@@ -34,42 +35,42 @@ function PrefilterSettings() {
   return (
     <div className="card">
       <h2>Scoring tuning</h2>
-      <p className="muted">
+      <p className="muted small">
         Cheap rule-based scoring runs before any Claude call, so the daily cap is spent on the most
         promising jobs first. Your desired titles/locations/salary live on the Profile page — these
         are extra tuning knobs on top of that.
       </p>
 
-      <label>
-        Daily LLM cap (max jobs fully scored per day)
+      <div className="fsection">
+        <span className="flabel">Daily LLM cap (max jobs fully scored per day)</span>
         <input
           type="number"
           defaultValue={settings.daily_llm_cap}
           onBlur={(e) => save({ daily_llm_cap: Number(e.target.value) })}
-          style={{ display: "block", width: "100%" }}
+          style={{ width: "140px" }}
         />
-      </label>
+      </div>
 
-      <label>
-        Required keywords (any match boosts score)
+      <div className="fsection">
+        <span className="flabel">Required keywords (any match boosts score)</span>
         <input
           defaultValue={settings.prefilter_keywords_include.join(", ")}
           onBlur={(e) => save({ prefilter_keywords_include: toList(e.target.value) })}
-          style={{ display: "block", width: "100%" }}
+          style={{ width: "100%" }}
         />
-      </label>
+      </div>
 
-      <label>
-        Excluded keywords (any match drops score to zero)
+      <div className="fsection" style={{ marginBottom: 0 }}>
+        <span className="flabel">Excluded keywords (any match drops score to zero)</span>
         <input
           defaultValue={settings.prefilter_keywords_exclude.join(", ")}
           onBlur={(e) => save({ prefilter_keywords_exclude: toList(e.target.value) })}
-          style={{ display: "block", width: "100%" }}
+          style={{ width: "100%" }}
         />
-      </label>
+      </div>
 
-      {busy && <p className="muted">Saving...</p>}
-      {saved && !busy && <p className="muted">Saved.</p>}
+      {busy && <p className="muted small">Saving...</p>}
+      {saved && !busy && <p className="muted small">Saved.</p>}
     </div>
   );
 }
@@ -91,14 +92,14 @@ function UsageLog() {
     <div className="card">
       <h2>Usage log</h2>
       {totals && (
-        <p className="muted">
+        <p className="muted small">
           ${totals.today_cost.toFixed(2)} today · ${totals.total_cost.toFixed(2)} total ·{" "}
           {totals.total_calls} calls
         </p>
       )}
-      <table style={{ width: "100%", fontSize: "0.9em" }}>
+      <table>
         <thead>
-          <tr style={{ textAlign: "left" }}>
+          <tr>
             <th>When</th>
             <th>Type</th>
             <th>Model</th>
@@ -109,18 +110,18 @@ function UsageLog() {
         <tbody>
           {calls.map((c) => (
             <tr key={c.id}>
-              <td>{c.created_at}</td>
-              <td>{c.call_type}</td>
-              <td>{c.model}</td>
-              <td>
+              <td className="small">{c.created_at}</td>
+              <td className="small">{c.call_type}</td>
+              <td className="small">{c.model}</td>
+              <td className="small">
                 {c.input_tokens}/{c.output_tokens}
               </td>
-              <td>{c.estimated_cost_usd != null ? `$${c.estimated_cost_usd.toFixed(4)}` : "—"}</td>
+              <td className="small">{c.estimated_cost_usd != null ? `$${c.estimated_cost_usd.toFixed(4)}` : "—"}</td>
             </tr>
           ))}
         </tbody>
       </table>
-      {calls.length === 0 && <p className="muted">No Claude calls logged yet.</p>}
+      {calls.length === 0 && <p className="empty-state">No Claude calls logged yet.</p>}
     </div>
   );
 }
@@ -158,22 +159,27 @@ export default function SettingsPage() {
   return (
     <div>
       <h1>Settings</h1>
+      <p className="muted" style={{ marginBottom: "18px" }}>
+        Scoring tuning, your learned preferences, and what Claude usage is costing you.
+      </p>
 
       <div className="card">
         <h2>Preference profile</h2>
-        <p className="muted">
+        <p className="muted small">
           Learned from your interested/not-interested marks and application outcomes (application
           outcomes count for more). Rebuild after marking a batch of jobs or moving applications
           forward.
         </p>
-        <button onClick={rebuild} disabled={busy}>
+        <button className="ghost" onClick={rebuild} disabled={busy}>
           {busy ? "Rebuilding..." : "Rebuild from feedback"}
         </button>
-        {error && <p style={{ color: "crimson" }}>{error}</p>}
+        {error && <p className="error-text small">{error}</p>}
         {profile ? (
-          <p style={{ whiteSpace: "pre-wrap" }}>{profile}</p>
+          <div className="card-section">
+            <Markdown text={profile} />
+          </div>
         ) : (
-          <p className="muted">No preference profile yet — mark some jobs or track an application.</p>
+          <p className="empty-state">No preference profile yet — mark some jobs or track an application.</p>
         )}
       </div>
 

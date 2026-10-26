@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, DigestEntry, Job } from "../api";
+import { Markdown } from "../components/Markdown";
 
 function daysAgo(iso: string): string {
   const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
@@ -21,9 +22,9 @@ function salaryText(job: Job): string | null {
 
 function FitBadge({ label, value }: { label: string; value: string | null }) {
   if (!value) return null;
-  const color = value === "High" ? "green" : value === "Med" ? "orange" : "crimson";
+  const cls = value === "High" ? "badge-high" : value === "Med" ? "badge-med" : "badge-low";
   return (
-    <span style={{ color, fontWeight: 600, marginRight: "1rem" }}>
+    <span className={`badge ${cls}`}>
       {label}: {value}
     </span>
   );
@@ -53,40 +54,40 @@ function AddJobForm({ onAdded }: { onAdded: (job: Job) => void }) {
   return (
     <div className="card">
       <h2>Add a job</h2>
-      <p className="muted">
+      <p className="muted small">
         Paste a LinkedIn/Indeed/Glassdoor URL or the raw job text (if the URL fetch fails — common on
         sites that require login — paste the text instead).
       </p>
-      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.5rem" }}>
-        <label>
-          <input type="radio" checked={mode === "text"} onChange={() => setMode("text")} /> Raw text
-        </label>
-        <label>
-          <input type="radio" checked={mode === "url"} onChange={() => setMode("url")} /> URL
-        </label>
+      <div className="seg" style={{ marginBottom: "10px" }}>
+        <button type="button" className={mode === "text" ? "on" : ""} onClick={() => setMode("text")}>
+          Raw text
+        </button>
+        <button type="button" className={mode === "url" ? "on" : ""} onClick={() => setMode("url")}>
+          URL
+        </button>
       </div>
       {mode === "text" ? (
         <textarea
           rows={6}
-          style={{ width: "100%" }}
           value={value}
           onChange={(e) => setValue(e.target.value)}
           placeholder="Paste the job description here..."
+          style={{ width: "100%", display: "block" }}
         />
       ) : (
         <input
-          style={{ width: "100%" }}
           value={value}
           onChange={(e) => setValue(e.target.value)}
           placeholder="https://..."
+          style={{ width: "100%", display: "block" }}
         />
       )}
-      <div style={{ marginTop: "0.5rem" }}>
-        <button onClick={submit} disabled={busy}>
+      <div className="form-actions">
+        <button className="primary" onClick={submit} disabled={busy}>
           {busy ? "Parsing..." : "Parse"}
         </button>
       </div>
-      {error && <p style={{ color: "crimson" }}>{error}</p>}
+      {error && <p className="error-text small">{error}</p>}
     </div>
   );
 }
@@ -113,26 +114,26 @@ function PendingReview({ job, onConfirmed }: { job: Job; onConfirmed: (job: Job)
   return (
     <div className="card">
       <h3>Review before scoring</h3>
-      <input
-        style={{ width: "100%", marginBottom: "0.4rem" }}
-        value={draft.title}
-        onChange={(e) => setDraft({ ...draft, title: e.target.value })}
-      />
-      <input
-        style={{ width: "100%", marginBottom: "0.4rem" }}
-        value={draft.company}
-        onChange={(e) => setDraft({ ...draft, company: e.target.value })}
-      />
-      <input
-        style={{ width: "100%", marginBottom: "0.4rem" }}
-        value={draft.location ?? ""}
-        onChange={(e) => setDraft({ ...draft, location: e.target.value })}
-        placeholder="Location"
-      />
-      <button onClick={confirm} disabled={busy}>
+      <div className="field">
+        <span>Title</span>
+        <input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
+      </div>
+      <div className="field">
+        <span>Company</span>
+        <input value={draft.company} onChange={(e) => setDraft({ ...draft, company: e.target.value })} />
+      </div>
+      <div className="field">
+        <span>Location</span>
+        <input
+          value={draft.location ?? ""}
+          onChange={(e) => setDraft({ ...draft, location: e.target.value })}
+          placeholder="Location"
+        />
+      </div>
+      <button className="primary" onClick={confirm} disabled={busy}>
         {busy ? "Scoring..." : "Confirm & score"}
       </button>
-      {error && <p style={{ color: "crimson" }}>{error}</p>}
+      {error && <p className="error-text small">{error}</p>}
     </div>
   );
 }
@@ -161,17 +162,21 @@ function JobActions({ entry }: { entry: DigestEntry }) {
   };
 
   return (
-    <div style={{ marginTop: "0.5rem", display: "flex", gap: "0.5rem", alignItems: "center" }}>
-      <button disabled={feedback === "interested"} onClick={() => sendFeedback("interested")}>
+    <div className="card-section form-actions">
+      <button className="ghost small" disabled={feedback === "interested"} onClick={() => sendFeedback("interested")}>
         Interested
       </button>
-      <button disabled={feedback === "not_interested"} onClick={() => sendFeedback("not_interested")}>
+      <button
+        className="ghost small"
+        disabled={feedback === "not_interested"}
+        onClick={() => sendFeedback("not_interested")}
+      >
         Not interested
       </button>
-      <button disabled={tracked} onClick={track}>
+      <button className="ghost small" disabled={tracked} onClick={track}>
         {tracked ? "Tracking" : "Track application"}
       </button>
-      {error && <span style={{ color: "crimson" }}>{error}</span>}
+      {error && <span className="error-text small">{error}</span>}
     </div>
   );
 }
@@ -189,6 +194,9 @@ export default function DigestPage() {
   return (
     <div>
       <h1>Today's digest</h1>
+      <p className="muted" style={{ marginBottom: "18px" }}>
+        Ranked jobs worth your attention today.
+      </p>
 
       <AddJobForm onAdded={(job) => setPending((p) => [...p, job])} />
 
@@ -204,27 +212,39 @@ export default function DigestPage() {
       ))}
 
       {entries.length === 0 && pending.length === 0 && (
-        <p className="muted">No jobs yet — add one above.</p>
+        <p className="empty-state">No jobs yet — add one above.</p>
       )}
 
       {entries.map((entry) => (
         <div className="card" key={entry.id}>
-          <h3>
-            {entry.is_favorite_company ? "★ " : ""}
-            <Link to={`/jobs/${entry.id}`}>
-              {entry.title} — {entry.company}
-            </Link>
-          </h3>
-          <p className="muted">
-            {entry.location ?? "location unknown"}
-            {salaryText(entry) ? ` · ${salaryText(entry)}` : ""} · {daysAgo(entry.first_seen_at)}
-          </p>
-          <p>{entry.summary_text}</p>
-          <div>
+          <div className="card-header">
+            <div>
+              <div className="card-title">
+                {entry.is_favorite_company && <span className="star">★ </span>}
+                <Link to={`/jobs/${entry.id}`}>
+                  {entry.title} — {entry.company}
+                </Link>
+              </div>
+              <div className="card-meta">
+                {entry.location ?? "location unknown"}
+                {salaryText(entry) ? ` · ${salaryText(entry)}` : ""} · {daysAgo(entry.first_seen_at)}
+              </div>
+            </div>
+          </div>
+
+          {entry.summary_text && <p>{entry.summary_text}</p>}
+
+          <div className="badge-row">
             <FitBadge label="Interest" value={entry.interest_fit} />
             <FitBadge label="Candidate fit" value={entry.candidate_fit} />
           </div>
-          {entry.rationale_text && <p className="muted">{entry.rationale_text}</p>}
+
+          {entry.rationale_text && (
+            <div className="muted small">
+              <Markdown text={entry.rationale_text} />
+            </div>
+          )}
+
           <JobActions entry={entry} />
         </div>
       ))}

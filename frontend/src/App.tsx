@@ -17,9 +17,9 @@ const NAV_LINKS = [
 export default function App() {
   return (
     <div className="app-shell">
-      <nav className="app-nav">
-        <span className="app-nav-title">Job Search Assistant</span>
-        <div className="app-nav-links">
+      <header className="topbar">
+        <span className="brand">Job Search Assistant</span>
+        <nav>
           {NAV_LINKS.map((link) => (
             <NavLink
               key={link.to}
@@ -30,8 +30,8 @@ export default function App() {
               {link.label}
             </NavLink>
           ))}
-        </div>
-      </nav>
+        </nav>
+      </header>
       <main className="app-main">
         <Routes>
           <Route path="/" element={<DigestPage />} />

@@ -1,7 +1,8 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from jobhunt.api import (
@@ -41,6 +42,14 @@ app.include_router(favorites.router)
 app.include_router(discovery.router)
 
 if FRONTEND_DIST.exists():
-    app.mount(
-        "/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend"
-    )
+    app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")
+
+    # SPA fallback: react-router handles routing client-side, so a direct navigation or refresh
+    # on e.g. /profile has to get index.html too, not a 404 -- StaticFiles(html=True) alone only
+    # serves index.html for "/" and real directories, not arbitrary unmatched paths (caught live:
+    # every page but Digest 404'd on direct navigation before this).
+    @app.get("/{full_path:path}")
+    async def spa_fallback(full_path: str):
+        if full_path.startswith(("api/", "internal/")):
+            raise HTTPException(404)
+        return FileResponse(FRONTEND_DIST / "index.html")
