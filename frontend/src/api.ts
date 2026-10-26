@@ -24,8 +24,58 @@ export interface ResumeSummary {
   text_length: number;
 }
 
+export interface Job {
+  id: number;
+  title: string;
+  company: string;
+  location: string | null;
+  remote_type: string | null;
+  salary_min: number | null;
+  salary_max: number | null;
+  salary_currency: string | null;
+  salary_period: string | null;
+  description_text: string | null;
+  url: string | null;
+  posted_at: string | null;
+  first_seen_at: string;
+  needs_review: 0 | 1;
+}
+
+export interface DigestEntry extends Job {
+  interest_fit: "High" | "Med" | "Low" | null;
+  interest_score: number | null;
+  candidate_fit: "High" | "Med" | "Low" | null;
+  candidate_fit_score: number | null;
+  summary_text: string | null;
+  rationale_text: string | null;
+  rank: number;
+}
+
 export const api = {
   listResumes: () => request<ResumeSummary[]>("/api/resumes"),
+
+  createManualJob: (payload: { url?: string; raw_text?: string }) =>
+    request<Job>("/api/jobs/manual", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+
+  updateJob: (id: number, payload: Partial<Job>) =>
+    request<Job>(`/api/jobs/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+
+  confirmJob: (id: number) => request<Job>(`/api/jobs/${id}/confirm`, { method: "POST" }),
+
+  getDigestToday: () => request<{ date: string; entries: DigestEntry[] }>("/api/digest/today"),
+
+  getDigestByDate: (date: string) =>
+    request<{ date: string; entries: DigestEntry[] }>(`/api/digest/${date}`),
+
+  getDigestDates: () => request<string[]>("/api/digest/dates"),
 
   uploadResume: (file: File, kind: "resume" | "cover_letter", label?: string) => {
     const form = new FormData();

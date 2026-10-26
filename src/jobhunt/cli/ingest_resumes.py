@@ -1,4 +1,5 @@
-"""One-time local bulk import: uv run python -m jobhunt.cli.ingest_resumes <folder> [--kind resume|cover_letter]
+"""One-time local bulk import:
+uv run python -m jobhunt.cli.ingest_resumes <folder> [--kind resume|cover_letter]
 
 Walks a folder of .pdf/.docx/.md/.txt files, copies each into JOBHUNT_RESUME_DIR, extracts text, and
 inserts a `resumes` row. Intended for seeding the local dev DB with historical files before the first
@@ -26,7 +27,7 @@ def ingest_folder(folder: Path, kind: str) -> list[str]:
             continue
         try:
             raw_text = extract_text(path)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - keep importing the rest of the folder on a bad file
             print(f"skip {path.name}: {exc}")
             continue
 

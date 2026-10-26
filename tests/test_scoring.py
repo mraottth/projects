@@ -1,0 +1,57 @@
+from jobhunt.core import scoring
+from jobhunt.core.scoring import JobScore, score_job, store_score
+from jobhunt.db.connection import get_db
+from tests.fakes import FakeAnthropicClient, FakeParseResponse
+
+
+def _insert_job() -> int:
+    with get_db() as conn:
+        cursor = conn.execute(
+            """INSERT INTO jobs (dedupe_key, title, company, location, description_text)
+               VALUES ('k1', 'Engineer', 'Acme', 'NYC', 'Build things')""",
+        )
+        return cursor.lastrowid
+
+
+def test_score_job_calls_llm_and_logs_usage(monkeypatch):
+    fake_score = JobScore(
+        interest_fit="High",
+        interest_score=82,
+        candidate_fit="Med",
+        candidate_fit_score=55,
+        summary_text="A backend role at a startup.",
+        rationale_text="Matches your backend experience; interest inferred from past likes.",
+    )
+    fake_client = FakeAnthropicClient(parse_result=FakeParseResponse(fake_score, 123, 45))
+    monkeypatch.setattr(scoring, "get_client", lambda: fake_client)
+
+    job_id = _insert_job()
+    with get_db() as conn:
+        job = dict(conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone())
+
+    result = score_job(job, candidate_profile="Experienced backend engineer.", preference_profile=None)
+    assert result.interest_fit == "High"
+
+    with get_db() as conn:
+        calls = conn.execute("SELECT * FROM llm_calls").fetchall()
+    assert len(calls) == 1
+    assert calls[0]["call_type"] == "scoring"
+    assert calls[0]["input_tokens"] == 123
+    assert calls[0]["job_id"] == job_id
+
+
+def test_store_score_persists_row():
+    job_id = _insert_job()
+    score = JobScore(
+        interest_fit="Low",
+        interest_score=10,
+        candidate_fit="High",
+        candidate_fit_score=90,
+        summary_text="summary",
+        rationale_text="rationale",
+    )
+    score_id = store_score(job_id, score)
+    with get_db() as conn:
+        row = conn.execute("SELECT * FROM job_scores WHERE id = ?", (score_id,)).fetchone()
+    assert row["interest_fit"] == "Low"
+    assert row["candidate_fit_score"] == 90

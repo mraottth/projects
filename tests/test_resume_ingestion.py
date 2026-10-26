@@ -1,4 +1,4 @@
-from pathlib import Path
+import pytest
 
 from jobhunt.core.resume_parse import extract_text
 from jobhunt.db.connection import get_db
@@ -13,11 +13,8 @@ def test_extract_text_md(tmp_path):
 def test_extract_text_rejects_unsupported(tmp_path):
     path = tmp_path / "resume.xyz"
     path.write_text("nope")
-    try:
+    with pytest.raises(ValueError):
         extract_text(path)
-        assert False, "expected ValueError"
-    except ValueError:
-        pass
 
 
 def test_resume_row_roundtrip():

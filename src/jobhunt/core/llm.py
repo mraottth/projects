@@ -7,10 +7,16 @@ if quality ever needs to beat cost here.
 """
 
 import os
+from contextlib import contextmanager
 
 import anthropic
 
 from jobhunt.db.connection import get_db
+
+
+class LLMError(Exception):
+    """Raised for any Claude-call failure (missing/invalid credentials, rate limit, API error)."""
+
 
 DEFAULT_MODEL = os.environ.get("JOBHUNT_LLM_MODEL", "claude-sonnet-5")
 
@@ -38,6 +44,21 @@ def get_client() -> anthropic.Anthropic:
     return _client
 
 
+@contextmanager
+def llm_error_boundary(action: str):
+    """Wrap a Claude call site so missing credentials / API errors surface as a clean LLMError
+    instead of an unhandled 500 -- `anthropic`'s missing-auth check raises a bare TypeError, not
+    one of its typed API errors, so that's caught here too."""
+    try:
+        yield
+    except anthropic.APIError as exc:
+        raise LLMError(f"{action} failed: {exc}") from exc
+    except TypeError as exc:
+        if "authentication" in str(exc).lower():
+            raise LLMError(f"{action} failed: Claude API credentials not configured ({exc})") from exc
+        raise
+
+
 def estimate_cost_usd(model: str, input_tokens: int, output_tokens: int) -> float | None:
     rates = PRICING_PER_MTOK.get(model)
     if rates is None:
@@ -57,7 +78,8 @@ def log_call(
     cost = estimate_cost_usd(model, input_tokens, output_tokens)
     with get_db() as conn:
         conn.execute(
-            """INSERT INTO llm_calls (call_type, job_id, model, input_tokens, output_tokens, estimated_cost_usd, note)
+            """INSERT INTO llm_calls
+               (call_type, job_id, model, input_tokens, output_tokens, estimated_cost_usd, note)
                VALUES (?, ?, ?, ?, ?, ?, ?)""",
             (call_type, job_id, model, input_tokens, output_tokens, cost, note),
         )

@@ -13,6 +13,7 @@ dependencies = [
     "anthropic>=1.8",
     "pypdf>=5.0",
     "python-docx>=1.1",
+    "beautifulsoup4>=4.12",
 ]
 
 [dependency-groups]
@@ -36,3 +37,7 @@ pythonpath = ["."]
 
 [tool.ruff]
 line-length = 110
+
+[tool.ruff.lint]
+select = ["E", "F", "B"]
+ignore = ["B008"]  # FastAPI's File(...)/Form(...)/Depends(...) defaults are the idiom, not a bug

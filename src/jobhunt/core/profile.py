@@ -1,6 +1,6 @@
 import json
 
-from jobhunt.core.llm import DEFAULT_MODEL, get_client, log_call
+from jobhunt.core.llm import DEFAULT_MODEL, get_client, llm_error_boundary, log_call
 from jobhunt.db.connection import get_db
 
 SYSTEM_PROMPT = """You are helping a job seeker understand their own career history so a job-matching \
@@ -22,7 +22,8 @@ avoid generic resume-speak."""
 def rebuild_candidate_profile() -> str:
     with get_db() as conn:
         rows = conn.execute(
-            "SELECT id, kind, label, raw_text, uploaded_at FROM resumes WHERE raw_text IS NOT NULL ORDER BY uploaded_at"
+            "SELECT id, kind, label, raw_text, uploaded_at FROM resumes "
+            "WHERE raw_text IS NOT NULL ORDER BY uploaded_at"
         ).fetchall()
 
     if not rows:
@@ -34,12 +35,13 @@ def rebuild_candidate_profile() -> str:
     )
 
     client = get_client()
-    response = client.messages.create(
-        model=DEFAULT_MODEL,
-        max_tokens=2000,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": documents}],
-    )
+    with llm_error_boundary("rebuilding the candidate profile"):
+        response = client.messages.create(
+            model=DEFAULT_MODEL,
+            max_tokens=2000,
+            system=SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": documents}],
+        )
     text = next(b.text for b in response.content if b.type == "text")
 
     log_call(

@@ -4,6 +4,7 @@ from pathlib import Path
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from jobhunt.config import RESUME_STORAGE_DIR
+from jobhunt.core.llm import LLMError
 from jobhunt.core.profile import get_current_candidate_profile, rebuild_candidate_profile
 from jobhunt.core.resume_parse import extract_text
 from jobhunt.db.connection import get_db
@@ -82,4 +83,6 @@ def rebuild_profile():
         text = rebuild_candidate_profile()
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
+    except LLMError as exc:
+        raise HTTPException(502, str(exc)) from exc
     return {"text": text}

@@ -1,6 +1,6 @@
 import pytest
 
-import jobhunt.db.connection as connection
+from jobhunt.db import connection
 
 
 @pytest.fixture(autouse=True)
