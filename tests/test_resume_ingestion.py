@@ -1,4 +1,5 @@
 import pytest
+from docx import Document
 
 from jobhunt.core.resume_parse import extract_text
 from jobhunt.db.connection import get_db
@@ -8,6 +9,26 @@ def test_extract_text_md(tmp_path):
     path = tmp_path / "resume.md"
     path.write_text("# Jane Doe\n\nSenior Engineer at Acme.")
     assert "Senior Engineer" in extract_text(path)
+
+
+def test_extract_text_docx_reads_table_based_layout(tmp_path):
+    # Regression: several real resumes use a table-based two-column layout (dates/company in one
+    # cell, bullets in another) -- `.paragraphs` alone misses table content entirely, confirmed
+    # live against a real file that extracted 111 chars instead of ~5000.
+    doc = Document()
+    doc.add_paragraph("JANE TESTER")
+    table = doc.add_table(rows=1, cols=2)
+    table.rows[0].cells[0].text = "ACME CORP\nJan 2020 - Present"
+    table.rows[0].cells[1].text = "Shipped a thing that mattered to the business."
+    doc.add_paragraph("EDUCATION")
+    path = tmp_path / "resume.docx"
+    doc.save(str(path))
+
+    text = extract_text(path)
+    assert "JANE TESTER" in text
+    assert "ACME CORP" in text
+    assert "Shipped a thing that mattered" in text
+    assert "EDUCATION" in text
 
 
 def test_extract_text_rejects_unsupported(tmp_path):

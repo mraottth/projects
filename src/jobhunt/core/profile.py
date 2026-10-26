@@ -5,13 +5,21 @@ from jobhunt.db.connection import get_db
 
 SYSTEM_PROMPT = """You are helping a job seeker understand their own career history so a job-matching \
 system can score new postings against it. You will be given the full text of one or more resumes and \
-cover letters, oldest to newest.
+cover letters, ordered oldest to newest -- each one tagged [archived] if it came from an old-files \
+folder (not necessarily the author's own archive naming, just a signal it's not current).
+
+Weight recent documents far more heavily than old ones: the most recent 1-2 non-archived resumes and \
+cover letters should dominate your read of their CURRENT seniority, skills, and role/industry \
+preferences. Older and [archived] documents are mainly useful for career-progression context (what \
+path got them here) and for competencies that recur across many jobs (real depth), not for describing \
+their present-day target role -- don't let a 2021 cover letter's stated preferences override what a \
+2026 one says.
 
 Write a concise narrative profile (think "briefing note", 300-500 words) covering:
 - Career progression: roles, seniority trajectory, and how responsibilities have evolved over time.
 - Core competencies: skills, tools, and domains they have real depth in (vs. just mentioned once).
 - Apparent interests: the kinds of problems, industries, or company stages they gravitate toward, \
-based on patterns across documents (not a single job).
+based on patterns across documents (weighted toward the most recent ones, not a single old job).
 - Anything distinctive worth a scoring model knowing (career changes, specializations, gaps explained \
 in a cover letter, etc).
 
@@ -22,15 +30,18 @@ avoid generic resume-speak."""
 def rebuild_candidate_profile() -> str:
     with get_db() as conn:
         rows = conn.execute(
-            "SELECT id, kind, label, raw_text, uploaded_at FROM resumes "
-            "WHERE raw_text IS NOT NULL ORDER BY uploaded_at"
+            "SELECT id, kind, label, raw_text, is_archived, "
+            "COALESCE(source_modified_at, uploaded_at) AS effective_date "
+            "FROM resumes WHERE raw_text IS NOT NULL "
+            "ORDER BY effective_date ASC"
         ).fetchall()
 
     if not rows:
         raise ValueError("no resumes/cover letters with extracted text to build a profile from")
 
     documents = "\n\n---\n\n".join(
-        f"[{row['kind']} — {row['label'] or 'untitled'} — uploaded {row['uploaded_at']}]\n{row['raw_text']}"
+        f"[{row['kind']} — {row['label'] or 'untitled'} — {row['effective_date']}"
+        f"{' — archived' if row['is_archived'] else ''}]\n{row['raw_text']}"
         for row in rows
     )
 

@@ -12,7 +12,7 @@ router = APIRouter(prefix="/api/generate", tags=["generate"])
 class GenerateRequest(BaseModel):
     job_id: int
     application_id: int | None = None
-    resume_id: int | None = None  # resume to tailor from; defaults to the most recently uploaded
+    resume_id: int | None = None  # base resume to tailor from; None lets generate_resume auto-pick
 
 
 def _get_job(job_id: int) -> dict:
@@ -34,34 +34,30 @@ def _link_to_application(application_id: int | None, column: str, doc_id: int) -
 def generate_resume_route(payload: GenerateRequest):
     job = _get_job(payload.job_id)
 
-    with get_db() as conn:
-        if payload.resume_id is not None:
-            resume = conn.execute(
-                "SELECT * FROM resumes WHERE id = ? AND kind = 'resume'", (payload.resume_id,)
-            ).fetchone()
-        else:
-            resume = conn.execute(
-                "SELECT * FROM resumes WHERE kind = 'resume' ORDER BY uploaded_at DESC LIMIT 1"
-            ).fetchone()
-    if resume is None:
-        raise HTTPException(400, "no base resume available — upload one on the Resumes page first")
-
     try:
-        content = generate_resume(job, get_current_candidate_profile(), resume["raw_text"] or "")
+        result = generate_resume(job, get_current_candidate_profile(), payload.resume_id)
+    except ValueError as exc:
+        raise HTTPException(400, f"{exc} — upload one on the Profile page first") from exc
     except LLMError as exc:
         raise HTTPException(502, str(exc)) from exc
 
     with get_db() as conn:
         cursor = conn.execute(
             """INSERT INTO generated_documents
-               (job_id, application_id, kind, based_on_resume_id, content_text)
-               VALUES (?, ?, 'resume', ?, ?)""",
-            (payload.job_id, payload.application_id, resume["id"], content),
+               (job_id, application_id, kind, based_on_resume_id, content_text, file_path)
+               VALUES (?, ?, 'resume', ?, ?, ?)""",
+            (
+                payload.job_id,
+                payload.application_id,
+                result["based_on_resume_id"],
+                result["content_text"],
+                result["file_path"],
+            ),
         )
         doc_id = cursor.lastrowid
     _link_to_application(payload.application_id, "resume_doc_id", doc_id)
 
-    return {"id": doc_id, "content_text": content}
+    return {"id": doc_id, **result}
 
 
 @router.post("/cover-letter")
@@ -69,20 +65,20 @@ def generate_cover_letter_route(payload: GenerateRequest):
     job = _get_job(payload.job_id)
 
     try:
-        content = generate_cover_letter(job, get_current_candidate_profile())
+        result = generate_cover_letter(job, get_current_candidate_profile())
     except LLMError as exc:
         raise HTTPException(502, str(exc)) from exc
 
     with get_db() as conn:
         cursor = conn.execute(
-            """INSERT INTO generated_documents (job_id, application_id, kind, content_text)
-               VALUES (?, ?, 'cover_letter', ?)""",
-            (payload.job_id, payload.application_id, content),
+            """INSERT INTO generated_documents (job_id, application_id, kind, content_text, file_path)
+               VALUES (?, ?, 'cover_letter', ?, ?)""",
+            (payload.job_id, payload.application_id, result["content_text"], result["file_path"]),
         )
         doc_id = cursor.lastrowid
     _link_to_application(payload.application_id, "cover_letter_doc_id", doc_id)
 
-    return {"id": doc_id, "content_text": content}
+    return {"id": doc_id, **result}
 
 
 @router.get("/history")

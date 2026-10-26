@@ -130,8 +130,19 @@ CREATE TABLE IF NOT EXISTS resumes (
     file_type TEXT NOT NULL,
     stored_path TEXT NOT NULL,
     raw_text TEXT,
-    uploaded_at TEXT NOT NULL DEFAULT (datetime('now'))
+    uploaded_at TEXT NOT NULL DEFAULT (datetime('now')),
+    source_path TEXT,              -- absolute path on disk, if ingested from a local folder
+    source_modified_at TEXT,       -- the source file's own mtime -- recency weighting uses this,
+                                    -- not uploaded_at, since uploading is unrelated to how current
+                                    -- the document's content actually is
+    is_archived INTEGER NOT NULL DEFAULT 0,  -- was found under a folder named/containing "old"
+    is_template INTEGER NOT NULL DEFAULT 0,  -- filename contains "template" -- the strongest
+                                              -- signal for which doc to clone when generating new
+                                              -- ones, overriding the archived/recency ordering
+    content_hash TEXT              -- sha256 of normalized extracted text, for cross-run dedup
 );
+-- idx_resumes_content_hash is created in db/connection.py's MIGRATIONS, not here: on an existing
+-- database this column doesn't exist until that migration runs, which happens *after* this script.
 
 CREATE TABLE IF NOT EXISTS candidate_profile (
     id INTEGER PRIMARY KEY,
@@ -157,6 +168,7 @@ CREATE TABLE IF NOT EXISTS generated_documents (
     kind TEXT NOT NULL CHECK(kind IN ('resume', 'cover_letter')),
     based_on_resume_id INTEGER REFERENCES resumes(id),
     content_text TEXT NOT NULL,
+    file_path TEXT,  -- where the formatted .docx was saved on disk, if the template approach applied
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     model TEXT,
     prompt_version TEXT

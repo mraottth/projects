@@ -16,8 +16,10 @@ router = APIRouter(prefix="/api/resumes", tags=["resumes"])
 def list_resumes():
     with get_db() as conn:
         rows = conn.execute(
-            "SELECT id, kind, label, file_name, file_type, uploaded_at, "
-            "length(raw_text) AS text_length FROM resumes ORDER BY uploaded_at DESC"
+            "SELECT id, kind, label, file_name, file_type, uploaded_at, is_archived, is_template, "
+            "length(raw_text) AS text_length FROM resumes "
+            "ORDER BY is_template DESC, is_archived ASC, "
+            "COALESCE(source_modified_at, uploaded_at) DESC"
         ).fetchall()
     return [dict(row) for row in rows]
 

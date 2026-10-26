@@ -21,6 +21,8 @@ export interface ResumeSummary {
   file_name: string;
   file_type: string;
   uploaded_at: string;
+  is_archived: boolean | 0 | 1;
+  is_template: boolean | 0 | 1;
   text_length: number;
 }
 
@@ -129,6 +131,7 @@ export interface GeneratedDoc {
   kind: "resume" | "cover_letter";
   based_on_resume_id: number | null;
   content_text: string;
+  file_path: string | null;
   created_at: string;
 }
 
@@ -258,18 +261,21 @@ export const api = {
   runDailyNow: () => request<Record<string, unknown>>("/internal/run-daily", { method: "POST" }),
 
   generateResume: (jobId: number, applicationId?: number) =>
-    request<{ id: number; content_text: string }>("/api/generate/resume", {
+    request<{ id: number; content_text: string; file_path: string | null }>("/api/generate/resume", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ job_id: jobId, application_id: applicationId ?? null }),
     }),
 
   generateCoverLetter: (jobId: number, applicationId?: number) =>
-    request<{ id: number; content_text: string }>("/api/generate/cover-letter", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ job_id: jobId, application_id: applicationId ?? null }),
-    }),
+    request<{ id: number; content_text: string; file_path: string | null }>(
+      "/api/generate/cover-letter",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ job_id: jobId, application_id: applicationId ?? null }),
+      },
+    ),
 
   getGenerationHistory: (jobId: number) =>
     request<GeneratedDoc[]>(`/api/generate/history?job_id=${jobId}`),

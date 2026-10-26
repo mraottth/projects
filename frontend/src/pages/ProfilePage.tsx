@@ -14,6 +14,8 @@ function ResumesSection() {
   const [kind, setKind] = useState<"resume" | "cover_letter">("resume");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
+  const [libraryPath, setLibraryPath] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const refresh = () => {
@@ -24,6 +26,9 @@ function ResumesSection() {
       .catch((e) => {
         if (e instanceof ApiError && e.status === 404) setProfile(null);
       });
+    api
+      .getSettings()
+      .then((s) => setLibraryPath((s as unknown as Record<string, string>).resume_library_path ?? null));
   };
 
   useEffect(refresh, []);
@@ -70,15 +75,39 @@ function ResumesSection() {
           Upload
         </button>
         {error && <p style={{ color: "crimson" }}>{error}</p>}
-        <ul>
-          {resumes.map((r) => (
+        {libraryPath && (
+          <p className="muted">
+            Bulk-imported from <code>{libraryPath}</code> — new tailored docs save to{" "}
+            <code>{libraryPath}/AI Generated</code>.
+          </p>
+        )}
+
+        {(() => {
+          const current = resumes.filter((r) => !r.is_archived);
+          const archived = resumes.filter((r) => r.is_archived);
+          const renderRow = (r: ResumeSummary) => (
             <li key={r.id}>
-              [{r.kind}] {r.file_name} — {r.text_length} chars —{" "}
+              [{r.kind}] {r.is_template ? "★ " : ""}
+              {r.file_name} — {r.text_length} chars —{" "}
               <button onClick={() => api.deleteResume(r.id).then(refresh)}>delete</button>
             </li>
-          ))}
-        </ul>
-        {resumes.length === 0 && <p className="muted">None yet.</p>}
+          );
+          return (
+            <>
+              <ul>{current.map(renderRow)}</ul>
+              {current.length === 0 && resumes.length === 0 && <p className="muted">None yet.</p>}
+              {archived.length > 0 && (
+                <>
+                  <button onClick={() => setShowArchived((s) => !s)}>
+                    {showArchived ? "Hide" : "Show"} {archived.length} archived document
+                    {archived.length === 1 ? "" : "s"}
+                  </button>
+                  {showArchived && <ul>{archived.map(renderRow)}</ul>}
+                </>
+              )}
+            </>
+          );
+        })()}
       </div>
 
       <div className="card">

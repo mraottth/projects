@@ -126,6 +126,14 @@ export default function JobDetailPage() {
         <div className="card" key={doc.id}>
           <h3>{doc.kind === "resume" ? "Tailored resume" : "Cover letter"}</h3>
           <p className="muted">{doc.created_at}</p>
+          {doc.file_path ? (
+            <p className="muted">Saved to: {doc.file_path}</p>
+          ) : (
+            <p className="muted">
+              Not saved as a formatted file (no usable .docx template found — generated as plain
+              text instead).
+            </p>
+          )}
           <p style={{ whiteSpace: "pre-wrap" }}>{doc.content_text}</p>
         </div>
       ))}

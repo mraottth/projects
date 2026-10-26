@@ -15,8 +15,8 @@ frontend:     ## build frontend/dist
 test:
 	uv run pytest -q
 
-ingest-resumes:  ## one-time local bulk import: make ingest-resumes DIR=~/Documents/resumes KIND=resume
-	$(PY) jobhunt.cli.ingest_resumes $(DIR) --kind $(or $(KIND),resume)
+ingest-resumes:  ## re-runnable recursive bulk import: make ingest-resumes DIR=~/Documents/Resumes
+	$(PY) jobhunt.cli.ingest_resumes $(DIR)
 
 docker:
 	docker build -t jobhunt .

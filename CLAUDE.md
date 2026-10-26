@@ -44,9 +44,46 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   - Model default is `claude-sonnet-5` (`JOBHUNT_LLM_MODEL` env override), not Opus. This is a
     deliberate cost/quality tradeoff for a cost-capped personal tool — mirrors the Haiku/Sonnet tiering
     Shelf Life's `chat.py` uses for its own Assistant. Revisit if scoring quality ever disappoints.
-- `src/jobhunt/core/resume_parse.py` — pypdf/python-docx/plain-text extraction.
+- `src/jobhunt/core/resume_parse.py` — pypdf/python-docx/plain-text extraction. The docx path walks
+  paragraphs *and* tables in document order (`_iter_block_items`) -- several real resumes use a
+  table-based two-column layout (dates/company in one cell, bullets in another), and python-docx's
+  `.paragraphs` alone silently skips table content entirely (confirmed live: several real files
+  extracted ~100 characters instead of ~5000 before this was fixed).
+- `src/jobhunt/cli/ingest_resumes.py` — re-runnable recursive bulk import from a real local folder
+  (`make ingest-resumes DIR=~/Documents/Resumes`). Handles the mess real folders actually have:
+  Word lock files (`~$*`) and `.DS_Store` skipped; prefers `.docx` over `.pdf` for the same stem
+  (cleaner text, and it's what the docx-template generator can actually use); dedupes by content
+  hash across reruns, not filename (catches "... copy.pdf" and renamed duplicates); classifies
+  `kind` by filename ("cover" -> cover_letter), `is_archived` by a whole-word "old" in any path
+  segment (so "Cold Outreach" doesn't false-positive), and `is_template` by "template" in the
+  filename. Persists the root folder as the `resume_library_path` setting.
 - `src/jobhunt/core/profile.py` — synthesizes `candidate_profile` from every uploaded resume/cover
-  letter in one Claude call. Called from `api/resumes.py`'s rebuild endpoint, never automatically.
+  letter in one Claude call, ordered oldest-to-newest by `source_modified_at` (the *source file's*
+  mtime, not when it was uploaded into the app -- those are unrelated) with `is_archived` docs
+  tagged `[archived]` inline so Claude weighs current documents far more heavily, per the user's
+  explicit ask, rather than treating every resume as equally representative of their current
+  skills/preferences. Called from the Profile page's rebuild action, never automatically.
+- `src/jobhunt/core/docx_writer.py` — generates a tailored resume/cover-letter `.docx` by cloning
+  the user's own template document's paragraph styles and exact per-run formatting (bold/size),
+  not by describing formatting to Claude in prose (which can't produce real visual fidelity) and
+  not by building a style sheet from scratch (which would drift from what the user actually uses).
+  Validated live against a real resume: deleting all body paragraphs and re-adding clones of a
+  handful of "exemplar" paragraphs survives a save/reload round trip with margins and named styles
+  intact -- but font *size* is often set per-run, not just inherited from the style, so it has to
+  be captured from an exemplar run and reapplied explicitly. Clearing a paragraph's old text also
+  has to strip every child element, not just `.runs` -- real documents wrap text in `<w:hyperlink>`
+  (tracked-change and bookmark wrappers are the same issue), which python-docx's `.runs` doesn't
+  enumerate, so a naive clear leaves that text behind to leak into the new content (caught live: a
+  hyperlinked word, "thesis", survived into an unrelated generated cover letter before this fix).
+- `src/jobhunt/core/generate.py` — resume/cover-letter generation picks a template via
+  `is_template` first (an explicit "template.docx" filename overrides the recency default), then
+  most-recent non-archived, and only falls back to plain markdown text (no saved file) when the
+  picked document has no usable `.docx` on disk (e.g. only ever uploaded as a PDF). The saved
+  file's directory is the `resume_library_path` setting's `AI Generated` subfolder, or
+  `data/resumes/generated/` if that setting isn't configured. Output is `.docx` only, deliberately
+  -- `docx2pdf` (Word automation via AppleScript) was tried live and does not work on this machine's
+  Word install (opens Word, hangs ~30s, fails with "Message not understood"); don't re-attempt
+  automated PDF export without LibreOffice or a different conversion path.
 - `src/jobhunt/core/preference.py` — synthesizes `preference_profile` from feedback marks and
   application-status history, with application outcomes weighted as the stronger signal (a job that
   reached `interview`/`offer` says more than a bare `interested` mark). Rebuilt manually from

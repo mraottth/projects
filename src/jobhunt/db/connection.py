@@ -13,6 +13,15 @@ SCHEMA_PATH = Path(__file__).resolve().parent / "schema.sql"
 MIGRATIONS = [
     "ALTER TABLE sources ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE scoring_queue ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE resumes ADD COLUMN source_path TEXT",
+    "ALTER TABLE resumes ADD COLUMN source_modified_at TEXT",
+    "ALTER TABLE resumes ADD COLUMN is_archived INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE resumes ADD COLUMN is_template INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE resumes ADD COLUMN content_hash TEXT",
+    "ALTER TABLE generated_documents ADD COLUMN file_path TEXT",
+    # Must run after the content_hash column migration above (order matters: on an existing DB,
+    # the column doesn't exist until that ALTER TABLE runs).
+    "CREATE INDEX IF NOT EXISTS idx_resumes_content_hash ON resumes(content_hash)",
 ]
 
 
