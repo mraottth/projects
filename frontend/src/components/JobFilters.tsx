@@ -63,6 +63,19 @@ export function filterJobs(jobs: ScoredJob[], f: JobFilterState): ScoredJob[] {
   });
 }
 
+function countActive(f: JobFilterState): number {
+  let n = 0;
+  if (f.interestFilter !== "all") n++;
+  if (f.candidateFilter !== "all") n++;
+  if (f.favoritesOnly) n++;
+  if (f.source !== "all") n++;
+  if (f.minSalary.trim()) n++;
+  if (f.recency !== "all") n++;
+  if (f.location.trim()) n++;
+  if (f.search.trim()) n++;
+  return n;
+}
+
 export function JobFilterBar({
   jobs,
   filters,
@@ -79,91 +92,113 @@ export function JobFilterBar({
   const set = <K extends keyof JobFilterState>(key: K, value: JobFilterState[K]) =>
     onChange({ ...filters, [key]: value });
 
+  const active = countActive(filters);
+
   return (
-    <div className="card">
+    <div className="card filters">
+      <div className="filters-head">
+        <h2 style={{ fontSize: "1rem", margin: 0 }}>Filters{active ? ` (${active})` : ""}</h2>
+        {active > 0 && (
+          <button className="link small" onClick={() => onChange(DEFAULT_JOB_FILTERS)}>
+            Clear all
+          </button>
+        )}
+      </div>
+
       <div className="fsection">
         <span className="flabel">Search</span>
         <input
-          placeholder="Search title, company, location, full description..."
+          placeholder="Title, company, location, full description..."
           value={filters.search}
           onChange={(e) => set("search", e.target.value)}
           style={{ width: "100%" }}
         />
       </div>
-      <div className="form-row" style={{ marginBottom: 0 }}>
-        <div className="field" style={{ marginBottom: 0 }}>
-          <span>Interest fit</span>
-          <select
-            value={filters.interestFilter}
-            onChange={(e) => set("interestFilter", e.target.value as FitFilter)}
-          >
-            <option value="all">All</option>
-            <option value="High">High</option>
-            <option value="Med">Med</option>
-            <option value="Low">Low</option>
-          </select>
-        </div>
-        <div className="field" style={{ marginBottom: 0 }}>
-          <span>Candidate fit</span>
-          <select
-            value={filters.candidateFilter}
-            onChange={(e) => set("candidateFilter", e.target.value as FitFilter)}
-          >
-            <option value="all">All</option>
-            <option value="High">High</option>
-            <option value="Med">Med</option>
-            <option value="Low">Low</option>
-          </select>
-        </div>
-        <div className="field" style={{ marginBottom: 0 }}>
-          <span>Source</span>
-          <select value={filters.source} onChange={(e) => set("source", e.target.value)}>
-            <option value="all">All</option>
-            {sources.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="field" style={{ marginBottom: 0 }}>
-          <span>Posted</span>
-          <select value={filters.recency} onChange={(e) => set("recency", e.target.value as RecencyFilter)}>
-            <option value="all">Any time</option>
-            <option value="1">Last 24 hours</option>
-            <option value="3">Last 3 days</option>
-            <option value="7">Last 7 days</option>
-            <option value="30">Last 30 days</option>
-          </select>
-        </div>
-        <div className="field" style={{ marginBottom: 0 }}>
-          <span>Location</span>
-          <input
-            placeholder="e.g. Remote, NYC"
-            value={filters.location}
-            onChange={(e) => set("location", e.target.value)}
-            style={{ width: "160px" }}
-          />
-        </div>
-        <label className="field inline" style={{ marginBottom: 0 }}>
-          <input
-            type="checkbox"
-            checked={filters.favoritesOnly}
-            onChange={(e) => set("favoritesOnly", e.target.checked)}
-          />
-          <span style={{ margin: 0, fontWeight: 400, color: "var(--ink)" }}>Favorites only</span>
-        </label>
-        <div className="field field-min-salary" style={{ marginBottom: 0, marginLeft: "auto" }}>
-          <span>Min salary</span>
-          <input
-            type="number"
-            placeholder="e.g. 120000"
-            value={filters.minSalary}
-            onChange={(e) => set("minSalary", e.target.value)}
-            style={{ width: "140px" }}
-          />
-        </div>
+
+      <div className="fsection">
+        <span className="flabel">Interest fit</span>
+        <select
+          value={filters.interestFilter}
+          onChange={(e) => set("interestFilter", e.target.value as FitFilter)}
+          style={{ width: "100%" }}
+        >
+          <option value="all">All</option>
+          <option value="High">High</option>
+          <option value="Med">Med</option>
+          <option value="Low">Low</option>
+        </select>
       </div>
+
+      <div className="fsection">
+        <span className="flabel">Candidate fit</span>
+        <select
+          value={filters.candidateFilter}
+          onChange={(e) => set("candidateFilter", e.target.value as FitFilter)}
+          style={{ width: "100%" }}
+        >
+          <option value="all">All</option>
+          <option value="High">High</option>
+          <option value="Med">Med</option>
+          <option value="Low">Low</option>
+        </select>
+      </div>
+
+      <div className="fsection">
+        <span className="flabel">Source</span>
+        <select value={filters.source} onChange={(e) => set("source", e.target.value)} style={{ width: "100%" }}>
+          <option value="all">All</option>
+          {sources.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="fsection">
+        <span className="flabel">Posted</span>
+        <select
+          value={filters.recency}
+          onChange={(e) => set("recency", e.target.value as RecencyFilter)}
+          style={{ width: "100%" }}
+        >
+          <option value="all">Any time</option>
+          <option value="1">Last 24 hours</option>
+          <option value="3">Last 3 days</option>
+          <option value="7">Last 7 days</option>
+          <option value="30">Last 30 days</option>
+        </select>
+      </div>
+
+      <div className="fsection">
+        <span className="flabel">Location</span>
+        <input
+          placeholder="e.g. Remote, NYC"
+          value={filters.location}
+          onChange={(e) => set("location", e.target.value)}
+          style={{ width: "100%" }}
+        />
+      </div>
+
+      <div className="fsection">
+        <span className="flabel">Minimum salary</span>
+        <input
+          type="number"
+          placeholder="e.g. 120000"
+          value={filters.minSalary}
+          onChange={(e) => set("minSalary", e.target.value)}
+          style={{ width: "100%" }}
+        />
+      </div>
+
+      <label className="field inline" style={{ marginBottom: 0 }}>
+        <input
+          type="checkbox"
+          checked={filters.favoritesOnly}
+          onChange={(e) => set("favoritesOnly", e.target.checked)}
+        />
+        <span style={{ margin: 0, fontWeight: 400, color: "var(--ink)" }}>Favorites only</span>
+      </label>
     </div>
   );
 }

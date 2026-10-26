@@ -1,4 +1,4 @@
-import { NavLink, Route, Routes } from "react-router-dom";
+import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import DigestPage from "./pages/DigestPage";
 import JobDetailPage from "./pages/JobDetailPage";
 import AllJobsPage from "./pages/AllJobsPage";
@@ -15,6 +15,28 @@ const NAV_LINKS = [
   { to: "/profile", label: "Profile" },
   { to: "/settings", label: "Settings" },
 ];
+
+// These three pages need the extra room (a filter sidebar, or a wide table) that the default
+// prose-friendly max-width doesn't give them.
+const WIDE_ROUTES = ["/", "/all-jobs", "/tracker"];
+
+function AppMain() {
+  const location = useLocation();
+  const wide = WIDE_ROUTES.includes(location.pathname);
+  return (
+    <main className={wide ? "app-main wide" : "app-main"}>
+      <Routes>
+        <Route path="/" element={<DigestPage />} />
+        <Route path="/jobs/:id" element={<JobDetailPage />} />
+        <Route path="/all-jobs" element={<AllJobsPage />} />
+        <Route path="/tracker" element={<MyJobsPage />} />
+        <Route path="/sources" element={<ManageSourcesPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+      </Routes>
+    </main>
+  );
+}
 
 export default function App() {
   return (
@@ -34,17 +56,7 @@ export default function App() {
           ))}
         </nav>
       </header>
-      <main className="app-main">
-        <Routes>
-          <Route path="/" element={<DigestPage />} />
-          <Route path="/jobs/:id" element={<JobDetailPage />} />
-          <Route path="/all-jobs" element={<AllJobsPage />} />
-          <Route path="/tracker" element={<MyJobsPage />} />
-          <Route path="/sources" element={<ManageSourcesPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-        </Routes>
-      </main>
+      <AppMain />
     </div>
   );
 }

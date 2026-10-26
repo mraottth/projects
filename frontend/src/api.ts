@@ -232,6 +232,9 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
+  deleteApplication: (id: number) =>
+    request<{ ok: true }>(`/api/applications/${id}`, { method: "DELETE" }),
+
   getPreferenceProfile: () => request<{ text: string }>("/api/settings/preference-profile"),
 
   rebuildPreferenceProfile: () =>

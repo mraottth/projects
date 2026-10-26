@@ -153,7 +153,7 @@ def generate_resume(job: dict, candidate_profile: str | None, resume_id: int | N
     with llm_error_boundary("generating a tailored resume"):
         response = client.messages.parse(
             model=DEFAULT_MODEL,
-            max_tokens=4000,
+            max_tokens=8000,
             system=RESUME_STRUCTURED_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_content}],
             output_format=ResumeContent,
@@ -195,7 +195,7 @@ def _generate_resume_plain(job: dict, candidate_profile: str | None, base_resume
     with llm_error_boundary("generating a tailored resume"):
         response = client.messages.create(
             model=DEFAULT_MODEL,
-            max_tokens=3000,
+            max_tokens=4000,
             system=RESUME_PLAIN_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_content}],
         )
@@ -227,7 +227,7 @@ def generate_cover_letter(job: dict, candidate_profile: str | None) -> dict:
     with llm_error_boundary("generating a cover letter"):
         response = client.messages.parse(
             model=DEFAULT_MODEL,
-            max_tokens=2000,
+            max_tokens=4000,
             system=COVER_LETTER_STRUCTURED_SYSTEM_PROMPT.format(n=slot_count),
             messages=[{"role": "user", "content": user_content}],
             output_format=CoverLetterContent,
@@ -263,7 +263,7 @@ def _generate_cover_letter_plain(job: dict, candidate_profile: str | None) -> st
     with llm_error_boundary("generating a cover letter"):
         response = client.messages.create(
             model=DEFAULT_MODEL,
-            max_tokens=2000,
+            max_tokens=3000,
             system=COVER_LETTER_PLAIN_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_content}],
         )

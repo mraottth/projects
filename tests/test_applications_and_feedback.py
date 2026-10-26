@@ -111,3 +111,41 @@ def test_explicit_applied_at_is_not_overwritten_by_status_change_in_same_request
         )
         assert resp.status_code == 200
         assert resp.json()["applied_at"] == "2026-02-01"
+
+
+def test_delete_application_removes_it_from_listing():
+    job_id = _insert_job()
+    with TestClient(app) as client:
+        app_id = client.post("/api/applications", json={"job_id": job_id}).json()["id"]
+        assert len(client.get("/api/applications").json()) == 1
+
+        resp = client.delete(f"/api/applications/{app_id}")
+        assert resp.status_code == 200
+        assert client.get("/api/applications").json() == []
+
+        assert client.delete(f"/api/applications/{app_id}").status_code == 404
+
+
+def test_delete_application_preserves_generated_documents_but_detaches_them():
+    job_id = _insert_job()
+    with TestClient(app) as client:
+        app_id = client.post("/api/applications", json={"job_id": job_id}).json()["id"]
+
+    with get_db() as conn:
+        cursor = conn.execute(
+            "INSERT INTO generated_documents (job_id, application_id, kind, content_text) "
+            "VALUES (?, ?, 'resume', 'tailored content')",
+            (job_id, app_id),
+        )
+        doc_id = cursor.lastrowid
+
+    with TestClient(app) as client:
+        resp = client.delete(f"/api/applications/{app_id}")
+        assert resp.status_code == 200
+
+    with get_db() as conn:
+        doc = conn.execute(
+            "SELECT application_id FROM generated_documents WHERE id = ?", (doc_id,)
+        ).fetchone()
+    assert doc is not None
+    assert doc["application_id"] is None

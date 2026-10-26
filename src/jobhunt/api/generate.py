@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from jobhunt.core.generate import generate_cover_letter, generate_resume
 from jobhunt.core.llm import LLMError
@@ -36,6 +36,13 @@ def generate_resume_route(payload: GenerateRequest):
 
     try:
         result = generate_resume(job, get_current_candidate_profile(), payload.resume_id)
+    except ValidationError as exc:
+        # Pydantic's ValidationError subclasses ValueError, so this must be caught *before* the
+        # plain ValueError below -- otherwise a truncated/malformed structured-output response
+        # from Claude gets mislabeled as "no resume uploaded" instead of what it actually is.
+        raise HTTPException(
+            502, f"Claude's response couldn't be parsed (likely cut off mid-output) — try again: {exc}"
+        ) from exc
     except ValueError as exc:
         raise HTTPException(400, f"{exc} — upload one on the Profile page first") from exc
     except LLMError as exc:
@@ -66,6 +73,10 @@ def generate_cover_letter_route(payload: GenerateRequest):
 
     try:
         result = generate_cover_letter(job, get_current_candidate_profile())
+    except ValidationError as exc:
+        raise HTTPException(
+            502, f"Claude's response couldn't be parsed (likely cut off mid-output) — try again: {exc}"
+        ) from exc
     except LLMError as exc:
         raise HTTPException(502, str(exc)) from exc
 

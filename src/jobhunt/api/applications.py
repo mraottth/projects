@@ -132,3 +132,20 @@ def update_application(app_id: int, payload: UpdateApplicationRequest):
                 )
 
     return _get_application(app_id)
+
+
+@router.delete("/{app_id}")
+def delete_application(app_id: int):
+    """Removes a job from My Jobs. Any resume/cover letter already generated for it is kept
+    (just detached from the application, since it's still a real document the user may want),
+    not deleted -- only the tracking row and its status history go."""
+    with get_db() as conn:
+        row = conn.execute("SELECT id FROM applications WHERE id = ?", (app_id,)).fetchone()
+        if row is None:
+            raise HTTPException(404, "application not found")
+        conn.execute(
+            "UPDATE generated_documents SET application_id = NULL WHERE application_id = ?", (app_id,)
+        )
+        conn.execute("DELETE FROM application_status_history WHERE application_id = ?", (app_id,))
+        conn.execute("DELETE FROM applications WHERE id = ?", (app_id,))
+    return {"ok": True}

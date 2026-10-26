@@ -17,25 +17,29 @@ export default function DigestPage() {
     <div>
       <h1>New &amp; Noteworthy</h1>
       <p className="muted" style={{ marginBottom: "18px" }}>
-        The best of what showed up today. For everything your tracked sources have turned up, see
-        All Jobs.
+        The best of what showed up today, ranked by interest and candidate fit first. For
+        everything your tracked sources have turned up, see All Jobs.
       </p>
 
       {entries.length === 0 && <p className="empty-state">Nothing new and noteworthy yet.</p>}
 
-      {entries.length > 0 && <JobFilterBar jobs={entries} filters={filters} onChange={setFilters} />}
-
-      {entries.length > 0 && filtered.length === 0 && (
-        <p className="empty-state">No jobs match these filters.</p>
+      {entries.length > 0 && (
+        <div className="list-layout">
+          <div className="list-main">
+            {filtered.length === 0 && <p className="empty-state">No jobs match these filters.</p>}
+            {filtered.map((entry) => (
+              <ScoredJobCard
+                key={entry.id}
+                job={entry}
+                onDismissed={() => setEntries((prev) => prev.filter((e) => e.id !== entry.id))}
+              />
+            ))}
+          </div>
+          <aside className="list-side">
+            <JobFilterBar jobs={entries} filters={filters} onChange={setFilters} />
+          </aside>
+        </div>
       )}
-
-      {filtered.map((entry) => (
-        <ScoredJobCard
-          key={entry.id}
-          job={entry}
-          onDismissed={() => setEntries((prev) => prev.filter((e) => e.id !== entry.id))}
-        />
-      ))}
     </div>
   );
 }

@@ -21,11 +21,9 @@ export default function AllJobsPage() {
     <div>
       <h1>All Jobs</h1>
       <p className="muted" style={{ marginBottom: "18px" }}>
-        Every active posting from the companies and job boards you follow, best first — not just
-        what made today's New &amp; Noteworthy list.
+        Every active posting from the companies and job boards you follow, ranked by interest and
+        candidate fit first — not just what made today's New &amp; Noteworthy list.
       </p>
-
-      {jobs.length > 0 && <JobFilterBar jobs={jobs} filters={filters} onChange={setFilters} />}
 
       {loading && <p className="muted">Loading...</p>}
       {!loading && jobs.length === 0 && (
@@ -34,12 +32,20 @@ export default function AllJobsPage() {
           already tracked.
         </p>
       )}
-      {!loading && jobs.length > 0 && filtered.length === 0 && (
-        <p className="empty-state">No jobs match these filters.</p>
+
+      {jobs.length > 0 && (
+        <div className="list-layout">
+          <div className="list-main">
+            {filtered.length === 0 && <p className="empty-state">No jobs match these filters.</p>}
+            {filtered.map((job) => (
+              <ScoredJobCard key={job.id} job={job} />
+            ))}
+          </div>
+          <aside className="list-side">
+            <JobFilterBar jobs={jobs} filters={filters} onChange={setFilters} />
+          </aside>
+        </div>
       )}
-      {filtered.map((job) => (
-        <ScoredJobCard key={job.id} job={job} />
-      ))}
     </div>
   );
 }

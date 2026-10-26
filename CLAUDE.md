@@ -286,16 +286,48 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   if the guess is wrong (true for most non-trivial company names) or the request fails. No backend
   involvement, no stored state, pure progressive enhancement -- correct for well-known single-word
   company names, silently absent otherwise.
-- The job-list `JobFilterBar` (`components/JobFilters.tsx`) puts Min Salary last via
-  `margin-left: auto` on its own `.field` inside the flex `.form-row`, and global
-  `input[type="number"]` rules strip the native spinner (`-webkit-appearance: none` on the
-  spin-button pseudo-elements, `-moz-appearance: textfield`) -- without that, the spinner made the
-  field render taller than its sibling selects/inputs in some browsers, breaking the row's even
-  height.
 - Job-card meta chips now label the salary and posted-date ones explicitly ("Salary: $120k-150k",
   "Date Posted: 3 days ago") rather than showing bare values -- location and source stay unlabeled
   since their content alone is already self-explanatory, but a bare "N/A" chip needs the label to
-  say which field is unknown.
+  say which field is unknown. Global `input[type="number"]` rules strip the native spinner
+  (`-webkit-appearance: none` on the spin-button pseudo-elements, `-moz-appearance: textfield`) --
+  without that, Min Salary rendered taller than its sibling selects/inputs in some browsers.
+- `JobFilterBar` (`components/JobFilters.tsx`) moved from a horizontal bar above the list to a
+  vertical right-rail sidebar, modeled directly on Shelf Life's `FilterBar`/`.recs-layout` pattern:
+  `.list-layout` is a CSS grid (`minmax(0,1fr) 300px`, 24px gap), `.list-main` holds the job cards,
+  `.list-side` is a `position: sticky` `<aside>` (collapses to a single column with the sidebar
+  reordered above the list below 980px) holding the filter `.card`, each control in its own
+  `.fsection`/`.flabel` stacked vertically -- same classes the rest of the app already uses for
+  form sections, so no new vocabulary. `DigestPage` and `AllJobsPage` both use it; `App.tsx` gives
+  those two routes plus `/tracker` a wider `.app-main.wide` (1240px vs. the default 880px) via a
+  small `useLocation()`-based check, since a sidebar and a wide table both need more room than the
+  prose-oriented default.
+- `MyJobsPage`'s table: `.jobs-table tbody tr:nth-child(even)` zebra-stripes rows against
+  `var(--page)`, and `StatusSelect` wears the existing `pill-{status}` color classes
+  (`.status-select` just adds pill shape/padding on top) instead of a plain unstyled `<select>`, so
+  status is scannable by color the same way the status pill already was elsewhere in the app.
+  `RemoveButton` calls the new `DELETE /api/applications/{id}` (`api/applications.py`) -- it detaches
+  (doesn't delete) any `generated_documents` row still pointing at the application via
+  `application_id`, so a resume/cover letter you already generated survives removing the job from
+  the tracker; only the tracking row and its status history actually go. No confirmation dialog,
+  matching every other delete/remove action already in this app (SourceCard, FavoritesSection,
+  ResumesPage all behave the same way).
+- Resume/cover-letter generation had two bugs with the same root cause: `max_tokens` on the
+  structured-output calls (`core/generate.py`) was too low (4000 for `ResumeContent`, 2000 for
+  `CoverLetterContent`) for realistic content length, so Claude's JSON response sometimes got cut
+  off mid-string -- the same failure class as the earlier `custom_board.py` truncation bug. Raised
+  to 8000 / 4000 respectively (plain-text fallback paths bumped too, for margin). But raising
+  `max_tokens` only reduces the odds, so the real fix is in `api/generate.py`: a truncated/malformed
+  response raises `pydantic.ValidationError`, which **subclasses `ValueError`** -- the resume route's
+  `except ValueError` (meant for "no base resume uploaded") was silently swallowing it and returning
+  a misleading 400 ("...— upload one on the Profile page first" appended to what was actually a
+  parsing failure), while the cover-letter route had no matching `except` clause at all and let it
+  fall through as a raw, undiagnosable 500. Both routes now catch `ValidationError` explicitly
+  *before* any `except ValueError`, returning a clean 502 that says what actually happened. Diagnosed
+  by reproducing locally with the existing `FakeAnthropicClient` test pattern against this user's
+  real uploaded `.docx` templates (no API credentials needed) rather than guessing from the error
+  text alone -- confirmed the docx-writing code itself was fine for the normal/overflow/underflow
+  paragraph-count cases; the bug was entirely in exception handling upstream.
 
 ## Working conventions
 

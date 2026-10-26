@@ -134,7 +134,12 @@ function StatusSelect({ app, onChanged }: { app: Application; onChanged: (app: A
   };
 
   return (
-    <select value={app.status} disabled={busy} onChange={(e) => change(e.target.value as ApplicationStatus)}>
+    <select
+      className={`status-select pill-${app.status}`}
+      value={app.status}
+      disabled={busy}
+      onChange={(e) => change(e.target.value as ApplicationStatus)}
+    >
       {STATUSES.map((s) => (
         <option key={s} value={s}>
           {APPLICATION_STATUS_LABELS[s]}
@@ -202,6 +207,26 @@ function DocActions({ app, onChanged }: { app: Application; onChanged: (app: App
       </button>
       {error && <span className="error-text small">{error}</span>}
     </div>
+  );
+}
+
+function RemoveButton({ app, onRemoved }: { app: Application; onRemoved: (id: number) => void }) {
+  const [busy, setBusy] = useState(false);
+
+  const remove = async () => {
+    setBusy(true);
+    try {
+      await api.deleteApplication(app.id);
+      onRemoved(app.id);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <button className="link small danger" onClick={remove} disabled={busy}>
+      {busy ? <Spinner /> : "Remove"}
+    </button>
   );
 }
 
@@ -350,7 +375,7 @@ export default function MyJobsPage() {
 
       {sorted.length > 0 && (
         <div className="card" style={{ overflowX: "auto" }}>
-          <table>
+          <table className="jobs-table">
             <thead>
               <tr>
                 <SortHeader label="Company" columnKey="company" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
@@ -372,6 +397,7 @@ export default function MyJobsPage() {
                 />
                 <SortHeader label="Status" columnKey="status" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                 <th>Documents</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -391,6 +417,12 @@ export default function MyJobsPage() {
                   </td>
                   <td>
                     <DocActions app={app} onChanged={updateInPlace} />
+                  </td>
+                  <td>
+                    <RemoveButton
+                      app={app}
+                      onRemoved={(id) => setApps((prev) => prev.filter((a) => a.id !== id))}
+                    />
                   </td>
                 </tr>
               ))}

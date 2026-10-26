@@ -212,6 +212,50 @@ def test_generate_cover_letter_uses_docx_template_when_available(tmp_path, monke
     assert "Old body paragraph." not in full_text
 
 
+def test_generate_resume_returns_clean_502_on_truncated_llm_response(tmp_path, monkeypatch):
+    # Regression: a truncated/malformed structured-output response from Claude raises
+    # pydantic.ValidationError, which subclasses ValueError -- this used to be mis-caught by the
+    # "no base resume uploaded" handler, returning a confusing 400 with the wrong message.
+    job_id = _insert_job()
+    _insert_resume_with_docx(tmp_path)
+
+    class _BadMessages:
+        def parse(self, **kwargs):
+            ResumeContent.model_validate({})  # raises a real pydantic.ValidationError
+
+    class _BadClient:
+        messages = _BadMessages()
+
+    monkeypatch.setattr(generate, "get_client", lambda: _BadClient())
+
+    with TestClient(app) as client:
+        resp = client.post("/api/generate/resume", json={"job_id": job_id})
+        assert resp.status_code == 502
+        assert "couldn't be parsed" in resp.json()["detail"]
+        assert "upload one" not in resp.json()["detail"]
+
+
+def test_generate_cover_letter_returns_clean_502_on_truncated_llm_response(tmp_path, monkeypatch):
+    # Regression: this used to be an unhandled exception (no except clause caught
+    # ValidationError), surfacing as a raw 500 Internal Server Error with no useful detail.
+    job_id = _insert_job()
+    _insert_resume_with_docx(tmp_path, kind="cover_letter", make=_make_cover_letter_docx)
+
+    class _BadMessages:
+        def parse(self, **kwargs):
+            CoverLetterContent.model_validate({})
+
+    class _BadClient:
+        messages = _BadMessages()
+
+    monkeypatch.setattr(generate, "get_client", lambda: _BadClient())
+
+    with TestClient(app) as client:
+        resp = client.post("/api/generate/cover-letter", json={"job_id": job_id})
+        assert resp.status_code == 502
+        assert "couldn't be parsed" in resp.json()["detail"]
+
+
 def test_generate_resume_prefers_is_template_flag_over_recency(tmp_path, monkeypatch):
     job_id = _insert_job()
     _insert_resume_with_docx(tmp_path, kind="resume", is_template=0)
