@@ -81,3 +81,20 @@ def test_rebuild_stores_profile_and_logs_usage(monkeypatch):
     with get_db() as conn:
         calls = conn.execute("SELECT * FROM llm_calls WHERE call_type = 'career_profile'").fetchall()
     assert len(calls) == 1
+
+
+def test_set_candidate_profile_overrides_current_without_llm_call():
+    _insert_resume("r1", "Some resume content.", "2026-01-01T00:00:00")
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO candidate_profile (text, model, source_resume_ids_json) VALUES (?, 'x', '[]')",
+            ("old profile",),
+        )
+
+    text = profile.set_candidate_profile("edited profile text")
+    assert text == "edited profile text"
+    assert profile.get_current_candidate_profile() == "edited profile text"
+
+    with get_db() as conn:
+        calls = conn.execute("SELECT * FROM llm_calls").fetchall()
+    assert len(calls) == 0

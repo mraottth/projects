@@ -38,6 +38,15 @@ def score_job(job: dict, settings: dict) -> tuple[float, dict]:
             score -= 15
             reasons["title_no_match"] = True
 
+    sectors = [s.lower() for s in settings.get("prefilter_sectors", [])]
+    if sectors:
+        if any(s in text for s in sectors):
+            score += 12
+            reasons["sector_match"] = True
+        else:
+            score -= 8
+            reasons["sector_no_match"] = True
+
     locations = [loc.lower() for loc in settings.get("prefilter_locations", [])]
     remote_only = settings.get("prefilter_remote_only", False)
     job_location = (job.get("location") or "").lower()

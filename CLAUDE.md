@@ -63,6 +63,9 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   tagged `[archived]` inline so Claude weighs current documents far more heavily, per the user's
   explicit ask, rather than treating every resume as equally representative of their current
   skills/preferences. Called from the Profile page's rebuild action, never automatically.
+  `set_candidate_profile()` inserts a user-edited profile directly (no LLM call, `model` recorded
+  as `manual_edit`), backing the Profile page's inline edit so the user can fix or add to what the
+  LLM produced without a full re-synthesis from resumes.
 - `src/jobhunt/core/docx_writer.py` — generates a tailored resume/cover-letter `.docx` by cloning
   the user's own template document's paragraph styles and exact per-run formatting (bold/size),
   not by describing formatting to Claude in prose (which can't produce real visual fidelity) and
@@ -89,7 +92,14 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   reached `interview`/`offer` says more than a bare `interested` mark). Rebuilt manually from
   Settings, or automatically by the daily pipeline once enough new signal has accumulated.
 - `src/jobhunt/core/scoring.py` — the per-job LLM call (interest-fit + candidate-fit, High/Med/Low)
-  against the candidate profile, preference profile, and recent raw feedback.
+  against the candidate profile, preference profile, recent raw feedback, and the `prefilter_sectors`
+  setting (desired sectors/industries) — a role outside a stated sector is told to score lower on
+  interest even if otherwise a strong candidate-fit match.
+- Desired sectors (`settings.prefilter_sectors`, edited on the Profile page's "What are you looking
+  for?" card) feed three places: `core/prefilter.py`'s rule-based scorer (boost on a text match,
+  penalty on a clear miss), `core/discovery.py`'s company-suggestion prompt (treated as a real
+  constraint, not a tiebreaker — a strong brand outside the sector shouldn't get suggested anyway),
+  and `core/scoring.py` above.
 - `src/jobhunt/core/generate.py` — tailored resume/cover-letter generation, called only from a
   user action on a specific job (`api/generate.py`), never automatically.
 - `src/jobhunt/core/prefilter.py` + `core/queue.py` — the cheap rule-based pass that runs before any
@@ -133,6 +143,10 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
 - `frontend/` — React 19 + Vite + TS, react-router-dom for navigation, no UI library. Unlike Shelf
   Life's stateless localStorage-only app, this one's source of truth is server-persisted SQLite —
   pages call `api.ts` directly rather than reading/writing a client-side store.
+- `frontend/src/components/Spinner.tsx` — small CSS-animated spinner (`@keyframes spin` in
+  `index.css`), used in place of plain "...ing" button text for any action that calls Claude
+  (profile rebuild, company discovery, resume/cover-letter generation, job scoring, favorite
+  resolution) or otherwise takes noticeable time (test-fetch, run-daily-now).
 - Resume/cover-letter storage: `JOBHUNT_RESUME_DIR` (default `data/resumes/`) holds the actual files;
   the DB only stores the path + extracted text. In production this directory is a Cloud Run GCS-volume
   mount, so the code never needs to know it's talking to cloud storage.

@@ -43,11 +43,13 @@ def test_profile_text_includes_settings():
         "profile text",
         {
             "prefilter_titles_include": ["Backend Engineer"],
+            "prefilter_sectors": ["Climate Tech"],
             "prefilter_locations": ["Remote"],
             "prefilter_remote_only": True,
             "salary_floor": 150000,
         },
     )
     assert "Backend Engineer" in text
+    assert "Climate Tech" in text
     assert "Remote" in text
     assert "150000" in text

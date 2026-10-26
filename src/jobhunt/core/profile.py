@@ -77,3 +77,12 @@ def get_current_candidate_profile() -> str | None:
             "SELECT text FROM candidate_profile ORDER BY id DESC LIMIT 1"
         ).fetchone()
     return row["text"] if row else None
+
+
+def set_candidate_profile(text: str) -> str:
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO candidate_profile (text, model, source_resume_ids_json) VALUES (?, ?, ?)",
+            (text, "manual_edit", json.dumps([])),
+        )
+    return text

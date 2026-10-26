@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, Favorite, Source, SourceKind } from "../api";
+import { Spinner } from "../components/Spinner";
 
 const KIND_LABELS: Record<SourceKind, string> = {
   ats_greenhouse: "Greenhouse (company board token)",
@@ -159,7 +160,7 @@ function FavoritesSection() {
           style={{ flex: "1 1 260px" }}
         />
         <button className="primary" onClick={add} disabled={busy}>
-          Add favorite
+          {busy ? <Spinner label="Resolving..." /> : "Add favorite"}
         </button>
       </div>
       {error && <p className="error-text small">{error}</p>}
@@ -236,7 +237,7 @@ function SourceCard({ source, onChanged }: { source: Source; onChanged: () => vo
       {source.last_error && <p className="error-text small">Last error: {source.last_error}</p>}
       <div className="form-actions" style={{ marginTop: 0 }}>
         <button className="ghost small" onClick={test} disabled={busy}>
-          Test fetch
+          {busy ? <Spinner label="Testing..." /> : "Test fetch"}
         </button>
         <button className="ghost small" onClick={toggle}>
           {source.enabled ? "Disable" : "Enable"}
@@ -294,7 +295,7 @@ export default function SourcesPage() {
           to test.
         </p>
         <button className="ghost" onClick={runNow} disabled={running}>
-          {running ? "Running..." : "Run now"}
+          {running ? <Spinner label="Running..." /> : "Run now"}
         </button>
         {runResult && (
           <pre style={{ whiteSpace: "pre-wrap", marginTop: "10px" }}>

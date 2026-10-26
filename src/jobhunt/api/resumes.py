@@ -2,10 +2,15 @@ import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from pydantic import BaseModel
 
 from jobhunt.config import RESUME_STORAGE_DIR
 from jobhunt.core.llm import LLMError
-from jobhunt.core.profile import get_current_candidate_profile, rebuild_candidate_profile
+from jobhunt.core.profile import (
+    get_current_candidate_profile,
+    rebuild_candidate_profile,
+    set_candidate_profile,
+)
 from jobhunt.core.resume_parse import extract_text
 from jobhunt.db.connection import get_db
 
@@ -87,4 +92,16 @@ def rebuild_profile():
         raise HTTPException(400, str(exc)) from exc
     except LLMError as exc:
         raise HTTPException(502, str(exc)) from exc
+    return {"text": text}
+
+
+class ProfileUpdateRequest(BaseModel):
+    text: str
+
+
+@router.put("/profile")
+def update_profile(payload: ProfileUpdateRequest):
+    if not payload.text.strip():
+        raise HTTPException(400, "profile text cannot be empty")
+    text = set_candidate_profile(payload.text)
     return {"text": text}

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, DigestEntry, Job } from "../api";
 import { Markdown } from "../components/Markdown";
+import { Spinner } from "../components/Spinner";
 
 function daysAgo(iso: string): string {
   const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
@@ -84,7 +85,7 @@ function AddJobForm({ onAdded }: { onAdded: (job: Job) => void }) {
       )}
       <div className="form-actions">
         <button className="primary" onClick={submit} disabled={busy}>
-          {busy ? "Parsing..." : "Parse"}
+          {busy ? <Spinner label="Parsing..." /> : "Parse"}
         </button>
       </div>
       {error && <p className="error-text small">{error}</p>}
@@ -131,7 +132,7 @@ function PendingReview({ job, onConfirmed }: { job: Job; onConfirmed: (job: Job)
         />
       </div>
       <button className="primary" onClick={confirm} disabled={busy}>
-        {busy ? "Scoring..." : "Confirm & score"}
+        {busy ? <Spinner label="Scoring..." /> : "Confirm & score"}
       </button>
       {error && <p className="error-text small">{error}</p>}
     </div>

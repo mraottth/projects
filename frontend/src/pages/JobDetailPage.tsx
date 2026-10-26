@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api, Application, GeneratedDoc, Job } from "../api";
 import { Markdown } from "../components/Markdown";
+import { Spinner } from "../components/Spinner";
 
 interface JobWithScores extends Job {
   scores: {
@@ -136,10 +137,10 @@ export default function JobDetailPage() {
 
         <div className="form-actions">
           <button className="primary" onClick={() => generate("resume")} disabled={busy === "resume"}>
-            {busy === "resume" ? "Generating..." : "Generate tailored resume"}
+            {busy === "resume" ? <Spinner label="Generating..." /> : "Generate tailored resume"}
           </button>
           <button className="primary" onClick={() => generate("cover-letter")} disabled={busy === "cover-letter"}>
-            {busy === "cover-letter" ? "Generating..." : "Generate cover letter"}
+            {busy === "cover-letter" ? <Spinner label="Generating..." /> : "Generate cover letter"}
           </button>
         </div>
         {error && <p className="error-text small">{error}</p>}

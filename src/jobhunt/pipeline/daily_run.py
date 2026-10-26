@@ -210,6 +210,7 @@ def run_daily() -> dict:
 
     candidate_profile = get_current_candidate_profile()
     preference_profile = get_current_preference_profile()
+    desired_sectors = settings_module.get_setting("prefilter_sectors", [])
 
     scored_count = 0
     scoring_errors = []
@@ -220,7 +221,7 @@ def run_daily() -> dict:
             continue
         job = _backfill_description(dict(row))
         try:
-            score = score_job(job, candidate_profile, preference_profile)
+            score = score_job(job, candidate_profile, preference_profile, desired_sectors)
         except LLMError as exc:
             scoring_errors.append(f"job {job_id}: {exc}")
             queue.mark_pending_again(job_id)

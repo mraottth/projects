@@ -6,6 +6,7 @@ from jobhunt.core.llm import LLMError
 from jobhunt.core.preference import get_current_preference_profile
 from jobhunt.core.profile import get_current_candidate_profile
 from jobhunt.core.scoring import score_job, store_score
+from jobhunt.core.settings import get_setting
 from jobhunt.db.connection import get_db
 from jobhunt.ingest.manual_import import ManualImportError, parse_job_posting
 
@@ -132,7 +133,12 @@ def confirm_job(job_id: int):
         conn.execute("UPDATE jobs SET needs_review = 0 WHERE id = ?", (job_id,))
 
     try:
-        score = score_job(job, get_current_candidate_profile(), get_current_preference_profile())
+        score = score_job(
+            job,
+            get_current_candidate_profile(),
+            get_current_preference_profile(),
+            get_setting("prefilter_sectors", []),
+        )
     except LLMError as exc:
         raise HTTPException(502, str(exc)) from exc
     store_score(job_id, score)

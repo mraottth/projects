@@ -12,6 +12,7 @@ DEFAULT_SETTINGS = {
     "prefilter_keywords_include": [],
     "prefilter_keywords_exclude": [],
     "prefilter_titles_include": [],
+    "prefilter_sectors": [],
     "prefilter_locations": [],
     "prefilter_remote_only": False,
     "salary_floor": None,

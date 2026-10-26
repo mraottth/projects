@@ -40,6 +40,34 @@ def test_score_job_calls_llm_and_logs_usage(monkeypatch):
     assert calls[0]["job_id"] == job_id
 
 
+def test_score_job_includes_desired_sectors_in_prompt(monkeypatch):
+    fake_score = JobScore(
+        interest_fit="High",
+        interest_score=80,
+        candidate_fit="High",
+        candidate_fit_score=80,
+        summary_text="summary",
+        rationale_text="rationale",
+    )
+    fake_client = FakeAnthropicClient(parse_result=FakeParseResponse(fake_score))
+    monkeypatch.setattr(scoring, "get_client", lambda: fake_client)
+    captured = {}
+    orig_parse = fake_client.messages.parse
+
+    def spy_parse(**kwargs):
+        captured["content"] = kwargs["messages"][0]["content"]
+        return orig_parse(**kwargs)
+
+    fake_client.messages.parse = spy_parse
+
+    job_id = _insert_job()
+    with get_db() as conn:
+        job = dict(conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone())
+
+    score_job(job, None, None, desired_sectors=["Climate Tech", "Healthcare"])
+    assert "Climate Tech, Healthcare" in captured["content"]
+
+
 def test_store_score_persists_row():
     job_id = _insert_job()
     score = JobScore(

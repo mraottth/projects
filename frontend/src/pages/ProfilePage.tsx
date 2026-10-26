@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, ApiError, CompanySuggestion, ResumeSummary, Settings } from "../api";
 import { Markdown } from "../components/Markdown";
+import { Spinner } from "../components/Spinner";
 
 function toList(s: string): string[] {
   return s
@@ -17,6 +18,8 @@ function ResumesSection() {
   const [error, setError] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [libraryPath, setLibraryPath] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
 
   const refresh = () => {
@@ -56,6 +59,25 @@ function ResumesSection() {
     try {
       const r = await api.rebuildCandidateProfile();
       setProfile(r.text);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const startEditing = () => {
+    setDraft(profile ?? "");
+    setEditing(true);
+  };
+
+  const handleSaveEdit = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await api.updateCandidateProfile(draft);
+      setProfile(r.text);
+      setEditing(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -114,10 +136,38 @@ function ResumesSection() {
       <div className="card">
         <h2>Candidate profile</h2>
         <p className="muted small">Synthesized from everything uploaded above.</p>
-        <button className="ghost" onClick={handleRebuild} disabled={busy || resumes.length === 0}>
-          Rebuild from uploaded documents
-        </button>
-        {profile ? (
+        {!editing && (
+          <div className="form-actions" style={{ marginTop: 0 }}>
+            <button className="ghost" onClick={handleRebuild} disabled={busy || resumes.length === 0}>
+              {busy ? <Spinner label="Rebuilding..." /> : "Rebuild from uploaded documents"}
+            </button>
+            {profile && (
+              <button className="link small" onClick={startEditing} disabled={busy}>
+                Edit
+              </button>
+            )}
+          </div>
+        )}
+        {error && <p className="error-text small">{error}</p>}
+
+        {editing ? (
+          <div className="card-section">
+            <textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              rows={14}
+              style={{ width: "100%", fontFamily: "inherit" }}
+            />
+            <div className="form-actions">
+              <button className="primary" onClick={handleSaveEdit} disabled={busy || !draft.trim()}>
+                {busy ? <Spinner label="Saving..." /> : "Save"}
+              </button>
+              <button className="ghost" onClick={() => setEditing(false)} disabled={busy}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : profile ? (
           <div className="card-section">
             <Markdown text={profile} />
           </div>
@@ -166,6 +216,16 @@ function DesiredRoleSection() {
           defaultValue={settings.prefilter_titles_include.join(", ")}
           onBlur={(e) => save({ prefilter_titles_include: toList(e.target.value) })}
           placeholder="e.g. Senior Backend Engineer, Staff Engineer"
+          style={{ width: "100%" }}
+        />
+      </div>
+
+      <div className="fsection">
+        <span className="flabel">Desired sectors</span>
+        <input
+          defaultValue={settings.prefilter_sectors.join(", ")}
+          onBlur={(e) => save({ prefilter_sectors: toList(e.target.value) })}
+          placeholder="e.g. Climate tech, Healthcare"
           style={{ width: "100%" }}
         />
       </div>
@@ -251,7 +311,7 @@ function DiscoverCompaniesSection() {
         companies worth monitoring. Nothing is added until you approve it.
       </p>
       <button className="ghost" onClick={runDiscovery} disabled={busy}>
-        {busy ? "Searching..." : "Suggest companies"}
+        {busy ? <Spinner label="Searching..." /> : "Suggest companies"}
       </button>
       {error && <p className="error-text small">{error}</p>}
 

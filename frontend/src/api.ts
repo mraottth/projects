@@ -119,6 +119,7 @@ export interface Settings {
   prefilter_keywords_include: string[];
   prefilter_keywords_exclude: string[];
   prefilter_titles_include: string[];
+  prefilter_sectors: string[];
   prefilter_locations: string[];
   prefilter_remote_only: boolean;
   salary_floor: number | null;
@@ -220,6 +221,13 @@ export const api = {
 
   rebuildCandidateProfile: () =>
     request<{ text: string }>("/api/resumes/profile/rebuild", { method: "POST" }),
+
+  updateCandidateProfile: (text: string) =>
+    request<{ text: string }>("/api/resumes/profile", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    }),
 
   listSources: () => request<Source[]>("/api/sources"),
 

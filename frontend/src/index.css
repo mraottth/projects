@@ -161,3 +161,14 @@ tr:last-child td { border-bottom: 0; }
 .empty-state { color: var(--muted); padding: 8px 0; }
 .collapsible-toggle { margin: 6px 0; }
 code.path { background: #f0efea; border-radius: 4px; padding: 1px 5px; font-size: 0.85em; word-break: break-all; }
+
+/* ---------- spinner */
+.spinner-row { display: inline-flex; align-items: center; gap: 8px; }
+.spinner {
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid rgba(11, 11, 11, 0.15); border-top-color: var(--accent);
+  animation: spin 0.7s linear infinite; display: inline-block;
+}
+button .spinner { border-color: rgba(255, 255, 255, 0.35); border-top-color: #fff; }
+button.ghost .spinner, button.link .spinner { border-color: rgba(11, 11, 11, 0.15); border-top-color: var(--accent); }
+@keyframes spin { to { transform: rotate(360deg); } }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, LlmCall, Settings } from "../api";
 import { Markdown } from "../components/Markdown";
+import { Spinner } from "../components/Spinner";
 
 function toList(s: string): string[] {
   return s
@@ -171,7 +172,7 @@ export default function SettingsPage() {
           forward.
         </p>
         <button className="ghost" onClick={rebuild} disabled={busy}>
-          {busy ? "Rebuilding..." : "Rebuild from feedback"}
+          {busy ? <Spinner label="Rebuilding..." /> : "Rebuild from feedback"}
         </button>
         {error && <p className="error-text small">{error}</p>}
         {profile ? (

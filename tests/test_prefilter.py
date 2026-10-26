@@ -41,6 +41,22 @@ def test_salary_floor_penalizes_below_floor():
     assert reasons["below_salary_floor"] is True
 
 
+def test_boosts_on_matched_sector():
+    job = {"title": "Engineer", "description_text": "join our climate tech mission"}
+    settings = {"prefilter_sectors": ["climate tech"]}
+    score, reasons = score_job(job, settings)
+    assert score > 50.0
+    assert reasons["sector_match"] is True
+
+
+def test_penalizes_unmatched_sector():
+    job = {"title": "Engineer", "description_text": "we sell enterprise software"}
+    settings = {"prefilter_sectors": ["healthcare"]}
+    score, reasons = score_job(job, settings)
+    assert score < 50.0
+    assert reasons["sector_no_match"] is True
+
+
 def test_no_settings_gives_baseline():
     job = {"title": "Engineer"}
     score, reasons = score_job(job, {})

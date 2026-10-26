@@ -11,10 +11,11 @@ from pydantic import BaseModel
 from jobhunt.core.llm import DEFAULT_MODEL, get_client, llm_error_boundary, log_call
 
 SYSTEM_PROMPT = """You suggest companies a job seeker should consider monitoring for openings, \
-based on their candidate profile and the roles/locations they're targeting. Use web search to find \
-real companies that are actually hiring for roles like this right now, not just companies that \
-seem like a generic fit -- prioritize current, concrete evidence (an open posting, a recent hiring \
-announcement) over general reputation.
+based on their candidate profile and the roles/sectors/locations they're targeting -- desired \
+sector is a real constraint, not a tiebreaker: don't suggest a well-known company outside it just \
+because it's a strong brand name. Use web search to find real companies that are actually hiring \
+for roles like this right now, not just companies that seem like a generic fit -- prioritize \
+current, concrete evidence (an open posting, a recent hiring announcement) over general reputation.
 
 Suggest 6-10 companies. For each, give a one-sentence reason tied to their specific profile/targets \
 (not generic "great culture" reasoning). Prefer a mix of company sizes/stages over obvious mega-cap \
@@ -38,12 +39,14 @@ def _extract_json(text: str) -> dict:
 
 def _profile_text(candidate_profile: str | None, settings: dict) -> str:
     titles = ", ".join(settings.get("prefilter_titles_include", [])) or "(not specified)"
+    sectors = ", ".join(settings.get("prefilter_sectors", [])) or "(not specified)"
     locations = ", ".join(settings.get("prefilter_locations", [])) or "(not specified)"
     remote_only = settings.get("prefilter_remote_only", False)
     salary_floor = settings.get("salary_floor")
     return (
         f"## Candidate profile\n{candidate_profile or '(not available)'}\n\n"
         f"## Desired titles\n{titles}\n\n"
+        f"## Desired sectors/industries\n{sectors}\n\n"
         f"## Desired locations\n{locations}{' (remote only)' if remote_only else ''}\n\n"
         f"## Minimum salary\n{salary_floor if salary_floor else '(not specified)'}"
     )

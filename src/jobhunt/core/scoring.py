@@ -9,12 +9,14 @@ from jobhunt.db.connection import get_db
 SYSTEM_PROMPT = """You are helping a job seeker triage incoming postings. You will be given: their \
 candidate profile (career history/competencies/interests), their current preference profile (what \
 they tend to respond to, learned from past feedback and application outcomes -- may be empty if they're \
-just getting started), a few of their most recent raw feedback marks, and one job posting.
+just getting started), their desired sectors/industries, a few of their most recent raw feedback \
+marks, and one job posting.
 
 Rate two independent things:
 - interest_fit: how likely THIS SPECIFIC PERSON is to be genuinely interested in this role, based on \
-their stated/inferred interests and what they've responded to before. Not how good a job it is in the \
-abstract.
+their stated/inferred interests, desired sectors, and what they've responded to before. A role in a \
+sector they didn't ask for should usually score lower on interest even if it's otherwise a strong \
+match -- not how good a job it is in the abstract.
 - candidate_fit: how strong a candidate they'd be for this specific role, based on their competencies \
 and experience vs. what the posting asks for.
 
@@ -51,7 +53,12 @@ def _recent_feedback_text(limit: int = 10) -> str:
     )
 
 
-def score_job(job: dict, candidate_profile: str | None, preference_profile: str | None) -> JobScore:
+def score_job(
+    job: dict,
+    candidate_profile: str | None,
+    preference_profile: str | None,
+    desired_sectors: list[str] | None = None,
+) -> JobScore:
     posting_text = (
         f"Title: {job['title']}\nCompany: {job['company']}\nLocation: {job.get('location') or 'unknown'}\n"
         f"Remote: {job.get('remote_type') or 'unknown'}\n"
@@ -59,10 +66,12 @@ def score_job(job: dict, candidate_profile: str | None, preference_profile: str 
         f"{job.get('salary_currency') or ''} {job.get('salary_period') or ''}\n\n"
         f"{job.get('description_text') or ''}"
     )
+    sectors_text = ", ".join(desired_sectors) if desired_sectors else "(not specified)"
 
     user_content = (
         f"## Candidate profile\n{candidate_profile or '(not yet built)'}\n\n"
         f"## Preference profile\n{preference_profile or '(not yet built -- no feedback history)'}\n\n"
+        f"## Desired sectors/industries\n{sectors_text}\n\n"
         f"## Recent feedback\n{_recent_feedback_text()}\n\n"
         f"## Job posting to score\n{posting_text}"
     )
