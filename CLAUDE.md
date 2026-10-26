@@ -8,6 +8,12 @@ breakdown this was built from.
 
 ## Commands
 
+All Python runs through uv (Python 3.12). The Makefile exports `PYTHONPATH=src`. On macOS, uv's
+editable-install `.pth` file sometimes gets the "hidden" flag, which makes Python skip it (same
+issue Shelf Life's CLAUDE.md notes) — `import jobhunt` then fails outside `make` with
+`ModuleNotFoundError: No module named 'jobhunt'`. Outside `make`, prefix commands with
+`PYTHONPATH=src`.
+
 ```bash
 make serve             # uvicorn on :8000; serves frontend/dist if built
 make dev                # Vite dev server (proxies /api to :8000); run `make serve` alongside
