@@ -160,18 +160,37 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   resolution) or otherwise takes noticeable time (test-fetch, run-daily-now).
 - **Page split** (Digest / My Sources / My Jobs), each with one job: `DigestPage` is "new and
   noteworthy" -- today's capped, LLM-scored digest only. `SourcesPage` ("My Sources" in the nav)
-  is everything about where jobs come from: `GET /api/jobs/ranked` (`api/jobs.py`, registered
-  *before* `/{job_id}` since Starlette matches path templates in order -- a later `/ranked` would
-  404 as an invalid `job_id`) returns every active job from a tracked source (`source_id NOT
-  NULL`), scored or not, ranked best-first -- this is the uncapped view the daily cap's 50-job
-  limit would otherwise hide. The same page hosts source management: Favorite Companies/Favorite
-  Job Boards, company/job-board Discovery (moved here from Profile), "Add a source", and the
-  tracked-sources list. `MyJobsPage` (route `/tracker`, file `MyJobsPage.tsx`) is the application
-  tracker plus "Add a job" (manual paste-in, moved here from Digest) -- pasting and confirming a
-  job scores it and immediately creates its `applications` row (`api/jobs.py`'s `confirm_job`
-  calls `create_application` directly, swallowing a 409 so re-confirming is a no-op) rather than
-  adding it to the digest, since pasting a job you already found *is* the interest signal, not a
-  "new and noteworthy" discovery.
+  is everything about where jobs come from, split into two tabs (plain `useState`, no routing --
+  consistent with the rest of the app's lightweight patterns): "Manage sources" (Favorite
+  Companies/Favorite Job Boards, company/job-board Discovery moved here from Profile, "Add a
+  source", the tracked-sources list, run-daily-now) and "All tracked jobs" (`GET /api/jobs/ranked`,
+  `api/jobs.py`, registered *before* `/{job_id}` since Starlette matches path templates in order --
+  a later `/ranked` would 404 as an invalid `job_id`) -- every active job from a tracked source
+  (`source_id NOT NULL`), scored or not, ranked best-first, the uncapped view the daily cap's
+  50-job limit would otherwise hide. `MyJobsPage` (route `/tracker`, file `MyJobsPage.tsx`) is the
+  application tracker plus "Add a job" (manual paste-in, moved here from Digest) -- pasting and
+  confirming a job scores it and immediately creates its `applications` row (`api/jobs.py`'s
+  `confirm_job` calls `create_application` directly, swallowing a 409 so re-confirming is a no-op)
+  rather than adding it to the digest, since pasting a job you already found *is* the interest
+  signal, not a "new and noteworthy" discovery.
+- `components/JobFilters.tsx` is the one shared filter implementation (state, pure `filterJobs()`,
+  and the `<JobFilterBar>` UI) used by both the Digest and "All tracked jobs" lists -- interest
+  fit, candidate fit, favorite-only, source (derived from the jobs actually loaded, not a separate
+  API call), minimum salary, posted-within-N-days, a location substring match, and a free-text
+  search across title/company/location/summary/full description. All client-side over the already
+  -loaded job list, same approach as the earlier fit/favorite filters -- no new query-param surface
+  on the backend.
+- `components/ScoredJobCard.tsx` always shows salary and posted date now, "N/A" when either is
+  missing, rather than omitting the line entirely -- and "posted" means the job description's own
+  `posted_at`, never `first_seen_at` (when our pipeline happened to discover it, which isn't what
+  a "date posted" label should mean to the user). The rationale blurb is clamped to 2 lines via a
+  `.clamp-2` CSS class with a measured-overflow "Show more" toggle (only rendered when the text
+  actually overflows, via a `scrollHeight`/`clientHeight` comparison in `useLayoutEffect`).
+- `core/scoring.py`'s prompt now asks the model to wrap the 1-3 most decision-critical phrases in
+  its rationale in `==double equals==` (sparingly -- short phrases, not whole sentences);
+  `components/Markdown.tsx` renders `==text==` as `<mark>`, styled with `var(--warn-bg)` (the same
+  soft amber already used for `badge-med`/`pill-interview`) for a subtle, on-brand highlight rather
+  than a jarring bright yellow.
 - On both `DigestPage` and `SourcesPage`'s ranked list, marking a job "Interested" records the
   feedback *and* auto-creates an `applications` row the same way -- `components/ScoredJobCard.tsx`
   (`JobActions`) is the one shared implementation both pages use, so this only exists in one

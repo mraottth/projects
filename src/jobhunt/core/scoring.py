@@ -31,7 +31,12 @@ Each gets a High/Med/Low label plus a 0-100 score (Low roughly 0-33, Med 33-67, 
 the full range within each band, don't default to the midpoint). Also write a 1-2 sentence summary of \
 the role itself (for a digest card) and a short rationale explaining both ratings (what drove them up \
 or down) -- the rationale is for the user, so be specific about which parts of the posting or their \
-background mattered."""
+background mattered.
+
+In the rationale, wrap the 1-3 most decision-critical phrases in ==double equals== (e.g. "==10+ years \
+of Python==" or "==no remote option==") -- the specific skill match, dealbreaker, or standout detail \
+that most explains the rating, not whole sentences. The UI renders these as highlighted text, so use \
+it sparingly and only for words/short phrases that genuinely matter most, not as general emphasis."""
 
 
 class JobScore(BaseModel):

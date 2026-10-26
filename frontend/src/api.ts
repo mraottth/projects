@@ -84,6 +84,7 @@ export interface ScoredJob extends Job {
   candidate_fit_score: number | null;
   summary_text: string | null;
   rationale_text: string | null;
+  source_name: string | null;
   is_favorite: boolean | 0 | 1;
 }
 

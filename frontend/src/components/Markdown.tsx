@@ -8,7 +8,7 @@ import { Fragment, type ReactNode } from "react";
  * preference profile, job rationale, generated resume/cover-letter text) is displayed, so it
  * doesn't render literal "**bold**" asterisks.
  */
-const INLINE = /(`[^`]+`|\*\*[^*]+\*\*|\*[^*\s][^*]*\*|\[[^\]]+\]\([^)\s]+\))/g;
+const INLINE = /(`[^`]+`|\*\*[^*]+\*\*|\*[^*\s][^*]*\*|==[^=]+==|\[[^\]]+\]\([^)\s]+\))/g;
 
 function inline(text: string): ReactNode[] {
   return text.split(INLINE).map((part, i) => {
@@ -16,6 +16,7 @@ function inline(text: string): ReactNode[] {
     if ((m = part.match(/^`([^`]+)`$/))) return <code key={i}>{m[1]}</code>;
     if ((m = part.match(/^\*\*([^*]+)\*\*$/))) return <strong key={i}>{inline(m[1])}</strong>;
     if ((m = part.match(/^\*([^*]+)\*$/))) return <em key={i}>{m[1]}</em>;
+    if ((m = part.match(/^==([^=]+)==$/))) return <mark key={i}>{inline(m[1])}</mark>;
     if ((m = part.match(/^\[([^\]]+)\]\(([^)\s]+)\)$/))) {
       return /^https?:\/\//.test(m[2]) ? (
         <a key={i} href={m[2]} target="_blank" rel="noreferrer">

@@ -63,11 +63,12 @@ def list_ranked_jobs(status: str = "active"):
     with get_db() as conn:
         rows = conn.execute(
             f"""SELECT j.*, js.interest_fit, js.interest_score, js.candidate_fit, js.candidate_fit_score,
-                       js.summary_text, js.rationale_text, {IS_FAVORITE_SQL}
+                       js.summary_text, js.rationale_text, s.name AS source_name, {IS_FAVORITE_SQL}
                 FROM jobs j
                 LEFT JOIN job_scores js ON js.id = (
                     SELECT id FROM job_scores WHERE job_id = j.id ORDER BY id DESC LIMIT 1
                 )
+                LEFT JOIN sources s ON s.id = j.source_id
                 WHERE j.status = ? AND j.source_id IS NOT NULL
                 ORDER BY is_favorite DESC,
                          (COALESCE(js.interest_score, 0) + COALESCE(js.candidate_fit_score, 0)) DESC,

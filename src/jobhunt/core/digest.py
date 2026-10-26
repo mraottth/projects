@@ -57,12 +57,13 @@ def get_digest(digest_date: str) -> list[dict]:
     with get_db() as conn:
         rows = conn.execute(
             f"""SELECT j.*, js.interest_fit, js.interest_score, js.candidate_fit, js.candidate_fit_score,
-                      js.summary_text, js.rationale_text, de.rank, {IS_FAVORITE_SQL}
+                      js.summary_text, js.rationale_text, de.rank, s.name AS source_name, {IS_FAVORITE_SQL}
                FROM digest_entries de
                JOIN jobs j ON j.id = de.job_id
                LEFT JOIN job_scores js ON js.id = (
                    SELECT id FROM job_scores WHERE job_id = de.job_id ORDER BY id DESC LIMIT 1
                )
+               LEFT JOIN sources s ON s.id = j.source_id
                WHERE de.digest_date = ?
                ORDER BY de.rank""",
             (digest_date,),

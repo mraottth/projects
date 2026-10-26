@@ -1,23 +1,53 @@
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, ApiError, ScoredJob } from "../api";
 import { Markdown } from "./Markdown";
 
-export function daysAgo(iso: string): string {
+function daysAgo(iso: string): string {
   const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
   if (days <= 0) return "today";
   if (days === 1) return "1 day ago";
   return `${days} days ago`;
 }
 
-export function salaryText(job: ScoredJob): string | null {
-  if (!job.salary_min && !job.salary_max) return null;
+export function salaryText(job: ScoredJob): string {
+  if (!job.salary_min && !job.salary_max) return "N/A";
   const fmt = (n: number) => `$${Math.round(n / 1000)}k`;
   const range =
     job.salary_min && job.salary_max
       ? `${fmt(job.salary_min)}-${fmt(job.salary_max)}`
       : fmt(job.salary_min ?? job.salary_max!);
   return `${range}${job.salary_period ? `/${job.salary_period}` : ""}`;
+}
+
+// The job description's own posted date, not when our pipeline first saw it -- falls back to
+// "N/A" rather than first_seen_at, since "when did our scraper happen to find this" isn't what a
+// "date posted" label should mean.
+export function postedText(job: ScoredJob): string {
+  return job.posted_at ? daysAgo(job.posted_at) : "N/A";
+}
+
+function RationaleBlock({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const [overflowing, setOverflowing] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    if (ref.current) setOverflowing(ref.current.scrollHeight > ref.current.clientHeight + 1);
+  }, [text]);
+
+  return (
+    <div className="muted small">
+      <div ref={ref} className={expanded ? undefined : "clamp-2"}>
+        <Markdown text={text} />
+      </div>
+      {overflowing && (
+        <button className="link small" onClick={() => setExpanded((e) => !e)}>
+          {expanded ? "Show less" : "Show more"}
+        </button>
+      )}
+    </div>
+  );
 }
 
 function FitBadge({ label, value }: { label: string; value: string | null }) {
@@ -94,8 +124,8 @@ export function ScoredJobCard({ job }: { job: ScoredJob }) {
             </Link>
           </div>
           <div className="card-meta">
-            {job.location ?? "location unknown"}
-            {salaryText(job) ? ` · ${salaryText(job)}` : ""} · {daysAgo(job.first_seen_at)}
+            Location: {job.location ?? "N/A"} · Salary: {salaryText(job)} · Posted: {postedText(job)}
+            {job.source_name && ` · ${job.source_name}`}
           </div>
         </div>
       </div>
@@ -108,11 +138,7 @@ export function ScoredJobCard({ job }: { job: ScoredJob }) {
         {!job.interest_fit && !job.candidate_fit && <span className="muted small">Not yet scored</span>}
       </div>
 
-      {job.rationale_text && (
-        <div className="muted small">
-          <Markdown text={job.rationale_text} />
-        </div>
-      )}
+      {job.rationale_text && <RationaleBlock text={job.rationale_text} />}
 
       <JobActions job={job} />
     </div>
