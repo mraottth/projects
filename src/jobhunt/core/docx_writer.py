@@ -22,6 +22,13 @@ from docx.oxml.ns import qn
 from docx.text.paragraph import Paragraph
 from pydantic import BaseModel
 
+# Explicitly forced on every run of generated text, rather than inherited from the template --
+# real-world templates are often inconsistent (e.g. the user's own resume's "Normal" style is
+# explicitly Times New Roman while its Title/Heading styles fall through to the document theme's
+# Calibri/Calibri Light with no run-level override at all), so "inherit whatever the cloned
+# paragraph happens to use" doesn't reliably produce one consistent font across the whole document.
+GENERATED_FONT = "Calibri"
+
 
 class ResumeLine(BaseModel):
     kind: Literal["normal", "bullet", "description"]
@@ -145,6 +152,7 @@ def _set_plain(p_element, text: str, size=None) -> None:
     if not text:
         return
     run = paragraph.add_run(text)
+    run.font.name = GENERATED_FONT
     if size is not None:
         run.font.size = size
 
@@ -153,11 +161,13 @@ def _set_bold_split(p_element, bold_text: str, rest_text: str, bold_size=None, r
     paragraph = _clear_runs(p_element)
     run1 = paragraph.add_run(bold_text)
     run1.bold = True
+    run1.font.name = GENERATED_FONT
     if bold_size is not None:
         run1.font.size = bold_size
     if rest_text:
         run2 = paragraph.add_run(rest_text)
         run2.bold = False
+        run2.font.name = GENERATED_FONT
         if rest_size is not None:
             run2.font.size = rest_size
 

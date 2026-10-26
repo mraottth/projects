@@ -16,8 +16,8 @@ export interface JobFilterState {
 }
 
 export const DEFAULT_JOB_FILTERS: JobFilterState = {
-  interestFilter: [],
-  candidateFilter: [],
+  interestFilter: ["High", "Med"],
+  candidateFilter: ["High", "Med"],
   favoritesOnly: false,
   source: [],
   minSalary: "",
@@ -212,17 +212,18 @@ export function JobFilterBar({
 
       <div className="fsection">
         <span className="flabel">Posted</span>
-        <select
-          value={filters.recency}
-          onChange={(e) => set("recency", e.target.value as RecencyFilter)}
-          style={{ width: "100%" }}
-        >
-          <option value="all">Any time</option>
-          <option value="1">Last 24 hours</option>
-          <option value="3">Last 3 days</option>
-          <option value="7">Last 7 days</option>
-          <option value="30">Last 30 days</option>
-        </select>
+        <div className="select-wrap">
+          <select
+            value={filters.recency}
+            onChange={(e) => set("recency", e.target.value as RecencyFilter)}
+          >
+            <option value="all">Any time</option>
+            <option value="1">Last 24 hours</option>
+            <option value="3">Last 3 days</option>
+            <option value="7">Last 7 days</option>
+            <option value="30">Last 30 days</option>
+          </select>
+        </div>
       </div>
 
       <DropdownMultiSelect

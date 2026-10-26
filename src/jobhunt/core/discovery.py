@@ -5,6 +5,7 @@ actual monitored source reuses core/company_resolver.resolve_company(), same as 
 
 import json
 import re
+from urllib.parse import urlparse
 
 from pydantic import BaseModel
 
@@ -62,31 +63,40 @@ def _extract_json(text: str) -> dict:
     return json.loads(match.group(0))
 
 
-def _profile_text(candidate_profile: str | None, settings: dict) -> str:
+def _profile_text(candidate_profile: str | None, settings: dict, exclude: list[str] | None = None) -> str:
     titles = ", ".join(settings.get("prefilter_titles_include", [])) or "(not specified)"
     sectors = ", ".join(settings.get("prefilter_sectors", [])) or "(not specified)"
     locations = ", ".join(settings.get("prefilter_locations", [])) or "(not specified)"
     remote_only = settings.get("prefilter_remote_only", False)
     salary_floor = settings.get("salary_floor")
     notes = settings.get("looking_for_notes") or "(not specified)"
+    exclude_text = ", ".join(exclude) if exclude else "(none yet)"
     return (
         f"## Candidate profile\n{candidate_profile or '(not available)'}\n\n"
         f"## Desired titles\n{titles}\n\n"
         f"## Desired sectors/industries\n{sectors}\n\n"
         f"## Desired locations\n{locations}{' (remote only)' if remote_only else ''}\n\n"
         f"## Minimum salary\n{salary_floor if salary_floor else '(not specified)'}\n\n"
-        f"## In their own words, what they're looking for\n{notes}"
+        f"## In their own words, what they're looking for\n{notes}\n\n"
+        f"## Already being monitored or favorited -- do not suggest these again\n{exclude_text}"
     )
 
 
-def suggest_companies(candidate_profile: str | None, settings: dict) -> list[CompanySuggestion]:
+def _hostname(url: str) -> str:
+    host = urlparse(url if "://" in url else f"//{url}").hostname or url
+    return host.lower().removeprefix("www.")
+
+
+def suggest_companies(
+    candidate_profile: str | None, settings: dict, exclude_names: list[str] | None = None
+) -> list[CompanySuggestion]:
     client = get_client()
     with llm_error_boundary("suggesting companies to monitor"):
         response = client.messages.create(
             model=DEFAULT_MODEL,
             max_tokens=3000,
             system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": _profile_text(candidate_profile, settings)}],
+            messages=[{"role": "user", "content": _profile_text(candidate_profile, settings, exclude_names)}],
             tools=[{"type": "web_search_20260209", "name": "web_search", "max_uses": 5}],
         )
     text = "\n".join(b.text for b in response.content if b.type == "text")
@@ -100,17 +110,24 @@ def suggest_companies(candidate_profile: str | None, settings: dict) -> list[Com
     )
 
     data = _extract_json(text)
-    return [CompanySuggestion(**s) for s in data.get("suggestions", [])]
+    suggestions = [CompanySuggestion(**s) for s in data.get("suggestions", [])]
+    if exclude_names:
+        excluded = {n.strip().lower() for n in exclude_names}
+        suggestions = [s for s in suggestions if s.company_name.strip().lower() not in excluded]
+    return suggestions
 
 
-def suggest_job_boards(candidate_profile: str | None, settings: dict) -> list[JobBoardSuggestion]:
+def suggest_job_boards(
+    candidate_profile: str | None, settings: dict, exclude_urls: list[str] | None = None
+) -> list[JobBoardSuggestion]:
     client = get_client()
+    exclude_hosts = [_hostname(u) for u in exclude_urls] if exclude_urls else None
     with llm_error_boundary("suggesting job boards to monitor"):
         response = client.messages.create(
             model=DEFAULT_MODEL,
             max_tokens=3000,
             system=BOARD_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": _profile_text(candidate_profile, settings)}],
+            messages=[{"role": "user", "content": _profile_text(candidate_profile, settings, exclude_urls)}],
             tools=[{"type": "web_search_20260209", "name": "web_search", "max_uses": 5}],
         )
     text = "\n".join(b.text for b in response.content if b.type == "text")
@@ -124,4 +141,7 @@ def suggest_job_boards(candidate_profile: str | None, settings: dict) -> list[Jo
     )
 
     data = _extract_json(text)
-    return [JobBoardSuggestion(**s) for s in data.get("suggestions", [])]
+    suggestions = [JobBoardSuggestion(**s) for s in data.get("suggestions", [])]
+    if exclude_hosts:
+        suggestions = [s for s in suggestions if _hostname(s.url) not in exclude_hosts]
+    return suggestions

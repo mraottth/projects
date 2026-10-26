@@ -33,6 +33,13 @@ recent resume (a structural and length reference -- match its section headings, 
 bullets per role, and overall density; write NEW tailored content grounded in the candidate \
 profile, don't just copy the reference resume's wording), and the job posting.
 
+The reference resume fits on one page -- the result must too. Match its total bullet count per \
+role and its bullet length (roughly one line each, not two or three) closely rather than just \
+"roughly similar" -- the single most common way output ends up longer than the reference is \
+adding more bullets per role or writing noticeably longer ones, so err toward the reference's \
+count and brevity when in doubt, not above it. If the candidate profile has more roles than the \
+reference resume shows, prioritize the most relevant ones rather than including all of them.
+
 Reorder/reweight content to foreground what's most relevant to this posting, and mirror the \
 posting's own terminology where it's honestly accurate. Do not fabricate experience, skills, \
 titles, dates, or employers that aren't implied by the candidate profile or reference resume -- \

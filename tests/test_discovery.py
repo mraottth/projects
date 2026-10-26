@@ -64,6 +64,37 @@ def test_suggest_job_boards_parses_json_and_logs_usage(monkeypatch):
     assert "discovery:suggest_job_boards" in calls[0]["note"]
 
 
+def test_suggest_companies_filters_out_excluded_names(monkeypatch):
+    payload = (
+        '{"suggestions": ['
+        '{"company_name": "Acme", "reason": "Already tracked"},'
+        '{"company_name": "Beta Corp", "reason": "New one"}'
+        "]}"
+    )
+    monkeypatch.setattr(
+        discovery, "get_client", lambda: FakeAnthropicClient(create_result=FakeCreateResponse(payload))
+    )
+
+    suggestions = discovery.suggest_companies(None, {}, exclude_names=["acme"])
+    assert [s.company_name for s in suggestions] == ["Beta Corp"]
+
+
+def test_suggest_job_boards_filters_out_excluded_urls_by_hostname(monkeypatch):
+    payload = (
+        '{"suggestions": ['
+        '{"name": "Climate Jobs List", "url": "https://www.climatejobslist.com/browse", '
+        '"reason": "Already tracked"},'
+        '{"name": "Built In", "url": "https://builtin.com", "reason": "New one"}'
+        "]}"
+    )
+    monkeypatch.setattr(
+        discovery, "get_client", lambda: FakeAnthropicClient(create_result=FakeCreateResponse(payload))
+    )
+
+    suggestions = discovery.suggest_job_boards(None, {}, exclude_urls=["https://climatejobslist.com"])
+    assert [s.name for s in suggestions] == ["Built In"]
+
+
 def test_suggest_job_boards_raises_on_unparseable_response(monkeypatch):
     monkeypatch.setattr(
         discovery,

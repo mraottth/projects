@@ -49,7 +49,7 @@ def test_discovery_suggest_via_api(monkeypatch):
     monkeypatch.setattr(
         discovery_api,
         "suggest_companies",
-        lambda profile, settings: [
+        lambda profile, settings, exclude_names=None: [
             discovery.CompanySuggestion(company_name="Acme", reason="Hiring now")
         ],
     )
@@ -58,6 +58,56 @@ def test_discovery_suggest_via_api(monkeypatch):
         resp = client.post("/api/discovery/suggest")
         assert resp.status_code == 200
         assert resp.json() == [{"company_name": "Acme", "reason": "Hiring now"}]
+
+
+def test_discovery_suggest_excludes_already_monitored_and_favorited_companies(monkeypatch):
+    monkeypatch.setattr(
+        favorites,
+        "resolve_company",
+        lambda name: company_resolver.ResolvedSource(kind="ats_lever", config={}, note="x"),
+    )
+    captured = {}
+
+    def fake_suggest_companies(profile, settings, exclude_names=None):
+        captured["exclude_names"] = exclude_names
+        return []
+
+    monkeypatch.setattr(discovery_api, "suggest_companies", fake_suggest_companies)
+
+    with TestClient(app) as client:
+        client.post("/api/favorites", json={"company_name": "Acme"})
+        client.post(
+            "/api/sources",
+            json={"kind": "custom_board", "name": "Niche Board", "company_name": "Niche Co", "config": {}},
+        )
+        resp = client.post("/api/discovery/suggest")
+        assert resp.status_code == 200
+
+    assert sorted(captured["exclude_names"]) == ["Acme", "Niche Co"]
+
+
+def test_discovery_suggest_boards_excludes_already_monitored_boards(monkeypatch):
+    captured = {}
+
+    def fake_suggest_job_boards(profile, settings, exclude_urls=None):
+        captured["exclude_urls"] = exclude_urls
+        return []
+
+    monkeypatch.setattr(discovery_api, "suggest_job_boards", fake_suggest_job_boards)
+
+    with TestClient(app) as client:
+        client.post(
+            "/api/sources",
+            json={
+                "kind": "custom_board",
+                "name": "Climate Jobs List",
+                "config": {"url": "https://climatejobslist.com"},
+            },
+        )
+        resp = client.post("/api/discovery/suggest-boards")
+        assert resp.status_code == 200
+
+    assert captured["exclude_urls"] == ["https://climatejobslist.com"]
 
 
 def test_resolve_source_via_api(monkeypatch):

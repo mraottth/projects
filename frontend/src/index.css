@@ -129,6 +129,19 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .chip-toggle:hover { background: #efeee9; }
 .chip-toggle.on { background: var(--ink); color: #fff; border-color: var(--ink); }
 
+/* Gives a native <select> the same dropdown arrow glyph as .ms-dropdown's <summary>, so every
+   dropdown in the filter sidebar looks consistent rather than mixing a custom arrow with each
+   browser's own native one. */
+.select-wrap { position: relative; }
+.select-wrap select {
+  width: 100%; padding-right: 28px;
+  appearance: none; -webkit-appearance: none; -moz-appearance: none;
+}
+.select-wrap::after {
+  content: "▾"; position: absolute; right: 11px; top: 50%; transform: translateY(-50%);
+  color: var(--muted); font-size: 0.72rem; pointer-events: none;
+}
+
 /* ---------- dropdown multi-select (Source / Location) */
 .ms-dropdown { border: 1px solid var(--ring); border-radius: 8px; background: var(--card); }
 .ms-dropdown summary {

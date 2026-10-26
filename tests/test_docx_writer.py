@@ -104,6 +104,41 @@ def test_write_resume_docx_preserves_margins_and_styles(tmp_path):
     assert header_para.runs[1].bold is False
 
 
+def test_write_resume_docx_forces_calibri_regardless_of_template_font(tmp_path):
+    # Real templates are often inconsistent about font (e.g. an explicit Times New Roman override
+    # on the "Normal" style while headings fall through to the theme's Calibri with no run-level
+    # override at all) -- generated text should come out uniformly Calibri regardless.
+    template = tmp_path / "template.docx"
+    _make_resume_template(template)
+    doc = Document(str(template))
+    for p in doc.paragraphs:
+        for r in p.runs:
+            r.font.name = "Times New Roman"
+    doc.save(str(template))
+
+    content = ResumeContent(
+        name="JANE TESTER",
+        contact_line="jane@example.com",
+        sections=[
+            ResumeSection(
+                heading="WORK EXPERIENCE",
+                lines=[
+                    ResumeLine(kind="normal", bold_part="ACME | Engineer", text=" | 2024"),
+                    ResumeLine(kind="bullet", text="Shipped a thing."),
+                ],
+            )
+        ],
+    )
+    output = tmp_path / "out.docx"
+    write_resume_docx(template, content, output)
+
+    out_doc = Document(str(output))
+    for p in out_doc.paragraphs:
+        for r in p.runs:
+            if r.text.strip():
+                assert r.font.name == "Calibri", f"expected Calibri, got {r.font.name!r} for {r.text!r}"
+
+
 def test_write_resume_docx_raises_on_unrecognizable_template(tmp_path):
     doc = Document()
     doc.add_paragraph("just some plain text")

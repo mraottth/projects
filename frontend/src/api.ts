@@ -117,7 +117,8 @@ export interface Favorite {
   source_id: number | null;
   resolution_status: "pending" | "resolved" | "failed";
   resolution_note: string | null;
-  source_kind: string | null;
+  source_kind: SourceKind | null;
+  source_config_json: string | null;
 }
 
 export type SourceKind =

@@ -3,8 +3,8 @@ import { api, CompanySuggestion, Favorite, JobBoardSuggestion, Source, SourceKin
 import { Spinner } from "../components/Spinner";
 
 const KIND_LABELS: Record<SourceKind, string> = {
-  ats_greenhouse: "Greenhouse (company board token)",
-  ats_lever: "Lever (company slug)",
+  ats_greenhouse: "Greenhouse (organization board token)",
+  ats_lever: "Lever (organization slug)",
   ats_ashby: "Ashby (board name)",
   aggregator_adzuna: "Adzuna (keyword search)",
   aggregator_remoteok: "RemoteOK (tag filter)",
@@ -37,6 +37,21 @@ const URL_PATTERNS: { kind: SourceKind; configKey: string; pattern: RegExp }[] =
   { kind: "ats_lever", configKey: "company_slug", pattern: /jobs\.lever\.co\/([a-z0-9_-]+)/i },
   { kind: "ats_ashby", configKey: "board_name", pattern: /jobs\.ashbyhq\.com\/([a-z0-9_-]+)/i },
 ];
+
+function boardUrl(kind: SourceKind, config: Record<string, unknown>): string | null {
+  switch (kind) {
+    case "ats_greenhouse":
+      return typeof config.board_token === "string" ? `https://boards.greenhouse.io/${config.board_token}` : null;
+    case "ats_lever":
+      return typeof config.company_slug === "string" ? `https://jobs.lever.co/${config.company_slug}` : null;
+    case "ats_ashby":
+      return typeof config.board_name === "string" ? `https://jobs.ashbyhq.com/${config.board_name}` : null;
+    case "custom_board":
+      return typeof config.url === "string" ? config.url : null;
+    default:
+      return null;
+  }
+}
 
 function detectSourceFromUrl(input: string): { kind: SourceKind; config: Record<string, string> } | null {
   const trimmed = input.trim();
@@ -92,15 +107,15 @@ function FavoriteCompaniesSection() {
   return (
     <div className="card">
       <h2>
-        <span className="star">★</span> Favorite companies
+        <span className="star">★</span> Favorite organizations
       </h2>
       <p className="muted small">
-        Any new posting from a favorite company always gets scored and flagged, regardless of the
-        daily cap or your exclude-keyword rules.
+        Any new posting from a favorite organization always gets scored and flagged, regardless of
+        the daily cap or your exclude-keyword rules.
       </p>
       <div className="form-row">
         <input
-          placeholder="Company name, e.g. Anthropic"
+          placeholder="Organization name, e.g. Anthropic"
           value={name}
           onChange={(e) => setName(e.target.value)}
           style={{ flex: "1 1 200px" }}
@@ -119,29 +134,47 @@ function FavoriteCompaniesSection() {
       {error && <p className="error-text small">{error}</p>}
 
       <ul>
-        {favorites.map((f) => (
-          <li key={f.id}>
-            {f.company_name} —{" "}
-            {f.resolution_status === "resolved" && (
-              <span className="badge badge-high">resolved via {f.source_kind}</span>
-            )}
-            {f.resolution_status === "pending" && <span className="badge badge-med">resolving...</span>}
-            {f.resolution_status === "failed" && (
-              <span>
-                <span className="badge badge-low">couldn't find a board</span>{" "}
-                <button className="link small" onClick={() => retry(f.id)} disabled={busy}>
-                  retry
-                </button>
-              </span>
-            )}
-            {" — "}
-            <button className="link small" onClick={() => api.removeFavorite(f.id).then(refresh)}>
-              remove
-            </button>
-          </li>
-        ))}
+        {favorites.map((f) => {
+          const url =
+            f.resolution_status === "resolved" && f.source_kind && f.source_config_json
+              ? boardUrl(f.source_kind, JSON.parse(f.source_config_json))
+              : null;
+          return (
+            <li key={f.id}>
+              {f.company_name} —{" "}
+              {f.resolution_status === "resolved" && (
+                <span className="badge badge-high">
+                  resolved via {f.source_kind}
+                  {url && (
+                    <>
+                      {" "}
+                      (
+                      <a className="link" href={url} target="_blank" rel="noreferrer">
+                        view board
+                      </a>
+                      )
+                    </>
+                  )}
+                </span>
+              )}
+              {f.resolution_status === "pending" && <span className="badge badge-med">resolving...</span>}
+              {f.resolution_status === "failed" && (
+                <span>
+                  <span className="badge badge-low">couldn't find a board</span>{" "}
+                  <button className="link small" onClick={() => retry(f.id)} disabled={busy}>
+                    retry
+                  </button>
+                </span>
+              )}
+              {" — "}
+              <button className="link small" onClick={() => api.removeFavorite(f.id).then(refresh)}>
+                remove
+              </button>
+            </li>
+          );
+        })}
       </ul>
-      {favorites.length === 0 && <p className="empty-state">No favorite companies yet.</p>}
+      {favorites.length === 0 && <p className="empty-state">No favorite organizations yet.</p>}
     </div>
   );
 }
@@ -211,15 +244,26 @@ function FavoriteBoardsSection({ sources, onChanged }: { sources: Source[]; onCh
       {error && <p className="error-text small">{error}</p>}
 
       <ul>
-        {boards.map((s) => (
-          <li key={s.id}>
-            {s.name} — <code className="path">{JSON.stringify(s.config)}</code>
-            {" — "}
-            <button className="link small" onClick={() => unfavorite(s.id)}>
-              remove
-            </button>
-          </li>
-        ))}
+        {boards.map((s) => {
+          const url = boardUrl(s.kind, s.config);
+          return (
+            <li key={s.id}>
+              {s.name}
+              {url && (
+                <>
+                  {" — "}
+                  <a className="link" href={url} target="_blank" rel="noreferrer">
+                    view board
+                  </a>
+                </>
+              )}
+              {" — "}
+              <button className="link small" onClick={() => unfavorite(s.id)}>
+                remove
+              </button>
+            </li>
+          );
+        })}
       </ul>
       {boards.length === 0 && <p className="empty-state">No favorite job boards yet.</p>}
     </div>
@@ -264,13 +308,13 @@ function DiscoverCompaniesSection() {
 
   return (
     <div className="card">
-      <h2>Discover companies</h2>
+      <h2>Discover organizations</h2>
       <p className="muted small">
         Uses your candidate profile and desired role (Profile page), plus a web search, to suggest
-        companies worth monitoring. Nothing is added until you approve it.
+        organizations worth monitoring. Nothing is added until you approve it.
       </p>
       <button className="ghost" onClick={runDiscovery} disabled={busy}>
-        {busy ? <Spinner label="Searching..." /> : "Suggest companies"}
+        {busy ? <Spinner label="Searching..." /> : "Suggest organizations"}
       </button>
       {error && <p className="error-text small">{error}</p>}
 
@@ -316,13 +360,14 @@ function DiscoverJobBoardsSection() {
     }
   };
 
-  const approve = async (board: JobBoardSuggestion) => {
+  const approve = async (board: JobBoardSuggestion, favorite: boolean) => {
     setStatus((s) => ({ ...s, [board.url]: "working" }));
     try {
       await api.createSource({
         kind: "custom_board",
         name: board.name,
         config: { url: board.url },
+        is_favorite: favorite,
       });
       setStatus((s) => ({ ...s, [board.url]: "added" }));
     } catch (e) {
@@ -335,8 +380,8 @@ function DiscoverJobBoardsSection() {
       <h2>Discover job boards</h2>
       <p className="muted small">
         Uses your candidate profile and desired role (Profile page), plus a web search, to suggest
-        multi-employer boards worth monitoring — broader reach than tracking one company at a
-        time. Nothing is added until you approve it.
+        multi-employer boards worth monitoring — broader reach than tracking one organization at
+        a time. Nothing is added until you approve it.
       </p>
       <button className="ghost" onClick={runDiscovery} disabled={busy}>
         {busy ? <Spinner label="Searching..." /> : "Suggest job boards"}
@@ -356,8 +401,11 @@ function DiscoverJobBoardsSection() {
             <p className="muted small">{status[s.url]}</p>
           ) : (
             <div className="form-actions" style={{ marginTop: 0 }}>
-              <button className="ghost small" onClick={() => approve(s)}>
+              <button className="ghost small" onClick={() => approve(s, false)}>
                 Monitor
+              </button>
+              <button className="ghost small" onClick={() => approve(s, true)}>
+                Monitor &amp; favorite
               </button>
             </div>
           )}
@@ -415,8 +463,8 @@ function AddSourceForm({ onAdded }: { onAdded: (source: Source) => void }) {
     <div className="card">
       <h2>Add a source</h2>
       <p className="muted small">
-        Track a company's job board or an aggregator — any new postings feed into the All Jobs
-        page and the daily digest.
+        Track an organization's job board or an aggregator — any new postings feed into the All
+        Jobs page and the daily digest.
       </p>
       <div className="fsection">
         <span className="flabel">Kind</span>
@@ -455,9 +503,9 @@ function AddSourceForm({ onAdded }: { onAdded: (source: Source) => void }) {
         )}
       </div>
       <div className="fsection" style={{ marginBottom: 0 }}>
-        <span className="flabel">Company display name (optional)</span>
+        <span className="flabel">Organization display name (optional)</span>
         <input
-          placeholder="Company display name"
+          placeholder="Organization display name"
           value={companyName}
           onChange={(e) => setCompanyName(e.target.value)}
           style={{ width: "100%" }}
@@ -561,7 +609,7 @@ export default function ManageSourcesPage() {
     <div>
       <h1>Manage Sources</h1>
       <p className="muted" style={{ marginBottom: "18px" }}>
-        Favorite companies/boards, discover new ones, and track whatever else you want polled. See
+        Favorite organizations/boards, discover new ones, and track whatever else you want polled. See
         the All Jobs page for what's turned up. For LinkedIn/Indeed/Glassdoor or anything you found
         yourself, use "Add a job" on the My Jobs page instead.
       </p>

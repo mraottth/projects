@@ -78,6 +78,12 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   (tracked-change and bookmark wrappers are the same issue), which python-docx's `.runs` doesn't
   enumerate, so a naive clear leaves that text behind to leak into the new content (caught live: a
   hyperlinked word, "thesis", survived into an unrelated generated cover letter before this fix).
+  Every generated run's font is forced to `GENERATED_FONT` ("Calibri") explicitly, rather than left
+  to inherit from the cloned paragraph -- confirmed live that the user's own resume template has no
+  run-level overrides but an internally inconsistent style sheet (its "Normal" style is explicitly
+  Times New Roman while Title/Heading styles have no override and fall through to the document
+  theme's Calibri), so "inherit whatever the template happens to use" doesn't reliably produce one
+  consistent output font.
 - `src/jobhunt/core/generate.py` — resume/cover-letter generation picks a template via
   `is_template` first (an explicit "template.docx" filename overrides the recency default), then
   most-recent non-archived, and only falls back to plain markdown text (no saved file) when the
@@ -86,7 +92,13 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   `data/resumes/generated/` if that setting isn't configured. Output is `.docx` only, deliberately
   -- `docx2pdf` (Word automation via AppleScript) was tried live and does not work on this machine's
   Word install (opens Word, hangs ~30s, fails with "Message not understood"); don't re-attempt
-  automated PDF export without LibreOffice or a different conversion path.
+  automated PDF export without LibreOffice or a different conversion path. `python-docx` can only
+  read `.docx`, not PDF -- a web-uploaded current resume/cover-letter that's a PDF can never use the
+  clone-template path at all (plain-markdown fallback only), so the user's current resume being a
+  `.docx` is a hard requirement here, not just a convenience. The resume prompt explicitly tells
+  Claude to match the reference resume's bullet count/length closely (erring toward fewer/shorter
+  when in doubt) since the reference fitting one page is the only real one-page guarantee available
+  -- there's no page-layout awareness in `docx_writer.py` to enforce it after the fact.
 - `src/jobhunt/core/preference.py` — synthesizes `preference_profile` from feedback marks and
   application-status history, with application outcomes weighted as the stronger signal (a job that
   reached `interview`/`offer` says more than a bare `interested` mark). Rebuilt manually from
@@ -147,7 +159,11 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   return suggestions only; nothing is persisted until the user approves one from the Profile page.
   Approving a company calls `company_resolver` via `POST /api/sources/resolve` (or `/api/favorites`
   to also favorite it); approving a board goes straight to `POST /api/sources` with
-  `kind=custom_board`, since the board's URL is already known from the suggestion.
+  `kind=custom_board` (optionally `is_favorite=true`), since the board's URL is already known from
+  the suggestion. `api/discovery.py` passes already-monitored/favorited company names and board
+  URLs (by hostname, so a path/protocol difference doesn't defeat the match) as an exclude list --
+  both in the prompt (so Claude doesn't waste a suggestion slot on them) and as a belt-and-suspenders
+  post-filter on the response, since prompt instructions alone aren't guaranteed to be followed.
 - `src/jobhunt/api/` — one FastAPI route module per resource: `resumes`, `jobs`, `digest`,
   `applications`, `sources`, `generate`, `settings`, `internal`, `favorites`, `discovery`.
   `api/main.py` wires all routers and serves `frontend/dist` if built.
