@@ -1,0 +1,85 @@
+:root {
+  color-scheme: light dark;
+  --border: color-mix(in srgb, currentColor 15%, transparent);
+  --muted: color-mix(in srgb, currentColor 55%, transparent);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app-nav {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  padding: 0.75rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.app-nav-title {
+  font-weight: 600;
+}
+
+.app-nav-links {
+  display: flex;
+  gap: 1.25rem;
+}
+
+.app-nav-links a {
+  color: var(--muted);
+  text-decoration: none;
+  padding-bottom: 0.25rem;
+}
+
+.app-nav-links a.active {
+  color: inherit;
+  border-bottom: 2px solid currentColor;
+}
+
+.app-main {
+  flex: 1;
+  padding: 1.5rem;
+  max-width: 960px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+button {
+  font: inherit;
+  padding: 0.4rem 0.9rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+}
+
+button:hover {
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

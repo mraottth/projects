@@ -1,0 +1,63 @@
+"""Shared Claude client + usage logging.
+
+Model choice: Sonnet 5 is the default for scoring/parsing/generation. This is a deliberate
+cost/quality tradeoff for a cost-capped personal tool (mirrors Shelf Life's chat.py tiering,
+which also reaches for the cheaper tier for routine calls) -- override via JOBHUNT_LLM_MODEL
+if quality ever needs to beat cost here.
+"""
+
+import os
+
+import anthropic
+
+from jobhunt.db.connection import get_db
+
+DEFAULT_MODEL = os.environ.get("JOBHUNT_LLM_MODEL", "claude-sonnet-5")
+
+# $ per 1M tokens, (input, output). Update when pricing changes; unknown models log with null cost.
+PRICING_PER_MTOK = {
+    "claude-fable-5-1": (10.00, 50.00),
+    "claude-fable-5": (10.00, 50.00),
+    "claude-opus-5-5": (4.00, 20.00),
+    "claude-opus-5": (5.00, 25.00),
+    "claude-opus-4-8": (5.00, 25.00),
+    "claude-opus-4-7": (5.00, 25.00),
+    "claude-opus-4-6": (5.00, 25.00),
+    "claude-sonnet-5": (2.00, 10.00),
+    "claude-sonnet-4-6": (3.00, 15.00),
+    "claude-haiku-4-5": (1.00, 5.00),
+}
+
+_client: anthropic.Anthropic | None = None
+
+
+def get_client() -> anthropic.Anthropic:
+    global _client
+    if _client is None:
+        _client = anthropic.Anthropic()
+    return _client
+
+
+def estimate_cost_usd(model: str, input_tokens: int, output_tokens: int) -> float | None:
+    rates = PRICING_PER_MTOK.get(model)
+    if rates is None:
+        return None
+    in_rate, out_rate = rates
+    return (input_tokens / 1_000_000) * in_rate + (output_tokens / 1_000_000) * out_rate
+
+
+def log_call(
+    call_type: str,
+    model: str,
+    input_tokens: int,
+    output_tokens: int,
+    job_id: int | None = None,
+    note: str | None = None,
+) -> None:
+    cost = estimate_cost_usd(model, input_tokens, output_tokens)
+    with get_db() as conn:
+        conn.execute(
+            """INSERT INTO llm_calls (call_type, job_id, model, input_tokens, output_tokens, estimated_cost_usd, note)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (call_type, job_id, model, input_tokens, output_tokens, cost, note),
+        )
