@@ -60,7 +60,7 @@ function FitBadge({ label, value }: { label: string; value: string | null }) {
   );
 }
 
-export function JobActions({ job }: { job: ScoredJob }) {
+export function JobActions({ job, onDismissed }: { job: ScoredJob; onDismissed?: () => void }) {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [tracked, setTracked] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -80,6 +80,7 @@ export function JobActions({ job }: { job: ScoredJob }) {
         }
         setTracked(true);
       }
+      if (value === "not_interested") onDismissed?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -112,7 +113,7 @@ export function JobActions({ job }: { job: ScoredJob }) {
   );
 }
 
-export function ScoredJobCard({ job }: { job: ScoredJob }) {
+export function ScoredJobCard({ job, onDismissed }: { job: ScoredJob; onDismissed?: () => void }) {
   return (
     <div className="card">
       <div className="card-header">
@@ -123,9 +124,11 @@ export function ScoredJobCard({ job }: { job: ScoredJob }) {
               {job.title} — {job.company}
             </Link>
           </div>
-          <div className="card-meta">
-            Location: {job.location ?? "N/A"} · Salary: {salaryText(job)} · Posted: {postedText(job)}
-            {job.source_name && ` · ${job.source_name}`}
+          <div className="meta-chips">
+            <span className="meta-chip meta-chip-location">{job.location ?? "N/A"}</span>
+            <span className="meta-chip meta-chip-salary">{salaryText(job)}</span>
+            <span className="meta-chip meta-chip-posted">{postedText(job)}</span>
+            {job.source_name && <span className="meta-chip meta-chip-source">{job.source_name}</span>}
           </div>
         </div>
       </div>
@@ -140,7 +143,7 @@ export function ScoredJobCard({ job }: { job: ScoredJob }) {
 
       {job.rationale_text && <RationaleBlock text={job.rationale_text} />}
 
-      <JobActions job={job} />
+      <JobActions job={job} onDismissed={onDismissed} />
     </div>
   );
 }

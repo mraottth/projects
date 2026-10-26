@@ -30,7 +30,11 @@ export default function DigestPage() {
       )}
 
       {filtered.map((entry) => (
-        <ScoredJobCard key={entry.id} job={entry} />
+        <ScoredJobCard
+          key={entry.id}
+          job={entry}
+          onDismissed={() => setEntries((prev) => prev.filter((e) => e.id !== entry.id))}
+        />
       ))}
     </div>
   );

@@ -56,10 +56,11 @@ def list_jobs(status: str | None = None):
 @router.get("/ranked")
 def list_ranked_jobs(status: str = "active"):
     """All jobs discovered from a tracked source (company board or job board), regardless of
-    whether they made it into a capped daily digest -- ranked best-first by score, with unscored
-    jobs (not yet reached by the daily cap) sorted after scored ones. Backs the "My Sources" page's
-    full browse view, as distinct from the Digest's "new and noteworthy" capped/ranked subset.
-    Manually pasted jobs (no source_id) are excluded -- those go straight to My Jobs, not here."""
+    whether they made it into a capped daily digest or the 90-day/not-interested cuts that gate
+    "New & Noteworthy" -- ranked best-first by score, with unscored jobs (not yet reached by the
+    daily cap) sorted after scored ones. Backs the All Jobs page's full browse view. Manually
+    pasted jobs (no source_id) are excluded -- those go straight to My Jobs, not here. Same rank
+    order as the digest (favorite, then score, then recency, then salary) for consistency."""
     with get_db() as conn:
         rows = conn.execute(
             f"""SELECT j.*, js.interest_fit, js.interest_score, js.candidate_fit, js.candidate_fit_score,
@@ -72,7 +73,8 @@ def list_ranked_jobs(status: str = "active"):
                 WHERE j.status = ? AND j.source_id IS NOT NULL
                 ORDER BY is_favorite DESC,
                          (COALESCE(js.interest_score, 0) + COALESCE(js.candidate_fit_score, 0)) DESC,
-                         j.first_seen_at DESC""",
+                         COALESCE(j.posted_at, j.first_seen_at) DESC,
+                         COALESCE(j.salary_max, j.salary_min, 0) DESC""",
             (status,),
         ).fetchall()
     return [_row_to_dict(r) for r in rows]

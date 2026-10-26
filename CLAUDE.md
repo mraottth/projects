@@ -128,7 +128,7 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   docstring), not guessed from documentation.
 - `src/jobhunt/pipeline/daily_run.py` — orchestrates the full daily cycle (poll → upsert → prefilter
   → capped scoring → digest → conditional preference-profile refresh → run summary). Triggered by
-  `POST /internal/run-daily` (Cloud Scheduler in production, a button on the Sources page locally).
+  `POST /internal/run-daily` (Cloud Scheduler in production, a button on the Manage Sources page locally).
 - `src/jobhunt/core/company_resolver.py` — turns a company name into an actual monitorable source:
   cheap direct probes against the three ATS APIs first (confirmed live that "anthropic"/"figma"
   resolve immediately this way, no LLM needed), falling back to a Claude + web-search call only
@@ -183,8 +183,8 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   `application_status_history` rows in one extra query and group them by `application_id` in
   Python, rather than reproducing `_get_application()`'s N+1 per-row subquery pattern.
 - `components/JobFilters.tsx` is the one shared filter implementation (state, pure `filterJobs()`,
-  and the `<JobFilterBar>` UI) used by both the Digest and "All tracked jobs" lists -- interest
-  fit, candidate fit, favorite-only, source (derived from the jobs actually loaded, not a separate
+  and the `<JobFilterBar>` UI) used by both the Digest and All Jobs lists -- interest fit,
+  candidate fit, favorite-only, source (derived from the jobs actually loaded, not a separate
   API call), minimum salary, posted-within-N-days, a location substring match, and a free-text
   search across title/company/location/summary/full description. All client-side over the already
   -loaded job list, same approach as the earlier fit/favorite filters -- no new query-param surface
@@ -192,25 +192,49 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
 - `components/ScoredJobCard.tsx` always shows salary and posted date now, "N/A" when either is
   missing, rather than omitting the line entirely -- and "posted" means the job description's own
   `posted_at`, never `first_seen_at` (when our pipeline happened to discover it, which isn't what
-  a "date posted" label should mean to the user). The rationale blurb is clamped to 2 lines via a
-  `.clamp-2` CSS class with a measured-overflow "Show more" toggle (only rendered when the text
-  actually overflows, via a `scrollHeight`/`clientHeight` comparison in `useLayoutEffect`).
+  a "date posted" label should mean to the user). Location/salary/posted/source render as small
+  color-coded pill chips (`.meta-chip-*` in `index.css`, reusing the existing badge/pill visual
+  language) instead of one plain dot-separated text line -- salary in the `--good` green, posted
+  in the accent blue, location/source neutral, so the three scan independently instead of blurring
+  into one string. The rationale blurb is clamped to 2 lines via a `.clamp-2` CSS class with a
+  measured-overflow "Show more" toggle (only rendered when the text actually overflows, via a
+  `scrollHeight`/`clientHeight` comparison in `useLayoutEffect`).
 - `core/scoring.py`'s prompt now asks the model to wrap the 1-3 most decision-critical phrases in
   its rationale in `==double equals==` (sparingly -- short phrases, not whole sentences);
   `components/Markdown.tsx` renders `==text==` as `<mark>`, styled with `var(--warn-bg)` (the same
   soft amber already used for `badge-med`/`pill-interview`) for a subtle, on-brand highlight rather
   than a jarring bright yellow.
-- On both `DigestPage` and `SourcesPage`'s ranked list, marking a job "Interested" records the
-  feedback *and* auto-creates an `applications` row the same way -- `components/ScoredJobCard.tsx`
-  (`JobActions`) is the one shared implementation both pages use, so this only exists in one
-  place. `JobDetailPage` keeps a manual "Track application" button as a fallback for reaching the
-  tracker without going through feedback first. Both job-listing pages are filterable client-side
-  by interest fit / candidate fit / favorite, reusing the scores already on each entry.
+- On both `DigestPage` and `AllJobsPage`, marking a job "Interested" records the feedback *and*
+  auto-creates an `applications` row the same way -- `components/ScoredJobCard.tsx` (`JobActions`)
+  is the one shared implementation both pages use, so this only exists in one place. `JobDetailPage`
+  keeps a manual "Track application" button as a fallback for reaching the tracker without going
+  through feedback first. Both job-listing pages are filterable client-side by interest fit /
+  candidate fit / favorite, reusing the scores already on each entry. Marking "Not interested" on
+  `DigestPage` additionally removes the card from view immediately (`JobActions` takes an optional
+  `onDismissed` callback, wired up only on `DigestPage`) -- `AllJobsPage` doesn't pass it, so the
+  same job stays visible there, since "dismissed from New & Noteworthy" and "gone entirely" are
+  different things (see next bullet).
+- "New & Noteworthy" (`core/digest.py`) is deliberately narrower than "every job we found":
+  `add_to_digest()` now refuses to insert a posting older than `MAX_AGE_DAYS` (90) unless its
+  `posted_at` is simply unknown (missing data shouldn't read as "not new"), and `get_digest()`
+  additionally excludes any job with a `not_interested` feedback row (`NOT_DISMISSED_SQL`) --
+  once dismissed, a job is done surfacing here on any future read of any date, not just removed
+  from the current view. Neither exclusion touches `AllJobsPage`'s `GET /api/jobs/ranked`, which
+  is explicitly the uncapped, undismissable "everything" view. Default rank order (both
+  `add_to_digest()`'s Python sort and `list_ranked_jobs()`'s SQL `ORDER BY`, kept in sync by hand
+  since one sorts in Python and the other in SQL): favorite first (unconditional, same as before),
+  then interest+candidate score, then recency (`posted_at` falling back to `first_seen_at`), then
+  salary (`salary_max` falling back to `salary_min`).
 - Favorites (`sources.is_favorite`) now have two independent entry points sharing one mechanism:
   `core/favorites.py`'s `add_favorite()` (name-only, resolves via `company_resolver` -- used by
   Discovery's "Monitor & favorite", which only has a company name) and `add_favorite_with_url()`
   (name + a job-board URL the user already has, kind/config detected client-side -- used by the
-  Sources page's Favorite Companies form, skipping the resolver and its failure modes entirely).
+  Manage Sources page's Favorite Companies form, skipping the resolver and its failure modes
+  entirely). Neither path appends "(favorite)" to the source's `name` anymore (it used to) -- the
+  star badge already conveys favorite status everywhere a source/job renders, so the suffix was
+  pure redundant clutter; existing rows with the old suffix were cleaned up directly in the DB
+  (`UPDATE sources SET name = REPLACE(name, ' (favorite)', '') WHERE name LIKE '% (favorite)'`),
+  no migration needed since it was just a display-string bug, not a schema change.
   "Favorite job boards" (multi-employer, no single company) are added the same way but go straight
   to `POST /api/sources` with `is_favorite: true` and no `company_name` -- distinguishing the two
   *lists* in the UI is just `company_name IS NOT NULL` vs `IS NULL` on an already-favorited source,

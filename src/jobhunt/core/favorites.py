@@ -34,7 +34,10 @@ def _link_resolved_source(favorite_id: int, company_name: str, kind: str, config
         cursor = conn.execute(
             """INSERT INTO sources (kind, name, company_name, config_json, is_favorite)
                VALUES (?, ?, ?, ?, 1)""",
-            (kind, f"{company_name} (favorite)", company_name, json.dumps(config)),
+            # No "(favorite)" suffix on the name -- the star badge already conveys that
+            # everywhere a source/job card renders, and baking it into the name just gets
+            # displayed redundantly (and awkwardly) in every list that shows source names.
+            (kind, company_name, company_name, json.dumps(config)),
         )
         source_id = cursor.lastrowid
         conn.execute(
