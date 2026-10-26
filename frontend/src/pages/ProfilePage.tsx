@@ -2,13 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, ApiError, CompanySuggestion, ResumeSummary, Settings } from "../api";
 import { Markdown } from "../components/Markdown";
 import { Spinner } from "../components/Spinner";
-
-function toList(s: string): string[] {
-  return s
-    .split(",")
-    .map((x) => x.trim())
-    .filter(Boolean);
-}
+import { TagInput } from "../components/TagInput";
 
 function ResumesSection() {
   const [resumes, setResumes] = useState<ResumeSummary[]>([]);
@@ -212,31 +206,28 @@ function DesiredRoleSection() {
 
       <div className="fsection">
         <span className="flabel">Desired job titles</span>
-        <input
-          defaultValue={settings.prefilter_titles_include.join(", ")}
-          onBlur={(e) => save({ prefilter_titles_include: toList(e.target.value) })}
+        <TagInput
+          value={settings.prefilter_titles_include}
+          onChange={(tags) => save({ prefilter_titles_include: tags })}
           placeholder="e.g. Senior Backend Engineer, Staff Engineer"
-          style={{ width: "100%" }}
         />
       </div>
 
       <div className="fsection">
         <span className="flabel">Desired sectors</span>
-        <input
-          defaultValue={settings.prefilter_sectors.join(", ")}
-          onBlur={(e) => save({ prefilter_sectors: toList(e.target.value) })}
+        <TagInput
+          value={settings.prefilter_sectors}
+          onChange={(tags) => save({ prefilter_sectors: tags })}
           placeholder="e.g. Climate tech, Healthcare"
-          style={{ width: "100%" }}
         />
       </div>
 
       <div className="fsection">
         <span className="flabel">Desired locations</span>
-        <input
-          defaultValue={settings.prefilter_locations.join(", ")}
-          onBlur={(e) => save({ prefilter_locations: toList(e.target.value) })}
+        <TagInput
+          value={settings.prefilter_locations}
+          onChange={(tags) => save({ prefilter_locations: tags })}
           placeholder="e.g. New York, Remote"
-          style={{ width: "100%" }}
         />
       </div>
 

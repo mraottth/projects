@@ -66,6 +66,7 @@ input[type="checkbox"] { width: auto; padding: 0; margin-right: 6px; }
 .field { display: block; margin-bottom: 12px; }
 .field > span, .field > label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--ink-2); margin-bottom: 5px; }
 .field input, .field select, .field textarea { display: block; width: 100%; }
+.field input[type="checkbox"] { width: auto; }
 .field.inline { display: flex; align-items: center; gap: 8px; }
 .field.inline > span, .field.inline > label { margin: 0; }
 .form-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 10px; }
@@ -126,6 +127,15 @@ input[type="checkbox"] { width: auto; padding: 0; margin-right: 6px; }
 }
 .tag.removable button { background: none; border: 0; padding: 0 0 0 2px; color: var(--muted); font-size: 0.9em; }
 .star { color: var(--star); }
+
+/* ---------- tag input */
+.tag-input {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  border: 1px solid var(--ring); border-radius: 8px; padding: 6px 8px; background: var(--card);
+}
+.tag-input:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
+.tag-input input { border: 0; padding: 2px 4px; flex: 1 1 140px; min-width: 140px; }
+.tag-input input:focus { outline: none; }
 
 /* ---------- segmented control / chips */
 .seg { display: inline-flex; border: 1px solid var(--ring); border-radius: 999px; overflow: hidden; background: var(--card); }
