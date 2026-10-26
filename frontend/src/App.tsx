@@ -1,5 +1,6 @@
 import { NavLink, Route, Routes } from "react-router-dom";
 import DigestPage from "./pages/DigestPage";
+import JobDetailPage from "./pages/JobDetailPage";
 import ApplicationTrackerPage from "./pages/ApplicationTrackerPage";
 import SourcesPage from "./pages/SourcesPage";
 import ResumesPage from "./pages/ResumesPage";
@@ -34,6 +35,7 @@ export default function App() {
       <main className="app-main">
         <Routes>
           <Route path="/" element={<DigestPage />} />
+          <Route path="/jobs/:id" element={<JobDetailPage />} />
           <Route path="/tracker" element={<ApplicationTrackerPage />} />
           <Route path="/sources" element={<SourcesPage />} />
           <Route path="/resumes" element={<ResumesPage />} />

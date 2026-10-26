@@ -106,6 +106,16 @@ export interface Settings {
   salary_floor: number | null;
 }
 
+export interface GeneratedDoc {
+  id: number;
+  job_id: number;
+  application_id: number | null;
+  kind: "resume" | "cover_letter";
+  based_on_resume_id: number | null;
+  content_text: string;
+  created_at: string;
+}
+
 export interface LlmCall {
   id: number;
   call_type: string;
@@ -120,6 +130,8 @@ export interface LlmCall {
 
 export const api = {
   listResumes: () => request<ResumeSummary[]>("/api/resumes"),
+
+  getJob: (id: number) => request<Job>(`/api/jobs/${id}`),
 
   createManualJob: (payload: { url?: string; raw_text?: string }) =>
     request<Job>("/api/jobs/manual", {
@@ -228,4 +240,21 @@ export const api = {
     ),
 
   runDailyNow: () => request<Record<string, unknown>>("/internal/run-daily", { method: "POST" }),
+
+  generateResume: (jobId: number, applicationId?: number) =>
+    request<{ id: number; content_text: string }>("/api/generate/resume", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ job_id: jobId, application_id: applicationId ?? null }),
+    }),
+
+  generateCoverLetter: (jobId: number, applicationId?: number) =>
+    request<{ id: number; content_text: string }>("/api/generate/cover-letter", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ job_id: jobId, application_id: applicationId ?? null }),
+    }),
+
+  getGenerationHistory: (jobId: number) =>
+    request<GeneratedDoc[]>(`/api/generate/history?job_id=${jobId}`),
 };

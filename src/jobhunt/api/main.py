@@ -4,7 +4,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from jobhunt.api import applications, digest, internal, jobs, resumes, settings, sources
+from jobhunt.api import applications, digest, generate, internal, jobs, resumes, settings, sources
 from jobhunt.db.connection import init_db
 
 FRONTEND_DIST = Path(__file__).resolve().parents[3] / "frontend" / "dist"
@@ -25,6 +25,7 @@ app.include_router(applications.router)
 app.include_router(settings.router)
 app.include_router(sources.router)
 app.include_router(internal.router)
+app.include_router(generate.router)
 
 if FRONTEND_DIST.exists():
     app.mount(

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api, DigestEntry, Job } from "../api";
 
 function daysAgo(iso: string): string {
@@ -209,7 +210,9 @@ export default function DigestPage() {
       {entries.map((entry) => (
         <div className="card" key={entry.id}>
           <h3>
-            {entry.title} — {entry.company}
+            <Link to={`/jobs/${entry.id}`}>
+              {entry.title} — {entry.company}
+            </Link>
           </h3>
           <p className="muted">
             {entry.location ?? "location unknown"}
