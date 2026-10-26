@@ -265,6 +265,37 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   usage log. Claude-call failures (including missing credentials) are wrapped by
   `llm.llm_error_boundary()` into a catchable `LLMError` so they surface as a clean 502, not a raw
   500 — every call site uses it.
+- `MyJobsPage` is a sortable/filterable/searchable table (Company, Title, Location, Salary, Applied
+  Date, Status, Documents), not a card list -- status transitions still go through `StatusSelect`
+  (same `api/applications.py` endpoint as before), and Applied Date is directly editable via a
+  `type="date"` cell (`UpdateApplicationRequest.applied_at`, new). The status-change auto-set-date
+  logic (`update_application()`) now checks `"applied_at" not in updates` before stamping
+  `datetime('now')`, so an explicit `applied_at` sent in the same request as a status change isn't
+  clobbered. "Applied Date" means what it already meant server-side (first time status left
+  `saved`) -- editing it doesn't touch status or history, it's a plain field edit. Resume/cover
+  letter generation moved inline (`DocActions`, calling the same `/api/generate/*` endpoints
+  `JobDetailPage` uses) with a ✓ prefix once `resume_doc_id`/`cover_letter_doc_id` is set --
+  `list_applications()` now selects `j.salary_min/max/currency/period` alongside the existing job
+  join so the table has salary without a second request per row.
+- `components/ScoredJobCard.tsx`'s `salaryText()`/`salaryValue()` take a narrow structural
+  `{salary_min, salary_max, salary_period}` shape rather than the full `ScoredJob` type, so
+  `MyJobsPage`'s `Application` rows (which have the same three fields via the join above) can
+  reuse them directly instead of a second salary-formatting implementation.
+- `CompanyLogo` (in `ScoredJobCard.tsx`) is a best-effort visual: guesses a `.com` domain from the
+  company name and requests it from Clearbit's free, keyless logo API, hiding itself via `onError`
+  if the guess is wrong (true for most non-trivial company names) or the request fails. No backend
+  involvement, no stored state, pure progressive enhancement -- correct for well-known single-word
+  company names, silently absent otherwise.
+- The job-list `JobFilterBar` (`components/JobFilters.tsx`) puts Min Salary last via
+  `margin-left: auto` on its own `.field` inside the flex `.form-row`, and global
+  `input[type="number"]` rules strip the native spinner (`-webkit-appearance: none` on the
+  spin-button pseudo-elements, `-moz-appearance: textfield`) -- without that, the spinner made the
+  field render taller than its sibling selects/inputs in some browsers, breaking the row's even
+  height.
+- Job-card meta chips now label the salary and posted-date ones explicitly ("Salary: $120k-150k",
+  "Date Posted: 3 days ago") rather than showing bare values -- location and source stay unlabeled
+  since their content alone is already self-explanatory, but a bare "N/A" chip needs the label to
+  say which field is unknown.
 
 ## Working conventions
 

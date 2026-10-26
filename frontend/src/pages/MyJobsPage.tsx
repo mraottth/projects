@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, Application, APPLICATION_STATUS_LABELS, ApplicationStatus, Job } from "../api";
+import { salaryText, salaryValue } from "../components/ScoredJobCard";
 import { Spinner } from "../components/Spinner";
 
 const STATUSES: ApplicationStatus[] = [
@@ -14,7 +15,7 @@ const STATUSES: ApplicationStatus[] = [
 ];
 
 function AddJobForm({ onAdded }: { onAdded: (job: Job) => void }) {
-  const [mode, setMode] = useState<"url" | "text">("text");
+  const [mode, setMode] = useState<"url" | "text">("url");
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,41 +37,38 @@ function AddJobForm({ onAdded }: { onAdded: (job: Job) => void }) {
 
   return (
     <div className="card">
-      <h2>Add a job</h2>
-      <p className="muted small">
-        Found something yourself — on LinkedIn, Indeed, Glassdoor, anywhere? Paste the URL or the
-        raw job text (if the URL fetch fails — common on sites that require login — paste the text
-        instead). It gets scored and added straight to My Jobs below.
-      </p>
-      <div className="seg" style={{ marginBottom: "10px" }}>
-        <button type="button" className={mode === "text" ? "on" : ""} onClick={() => setMode("text")}>
-          Raw text
-        </button>
-        <button type="button" className={mode === "url" ? "on" : ""} onClick={() => setMode("url")}>
-          URL
-        </button>
-      </div>
-      {mode === "text" ? (
-        <textarea
-          rows={6}
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder="Paste the job description here..."
-          style={{ width: "100%", display: "block" }}
-        />
+      <h2 style={{ marginBottom: "8px" }}>Add a job</h2>
+      {mode === "url" ? (
+        <div className="form-row" style={{ marginBottom: "4px" }}>
+          <input
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder="Paste a job URL..."
+            style={{ flex: "1 1 320px" }}
+          />
+          <button className="primary" onClick={submit} disabled={busy}>
+            {busy ? <Spinner label="Adding..." /> : "Add"}
+          </button>
+        </div>
       ) : (
-        <input
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder="https://..."
-          style={{ width: "100%", display: "block" }}
-        />
+        <>
+          <textarea
+            rows={4}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder="Paste the job description here..."
+            style={{ width: "100%", display: "block", marginBottom: "6px" }}
+          />
+          <div className="form-actions" style={{ marginTop: 0, marginBottom: "4px" }}>
+            <button className="primary" onClick={submit} disabled={busy}>
+              {busy ? <Spinner label="Adding..." /> : "Add"}
+            </button>
+          </div>
+        </>
       )}
-      <div className="form-actions">
-        <button className="primary" onClick={submit} disabled={busy}>
-          {busy ? <Spinner label="Parsing..." /> : "Parse"}
-        </button>
-      </div>
+      <button className="link small" onClick={() => setMode(mode === "url" ? "text" : "url")}>
+        {mode === "url" ? "Paste the full text instead" : "Use a URL instead"}
+      </button>
       {error && <p className="error-text small">{error}</p>}
     </div>
   );
@@ -122,13 +120,7 @@ function PendingReview({ job, onConfirmed }: { job: Job; onConfirmed: (job: Job)
   );
 }
 
-function StatusSelect({
-  app,
-  onChanged,
-}: {
-  app: Application;
-  onChanged: (app: Application) => void;
-}) {
+function StatusSelect({ app, onChanged }: { app: Application; onChanged: (app: Application) => void }) {
   const [busy, setBusy] = useState(false);
 
   const change = async (status: ApplicationStatus) => {
@@ -152,9 +144,115 @@ function StatusSelect({
   );
 }
 
+function AppliedDateCell({ app, onChanged }: { app: Application; onChanged: (app: Application) => void }) {
+  const [busy, setBusy] = useState(false);
+  const dateValue = app.applied_at ? app.applied_at.slice(0, 10) : "";
+
+  const change = async (value: string) => {
+    if (!value) return;
+    setBusy(true);
+    try {
+      const updated = await api.updateApplication(app.id, { applied_at: value });
+      onChanged(updated);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <input
+      type="date"
+      value={dateValue}
+      disabled={busy}
+      onChange={(e) => change(e.target.value)}
+      style={{ fontSize: "0.85rem", padding: "4px 6px", width: "140px" }}
+    />
+  );
+}
+
+function DocActions({ app, onChanged }: { app: Application; onChanged: (app: Application) => void }) {
+  const [busy, setBusy] = useState<"resume" | "cover-letter" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const generate = async (kind: "resume" | "cover-letter") => {
+    setBusy(kind);
+    setError(null);
+    try {
+      if (kind === "resume") {
+        const result = await api.generateResume(app.job_id, app.id);
+        onChanged({ ...app, resume_doc_id: result.id });
+      } else {
+        const result = await api.generateCoverLetter(app.job_id, app.id);
+        onChanged({ ...app, cover_letter_doc_id: result.id });
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="doc-actions">
+      <button className="ghost small" onClick={() => generate("resume")} disabled={busy !== null}>
+        {busy === "resume" ? <Spinner /> : app.resume_doc_id ? "✓ Resume" : "Resume"}
+      </button>
+      <button className="ghost small" onClick={() => generate("cover-letter")} disabled={busy !== null}>
+        {busy === "cover-letter" ? <Spinner /> : app.cover_letter_doc_id ? "✓ Cover letter" : "Cover letter"}
+      </button>
+      {error && <span className="error-text small">{error}</span>}
+    </div>
+  );
+}
+
+type SortKey = "company" | "title" | "location" | "salary" | "applied_at" | "status";
+type SortDir = "asc" | "desc";
+
+function sortValue(app: Application, key: SortKey): string | number {
+  switch (key) {
+    case "company":
+      return app.company.toLowerCase();
+    case "title":
+      return app.title.toLowerCase();
+    case "location":
+      return (app.location ?? "").toLowerCase();
+    case "salary":
+      return salaryValue(app);
+    case "applied_at":
+      return app.applied_at ?? "";
+    case "status":
+      return app.status;
+  }
+}
+
+function SortHeader({
+  label,
+  columnKey,
+  sortKey,
+  sortDir,
+  onSort,
+}: {
+  label: string;
+  columnKey: SortKey;
+  sortKey: SortKey;
+  sortDir: SortDir;
+  onSort: (key: SortKey) => void;
+}) {
+  const active = sortKey === columnKey;
+  return (
+    <th style={{ cursor: "pointer", whiteSpace: "nowrap" }} onClick={() => onSort(columnKey)}>
+      {label} {active && (sortDir === "asc" ? "▲" : "▼")}
+    </th>
+  );
+}
+
 export default function MyJobsPage() {
   const [apps, setApps] = useState<Application[]>([]);
   const [pending, setPending] = useState<Job[]>([]);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<ApplicationStatus | "all">("all");
+  const [sortKey, setSortKey] = useState<SortKey>("applied_at");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   const refresh = () => api.listApplications().then(setApps);
 
@@ -164,6 +262,31 @@ export default function MyJobsPage() {
 
   const updateInPlace = (updated: Application) =>
     setApps((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+
+  const onSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
+
+  const query = search.trim().toLowerCase();
+  const filtered = apps.filter((app) => {
+    if (statusFilter !== "all" && app.status !== statusFilter) return false;
+    if (query && !`${app.company} ${app.title} ${app.location ?? ""}`.toLowerCase().includes(query)) {
+      return false;
+    }
+    return true;
+  });
+
+  const sorted = [...filtered].sort((a, b) => {
+    const av = sortValue(a, sortKey);
+    const bv = sortValue(b, sortKey);
+    const cmp = av < bv ? -1 : av > bv ? 1 : 0;
+    return sortDir === "asc" ? cmp : -cmp;
+  });
 
   return (
     <div>
@@ -192,35 +315,89 @@ export default function MyJobsPage() {
         </p>
       )}
 
-      {apps.map((app) => (
-        <div className="card" key={app.id}>
-          <div className="card-header">
-            <div>
-              <div className="card-title">
-                <Link to={`/jobs/${app.job_id}`}>
-                  {app.title} — {app.company}
-                </Link>
-              </div>
-              <div className="card-meta">{app.location ?? "location unknown"}</div>
+      {apps.length > 0 && (
+        <div className="card">
+          <div className="form-row" style={{ marginBottom: 0 }}>
+            <div className="field" style={{ marginBottom: 0, flex: "1 1 260px" }}>
+              <span>Search</span>
+              <input
+                placeholder="Search company, title, location..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
             </div>
-            <span className={`pill pill-${app.status}`}>{APPLICATION_STATUS_LABELS[app.status]}</span>
-          </div>
-
-          <div className="form-row">
             <div className="field" style={{ marginBottom: 0 }}>
               <span>Status</span>
-              <StatusSelect app={app} onChanged={updateInPlace} />
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as ApplicationStatus | "all")}
+              >
+                <option value="all">All</option>
+                {STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {APPLICATION_STATUS_LABELS[s]}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
-
-          <div className="card-section small muted">
-            <strong>History: </strong>
-            {app.history
-              .map((h) => APPLICATION_STATUS_LABELS[h.status as ApplicationStatus] ?? h.status)
-              .join(" → ")}
-          </div>
         </div>
-      ))}
+      )}
+
+      {apps.length > 0 && sorted.length === 0 && (
+        <p className="empty-state">No jobs match these filters.</p>
+      )}
+
+      {sorted.length > 0 && (
+        <div className="card" style={{ overflowX: "auto" }}>
+          <table>
+            <thead>
+              <tr>
+                <SortHeader label="Company" columnKey="company" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                <SortHeader label="Title" columnKey="title" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                <SortHeader
+                  label="Location"
+                  columnKey="location"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onSort={onSort}
+                />
+                <SortHeader label="Salary" columnKey="salary" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                <SortHeader
+                  label="Applied Date"
+                  columnKey="applied_at"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onSort={onSort}
+                />
+                <SortHeader label="Status" columnKey="status" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                <th>Documents</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((app) => (
+                <tr key={app.id}>
+                  <td>{app.company}</td>
+                  <td>
+                    <Link to={`/jobs/${app.job_id}`}>{app.title}</Link>
+                  </td>
+                  <td>{app.location ?? "N/A"}</td>
+                  <td>{salaryText(app)}</td>
+                  <td>
+                    <AppliedDateCell app={app} onChanged={updateInPlace} />
+                  </td>
+                  <td>
+                    <StatusSelect app={app} onChanged={updateInPlace} />
+                  </td>
+                  <td>
+                    <DocActions app={app} onChanged={updateInPlace} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

@@ -127,16 +127,6 @@ export function JobFilterBar({
           </select>
         </div>
         <div className="field" style={{ marginBottom: 0 }}>
-          <span>Min salary</span>
-          <input
-            type="number"
-            placeholder="e.g. 120000"
-            value={filters.minSalary}
-            onChange={(e) => set("minSalary", e.target.value)}
-            style={{ width: "140px" }}
-          />
-        </div>
-        <div className="field" style={{ marginBottom: 0 }}>
           <span>Posted</span>
           <select value={filters.recency} onChange={(e) => set("recency", e.target.value as RecencyFilter)}>
             <option value="all">Any time</option>
@@ -163,6 +153,16 @@ export function JobFilterBar({
           />
           <span style={{ margin: 0, fontWeight: 400, color: "var(--ink)" }}>Favorites only</span>
         </label>
+        <div className="field field-min-salary" style={{ marginBottom: 0, marginLeft: "auto" }}>
+          <span>Min salary</span>
+          <input
+            type="number"
+            placeholder="e.g. 120000"
+            value={filters.minSalary}
+            onChange={(e) => set("minSalary", e.target.value)}
+            style={{ width: "140px" }}
+          />
+        </div>
       </div>
     </div>
   );

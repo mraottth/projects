@@ -74,6 +74,12 @@ export interface Application {
   company: string;
   location: string | null;
   url: string | null;
+  salary_min: number | null;
+  salary_max: number | null;
+  salary_currency: string | null;
+  salary_period: string | null;
+  resume_doc_id: number | null;
+  cover_letter_doc_id: number | null;
   history: { status: string; changed_at: string }[];
 }
 
@@ -216,7 +222,10 @@ export const api = {
       body: JSON.stringify({ job_id: jobId, status }),
     }),
 
-  updateApplication: (id: number, payload: Partial<Pick<Application, "status" | "notes">>) =>
+  updateApplication: (
+    id: number,
+    payload: Partial<Pick<Application, "status" | "notes" | "applied_at">>,
+  ) =>
     request<Application>(`/api/applications/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },

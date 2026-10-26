@@ -10,7 +10,13 @@ function daysAgo(iso: string): string {
   return `${days} days ago`;
 }
 
-export function salaryText(job: ScoredJob): string {
+interface SalaryFields {
+  salary_min: number | null;
+  salary_max: number | null;
+  salary_period: string | null;
+}
+
+export function salaryText(job: SalaryFields): string {
   if (!job.salary_min && !job.salary_max) return "N/A";
   const fmt = (n: number) => `$${Math.round(n / 1000)}k`;
   const range =
@@ -18,6 +24,10 @@ export function salaryText(job: ScoredJob): string {
       ? `${fmt(job.salary_min)}-${fmt(job.salary_max)}`
       : fmt(job.salary_min ?? job.salary_max!);
   return `${range}${job.salary_period ? `/${job.salary_period}` : ""}`;
+}
+
+export function salaryValue(job: Pick<SalaryFields, "salary_min" | "salary_max">): number {
+  return job.salary_max ?? job.salary_min ?? -1;
 }
 
 // The job description's own posted date, not when our pipeline first saw it -- falls back to
@@ -47,6 +57,28 @@ function RationaleBlock({ text }: { text: string }) {
         </button>
       )}
     </div>
+  );
+}
+
+// Best-effort only: guesses a .com domain from the company name and asks Clearbit's free logo
+// API for it. No API key, no backend involvement -- just hides itself on a 404/network error, so
+// a wrong guess (most non-trivial company names) silently shows nothing rather than a broken image.
+function guessDomain(company: string): string | null {
+  const cleaned = company.toLowerCase().replace(/[^a-z0-9]+/g, "");
+  return cleaned ? `${cleaned}.com` : null;
+}
+
+function CompanyLogo({ company }: { company: string }) {
+  const [failed, setFailed] = useState(false);
+  const domain = guessDomain(company);
+  if (!domain || failed) return null;
+  return (
+    <img
+      src={`https://logo.clearbit.com/${domain}?size=64`}
+      alt=""
+      className="company-logo"
+      onError={() => setFailed(true)}
+    />
   );
 }
 
@@ -117,18 +149,21 @@ export function ScoredJobCard({ job, onDismissed }: { job: ScoredJob; onDismisse
   return (
     <div className="card">
       <div className="card-header">
-        <div>
-          <div className="card-title">
-            {!!job.is_favorite && <span className="star">★ </span>}
-            <Link to={`/jobs/${job.id}`}>
-              {job.title} — {job.company}
-            </Link>
-          </div>
-          <div className="meta-chips">
-            <span className="meta-chip meta-chip-location">{job.location ?? "N/A"}</span>
-            <span className="meta-chip meta-chip-salary">{salaryText(job)}</span>
-            <span className="meta-chip meta-chip-posted">{postedText(job)}</span>
-            {job.source_name && <span className="meta-chip meta-chip-source">{job.source_name}</span>}
+        <div className="card-header-main">
+          <CompanyLogo company={job.company} />
+          <div>
+            <div className="card-title">
+              {!!job.is_favorite && <span className="star">★ </span>}
+              <Link to={`/jobs/${job.id}`}>
+                {job.title} — {job.company}
+              </Link>
+            </div>
+            <div className="meta-chips">
+              <span className="meta-chip meta-chip-location">{job.location ?? "N/A"}</span>
+              <span className="meta-chip meta-chip-salary">Salary: {salaryText(job)}</span>
+              <span className="meta-chip meta-chip-posted">Date Posted: {postedText(job)}</span>
+              {job.source_name && <span className="meta-chip meta-chip-source">{job.source_name}</span>}
+            </div>
           </div>
         </div>
       </div>

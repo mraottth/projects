@@ -26,13 +26,15 @@ class UpdateApplicationRequest(BaseModel):
     notes: str | None = None
     next_action: str | None = None
     next_action_date: str | None = None
+    applied_at: str | None = None
 
 
 @router.get("")
 def list_applications():
     with get_db() as conn:
         rows = conn.execute(
-            """SELECT a.*, j.title, j.company, j.location, j.url
+            """SELECT a.*, j.title, j.company, j.location, j.url,
+                      j.salary_min, j.salary_max, j.salary_currency, j.salary_period
                FROM applications a JOIN jobs j ON j.id = a.job_id
                ORDER BY a.updated_at DESC"""
         ).fetchall()
@@ -80,7 +82,8 @@ def create_application(payload: CreateApplicationRequest):
 def _get_application(app_id: int) -> dict:
     with get_db() as conn:
         row = conn.execute(
-            """SELECT a.*, j.title, j.company, j.location, j.url
+            """SELECT a.*, j.title, j.company, j.location, j.url,
+                      j.salary_min, j.salary_max, j.salary_currency, j.salary_period
                FROM applications a JOIN jobs j ON j.id = a.job_id WHERE a.id = ?""",
             (app_id,),
         ).fetchone()
@@ -122,7 +125,8 @@ def update_application(app_id: int, payload: UpdateApplicationRequest):
                 "INSERT INTO application_status_history (application_id, status) VALUES (?, ?)",
                 (app_id, updates["status"]),
             )
-            if row["applied_at"] is None and updates["status"] != "saved":
+            # Don't clobber an applied_at the caller explicitly set in this same request.
+            if "applied_at" not in updates and row["applied_at"] is None and updates["status"] != "saved":
                 conn.execute(
                     "UPDATE applications SET applied_at = datetime('now') WHERE id = ?", (app_id,)
                 )

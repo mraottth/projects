@@ -4,11 +4,11 @@ from jobhunt.api.main import app
 from jobhunt.db.connection import get_db
 
 
-def _insert_job(title="Engineer", company="Acme") -> int:
+def _insert_job(title="Engineer", company="Acme", salary_min=None, salary_max=None) -> int:
     with get_db() as conn:
         cursor = conn.execute(
-            "INSERT INTO jobs (dedupe_key, title, company) VALUES (?, ?, ?)",
-            (f"{title}-{company}", title, company),
+            "INSERT INTO jobs (dedupe_key, title, company, salary_min, salary_max) VALUES (?, ?, ?, ?, ?)",
+            (f"{title}-{company}", title, company, salary_min, salary_max),
         )
         return cursor.lastrowid
 
@@ -73,3 +73,41 @@ def test_application_rejects_invalid_status():
     with TestClient(app) as client:
         resp = client.post("/api/applications", json={"job_id": job_id, "status": "bogus"})
         assert resp.status_code == 400
+
+
+def test_applications_include_salary_fields():
+    job_id = _insert_job(salary_min=120000, salary_max=150000)
+    with TestClient(app) as client:
+        resp = client.post("/api/applications", json={"job_id": job_id})
+        assert resp.json()["salary_min"] == 120000
+        assert resp.json()["salary_max"] == 150000
+
+        listing = client.get("/api/applications").json()
+        assert listing[0]["salary_min"] == 120000
+        assert listing[0]["salary_max"] == 150000
+
+
+def test_applied_at_is_directly_editable():
+    job_id = _insert_job()
+    with TestClient(app) as client:
+        app_id = client.post("/api/applications", json={"job_id": job_id}).json()["id"]
+
+        resp = client.patch(f"/api/applications/{app_id}", json={"applied_at": "2026-01-15"})
+        assert resp.status_code == 200
+        assert resp.json()["applied_at"] == "2026-01-15"
+        # Still "saved" -- editing the date directly shouldn't change status or add history.
+        assert resp.json()["status"] == "saved"
+        assert [h["status"] for h in resp.json()["history"]] == ["saved"]
+
+
+def test_explicit_applied_at_is_not_overwritten_by_status_change_in_same_request():
+    job_id = _insert_job()
+    with TestClient(app) as client:
+        app_id = client.post("/api/applications", json={"job_id": job_id}).json()["id"]
+
+        resp = client.patch(
+            f"/api/applications/{app_id}",
+            json={"status": "applied", "applied_at": "2026-02-01"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["applied_at"] == "2026-02-01"
