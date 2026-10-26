@@ -3,14 +3,14 @@ import DigestPage from "./pages/DigestPage";
 import JobDetailPage from "./pages/JobDetailPage";
 import ApplicationTrackerPage from "./pages/ApplicationTrackerPage";
 import SourcesPage from "./pages/SourcesPage";
-import ResumesPage from "./pages/ResumesPage";
+import ProfilePage from "./pages/ProfilePage";
 import SettingsPage from "./pages/SettingsPage";
 
 const NAV_LINKS = [
   { to: "/", label: "Digest", end: true },
   { to: "/tracker", label: "Tracker" },
   { to: "/sources", label: "Sources" },
-  { to: "/resumes", label: "Resumes" },
+  { to: "/profile", label: "Profile" },
   { to: "/settings", label: "Settings" },
 ];
 
@@ -38,7 +38,7 @@ export default function App() {
           <Route path="/jobs/:id" element={<JobDetailPage />} />
           <Route path="/tracker" element={<ApplicationTrackerPage />} />
           <Route path="/sources" element={<SourcesPage />} />
-          <Route path="/resumes" element={<ResumesPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </main>

@@ -6,7 +6,7 @@ via POST /internal/run-daily (see api/internal.py); safe to run manually/repeate
 import json
 from datetime import UTC, date, datetime
 
-from jobhunt.core import prefilter, queue
+from jobhunt.core import favorites, prefilter, queue
 from jobhunt.core import settings as settings_module
 from jobhunt.core.dedupe import compute_dedupe_key
 from jobhunt.core.digest import add_to_digest
@@ -146,8 +146,14 @@ def _prefilter_and_enqueue(job_ids: list[int]) -> int:
             ).fetchone()
             if already_scored:
                 continue
-            score, reasons = prefilter.score_job(dict(row), current_settings)
-            queue.enqueue(job_id, score, reasons)
+            job = dict(row)
+            if favorites.is_favorite_company_name(job.get("company")):
+                # Bypass pre-filter excludes entirely -- a favorite company said "always show me
+                # this", not "show me this unless it also matches an exclude keyword".
+                queue.enqueue(job_id, 100.0, {"favorite_company": True}, is_favorite=True)
+            else:
+                score, reasons = prefilter.score_job(job, current_settings)
+                queue.enqueue(job_id, score, reasons)
             enqueued += 1
     return enqueued
 

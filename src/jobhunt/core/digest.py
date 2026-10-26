@@ -16,7 +16,12 @@ def add_to_digest(job_id: int, digest_date: str | None = None) -> None:
             (digest_date, job_id),
         )
         rows = conn.execute(
-            """SELECT de.job_id, js.interest_score, js.candidate_fit_score
+            """SELECT de.job_id, js.interest_score, js.candidate_fit_score,
+                      EXISTS (
+                          SELECT 1 FROM favorite_companies fc
+                          WHERE lower(fc.company_name) = lower(j.company)
+                            AND fc.resolution_status = 'resolved'
+                      ) AS is_favorite_company
                FROM digest_entries de
                JOIN jobs j ON j.id = de.job_id
                LEFT JOIN job_scores js ON js.id = (
@@ -25,9 +30,14 @@ def add_to_digest(job_id: int, digest_date: str | None = None) -> None:
                WHERE de.digest_date = ?""",
             (digest_date,),
         ).fetchall()
+        # Favorite-company jobs always rank first, regardless of score -- "favorite" means
+        # "always show me this", not "weight it a bit higher".
         ranked = sorted(
             rows,
-            key=lambda r: (r["interest_score"] or 0) + (r["candidate_fit_score"] or 0),
+            key=lambda r: (
+                r["is_favorite_company"],
+                (r["interest_score"] or 0) + (r["candidate_fit_score"] or 0),
+            ),
             reverse=True,
         )
         conn.executemany(
@@ -40,7 +50,12 @@ def get_digest(digest_date: str) -> list[dict]:
     with get_db() as conn:
         rows = conn.execute(
             """SELECT j.*, js.interest_fit, js.interest_score, js.candidate_fit, js.candidate_fit_score,
-                      js.summary_text, js.rationale_text, de.rank
+                      js.summary_text, js.rationale_text, de.rank,
+                      EXISTS (
+                          SELECT 1 FROM favorite_companies fc
+                          WHERE lower(fc.company_name) = lower(j.company)
+                            AND fc.resolution_status = 'resolved'
+                      ) AS is_favorite_company
                FROM digest_entries de
                JOIN jobs j ON j.id = de.job_id
                LEFT JOIN job_scores js ON js.id = (

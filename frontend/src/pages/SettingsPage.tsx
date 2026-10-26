@@ -33,10 +33,11 @@ function PrefilterSettings() {
 
   return (
     <div className="card">
-      <h2>Pre-filter rules &amp; daily cap</h2>
+      <h2>Scoring tuning</h2>
       <p className="muted">
         Cheap rule-based scoring runs before any Claude call, so the daily cap is spent on the most
-        promising jobs first. Leave a field blank to skip that rule.
+        promising jobs first. Your desired titles/locations/salary live on the Profile page — these
+        are extra tuning knobs on top of that.
       </p>
 
       <label>
@@ -63,43 +64,6 @@ function PrefilterSettings() {
         <input
           defaultValue={settings.prefilter_keywords_exclude.join(", ")}
           onBlur={(e) => save({ prefilter_keywords_exclude: toList(e.target.value) })}
-          style={{ display: "block", width: "100%" }}
-        />
-      </label>
-
-      <label>
-        Preferred titles
-        <input
-          defaultValue={settings.prefilter_titles_include.join(", ")}
-          onBlur={(e) => save({ prefilter_titles_include: toList(e.target.value) })}
-          style={{ display: "block", width: "100%" }}
-        />
-      </label>
-
-      <label>
-        Preferred locations
-        <input
-          defaultValue={settings.prefilter_locations.join(", ")}
-          onBlur={(e) => save({ prefilter_locations: toList(e.target.value) })}
-          style={{ display: "block", width: "100%" }}
-        />
-      </label>
-
-      <label>
-        <input
-          type="checkbox"
-          defaultChecked={settings.prefilter_remote_only}
-          onChange={(e) => save({ prefilter_remote_only: e.target.checked })}
-        />{" "}
-        Remote only
-      </label>
-
-      <label style={{ display: "block" }}>
-        Minimum salary (max range below this is penalized)
-        <input
-          type="number"
-          defaultValue={settings.salary_floor ?? ""}
-          onBlur={(e) => save({ salary_floor: e.target.value ? Number(e.target.value) : null })}
           style={{ display: "block", width: "100%" }}
         />
       </label>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, Source, SourceKind } from "../api";
+import { api, Favorite, Source, SourceKind } from "../api";
 
 const KIND_LABELS: Record<SourceKind, string> = {
   ats_greenhouse: "Greenhouse (company board token)",
@@ -93,6 +93,85 @@ function AddSourceForm({ onAdded }: { onAdded: (source: Source) => void }) {
   );
 }
 
+function FavoritesSection() {
+  const [favorites, setFavorites] = useState<Favorite[]>([]);
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = () => api.listFavorites().then(setFavorites);
+
+  useEffect(() => {
+    refresh();
+  }, []);
+
+  const add = async () => {
+    if (!name.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.addFavorite(name.trim());
+      setName("");
+      refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const retry = async (id: number) => {
+    setBusy(true);
+    try {
+      await api.retryFavorite(id);
+      refresh();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="card">
+      <h2>★ Favorite companies</h2>
+      <p className="muted">
+        Any new posting from a favorite company always gets scored and flagged in the digest,
+        regardless of the daily cap or your exclude-keyword rules.
+      </p>
+      <input
+        placeholder="Company name, e.g. Anthropic"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        style={{ width: "100%", marginBottom: "0.4rem" }}
+      />
+      <button onClick={add} disabled={busy}>
+        Add favorite
+      </button>
+      {error && <p style={{ color: "crimson" }}>{error}</p>}
+
+      <ul>
+        {favorites.map((f) => (
+          <li key={f.id}>
+            {f.company_name} —{" "}
+            {f.resolution_status === "resolved" && <span>resolved via {f.source_kind}</span>}
+            {f.resolution_status === "pending" && <span>resolving...</span>}
+            {f.resolution_status === "failed" && (
+              <span>
+                couldn't find a board —{" "}
+                <button onClick={() => retry(f.id)} disabled={busy}>
+                  retry
+                </button>
+              </span>
+            )}
+            {" — "}
+            <button onClick={() => api.removeFavorite(f.id).then(refresh)}>remove</button>
+          </li>
+        ))}
+      </ul>
+      {favorites.length === 0 && <p className="muted">No favorites yet.</p>}
+    </div>
+  );
+}
+
 function SourceCard({ source, onChanged }: { source: Source; onChanged: () => void }) {
   const [testResult, setTestResult] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -122,7 +201,10 @@ function SourceCard({ source, onChanged }: { source: Source; onChanged: () => vo
 
   return (
     <div className="card">
-      <h3>{source.name}</h3>
+      <h3>
+        {source.is_favorite ? "★ " : ""}
+        {source.name}
+      </h3>
       <p className="muted">
         {KIND_LABELS[source.kind]} · {JSON.stringify(source.config)}
       </p>
@@ -173,6 +255,7 @@ export default function SourcesPage() {
         job" on the Digest page instead (paste-in).
       </p>
 
+      <FavoritesSection />
       <AddSourceForm onAdded={() => refresh()} />
 
       <div className="card">

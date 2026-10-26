@@ -31,10 +31,12 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
 
 ## Architecture
 
-- `src/jobhunt/db/schema.sql` — full SQLite schema, applied idempotently at startup (`db/connection.py`,
-  no migration framework). "Current" profile rows (`candidate_profile`, `preference_profile`) are just
-  the latest row by id — every rebuild inserts a new row rather than updating in place, so history is
-  free.
+- `src/jobhunt/db/schema.sql` — full SQLite schema, applied idempotently at startup
+  (`db/connection.py`). `CREATE TABLE IF NOT EXISTS` never alters an existing table, so a new column
+  on one needs an entry in `connection.py`'s `MIGRATIONS` list (plain `ALTER TABLE ... ADD COLUMN`,
+  duplicate-column errors swallowed — safe to run on every startup). "Current" profile rows
+  (`candidate_profile`, `preference_profile`) are just the latest row by id — every rebuild inserts a
+  new row rather than updating in place, so history is free.
 - `src/jobhunt/core/llm.py` — shared Claude client + `log_call()`, which writes every LLM call to
   `llm_calls` with an estimated cost (`PRICING_PER_MTOK`, update when Anthropic pricing changes). Every
   module that calls Claude should log through this, not call `anthropic` directly — it's what backs the
@@ -74,9 +76,23 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
 - `src/jobhunt/pipeline/daily_run.py` — orchestrates the full daily cycle (poll → upsert → prefilter
   → capped scoring → digest → conditional preference-profile refresh → run summary). Triggered by
   `POST /internal/run-daily` (Cloud Scheduler in production, a button on the Sources page locally).
+- `src/jobhunt/core/company_resolver.py` — turns a company name into an actual monitorable source:
+  cheap direct probes against the three ATS APIs first (confirmed live that "anthropic"/"figma"
+  resolve immediately this way, no LLM needed), falling back to a Claude + web-search call only
+  when none of the slug guesses pan out. Shared by favorites and by approving a discovery suggestion.
+- `src/jobhunt/core/favorites.py` — favorite companies (`favorite_companies` table, intent-level:
+  a favorite can exist with no resolved source yet, or a failed one with a retry option).
+  `is_favorite_company_name()` drives two things: `pipeline/daily_run.py` bypasses pre-filter
+  excludes and the daily cap entirely for a favorite's postings (`core/queue.py`'s `select_batch`
+  always includes all pending favorite jobs, on top of the capped batch for everyone else), and
+  `core/digest.py` flags + force-ranks them first regardless of score.
+- `src/jobhunt/core/discovery.py` — suggests companies to monitor (Claude + web search over the
+  candidate profile and desired-role settings). Returns suggestions only; nothing is persisted
+  until the user approves one from the Profile page, which then calls `company_resolver` via
+  `POST /api/sources/resolve` (or `/api/favorites` to also favorite it).
 - `src/jobhunt/api/` — one FastAPI route module per resource: `resumes`, `jobs`, `digest`,
-  `applications`, `sources`, `generate`, `settings`, `internal`. `api/main.py` wires all routers and
-  serves `frontend/dist` if built.
+  `applications`, `sources`, `generate`, `settings`, `internal`, `favorites`, `discovery`.
+  `api/main.py` wires all routers and serves `frontend/dist` if built.
 - `frontend/` — React 19 + Vite + TS, react-router-dom for navigation, no UI library. Unlike Shelf
   Life's stateless localStorage-only app, this one's source of truth is server-persisted SQLite —
   pages call `api.ts` directly rather than reading/writing a client-side store.

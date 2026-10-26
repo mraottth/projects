@@ -3,6 +3,8 @@ import json
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from jobhunt.core.company_resolver import resolve_company
+from jobhunt.core.llm import LLMError
 from jobhunt.db.connection import get_db
 from jobhunt.pipeline.daily_run import ADAPTERS
 
@@ -18,6 +20,10 @@ class SourceRequest(BaseModel):
     config: dict = {}
     enabled: bool = True
     poll_frequency_hours: int = 24
+
+
+class ResolveSourceRequest(BaseModel):
+    company_name: str
 
 
 class SourceUpdateRequest(BaseModel):
@@ -56,6 +62,31 @@ def create_source(payload: SourceRequest):
                 json.dumps(payload.config),
                 int(payload.enabled),
                 payload.poll_frequency_hours,
+            ),
+        )
+        source_id = cursor.lastrowid
+    return get_source(source_id)
+
+
+@router.post("/resolve")
+def resolve_source(payload: ResolveSourceRequest):
+    """Resolve a company name to an actual job board and add it as a (non-favorite) source --
+    used when approving a discovery suggestion, or adding a company by name directly."""
+    try:
+        resolved = resolve_company(payload.company_name)
+    except LLMError as exc:
+        raise HTTPException(502, str(exc)) from exc
+    if resolved is None:
+        raise HTTPException(404, f"could not find a job board for '{payload.company_name}'")
+
+    with get_db() as conn:
+        cursor = conn.execute(
+            "INSERT INTO sources (kind, name, company_name, config_json) VALUES (?, ?, ?, ?)",
+            (
+                resolved.kind,
+                payload.company_name,
+                payload.company_name,
+                json.dumps(resolved.config),
             ),
         )
         source_id = cursor.lastrowid

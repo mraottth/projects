@@ -9,9 +9,21 @@ CREATE TABLE IF NOT EXISTS sources (
     config_json TEXT NOT NULL DEFAULT '{}',
     enabled INTEGER NOT NULL DEFAULT 1,
     poll_frequency_hours INTEGER NOT NULL DEFAULT 24,
+    is_favorite INTEGER NOT NULL DEFAULT 0,
     last_polled_at TEXT,
     last_success_at TEXT,
     last_error TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Intent-level record for a company the user wants prioritized, independent of whether it has
+-- been resolved to an actual monitored source yet (resolution can fail, or not be attempted yet).
+CREATE TABLE IF NOT EXISTS favorite_companies (
+    id INTEGER PRIMARY KEY,
+    company_name TEXT NOT NULL UNIQUE,
+    source_id INTEGER REFERENCES sources(id),
+    resolution_status TEXT NOT NULL DEFAULT 'pending' CHECK(resolution_status IN ('pending', 'resolved', 'failed')),
+    resolution_note TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -46,6 +58,7 @@ CREATE TABLE IF NOT EXISTS scoring_queue (
     prefilter_score REAL NOT NULL DEFAULT 0,
     priority REAL NOT NULL DEFAULT 0,
     matched_rules_json TEXT,
+    is_favorite INTEGER NOT NULL DEFAULT 0,
     status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'in_progress', 'scored', 'skipped')),
     queued_at TEXT NOT NULL DEFAULT (datetime('now')),
     scored_at TEXT

@@ -73,6 +73,21 @@ export interface DigestEntry extends Job {
   summary_text: string | null;
   rationale_text: string | null;
   rank: number;
+  is_favorite_company: boolean | 0 | 1;
+}
+
+export interface CompanySuggestion {
+  company_name: string;
+  reason: string;
+}
+
+export interface Favorite {
+  id: number;
+  company_name: string;
+  source_id: number | null;
+  resolution_status: "pending" | "resolved" | "failed";
+  resolution_note: string | null;
+  source_kind: string | null;
 }
 
 export type SourceKind =
@@ -91,6 +106,7 @@ export interface Source {
   config: Record<string, unknown>;
   enabled: boolean | 0 | 1;
   poll_frequency_hours: number;
+  is_favorite: boolean | 0 | 1;
   last_polled_at: string | null;
   last_success_at: string | null;
   last_error: string | null;
@@ -257,4 +273,27 @@ export const api = {
 
   getGenerationHistory: (jobId: number) =>
     request<GeneratedDoc[]>(`/api/generate/history?job_id=${jobId}`),
+
+  suggestCompanies: () =>
+    request<CompanySuggestion[]>("/api/discovery/suggest", { method: "POST" }),
+
+  resolveSource: (companyName: string) =>
+    request<Source>("/api/sources/resolve", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ company_name: companyName }),
+    }),
+
+  listFavorites: () => request<Favorite[]>("/api/favorites"),
+
+  addFavorite: (companyName: string) =>
+    request<Favorite>("/api/favorites", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ company_name: companyName }),
+    }),
+
+  retryFavorite: (id: number) => request<Favorite>(`/api/favorites/${id}/retry`, { method: "POST" }),
+
+  removeFavorite: (id: number) => request<{ ok: true }>(`/api/favorites/${id}`, { method: "DELETE" }),
 };

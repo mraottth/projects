@@ -210,6 +210,7 @@ export default function DigestPage() {
       {entries.map((entry) => (
         <div className="card" key={entry.id}>
           <h3>
+            {entry.is_favorite_company ? "★ " : ""}
             <Link to={`/jobs/${entry.id}`}>
               {entry.title} — {entry.company}
             </Link>
