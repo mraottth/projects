@@ -61,5 +61,6 @@
  "fe7c091a-201": "operational: a commit, push, merge or deploy request",
  "fe7c091a-205": "operational: a commit, push, merge or deploy request",
  "fe7c091a-203": "housekeeping: a clarifying question about a plan's time estimate",
- "fe7c091a-206": "housekeeping: curating the public prompt log"
+ "fe7c091a-206": "housekeeping: curating the public prompt log",
+ "fe7c091a-207": "operational: a commit, push, merge or deploy request"
 }
