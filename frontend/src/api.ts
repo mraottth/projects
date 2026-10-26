@@ -41,6 +41,30 @@ export interface Job {
   needs_review: 0 | 1;
 }
 
+export type ApplicationStatus =
+  | "saved"
+  | "applied"
+  | "phone_screen"
+  | "interview"
+  | "offer"
+  | "rejected"
+  | "withdrawn";
+
+export interface Application {
+  id: number;
+  job_id: number;
+  status: ApplicationStatus;
+  applied_at: string | null;
+  notes: string | null;
+  next_action: string | null;
+  next_action_date: string | null;
+  title: string;
+  company: string;
+  location: string | null;
+  url: string | null;
+  history: { status: string; changed_at: string }[];
+}
+
 export interface DigestEntry extends Job {
   interest_fit: "High" | "Med" | "Low" | null;
   interest_score: number | null;
@@ -76,6 +100,34 @@ export const api = {
     request<{ date: string; entries: DigestEntry[] }>(`/api/digest/${date}`),
 
   getDigestDates: () => request<string[]>("/api/digest/dates"),
+
+  submitFeedback: (jobId: number, interested: "interested" | "not_interested" | "maybe", note?: string) =>
+    request<{ ok: true }>(`/api/jobs/${jobId}/feedback`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ interested, note }),
+    }),
+
+  listApplications: () => request<Application[]>("/api/applications"),
+
+  createApplication: (jobId: number, status: ApplicationStatus = "saved") =>
+    request<Application>("/api/applications", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ job_id: jobId, status }),
+    }),
+
+  updateApplication: (id: number, payload: Partial<Pick<Application, "status" | "notes">>) =>
+    request<Application>(`/api/applications/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+
+  getPreferenceProfile: () => request<{ text: string }>("/api/settings/preference-profile"),
+
+  rebuildPreferenceProfile: () =>
+    request<{ text: string }>("/api/settings/preference-profile/rebuild", { method: "POST" }),
 
   uploadResume: (file: File, kind: "resume" | "cover_letter", label?: string) => {
     const form = new FormData();

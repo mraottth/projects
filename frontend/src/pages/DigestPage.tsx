@@ -136,6 +136,45 @@ function PendingReview({ job, onConfirmed }: { job: Job; onConfirmed: (job: Job)
   );
 }
 
+function JobActions({ entry }: { entry: DigestEntry }) {
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [tracked, setTracked] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const sendFeedback = async (value: "interested" | "not_interested") => {
+    try {
+      await api.submitFeedback(entry.id, value);
+      setFeedback(value);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const track = async () => {
+    try {
+      await api.createApplication(entry.id);
+      setTracked(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  return (
+    <div style={{ marginTop: "0.5rem", display: "flex", gap: "0.5rem", alignItems: "center" }}>
+      <button disabled={feedback === "interested"} onClick={() => sendFeedback("interested")}>
+        Interested
+      </button>
+      <button disabled={feedback === "not_interested"} onClick={() => sendFeedback("not_interested")}>
+        Not interested
+      </button>
+      <button disabled={tracked} onClick={track}>
+        {tracked ? "Tracking" : "Track application"}
+      </button>
+      {error && <span style={{ color: "crimson" }}>{error}</span>}
+    </div>
+  );
+}
+
 export default function DigestPage() {
   const [entries, setEntries] = useState<DigestEntry[]>([]);
   const [pending, setPending] = useState<Job[]>([]);
@@ -182,6 +221,7 @@ export default function DigestPage() {
             <FitBadge label="Candidate fit" value={entry.candidate_fit} />
           </div>
           {entry.rationale_text && <p className="muted">{entry.rationale_text}</p>}
+          <JobActions entry={entry} />
         </div>
       ))}
     </div>

@@ -17,6 +17,11 @@ class ManualImportRequest(BaseModel):
     raw_text: str | None = None
 
 
+class FeedbackRequest(BaseModel):
+    interested: str
+    note: str | None = None
+
+
 class JobUpdateRequest(BaseModel):
     title: str | None = None
     company: str | None = None
@@ -134,3 +139,18 @@ def confirm_job(job_id: int):
     add_to_digest(job_id)
 
     return get_job(job_id)
+
+
+@router.post("/{job_id}/feedback")
+def submit_feedback(job_id: int, payload: FeedbackRequest):
+    if payload.interested not in ("interested", "not_interested", "maybe"):
+        raise HTTPException(400, "interested must be one of: interested, not_interested, maybe")
+    with get_db() as conn:
+        row = conn.execute("SELECT id FROM jobs WHERE id = ?", (job_id,)).fetchone()
+        if row is None:
+            raise HTTPException(404, "job not found")
+        conn.execute(
+            "INSERT INTO feedback (job_id, interested, note) VALUES (?, ?, ?)",
+            (job_id, payload.interested, payload.note),
+        )
+    return {"ok": True}
