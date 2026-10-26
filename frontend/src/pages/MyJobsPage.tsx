@@ -199,12 +199,32 @@ function DocActions({ app, onChanged }: { app: Application; onChanged: (app: App
 
   return (
     <div className="doc-actions">
-      <button className="ghost small" onClick={() => generate("resume")} disabled={busy !== null}>
-        {busy === "resume" ? <Spinner /> : app.resume_doc_id ? "✓ Resume" : "Resume"}
-      </button>
-      <button className="ghost small" onClick={() => generate("cover-letter")} disabled={busy !== null}>
-        {busy === "cover-letter" ? <Spinner /> : app.cover_letter_doc_id ? "✓ Cover letter" : "Cover letter"}
-      </button>
+      {app.resume_doc_id ? (
+        <a
+          className="ghost small"
+          href={api.generatedDocumentDownloadUrl(app.resume_doc_id)}
+          download
+        >
+          ✓ Resume
+        </a>
+      ) : (
+        <button className="ghost small" onClick={() => generate("resume")} disabled={busy !== null}>
+          {busy === "resume" ? <Spinner /> : "Resume"}
+        </button>
+      )}
+      {app.cover_letter_doc_id ? (
+        <a
+          className="ghost small"
+          href={api.generatedDocumentDownloadUrl(app.cover_letter_doc_id)}
+          download
+        >
+          ✓ Cover letter
+        </a>
+      ) : (
+        <button className="ghost small" onClick={() => generate("cover-letter")} disabled={busy !== null}>
+          {busy === "cover-letter" ? <Spinner /> : "Cover letter"}
+        </button>
+      )}
       {error && <span className="error-text small">{error}</span>}
     </div>
   );
@@ -214,6 +234,7 @@ function RemoveButton({ app, onRemoved }: { app: Application; onRemoved: (id: nu
   const [busy, setBusy] = useState(false);
 
   const remove = async () => {
+    if (!window.confirm(`Remove ${app.title} at ${app.company} from My Jobs?`)) return;
     setBusy(true);
     try {
       await api.deleteApplication(app.id);
@@ -224,8 +245,14 @@ function RemoveButton({ app, onRemoved }: { app: Application; onRemoved: (id: nu
   };
 
   return (
-    <button className="link small danger" onClick={remove} disabled={busy}>
-      {busy ? <Spinner /> : "Remove"}
+    <button
+      className="link small danger remove-x"
+      onClick={remove}
+      disabled={busy}
+      aria-label="Remove from My Jobs"
+      title="Remove from My Jobs"
+    >
+      {busy ? <Spinner /> : "×"}
     </button>
   );
 }

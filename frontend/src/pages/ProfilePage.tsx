@@ -423,6 +423,7 @@ function GeneratedDocumentsSection() {
               <th>Job</th>
               <th>Created</th>
               <th>File</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -441,6 +442,11 @@ function GeneratedDocumentsSection() {
                   ) : (
                     <span className="muted small">text only</span>
                   )}
+                </td>
+                <td>
+                  <a className="link small" href={api.generatedDocumentDownloadUrl(d.id)} download>
+                    Download
+                  </a>
                 </td>
               </tr>
             ))}

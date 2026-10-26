@@ -344,6 +344,8 @@ export const api = {
 
   getAllGeneratedDocuments: () => request<GeneratedDocWithJob[]>("/api/generate/documents"),
 
+  generatedDocumentDownloadUrl: (docId: number) => `/api/generate/documents/${docId}/download`,
+
   suggestCompanies: () =>
     request<CompanySuggestion[]>("/api/discovery/suggest", { method: "POST" }),
 

@@ -393,7 +393,28 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   `nowrap` + horizontal scroll -- preferred explicitly over scrolling. The filter sidebar's `.card`
   padding and `.fsection` spacing are tightened specifically within `.filters` (not the global
   `.fsection`/`.card` rules, which are shared by every other form in the app) to cut the vertical
-  padding that made the sidebar feel sparse.
+  padding that made the sidebar feel sparse. Between-section separation there is a `::before`
+  pseudo-element on every `.fsection` but the first (an actual `border-top` would span the full
+  width; this one's inset via `left: 6%; right: 6%` so it doesn't touch either edge), and `.flabel`
+  is darker/bolder (`color: var(--ink); font-weight: 700`) specifically inside `.filters`, not
+  changing the shared global `.flabel` used elsewhere.
+- `GET /api/generate/documents/{id}/download` (`api/generate.py`) streams the actual `.docx` via
+  `FileResponse` when `file_path` exists and the file's still on disk, falling back to the
+  markdown `content_text` as a downloadable `.md` (`Content-Disposition: attachment`) for the
+  plain-text-only generation path or a file that's been moved/deleted since. Used from both
+  `MyJobsPage`'s `DocActions` (a plain `<a download>`, not a fetch -- lets the browser handle the
+  download natively) and the Profile page's Generated Documents table. In `MyJobsPage`, clicking a
+  ✓-prefixed Resume/Cover letter control now downloads instead of regenerating -- it's rendered as
+  an `<a>` when a doc id already exists, a `<button>` (the original generate action) otherwise;
+  `a.ghost` needed `display: inline-block; text-decoration: none` added since `.ghost`'s existing
+  rules were written assuming a `<button>`, which doesn't need either reset.
+- `MyJobsPage`'s row-remove control is now a `×` (`.remove-x`, `aria-label`/`title` for
+  accessibility since the visible glyph alone doesn't say what it does) gated by `window.confirm()`
+  before calling `DELETE /api/applications/{id}` -- the one `window.confirm` in the app, used
+  deliberately here per explicit request even though every other delete/remove action in the app
+  (SourceCard, FavoritesSection, ResumesPage, the rest of My Jobs) stays confirmation-free; don't
+  assume removing it elsewhere needs the same treatment, and don't add confirmation to those other
+  actions without being asked.
 
 ## Working conventions
 

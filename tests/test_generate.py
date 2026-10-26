@@ -324,3 +324,48 @@ def test_all_generated_documents_lists_across_jobs_with_job_info(monkeypatch):
         assert by_company["Acme"]["kind"] == "resume"
         assert by_company["Beta"]["job_title"] == "Designer"
         assert by_company["Beta"]["kind"] == "cover_letter"
+
+
+def test_download_text_only_document_returns_markdown(monkeypatch):
+    job_id = _insert_job()
+    _insert_resume()
+    fake_response = FakeCreateResponse("tailored content")
+    monkeypatch.setattr(generate, "get_client", lambda: FakeAnthropicClient(create_result=fake_response))
+
+    with TestClient(app) as client:
+        doc_id = client.post("/api/generate/resume", json={"job_id": job_id}).json()["id"]
+        resp = client.get(f"/api/generate/documents/{doc_id}/download")
+        assert resp.status_code == 200
+        assert resp.text == "tailored content"
+        assert resp.headers["content-type"].startswith("text/markdown")
+        assert "attachment" in resp.headers["content-disposition"]
+        assert ".md" in resp.headers["content-disposition"]
+
+
+def test_download_docx_document_returns_the_file(tmp_path, monkeypatch):
+    job_id = _insert_job()
+    resume_id = _insert_resume_with_docx(tmp_path)
+
+    new_content = ResumeContent(name="Jane Tester", contact_line="jane@example.com", sections=[])
+    monkeypatch.setattr(
+        generate, "get_client", lambda: FakeAnthropicClient(parse_result=FakeParseResponse(new_content))
+    )
+    monkeypatch.setattr(generate, "_output_dir", lambda: tmp_path / "out")
+
+    with TestClient(app) as client:
+        doc_id = client.post(
+            "/api/generate/resume", json={"job_id": job_id, "resume_id": resume_id}
+        ).json()["id"]
+        resp = client.get(f"/api/generate/documents/{doc_id}/download")
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == (
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
+        assert resp.content[:2] == b"PK"  # docx files are zip archives
+        assert ".docx" in resp.headers["content-disposition"]
+
+
+def test_download_nonexistent_document_404s():
+    with TestClient(app) as client:
+        resp = client.get("/api/generate/documents/999999/download")
+        assert resp.status_code == 404

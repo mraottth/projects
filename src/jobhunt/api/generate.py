@@ -1,6 +1,8 @@
 import sqlite3
+from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, ValidationError
 
 from jobhunt.core.generate import generate_cover_letter, generate_resume
@@ -9,6 +11,8 @@ from jobhunt.core.profile import get_current_candidate_profile
 from jobhunt.db.connection import get_db
 
 router = APIRouter(prefix="/api/generate", tags=["generate"])
+
+DOCX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 
 class GenerateRequest(BaseModel):
@@ -136,3 +140,30 @@ def all_generated_documents():
                ORDER BY gd.created_at DESC"""
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+@router.get("/documents/{doc_id}/download")
+def download_generated_document(doc_id: int):
+    with get_db() as conn:
+        row = conn.execute(
+            """SELECT gd.*, j.title AS job_title, j.company AS job_company
+               FROM generated_documents gd JOIN jobs j ON j.id = gd.job_id WHERE gd.id = ?""",
+            (doc_id,),
+        ).fetchone()
+    if row is None:
+        raise HTTPException(404, "document not found")
+    doc = dict(row)
+
+    safe_name = f"{doc['job_company']}_{doc['job_title']}_{doc['kind']}".replace(" ", "_").replace("/", "_")
+
+    file_path = Path(doc["file_path"]) if doc["file_path"] else None
+    if file_path is not None and file_path.exists():
+        return FileResponse(file_path, filename=f"{safe_name}{file_path.suffix}", media_type=DOCX_MEDIA_TYPE)
+
+    # No docx on disk (plain-text fallback generation, or the file's since been moved/deleted) --
+    # the markdown content is still downloadable, just not as a formatted .docx.
+    return Response(
+        content=doc["content_text"],
+        media_type="text/markdown",
+        headers={"Content-Disposition": f'attachment; filename="{safe_name}.md"'},
+    )

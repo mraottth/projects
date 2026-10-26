@@ -203,14 +203,16 @@ export function JobFilterBar({
         />
       </div>
 
-      <label className="field inline" style={{ marginBottom: 0 }}>
-        <input
-          type="checkbox"
-          checked={filters.favoritesOnly}
-          onChange={(e) => set("favoritesOnly", e.target.checked)}
-        />
-        <span style={{ margin: 0, fontWeight: 400, color: "var(--ink)" }}>Favorites only</span>
-      </label>
+      <div className="fsection" style={{ marginBottom: 0 }}>
+        <label className="field inline" style={{ marginBottom: 0 }}>
+          <input
+            type="checkbox"
+            checked={filters.favoritesOnly}
+            onChange={(e) => set("favoritesOnly", e.target.checked)}
+          />
+          <span style={{ margin: 0, fontWeight: 400, color: "var(--ink)" }}>Favorites only</span>
+        </label>
+      </div>
     </div>
   );
 }
