@@ -151,6 +151,7 @@ export interface Settings {
   prefilter_locations: string[];
   prefilter_remote_only: boolean;
   salary_floor: number | null;
+  looking_for_notes: string;
 }
 
 export interface GeneratedDoc {
@@ -162,6 +163,11 @@ export interface GeneratedDoc {
   content_text: string;
   file_path: string | null;
   created_at: string;
+}
+
+export interface GeneratedDocWithJob extends GeneratedDoc {
+  job_title: string;
+  job_company: string;
 }
 
 export interface LlmCall {
@@ -240,16 +246,28 @@ export const api = {
   rebuildPreferenceProfile: () =>
     request<{ text: string }>("/api/settings/preference-profile/rebuild", { method: "POST" }),
 
-  uploadResume: (file: File, kind: "resume" | "cover_letter", label?: string) => {
+  uploadResume: (
+    file: File,
+    kind: "resume" | "cover_letter",
+    options?: { label?: string; isArchived?: boolean },
+  ) => {
     const form = new FormData();
     form.append("file", file);
     form.append("kind", kind);
-    if (label) form.append("label", label);
+    if (options?.label) form.append("label", options.label);
+    form.append("is_archived", options?.isArchived ? "true" : "false");
     return request<{ id: number; file_name: string; text_length: number }>(
       "/api/resumes/upload",
       { method: "POST", body: form },
     );
   },
+
+  updateResume: (id: number, payload: { is_archived?: boolean; is_template?: boolean }) =>
+    request<{ ok: true }>(`/api/resumes/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
 
   deleteResume: (id: number) => request<{ ok: true }>(`/api/resumes/${id}`, { method: "DELETE" }),
 
@@ -323,6 +341,8 @@ export const api = {
 
   getGenerationHistory: (jobId: number) =>
     request<GeneratedDoc[]>(`/api/generate/history?job_id=${jobId}`),
+
+  getAllGeneratedDocuments: () => request<GeneratedDocWithJob[]>("/api/generate/documents"),
 
   suggestCompanies: () =>
     request<CompanySuggestion[]>("/api/discovery/suggest", { method: "POST" }),

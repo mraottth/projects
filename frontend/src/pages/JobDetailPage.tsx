@@ -102,7 +102,7 @@ export default function JobDetailPage() {
           <h2>Scoring</h2>
           <div className="badge-row">
             <FitBadge label="Interest" value={latestScore.interest_fit} />
-            <FitBadge label="Candidate fit" value={latestScore.candidate_fit} />
+            <FitBadge label="Fit" value={latestScore.candidate_fit} />
           </div>
           {latestScore.summary_text && <p>{latestScore.summary_text}</p>}
           {latestScore.rationale_text && (

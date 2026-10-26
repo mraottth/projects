@@ -7,6 +7,7 @@ plain markdown text, since visually matching "the formatting I've used" requires
 not prose describing formatting to an LLM. Falls back to plain-text generation when no usable docx
 template is on file (e.g. only a PDF was ever uploaded), so the feature still works either way."""
 
+import logging
 import re
 from datetime import date
 from pathlib import Path
@@ -24,6 +25,8 @@ from jobhunt.core.llm import DEFAULT_MODEL, get_client, llm_error_boundary, log_
 from jobhunt.core.settings import get_setting
 from jobhunt.db.connection import get_db
 
+logger = logging.getLogger(__name__)
+
 RESUME_STRUCTURED_SYSTEM_PROMPT = """You tailor a job seeker's resume for a specific posting. \
 You'll be given their candidate profile (career-progression summary), the full text of their most \
 recent resume (a structural and length reference -- match its section headings, roughly how many \
@@ -39,7 +42,12 @@ Output structured content matching the reference resume's shape: a name, one con
 list of sections (e.g. "WORK EXPERIENCE", "EDUCATION") each containing a list of lines. Each line \
 is one of: "normal" (a plain line, or one with a bold_part prefix for job/school header lines like \
 "ACME CORP | Senior Engineer" bold + " | Jan 2024 - Present" not bold), "bullet" (one bullet point), \
-or "description" (a one-line company/role blurb, if the reference resume uses those)."""
+or "description" (a one-line company/role blurb, if the reference resume uses those).
+
+For the name field, use the candidate's full name exactly as it appears in the reference resume's \
+own header (e.g. "Matt Roth") -- not a surname-only form like "Roth," which is just how the \
+candidate profile refers to them in its own third-person narrative style and isn't how they'd want \
+to see their own name on their resume."""
 
 RESUME_PLAIN_SYSTEM_PROMPT = """You tailor a job seeker's resume for a specific posting. You'll be \
 given their candidate profile (career-progression summary), their base resume text, and the job \
@@ -49,7 +57,11 @@ Rewrite the resume (markdown) to foreground the experience, skills, and language
 this posting -- reorder/reweight bullet points, tighten or expand descriptions where it helps the \
 match, and mirror the posting's own terminology where it's honestly accurate. Do not fabricate \
 experience, skills, titles, dates, or employers that aren't in the base resume -- tailoring means \
-emphasis and framing, not invention. Keep it to one page's worth of content."""
+emphasis and framing, not invention. Keep it to one page's worth of content.
+
+If you include the candidate's name, use their full name exactly as it appears in the base \
+resume's own header (e.g. "Matt Roth") -- not a surname-only form like "Roth," which is just how \
+the candidate profile refers to them in its own third-person narrative style."""
 
 COVER_LETTER_STRUCTURED_SYSTEM_PROMPT = """You write a cover letter for a job seeker applying to a \
 specific posting. You'll be given their candidate profile (career-progression summary), the job \
@@ -60,7 +72,12 @@ match the template's own structure, e.g. if it opens "To Whom It May Concern:" a
 and closes with "Sincerely," and a signature line as separate paragraphs, do the same). Be concise \
 and specific -- avoid generic enthusiasm ("I'm excited about...") in favor of concrete reasons \
 grounded in their actual background and the posting's specifics. Do not fabricate experience, \
-skills, or achievements not implied by their candidate profile."""
+skills, or achievements not implied by their candidate profile.
+
+If a signature line needs their name, use their actual full/preferred name (e.g. "Matt Roth," \
+using a parenthetical preferred first name if the profile gives one, like "Matt (Matthew) Roth" \
+-> "Matt Roth") -- not a surname-only form like "Roth," which is just how the candidate profile \
+refers to them in its own third-person narrative style."""
 
 COVER_LETTER_PLAIN_SYSTEM_PROMPT = """You write a cover letter for a job seeker applying to a \
 specific posting. You'll be given their candidate profile (career-progression summary) and the job \
@@ -69,7 +86,12 @@ posting.
 Write a concise, specific cover letter (markdown, 250-400 words) that connects their actual \
 background to what this posting is asking for -- avoid generic enthusiasm ("I'm excited about...") \
 in favor of concrete reasons grounded in their experience and the posting's specifics. Do not \
-fabricate experience, skills, or achievements not implied by their candidate profile."""
+fabricate experience, skills, or achievements not implied by their candidate profile.
+
+If a signature line needs their name, use their actual full/preferred name (e.g. "Matt Roth," \
+using a parenthetical preferred first name if the profile gives one, like "Matt (Matthew) Roth" \
+-> "Matt Roth") -- not a surname-only form like "Roth," which is just how the candidate profile \
+refers to them in its own third-person narrative style."""
 
 
 def _job_text(job: dict) -> str:
@@ -177,6 +199,14 @@ def generate_resume(job: dict, candidate_profile: str | None, resume_id: int | N
         file_path = str(output_path)
     except TemplateError:
         file_path = None
+    except Exception:
+        # The docx-writing path manipulates real-world XML in ways that can hit an edge case we
+        # haven't seen yet (a template quirk, an unusual content shape) -- that shouldn't cost the
+        # user the tailored content itself, which is already generated and the far more expensive
+        # part. Fall back to markdown-only, same as a recognized TemplateError, but log it so a
+        # recurring cause is actually diagnosable instead of silently eaten.
+        logger.exception("write_resume_docx failed for an unexpected reason; falling back to text-only")
+        file_path = None
 
     return {
         "content_text": _render_resume_markdown(content),
@@ -250,6 +280,11 @@ def generate_cover_letter(job: dict, candidate_profile: str | None) -> dict:
         write_cover_letter_docx(template_path, content, output_path)
         file_path = str(output_path)
     except TemplateError:
+        file_path = None
+    except Exception:
+        logger.exception(
+            "write_cover_letter_docx failed for an unexpected reason; falling back to text-only"
+        )
         file_path = None
 
     return {"content_text": "\n\n".join(content.paragraphs), "file_path": file_path}

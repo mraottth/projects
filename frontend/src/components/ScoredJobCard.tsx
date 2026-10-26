@@ -172,7 +172,7 @@ export function ScoredJobCard({ job, onDismissed }: { job: ScoredJob; onDismisse
 
       <div className="badge-row">
         <FitBadge label="Interest" value={job.interest_fit} />
-        <FitBadge label="Candidate fit" value={job.candidate_fit} />
+        <FitBadge label="Fit" value={job.candidate_fit} />
         {!job.interest_fit && !job.candidate_fit && <span className="muted small">Not yet scored</span>}
       </div>
 

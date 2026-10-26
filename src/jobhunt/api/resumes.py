@@ -34,7 +34,12 @@ async def upload_resume(
     file: UploadFile = File(...),
     kind: str = Form(...),
     label: str | None = Form(None),
+    is_archived: bool = Form(False),
 ):
+    """By default, an upload becomes the new "current" resume/cover letter for its kind --
+    demoting whatever was current before to Old, so "drag the old one to Old, then upload the new
+    one" and "just upload a replacement" both land in the same state without extra steps. Pass
+    is_archived=true to add straight into Old instead (e.g. the Old section's own upload form)."""
     if kind not in ("resume", "cover_letter"):
         raise HTTPException(400, "kind must be 'resume' or 'cover_letter'")
 
@@ -55,14 +60,63 @@ async def upload_resume(
         raise HTTPException(400, f"could not extract text: {exc}") from exc
 
     with get_db() as conn:
+        if not is_archived:
+            conn.execute(
+                "UPDATE resumes SET is_template = 0, is_archived = 1 WHERE kind = ? AND is_template = 1",
+                (kind,),
+            )
         cursor = conn.execute(
-            """INSERT INTO resumes (kind, label, file_name, file_type, stored_path, raw_text)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            (kind, label, file.filename, suffix.lstrip("."), str(stored_path), raw_text),
+            """INSERT INTO resumes
+               (kind, label, file_name, file_type, stored_path, raw_text, is_archived, is_template)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                kind,
+                label,
+                file.filename,
+                suffix.lstrip("."),
+                str(stored_path),
+                raw_text,
+                int(is_archived),
+                int(not is_archived),
+            ),
         )
         resume_id = cursor.lastrowid
 
     return {"id": resume_id, "file_name": file.filename, "text_length": len(raw_text)}
+
+
+class ResumeUpdateRequest(BaseModel):
+    is_archived: bool | None = None
+    is_template: bool | None = None
+
+
+@router.patch("/{resume_id}")
+def update_resume(resume_id: int, payload: ResumeUpdateRequest):
+    """Moves a document between "current" and "Old". Setting is_template=true promotes it to
+    current for its kind (demoting whatever was current before, same as an upload); setting
+    is_archived=true archives it into Old (a document can't be both current and archived)."""
+    with get_db() as conn:
+        row = conn.execute("SELECT kind FROM resumes WHERE id = ?", (resume_id,)).fetchone()
+        if row is None:
+            raise HTTPException(404, "resume not found")
+
+        if payload.is_template:
+            conn.execute(
+                "UPDATE resumes SET is_template = 0, is_archived = 1 "
+                "WHERE kind = ? AND id != ? AND is_template = 1",
+                (row["kind"], resume_id),
+            )
+            conn.execute(
+                "UPDATE resumes SET is_template = 1, is_archived = 0 WHERE id = ?", (resume_id,)
+            )
+        elif payload.is_archived:
+            conn.execute(
+                "UPDATE resumes SET is_archived = 1, is_template = 0 WHERE id = ?", (resume_id,)
+            )
+        elif payload.is_archived is False:
+            conn.execute("UPDATE resumes SET is_archived = 0 WHERE id = ?", (resume_id,))
+
+    return {"ok": True}
 
 
 @router.delete("/{resume_id}")

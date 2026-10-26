@@ -270,3 +270,57 @@ def test_generate_resume_prefers_is_template_flag_over_recency(tmp_path, monkeyp
     with TestClient(app) as client:
         resp = client.post("/api/generate/resume", json={"job_id": job_id})
         assert resp.json()["based_on_resume_id"] == template_id
+
+
+def test_generate_resume_with_stale_application_id_still_saves_the_document(monkeypatch):
+    # Regression: generated_documents.application_id has a foreign-key constraint. If the frontend
+    # sends an application_id for a job that's since been removed from My Jobs (DELETE
+    # /api/applications/{id}), the INSERT used to raise an unhandled sqlite3.IntegrityError --
+    # the expensive, already-generated content would be thrown away behind a raw 500.
+    job_id = _insert_job()
+    _insert_resume()
+    monkeypatch.setattr(
+        generate, "get_client", lambda: FakeAnthropicClient(create_result=FakeCreateResponse("tailored"))
+    )
+
+    with TestClient(app) as client:
+        nonexistent_application_id = 999999
+        resp = client.post(
+            "/api/generate/resume",
+            json={"job_id": job_id, "application_id": nonexistent_application_id},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["content_text"] == "tailored"
+
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT application_id FROM generated_documents WHERE id = ?", (resp.json()["id"],)
+        ).fetchone()
+    assert row["application_id"] is None
+
+
+def test_all_generated_documents_lists_across_jobs_with_job_info(monkeypatch):
+    job_a = _insert_job()
+    with get_db() as conn:
+        cursor = conn.execute(
+            "INSERT INTO jobs (dedupe_key, title, company, description_text) "
+            "VALUES ('k2', 'Designer', 'Beta', 'Design things')"
+        )
+        job_b = cursor.lastrowid
+
+    _insert_resume()
+    monkeypatch.setattr(
+        generate, "get_client", lambda: FakeAnthropicClient(create_result=FakeCreateResponse("tailored"))
+    )
+
+    with TestClient(app) as client:
+        client.post("/api/generate/resume", json={"job_id": job_a})
+        client.post("/api/generate/cover-letter", json={"job_id": job_b})
+
+        docs = client.get("/api/generate/documents").json()
+        assert len(docs) == 2
+        by_company = {d["job_company"]: d for d in docs}
+        assert by_company["Acme"]["job_title"] == "Engineer"
+        assert by_company["Acme"]["kind"] == "resume"
+        assert by_company["Beta"]["job_title"] == "Designer"
+        assert by_company["Beta"]["kind"] == "cover_letter"

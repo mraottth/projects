@@ -16,4 +16,5 @@ DEFAULT_SETTINGS = {
     "prefilter_locations": [],
     "prefilter_remote_only": False,
     "salary_floor": None,
+    "looking_for_notes": "",
 }

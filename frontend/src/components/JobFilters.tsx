@@ -1,41 +1,42 @@
 import { ScoredJob } from "../api";
 
-export type FitFilter = "all" | "High" | "Med" | "Low";
 export type RecencyFilter = "all" | "1" | "3" | "7" | "30";
 
+const FIT_OPTIONS = ["High", "Med", "Low"];
+
 export interface JobFilterState {
-  interestFilter: FitFilter;
-  candidateFilter: FitFilter;
+  interestFilter: string[];
+  candidateFilter: string[];
   favoritesOnly: boolean;
-  source: string;
+  source: string[];
   minSalary: string;
   recency: RecencyFilter;
-  location: string;
+  location: string[];
   search: string;
 }
 
 export const DEFAULT_JOB_FILTERS: JobFilterState = {
-  interestFilter: "all",
-  candidateFilter: "all",
+  interestFilter: [],
+  candidateFilter: [],
   favoritesOnly: false,
-  source: "all",
+  source: [],
   minSalary: "",
   recency: "all",
-  location: "",
+  location: [],
   search: "",
 };
 
 export function filterJobs(jobs: ScoredJob[], f: JobFilterState): ScoredJob[] {
   const minSalary = f.minSalary.trim() ? Number(f.minSalary) : null;
   const recencyDays = f.recency === "all" ? null : Number(f.recency);
-  const locationQuery = f.location.trim().toLowerCase();
   const searchQuery = f.search.trim().toLowerCase();
 
   return jobs.filter((job) => {
-    if (f.interestFilter !== "all" && job.interest_fit !== f.interestFilter) return false;
-    if (f.candidateFilter !== "all" && job.candidate_fit !== f.candidateFilter) return false;
+    if (f.interestFilter.length > 0 && !f.interestFilter.includes(job.interest_fit ?? "")) return false;
+    if (f.candidateFilter.length > 0 && !f.candidateFilter.includes(job.candidate_fit ?? "")) return false;
     if (f.favoritesOnly && !job.is_favorite) return false;
-    if (f.source !== "all" && (job.source_name ?? "Unknown source") !== f.source) return false;
+    if (f.source.length > 0 && !f.source.includes(job.source_name ?? "Unknown source")) return false;
+    if (f.location.length > 0 && !f.location.includes(job.location ?? "Unknown location")) return false;
 
     if (minSalary !== null) {
       const jobSalary = job.salary_max ?? job.salary_min;
@@ -48,8 +49,6 @@ export function filterJobs(jobs: ScoredJob[], f: JobFilterState): ScoredJob[] {
       const days = (Date.now() - new Date(dateStr).getTime()) / 86_400_000;
       if (days > recencyDays) return false;
     }
-
-    if (locationQuery && !(job.location ?? "").toLowerCase().includes(locationQuery)) return false;
 
     if (searchQuery) {
       const haystack = [job.title, job.company, job.location, job.summary_text, job.description_text]
@@ -65,15 +64,47 @@ export function filterJobs(jobs: ScoredJob[], f: JobFilterState): ScoredJob[] {
 
 function countActive(f: JobFilterState): number {
   let n = 0;
-  if (f.interestFilter !== "all") n++;
-  if (f.candidateFilter !== "all") n++;
+  if (f.interestFilter.length) n++;
+  if (f.candidateFilter.length) n++;
   if (f.favoritesOnly) n++;
-  if (f.source !== "all") n++;
+  if (f.source.length) n++;
   if (f.minSalary.trim()) n++;
   if (f.recency !== "all") n++;
-  if (f.location.trim()) n++;
+  if (f.location.length) n++;
   if (f.search.trim()) n++;
   return n;
+}
+
+function MultiSelectGroup({
+  label,
+  options,
+  selected,
+  onChange,
+}: {
+  label: string;
+  options: string[];
+  selected: string[];
+  onChange: (values: string[]) => void;
+}) {
+  if (options.length === 0) return null;
+
+  const toggle = (value: string) => {
+    onChange(selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value]);
+  };
+
+  return (
+    <div className="fsection">
+      <span className="flabel">{label}</span>
+      <div className="multiselect-options">
+        {options.map((opt) => (
+          <label key={opt} className="multiselect-option">
+            <input type="checkbox" checked={selected.includes(opt)} onChange={() => toggle(opt)} />
+            <span>{opt}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export function JobFilterBar({
@@ -87,6 +118,9 @@ export function JobFilterBar({
 }) {
   const sources = Array.from(
     new Set(jobs.map((j) => j.source_name).filter((s): s is string => !!s)),
+  ).sort();
+  const locations = Array.from(
+    new Set(jobs.map((j) => j.location).filter((l): l is string => !!l)),
   ).sort();
 
   const set = <K extends keyof JobFilterState>(key: K, value: JobFilterState[K]) =>
@@ -115,45 +149,26 @@ export function JobFilterBar({
         />
       </div>
 
-      <div className="fsection">
-        <span className="flabel">Interest fit</span>
-        <select
-          value={filters.interestFilter}
-          onChange={(e) => set("interestFilter", e.target.value as FitFilter)}
-          style={{ width: "100%" }}
-        >
-          <option value="all">All</option>
-          <option value="High">High</option>
-          <option value="Med">Med</option>
-          <option value="Low">Low</option>
-        </select>
-      </div>
+      <MultiSelectGroup
+        label="Interest fit"
+        options={FIT_OPTIONS}
+        selected={filters.interestFilter}
+        onChange={(v) => set("interestFilter", v)}
+      />
 
-      <div className="fsection">
-        <span className="flabel">Candidate fit</span>
-        <select
-          value={filters.candidateFilter}
-          onChange={(e) => set("candidateFilter", e.target.value as FitFilter)}
-          style={{ width: "100%" }}
-        >
-          <option value="all">All</option>
-          <option value="High">High</option>
-          <option value="Med">Med</option>
-          <option value="Low">Low</option>
-        </select>
-      </div>
+      <MultiSelectGroup
+        label="Fit"
+        options={FIT_OPTIONS}
+        selected={filters.candidateFilter}
+        onChange={(v) => set("candidateFilter", v)}
+      />
 
-      <div className="fsection">
-        <span className="flabel">Source</span>
-        <select value={filters.source} onChange={(e) => set("source", e.target.value)} style={{ width: "100%" }}>
-          <option value="all">All</option>
-          {sources.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
-      </div>
+      <MultiSelectGroup
+        label="Source"
+        options={sources}
+        selected={filters.source}
+        onChange={(v) => set("source", v)}
+      />
 
       <div className="fsection">
         <span className="flabel">Posted</span>
@@ -170,15 +185,12 @@ export function JobFilterBar({
         </select>
       </div>
 
-      <div className="fsection">
-        <span className="flabel">Location</span>
-        <input
-          placeholder="e.g. Remote, NYC"
-          value={filters.location}
-          onChange={(e) => set("location", e.target.value)}
-          style={{ width: "100%" }}
-        />
-      </div>
+      <MultiSelectGroup
+        label="Location"
+        options={locations}
+        selected={filters.location}
+        onChange={(v) => set("location", v)}
+      />
 
       <div className="fsection">
         <span className="flabel">Minimum salary</span>

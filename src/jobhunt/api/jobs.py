@@ -168,6 +168,7 @@ def confirm_job(job_id: int):
             get_setting("prefilter_sectors", []),
             get_setting("prefilter_titles_include", []),
             get_setting("salary_floor", None),
+            get_setting("looking_for_notes", ""),
         )
     except LLMError as exc:
         raise HTTPException(502, str(exc)) from exc

@@ -228,6 +228,7 @@ def run_daily() -> dict:
     desired_sectors = settings_module.get_setting("prefilter_sectors", [])
     desired_titles = settings_module.get_setting("prefilter_titles_include", [])
     salary_floor = settings_module.get_setting("salary_floor", None)
+    looking_for_notes = settings_module.get_setting("looking_for_notes", "")
 
     scored_count = 0
     scoring_errors = []
@@ -239,7 +240,13 @@ def run_daily() -> dict:
         job = _backfill_description(dict(row))
         try:
             score = score_job(
-                job, candidate_profile, preference_profile, desired_sectors, desired_titles, salary_floor
+                job,
+                candidate_profile,
+                preference_profile,
+                desired_sectors,
+                desired_titles,
+                salary_floor,
+                looking_for_notes,
             )
         except LLMError as exc:
             scoring_errors.append(f"job {job_id}: {exc}")

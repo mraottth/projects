@@ -328,6 +328,72 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   real uploaded `.docx` templates (no API credentials needed) rather than guessing from the error
   text alone -- confirmed the docx-writing code itself was fine for the normal/overflow/underflow
   paragraph-count cases; the bug was entirely in exception handling upstream.
+- Two more generation hardening passes, found by continuing to chase "Internal Server Error" past
+  the ValidationError fix above: (1) `write_resume_docx()`/`write_cover_letter_docx()` calls in
+  `core/generate.py` now catch `Exception` broadly (logged via `logging`, not silently swallowed),
+  not just `TemplateError` -- a real docx's XML can hit an edge case the synthetic test fixtures
+  don't, and that shouldn't throw away content that was already expensively generated; falls back
+  to markdown-only, same as a recognized `TemplateError`. (2) `api/generate.py`'s post-generation
+  `INSERT INTO generated_documents` had **no** exception handling at all -- a stale
+  `application_id` (e.g. the job was removed from My Jobs between the frontend loading its state
+  and the user clicking Generate -- very plausible right after the DELETE-application feature
+  shipped) hits the FK constraint and raised an unhandled `sqlite3.IntegrityError`. Now a shared
+  `_save_generated_document()` helper drops a stale `application_id` before the insert
+  (`_resolve_application_id`) rather than letting it fail, and catches `sqlite3.Error` generally
+  around the write, returning an actual error instead of a bare 500.
+- `core/digest.py`'s `rank` column only gets recomputed when a *new* job is added to that date's
+  digest (`add_to_digest()` re-sorts and rewrites rank for every row currently in the table) -- a
+  feedback mark or anything else that should change what's excluded/reordered doesn't trigger that,
+  so the stored rank can silently go stale (caught live: real digest entries ranked 1/3/7/10 by
+  insertion history, completely out of score order). Fixed by extracting the sort key into
+  `_rank_key()` and having `get_digest()` sort its results with it live, rather than trusting
+  `ORDER BY de.rank` -- the stored rank is now informational/historical only, never the source of
+  truth for display order.
+- `core/generate.py`'s resume/cover-letter prompts now explicitly say to use the candidate's real
+  name (e.g. "Matt Roth") when one is needed in the output, not a surname-only form like "Roth" --
+  the candidate profile is written in third-person journalistic style (surname after first mention,
+  per its own system prompt), and without this instruction the generation prompts had no other
+  source for "what does this person want to be called," so they picked up the profile's surname-
+  only style by default.
+- `settings.looking_for_notes` (Profile page, "What are you looking for?" card) is a free-text
+  field -- a few sentences in the user's own words, fed into both `core/discovery.py`'s
+  `_profile_text()` (company/board discovery) and `core/scoring.py`'s prompt (job scoring), told to
+  weigh it heavily and let it override a generic reading of the structured fields when the two
+  conflict, since it's the most direct signal available, not a forced-choice structured field.
+- `api/resumes.py` now treats `is_template` as the single source of truth for "current" (one per
+  kind: resume, cover letter) -- `ProfilePage`'s `ResumesSection` is three pieces instead of one
+  flat upload-plus-list: `CurrentDocCard` (one per kind), and `OldDocsSection` (collapsed by
+  default, showing just a count, holding everything that isn't the current doc for its kind).
+  Uploading a new file always becomes the new current for its kind, auto-demoting whatever was
+  current before (`is_template = 0, is_archived = 1`) -- both "drag the old one to Old, then upload
+  the new one" and "just upload a replacement" land in the same state. `PATCH /api/resumes/{id}`
+  promotes (`is_template: true`, demoting any other current of the same kind) or archives
+  (`is_archived: true`, which also clears `is_template`, since a doc can't be both). Native HTML5
+  drag-and-drop (`draggable` on `CurrentDocCard`'s doc, `onDragOver`/`onDrop` on `OldDocsSection`'s
+  card) moves a current file to Old by dragging; promoting the other direction is a button
+  ("make current") in the expanded Old list rather than a second drop zone, since that's simpler
+  and just as discoverable once the user has expanded it. This user's existing real data had a
+  `is_template` cover letter already but no `is_template` resume (the old fallback logic picked
+  "most recent" implicitly, never persisted it) -- fixed with a one-time direct DB update promoting
+  the same resume the old fallback would have picked, so "Current resume" wasn't empty on first
+  load of the new UI.
+- `GET /api/generate/documents` (`api/generate.py`) lists every generated resume/cover letter
+  across all jobs, joined with the job's title/company -- backs the Profile page's "Generated
+  documents" section, which links each one back to the posting it was written for. Distinct from
+  the existing `GET /api/generate/history?job_id=` (one job's docs, used by `JobDetailPage`).
+- Job-list filters (`components/JobFilters.tsx`) are multi-select for Interest fit, Fit (née
+  "Candidate fit" -- renamed in the UI only; the underlying `candidate_fit`/`candidate_fit_score`
+  fields are unchanged), Source, and Location -- each a `MultiSelectGroup` (checkboxes, not a native
+  `<select multiple>`, which needs ctrl/cmd-click and isn't discoverable). `filterJobs()` changed
+  from equality checks to `.includes()` against the selected array; an empty array means "no
+  filter," matching the previous "all" sentinel's behavior. Location switched from a free-text
+  substring match to an exact multi-select over the distinct values present in the loaded jobs,
+  same derivation pattern already used for Source.
+- `MyJobsPage`'s table now wraps (`white-space: normal; word-break: break-word`) instead of forcing
+  `nowrap` + horizontal scroll -- preferred explicitly over scrolling. The filter sidebar's `.card`
+  padding and `.fsection` spacing are tightened specifically within `.filters` (not the global
+  `.fsection`/`.card` rules, which are shared by every other form in the app) to cut the vertical
+  padding that made the sidebar feel sparse.
 
 ## Working conventions
 

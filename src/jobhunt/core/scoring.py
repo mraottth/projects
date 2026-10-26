@@ -10,7 +10,13 @@ SYSTEM_PROMPT = """You are helping a job seeker triage incoming postings. You wi
 candidate profile (career history/competencies/interests), their current preference profile (what \
 they tend to respond to, learned from past feedback and application outcomes -- may be empty if they're \
 just getting started), their desired sectors/industries, their desired job titles, their minimum \
-salary, a few of their most recent raw feedback marks, and one job posting.
+salary, a free-text note in their own words about what they're looking for, a few of their most \
+recent raw feedback marks, and one job posting.
+
+The free-text note is the most direct signal you have -- it's the candidate describing what they \
+want in their own words, not a structured field that forces them into a category. Weigh it heavily \
+alongside the structured fields, and let it override a generic reading of the structured fields \
+when the two seem to pull in different directions.
 
 Desired titles and minimum salary are GUIDANCE, not a filter -- do not require a literal title match. \
 If they said "Analytics Director," a posting titled "VP of Analytics," "Director of Data," or "Head \
@@ -72,6 +78,7 @@ def score_job(
     desired_sectors: list[str] | None = None,
     desired_titles: list[str] | None = None,
     salary_floor: float | None = None,
+    looking_for_notes: str | None = None,
 ) -> JobScore:
     posting_text = (
         f"Title: {job['title']}\nCompany: {job['company']}\nLocation: {job.get('location') or 'unknown'}\n"
@@ -83,6 +90,7 @@ def score_job(
     sectors_text = ", ".join(desired_sectors) if desired_sectors else "(not specified)"
     titles_text = ", ".join(desired_titles) if desired_titles else "(not specified)"
     salary_text = f"{salary_floor:,.0f}" if salary_floor else "(not specified)"
+    notes_text = looking_for_notes or "(not specified)"
 
     user_content = (
         f"## Candidate profile\n{candidate_profile or '(not yet built)'}\n\n"
@@ -90,6 +98,7 @@ def score_job(
         f"## Desired sectors/industries\n{sectors_text}\n\n"
         f"## Desired job titles (guidance, not a required exact match)\n{titles_text}\n\n"
         f"## Minimum salary (guidance, not a hard cutoff)\n{salary_text}\n\n"
+        f"## In their own words, what they're looking for\n{notes_text}\n\n"
         f"## Recent feedback\n{_recent_feedback_text()}\n\n"
         f"## Job posting to score\n{posting_text}"
     )

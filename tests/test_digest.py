@@ -134,3 +134,33 @@ def test_favorite_still_ranks_above_everything_else():
 
     titles = [e["title"] for e in digest.get_digest("2026-01-01")]
     assert titles == ["Low Score Favorite", "High Score Non-Favorite"]
+
+
+def test_get_digest_sorts_live_even_if_stored_rank_is_stale():
+    # Regression: digest_entries.rank is only recomputed when a *new* job gets added to that
+    # date's digest -- scoring/feedback changes that happen afterward don't trigger a re-rank, so
+    # a stale stored rank used to silently win over the current scores. get_digest() must sort
+    # live, not trust `rank`.
+    job_a = _insert_job("Low Score", posted_at=_days_ago(1))
+    job_b = _insert_job("High Score", posted_at=_days_ago(1))
+    _score_job(job_a, 20, 20)
+    _score_job(job_b, 90, 90)
+
+    digest.add_to_digest(job_a, "2026-01-01")
+    digest.add_to_digest(job_b, "2026-01-01")
+    # Correct immediately after insertion.
+    assert [e["title"] for e in digest.get_digest("2026-01-01")] == ["High Score", "Low Score"]
+
+    # Simulate a stale rank -- as if these rows were written before scores were what they are now,
+    # and no new job has been added since to trigger a recompute.
+    with get_db() as conn:
+        conn.execute(
+            "UPDATE digest_entries SET rank = 1 WHERE digest_date = '2026-01-01' AND job_id = ?",
+            (job_a,),
+        )
+        conn.execute(
+            "UPDATE digest_entries SET rank = 2 WHERE digest_date = '2026-01-01' AND job_id = ?",
+            (job_b,),
+        )
+
+    assert [e["title"] for e in digest.get_digest("2026-01-01")] == ["High Score", "Low Score"]

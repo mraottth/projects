@@ -32,12 +32,25 @@ def today_str() -> str:
     return date.today().isoformat()
 
 
+def _rank_key(row) -> tuple:
+    """Shared sort key: favorite first (unconditional -- "favorite" means "always show me this,"
+    not "weight it a bit higher"), then interest+candidate fit score, then how recently it was
+    posted, then salary. Used both to persist `digest_entries.rank` (informational/historical) and,
+    more importantly, to sort get_digest()'s results live -- the stored rank only gets recomputed
+    when a *new* job is added to that date's digest, so trusting it alone goes stale the moment a
+    feedback mark or anything else changes what should be excluded/reordered without a new insert."""
+    return (
+        row["is_favorite"],
+        (row["interest_score"] or 0) + (row["candidate_fit_score"] or 0),
+        row["posted_at"] or row["first_seen_at"] or "",
+        row["salary_max"] or row["salary_min"] or 0,
+    )
+
+
 def add_to_digest(job_id: int, digest_date: str | None = None) -> None:
     """Insert job_id into the given day's digest (default today) and re-rank that day. A posting
     older than MAX_AGE_DAYS (and not of unknown age) never enters the digest at all -- "new and
-    noteworthy" means new. Default rank order: interest+candidate fit score, then how recently it
-    was posted, then salary -- favorites always rank above all of that, "favorite" meaning "always
-    show me this," not "weight it a bit higher"."""
+    noteworthy" means new."""
     digest_date = digest_date or today_str()
     with get_db() as conn:
         is_recent = conn.execute(
@@ -61,16 +74,7 @@ def add_to_digest(job_id: int, digest_date: str | None = None) -> None:
                WHERE de.digest_date = ?""",
             (digest_date,),
         ).fetchall()
-        ranked = sorted(
-            rows,
-            key=lambda r: (
-                r["is_favorite"],
-                (r["interest_score"] or 0) + (r["candidate_fit_score"] or 0),
-                r["posted_at"] or r["first_seen_at"] or "",
-                r["salary_max"] or r["salary_min"] or 0,
-            ),
-            reverse=True,
-        )
+        ranked = sorted(rows, key=_rank_key, reverse=True)
         conn.executemany(
             "UPDATE digest_entries SET rank = ? WHERE digest_date = ? AND job_id = ?",
             [(i + 1, digest_date, r["job_id"]) for i, r in enumerate(ranked)],
@@ -88,11 +92,11 @@ def get_digest(digest_date: str) -> list[dict]:
                    SELECT id FROM job_scores WHERE job_id = de.job_id ORDER BY id DESC LIMIT 1
                )
                LEFT JOIN sources s ON s.id = j.source_id
-               WHERE de.digest_date = ? AND {NOT_DISMISSED_SQL} AND {RECENT_OR_UNKNOWN_SQL}
-               ORDER BY de.rank""",
+               WHERE de.digest_date = ? AND {NOT_DISMISSED_SQL} AND {RECENT_OR_UNKNOWN_SQL}""",
             (digest_date,),
         ).fetchall()
-    return [dict(row) for row in rows]
+    # Sort live rather than trusting the stored `rank` column -- see _rank_key's docstring.
+    return [dict(row) for row in sorted(rows, key=_rank_key, reverse=True)]
 
 
 def get_digest_dates() -> list[str]:

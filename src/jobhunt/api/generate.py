@@ -1,3 +1,5 @@
+import sqlite3
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ValidationError
 
@@ -30,6 +32,51 @@ def _link_to_application(application_id: int | None, column: str, doc_id: int) -
         conn.execute(f"UPDATE applications SET {column} = ? WHERE id = ?", (doc_id, application_id))
 
 
+def _resolve_application_id(application_id: int | None) -> int | None:
+    """Drop a stale application_id rather than letting the INSERT below hit the foreign-key
+    constraint -- e.g. the job was removed from My Jobs (DELETE /api/applications/{id}) between
+    the frontend loading its state and the user clicking Generate. The document itself (the
+    expensive part) is still saved either way, just without a tracker link."""
+    if application_id is None:
+        return None
+    with get_db() as conn:
+        row = conn.execute("SELECT 1 FROM applications WHERE id = ?", (application_id,)).fetchone()
+    return application_id if row is not None else None
+
+
+def _save_generated_document(kind: str, payload: GenerateRequest, result: dict) -> int:
+    application_id = _resolve_application_id(payload.application_id)
+    try:
+        with get_db() as conn:
+            if kind == "resume":
+                cursor = conn.execute(
+                    """INSERT INTO generated_documents
+                       (job_id, application_id, kind, based_on_resume_id, content_text, file_path)
+                       VALUES (?, ?, 'resume', ?, ?, ?)""",
+                    (
+                        payload.job_id,
+                        application_id,
+                        result["based_on_resume_id"],
+                        result["content_text"],
+                        result["file_path"],
+                    ),
+                )
+            else:
+                cursor = conn.execute(
+                    """INSERT INTO generated_documents (job_id, application_id, kind, content_text, file_path)
+                       VALUES (?, ?, 'cover_letter', ?, ?)""",
+                    (payload.job_id, application_id, result["content_text"], result["file_path"]),
+                )
+            doc_id = cursor.lastrowid
+    except sqlite3.Error as exc:
+        # The content itself was already generated successfully at this point -- this is purely a
+        # bookkeeping failure, but it must not surface as a bare, undiagnosable 500.
+        raise HTTPException(500, f"generated the document but failed to save it: {exc}") from exc
+    column = "resume_doc_id" if kind == "resume" else "cover_letter_doc_id"
+    _link_to_application(application_id, column, doc_id)
+    return doc_id
+
+
 @router.post("/resume")
 def generate_resume_route(payload: GenerateRequest):
     job = _get_job(payload.job_id)
@@ -48,22 +95,7 @@ def generate_resume_route(payload: GenerateRequest):
     except LLMError as exc:
         raise HTTPException(502, str(exc)) from exc
 
-    with get_db() as conn:
-        cursor = conn.execute(
-            """INSERT INTO generated_documents
-               (job_id, application_id, kind, based_on_resume_id, content_text, file_path)
-               VALUES (?, ?, 'resume', ?, ?, ?)""",
-            (
-                payload.job_id,
-                payload.application_id,
-                result["based_on_resume_id"],
-                result["content_text"],
-                result["file_path"],
-            ),
-        )
-        doc_id = cursor.lastrowid
-    _link_to_application(payload.application_id, "resume_doc_id", doc_id)
-
+    doc_id = _save_generated_document("resume", payload, result)
     return {"id": doc_id, **result}
 
 
@@ -80,15 +112,7 @@ def generate_cover_letter_route(payload: GenerateRequest):
     except LLMError as exc:
         raise HTTPException(502, str(exc)) from exc
 
-    with get_db() as conn:
-        cursor = conn.execute(
-            """INSERT INTO generated_documents (job_id, application_id, kind, content_text, file_path)
-               VALUES (?, ?, 'cover_letter', ?, ?)""",
-            (payload.job_id, payload.application_id, result["content_text"], result["file_path"]),
-        )
-        doc_id = cursor.lastrowid
-    _link_to_application(payload.application_id, "cover_letter_doc_id", doc_id)
-
+    doc_id = _save_generated_document("cover_letter", payload, result)
     return {"id": doc_id, **result}
 
 
@@ -97,5 +121,18 @@ def generation_history(job_id: int):
     with get_db() as conn:
         rows = conn.execute(
             "SELECT * FROM generated_documents WHERE job_id = ? ORDER BY created_at DESC", (job_id,)
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+@router.get("/documents")
+def all_generated_documents():
+    """Every resume/cover letter ever generated, across all jobs -- backs the Profile page's
+    Generated Documents section, which links each one back to the posting it was written for."""
+    with get_db() as conn:
+        rows = conn.execute(
+            """SELECT gd.*, j.title AS job_title, j.company AS job_company
+               FROM generated_documents gd JOIN jobs j ON j.id = gd.job_id
+               ORDER BY gd.created_at DESC"""
         ).fetchall()
     return [dict(r) for r in rows]

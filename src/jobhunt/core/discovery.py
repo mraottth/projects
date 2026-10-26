@@ -68,12 +68,14 @@ def _profile_text(candidate_profile: str | None, settings: dict) -> str:
     locations = ", ".join(settings.get("prefilter_locations", [])) or "(not specified)"
     remote_only = settings.get("prefilter_remote_only", False)
     salary_floor = settings.get("salary_floor")
+    notes = settings.get("looking_for_notes") or "(not specified)"
     return (
         f"## Candidate profile\n{candidate_profile or '(not available)'}\n\n"
         f"## Desired titles\n{titles}\n\n"
         f"## Desired sectors/industries\n{sectors}\n\n"
         f"## Desired locations\n{locations}{' (remote only)' if remote_only else ''}\n\n"
-        f"## Minimum salary\n{salary_floor if salary_floor else '(not specified)'}"
+        f"## Minimum salary\n{salary_floor if salary_floor else '(not specified)'}\n\n"
+        f"## In their own words, what they're looking for\n{notes}"
     )
 
 
