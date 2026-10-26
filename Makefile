@@ -1,7 +1,7 @@
 export PYTHONPATH := src
 PY := uv run python -m
 
-.PHONY: serve dev frontend test docker deploy
+.PHONY: serve dev frontend test ingest-resumes docker deploy anthropic-secret scheduler-secret scheduler-setup
 
 serve:        ## API (serves frontend/dist if built) on http://localhost:8000
 	uv run uvicorn jobhunt.api.main:app --reload --port 8000
@@ -27,8 +27,9 @@ GCP_PROJECT ?= $(error set GCP_PROJECT in .deploy.local.mk or on the command lin
 GCP_REGION  ?= us-central1
 IMAGE        = $(GCP_REGION)-docker.pkg.dev/$(GCP_PROJECT)/jobhunt/app
 
-deploy:       ## build the image in Cloud Build and deploy to Cloud Run (private; IAP added separately, see README)
-	cd frontend && npm install && npm run build
+# The frontend is built inside the Dockerfile's node stage -- no separate local build step needed
+# before `gcloud builds submit`.
+deploy:       ## build the image in Cloud Build and deploy to Cloud Run (private; IAP setup is a one-time manual step -- see README)
 	gcloud builds submit --project $(GCP_PROJECT) --region $(GCP_REGION) --tag $(IMAGE) .
 	gcloud run deploy jobhunt --project $(GCP_PROJECT) --region $(GCP_REGION) --image $(IMAGE) \
 	  --memory 1Gi --cpu 1 --max-instances 1 --no-allow-unauthenticated \
