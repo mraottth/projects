@@ -75,7 +75,41 @@ function countActive(f: JobFilterState): number {
   return n;
 }
 
-function MultiSelectGroup({
+function ChipMultiSelect({
+  label,
+  options,
+  selected,
+  onChange,
+}: {
+  label: string;
+  options: string[];
+  selected: string[];
+  onChange: (values: string[]) => void;
+}) {
+  const toggle = (value: string) => {
+    onChange(selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value]);
+  };
+
+  return (
+    <div className="fsection">
+      <span className="flabel">{label}</span>
+      <div className="chip-toggle-group">
+        {options.map((opt) => (
+          <button
+            key={opt}
+            type="button"
+            className={`chip-toggle${selected.includes(opt) ? " on" : ""}`}
+            onClick={() => toggle(opt)}
+          >
+            {opt}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DropdownMultiSelect({
   label,
   options,
   selected,
@@ -92,17 +126,23 @@ function MultiSelectGroup({
     onChange(selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value]);
   };
 
+  const summary =
+    selected.length === 0 ? "All" : selected.length === 1 ? selected[0] : `${selected.length} selected`;
+
   return (
     <div className="fsection">
       <span className="flabel">{label}</span>
-      <div className="multiselect-options">
-        {options.map((opt) => (
-          <label key={opt} className="multiselect-option">
-            <input type="checkbox" checked={selected.includes(opt)} onChange={() => toggle(opt)} />
-            <span>{opt}</span>
-          </label>
-        ))}
-      </div>
+      <details className="ms-dropdown">
+        <summary>{summary}</summary>
+        <div className="ms-dropdown-options">
+          {options.map((opt) => (
+            <label key={opt} className="multiselect-option">
+              <input type="checkbox" checked={selected.includes(opt)} onChange={() => toggle(opt)} />
+              <span>{opt}</span>
+            </label>
+          ))}
+        </div>
+      </details>
     </div>
   );
 }
@@ -149,21 +189,21 @@ export function JobFilterBar({
         />
       </div>
 
-      <MultiSelectGroup
+      <ChipMultiSelect
         label="Interest fit"
         options={FIT_OPTIONS}
         selected={filters.interestFilter}
         onChange={(v) => set("interestFilter", v)}
       />
 
-      <MultiSelectGroup
+      <ChipMultiSelect
         label="Fit"
         options={FIT_OPTIONS}
         selected={filters.candidateFilter}
         onChange={(v) => set("candidateFilter", v)}
       />
 
-      <MultiSelectGroup
+      <DropdownMultiSelect
         label="Source"
         options={sources}
         selected={filters.source}
@@ -185,7 +225,7 @@ export function JobFilterBar({
         </select>
       </div>
 
-      <MultiSelectGroup
+      <DropdownMultiSelect
         label="Location"
         options={locations}
         selected={filters.location}

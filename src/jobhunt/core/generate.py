@@ -117,11 +117,19 @@ def _pick_resume(kind: str, resume_id: int | None) -> dict | None:
 
 
 def _usable_template_path(resume: dict) -> Path | None:
-    source_path = resume.get("source_path")
-    if not source_path or resume.get("file_type") != "docx":
+    """`stored_path` is NOT NULL for every resume regardless of how it got here (bulk-ingested or
+    uploaded through the web UI); `source_path` is populated only for bulk-ingested ones (the
+    original file's location, before `core/ingest_resumes.py` copied it into storage). Checking
+    `source_path` alone used to mean every web-uploaded "current" resume/cover letter silently
+    fell back to plain-text generation -- a perfectly good .docx sitting right there in
+    `stored_path` just wasn't being looked at."""
+    if resume.get("file_type") != "docx":
         return None
-    path = Path(source_path)
-    return path if path.exists() else None
+    for key in ("stored_path", "source_path"):
+        candidate = resume.get(key)
+        if candidate and Path(candidate).exists():
+            return Path(candidate)
+    return None
 
 
 def _output_dir() -> Path:

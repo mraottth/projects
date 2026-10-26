@@ -415,6 +415,26 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   (SourceCard, FavoritesSection, ResumesPage, the rest of My Jobs) stays confirmation-free; don't
   assume removing it elsewhere needs the same treatment, and don't add confirmation to those other
   actions without being asked.
+- `core/generate.py`'s `_usable_template_path()` used to check only `resume.source_path`, which is
+  populated solely for bulk-ingested resumes (`core/ingest_resumes.py`, the CLI import from a local
+  folder) -- `stored_path` is the column that's actually `NOT NULL` for every resume regardless of
+  how it got here, including anything uploaded through the web UI's "Current resume"/"Current cover
+  letter" cards. A document uploaded that way silently fell back to plain-text generation (no
+  `.docx` on disk from the API's point of view) even with a perfectly good Word file sitting right
+  there in `stored_path` -- which is also why downloads of those came back as `.md`: the download
+  endpoint was behaving correctly, `file_path` on the `generated_documents` row was just never set
+  in the first place. Now checks `stored_path` first, falling back to `source_path`.
+- Job-list filters: Interest fit and Fit render as horizontal clickable chip toggles
+  (`ChipMultiSelect`, `.chip-toggle-group`/`.chip-toggle`, active state styled like the existing
+  `.seg button.on` segmented control but as independent pills rather than a joined strip, since
+  multiple can be on at once) rather than a vertical checkbox list. Source and Location render as
+  a closed-by-default dropdown (`DropdownMultiSelect`) using a native `<details>`/`<summary>` --
+  deliberately not a `position: absolute` floating panel, which would get clipped by `.list-side`'s
+  own `overflow-y: auto` (an absolutely-positioned descendant is clipped by any ancestor that sets
+  overflow to something other than visible); `<details>` instead expands inline, pushing later
+  filter sections down, with zero positioning math and no click-outside-to-close logic needed. Same
+  pattern Shelf Life's own filter sidebar already uses for its mobile collapse, so it's consistent
+  with the house style this app follows, not a one-off.
 
 ## Working conventions
 

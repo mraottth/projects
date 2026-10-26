@@ -165,6 +165,35 @@ def test_generate_resume_uses_docx_template_when_available(tmp_path, monkeypatch
     assert "OLD NAME" not in " ".join(p.text for p in doc.paragraphs)
 
 
+def test_generate_resume_uses_docx_template_from_web_upload_with_no_source_path(tmp_path, monkeypatch):
+    # Regression: _usable_template_path() used to check only source_path, which is populated for
+    # bulk-ingested resumes but is NULL for anything uploaded through the web UI (stored_path is
+    # the one column always set, regardless of upload path) -- a web-uploaded "current" resume
+    # silently fell back to plain-text generation even with a perfectly good .docx on disk.
+    job_id = _insert_job()
+    docx_path = tmp_path / "web_uploaded.docx"
+    _make_resume_docx(docx_path)
+    with get_db() as conn:
+        cursor = conn.execute(
+            """INSERT INTO resumes (kind, file_name, file_type, stored_path, raw_text, is_template)
+               VALUES ('resume', ?, 'docx', ?, 'reference text', 1)""",
+            (docx_path.name, str(docx_path)),
+        )
+        resume_id = cursor.lastrowid
+
+    new_content = ResumeContent(name="Web Upload Test", contact_line="x@example.com", sections=[])
+    monkeypatch.setattr(
+        generate, "get_client", lambda: FakeAnthropicClient(parse_result=FakeParseResponse(new_content))
+    )
+    monkeypatch.setattr(generate, "_output_dir", lambda: tmp_path / "out")
+
+    with TestClient(app) as client:
+        resp = client.post("/api/generate/resume", json={"job_id": job_id, "resume_id": resume_id})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["file_path"] is not None, "should have used the docx template, not fallen back to text"
+
+
 def test_generate_resume_falls_back_to_plain_text_when_only_pdf_on_file(monkeypatch):
     # A resume with no usable .docx (e.g. only ever uploaded as a PDF) still works, just without
     # a saved file.
