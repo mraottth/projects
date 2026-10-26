@@ -201,7 +201,7 @@ function DesiredRoleSection() {
       <h2>What are you looking for?</h2>
       <p className="muted small">
         This drives both scoring (jobs that don't match get down-weighted) and company/job-board
-        discovery on the My Sources page.
+        discovery on the Manage Sources page.
       </p>
 
       <div className="fsection">
@@ -264,7 +264,7 @@ export default function ProfilePage() {
       <h1>Profile</h1>
       <p className="muted" style={{ marginBottom: "18px" }}>
         Who you are and what you're looking for — drives scoring and generation. Company/job-board
-        discovery lives on the My Sources page.
+        discovery lives on the Manage Sources page.
       </p>
       <ResumesSection />
       <DesiredRoleSection />

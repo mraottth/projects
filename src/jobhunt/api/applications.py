@@ -36,7 +36,18 @@ def list_applications():
                FROM applications a JOIN jobs j ON j.id = a.job_id
                ORDER BY a.updated_at DESC"""
         ).fetchall()
-    return [dict(row) for row in rows]
+        history_rows = conn.execute(
+            "SELECT * FROM application_status_history ORDER BY changed_at"
+        ).fetchall()
+
+    history_by_app: dict[int, list[dict]] = {}
+    for h in history_rows:
+        history_by_app.setdefault(h["application_id"], []).append(dict(h))
+
+    apps = [dict(row) for row in rows]
+    for app in apps:
+        app["history"] = history_by_app.get(app["id"], [])
+    return apps
 
 
 @router.post("")

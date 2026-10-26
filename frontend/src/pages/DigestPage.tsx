@@ -15,13 +15,13 @@ export default function DigestPage() {
 
   return (
     <div>
-      <h1>Today's digest</h1>
+      <h1>New &amp; Noteworthy</h1>
       <p className="muted" style={{ marginBottom: "18px" }}>
-        New and noteworthy — the best of what showed up today. For everything your tracked
-        sources have turned up, see My Sources.
+        The best of what showed up today. For everything your tracked sources have turned up, see
+        All Jobs.
       </p>
 
-      {entries.length === 0 && <p className="empty-state">Nothing in today's digest yet.</p>}
+      {entries.length === 0 && <p className="empty-state">Nothing new and noteworthy yet.</p>}
 
       {entries.length > 0 && <JobFilterBar jobs={entries} filters={filters} onChange={setFilters} />}
 

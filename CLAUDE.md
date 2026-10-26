@@ -158,21 +158,30 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   `index.css`), used in place of plain "...ing" button text for any action that calls Claude
   (profile rebuild, company discovery, resume/cover-letter generation, job scoring, favorite
   resolution) or otherwise takes noticeable time (test-fetch, run-daily-now).
-- **Page split** (Digest / My Sources / My Jobs), each with one job: `DigestPage` is "new and
-  noteworthy" -- today's capped, LLM-scored digest only. `SourcesPage` ("My Sources" in the nav)
-  is everything about where jobs come from, split into two tabs (plain `useState`, no routing --
-  consistent with the rest of the app's lightweight patterns): "Manage sources" (Favorite
-  Companies/Favorite Job Boards, company/job-board Discovery moved here from Profile, "Add a
-  source", the tracked-sources list, run-daily-now) and "All tracked jobs" (`GET /api/jobs/ranked`,
-  `api/jobs.py`, registered *before* `/{job_id}` since Starlette matches path templates in order --
-  a later `/ranked` would 404 as an invalid `job_id`) -- every active job from a tracked source
-  (`source_id NOT NULL`), scored or not, ranked best-first, the uncapped view the daily cap's
-  50-job limit would otherwise hide. `MyJobsPage` (route `/tracker`, file `MyJobsPage.tsx`) is the
-  application tracker plus "Add a job" (manual paste-in, moved here from Digest) -- pasting and
-  confirming a job scores it and immediately creates its `applications` row (`api/jobs.py`'s
-  `confirm_job` calls `create_application` directly, swallowing a 409 so re-confirming is a no-op)
-  rather than adding it to the digest, since pasting a job you already found *is* the interest
-  signal, not a "new and noteworthy" discovery.
+- **Page split**, five pages each with one job, nav order New & Noteworthy → All Jobs → My Jobs →
+  Manage Sources → Profile → Settings: `DigestPage` (route `/`, nav label "New & Noteworthy") is
+  today's capped, LLM-scored digest only. `AllJobsPage` (route `/all-jobs`) is
+  `GET /api/jobs/ranked` (`api/jobs.py`, registered *before* `/{job_id}` since Starlette matches
+  path templates in order -- a later `/ranked` would 404 as an invalid `job_id`) -- every active
+  job from a tracked source (`source_id NOT NULL`), scored or not, ranked best-first, the uncapped
+  view the daily cap's 50-job limit would otherwise hide. `ManageSourcesPage` (route `/sources`) is
+  purely source management: Favorite Companies/Favorite Job Boards, company/job-board Discovery
+  (moved here from Profile), "Add a source", the tracked-sources list, run-daily-now -- no job
+  listing on this page at all; it used to be a single page with two tabs, split into separate
+  pages/routes on request so the management page isn't also a long job feed one click away.
+  `MyJobsPage` (route `/tracker`, file `MyJobsPage.tsx`) is the application tracker plus "Add a
+  job" (manual paste-in, moved here from Digest) -- pasting and confirming a job scores it and
+  immediately creates its `applications` row (`api/jobs.py`'s `confirm_job` calls
+  `create_application` directly, swallowing a 409 so re-confirming is a no-op) rather than adding
+  it to the digest, since pasting a job you already found *is* the interest signal, not a "new and
+  noteworthy" discovery.
+- `api/applications.py`'s `list_applications()` used to omit `history` entirely (only the
+  single-item `_get_application()` joined it), while the frontend's `MyJobsPage` called
+  `app.history.map(...)` unconditionally on every row -- crashed the whole page the moment a real
+  tracked application existed (caught live: worked fine with zero applications, crashed the first
+  time the user actually tracked one). Fixed by having the list endpoint fetch all
+  `application_status_history` rows in one extra query and group them by `application_id` in
+  Python, rather than reproducing `_get_application()`'s N+1 per-row subquery pattern.
 - `components/JobFilters.tsx` is the one shared filter implementation (state, pure `filterJobs()`,
   and the `<JobFilterBar>` UI) used by both the Digest and "All tracked jobs" lists -- interest
   fit, candidate fit, favorite-only, source (derived from the jobs actually loaded, not a separate

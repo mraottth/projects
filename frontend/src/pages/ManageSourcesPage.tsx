@@ -1,7 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, CompanySuggestion, Favorite, JobBoardSuggestion, RankedJob, Source, SourceKind } from "../api";
-import { DEFAULT_JOB_FILTERS, JobFilterBar, JobFilterState, filterJobs } from "../components/JobFilters";
-import { ScoredJobCard } from "../components/ScoredJobCard";
+import { api, CompanySuggestion, Favorite, JobBoardSuggestion, Source, SourceKind } from "../api";
 import { Spinner } from "../components/Spinner";
 
 const KIND_LABELS: Record<SourceKind, string> = {
@@ -48,46 +46,6 @@ function detectSourceFromUrl(input: string): { kind: SourceKind; config: Record<
     if (match) return { kind, config: { [configKey]: match[1] } };
   }
   return { kind: "custom_board", config: { url: trimmed } };
-}
-
-function RankedJobsSection() {
-  const [jobs, setJobs] = useState<RankedJob[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState<JobFilterState>(DEFAULT_JOB_FILTERS);
-
-  useEffect(() => {
-    api
-      .getRankedJobs()
-      .then(setJobs)
-      .finally(() => setLoading(false));
-  }, []);
-
-  const filtered = filterJobs(jobs, filters);
-
-  return (
-    <>
-      <p className="muted" style={{ marginBottom: "18px" }}>
-        Every active posting from the companies and job boards you follow, best first — not just
-        what made today's capped digest.
-      </p>
-
-      {jobs.length > 0 && <JobFilterBar jobs={jobs} filters={filters} onChange={setFilters} />}
-
-      {loading && <p className="muted">Loading...</p>}
-      {!loading && jobs.length === 0 && (
-        <p className="empty-state">
-          No jobs yet — add a source on the Manage sources tab, or run the pipeline to poll what's
-          already tracked.
-        </p>
-      )}
-      {!loading && jobs.length > 0 && filtered.length === 0 && (
-        <p className="empty-state">No jobs match these filters.</p>
-      )}
-      {filtered.map((job) => (
-        <ScoredJobCard key={job.id} job={job} />
-      ))}
-    </>
-  );
 }
 
 function FavoriteCompaniesSection() {
@@ -457,8 +415,8 @@ function AddSourceForm({ onAdded }: { onAdded: (source: Source) => void }) {
     <div className="card">
       <h2>Add a source</h2>
       <p className="muted small">
-        Track a company's job board or an aggregator — any new postings feed into the All tracked
-        jobs tab and the daily digest.
+        Track a company's job board or an aggregator — any new postings feed into the All Jobs
+        page and the daily digest.
       </p>
       <div className="fsection">
         <span className="flabel">Kind</span>
@@ -572,11 +530,10 @@ function SourceCard({ source, onChanged }: { source: Source; onChanged: () => vo
   );
 }
 
-export default function SourcesPage() {
+export default function ManageSourcesPage() {
   const [sources, setSources] = useState<Source[]>([]);
   const [runResult, setRunResult] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
-  const [tab, setTab] = useState<"manage" | "jobs">("manage");
 
   const refresh = () => api.listSources().then(setSources);
 
@@ -602,57 +559,43 @@ export default function SourcesPage() {
 
   return (
     <div>
-      <h1>My Sources</h1>
+      <h1>Manage Sources</h1>
       <p className="muted" style={{ marginBottom: "18px" }}>
-        For LinkedIn/Indeed/Glassdoor or anything you found yourself, use "Add a job" on the My
-        Jobs page instead.
+        Favorite companies/boards, discover new ones, and track whatever else you want polled. See
+        the All Jobs page for what's turned up. For LinkedIn/Indeed/Glassdoor or anything you found
+        yourself, use "Add a job" on the My Jobs page instead.
       </p>
 
-      <div className="seg" style={{ marginBottom: "18px" }}>
-        <button type="button" className={tab === "manage" ? "on" : ""} onClick={() => setTab("manage")}>
-          Manage sources
-        </button>
-        <button type="button" className={tab === "jobs" ? "on" : ""} onClick={() => setTab("jobs")}>
-          All tracked jobs
-        </button>
-      </div>
+      <FavoriteCompaniesSection />
+      <FavoriteBoardsSection sources={sources} onChanged={refresh} />
 
-      {tab === "jobs" && <RankedJobsSection />}
+      <DiscoverCompaniesSection />
+      <DiscoverJobBoardsSection />
 
-      {tab === "manage" && (
-        <>
-          <FavoriteCompaniesSection />
-          <FavoriteBoardsSection sources={sources} onChanged={refresh} />
+      <AddSourceForm onAdded={() => refresh()} />
 
-          <DiscoverCompaniesSection />
-          <DiscoverJobBoardsSection />
-
-          <AddSourceForm onAdded={() => refresh()} />
-
-          {trackedSources.map((s) => (
-            <SourceCard key={s.id} source={s} onChanged={refresh} />
-          ))}
-          {trackedSources.length === 0 && (
-            <p className="empty-state">No other tracked sources yet — add one above.</p>
-          )}
-
-          <div className="card">
-            <h2>Run the daily pipeline now</h2>
-            <p className="muted small">
-              In production this runs automatically via Cloud Scheduler. Locally, trigger it
-              manually to test.
-            </p>
-            <button className="ghost" onClick={runNow} disabled={running}>
-              {running ? <Spinner label="Running..." /> : "Run now"}
-            </button>
-            {runResult && (
-              <pre style={{ whiteSpace: "pre-wrap", marginTop: "10px" }}>
-                <code>{runResult}</code>
-              </pre>
-            )}
-          </div>
-        </>
+      {trackedSources.map((s) => (
+        <SourceCard key={s.id} source={s} onChanged={refresh} />
+      ))}
+      {trackedSources.length === 0 && (
+        <p className="empty-state">No other tracked sources yet — add one above.</p>
       )}
+
+      <div className="card">
+        <h2>Run the daily pipeline now</h2>
+        <p className="muted small">
+          In production this runs automatically via Cloud Scheduler. Locally, trigger it manually
+          to test.
+        </p>
+        <button className="ghost" onClick={runNow} disabled={running}>
+          {running ? <Spinner label="Running..." /> : "Run now"}
+        </button>
+        {runResult && (
+          <pre style={{ whiteSpace: "pre-wrap", marginTop: "10px" }}>
+            <code>{runResult}</code>
+          </pre>
+        )}
+      </div>
     </div>
   );
 }

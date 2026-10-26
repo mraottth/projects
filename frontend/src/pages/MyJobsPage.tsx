@@ -188,7 +188,7 @@ export default function MyJobsPage() {
 
       {apps.length === 0 && (
         <p className="empty-state">
-          No jobs tracked yet — mark one "Interested" on the Digest or My Sources, or add one above.
+          No jobs tracked yet — mark one "Interested" on New &amp; Noteworthy or All Jobs, or add one above.
         </p>
       )}
 

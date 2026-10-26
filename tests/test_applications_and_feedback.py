@@ -50,6 +50,22 @@ def test_application_lifecycle_and_history():
         listing = client.get("/api/applications").json()
         assert len(listing) == 1
         assert listing[0]["title"] == "Engineer"
+        # Regression: the list endpoint used to omit history entirely, while the frontend called
+        # .map() on it unconditionally -- crashed the My Jobs page the moment a real application
+        # with history existed.
+        assert [h["status"] for h in listing[0]["history"]] == ["saved", "applied", "interview"]
+
+
+def test_list_applications_includes_history_for_each_app():
+    job_a = _insert_job("Engineer", "Acme")
+    job_b = _insert_job("Designer", "Beta")
+    with TestClient(app) as client:
+        client.post("/api/applications", json={"job_id": job_a})
+        client.post("/api/applications", json={"job_id": job_b})
+        listing = client.get("/api/applications").json()
+        assert len(listing) == 2
+        for entry in listing:
+            assert [h["status"] for h in entry["history"]] == ["saved"]
 
 
 def test_application_rejects_invalid_status():
