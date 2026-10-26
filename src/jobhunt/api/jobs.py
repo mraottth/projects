@@ -1,7 +1,8 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from jobhunt.core.digest import add_to_digest
+from jobhunt.api.applications import CreateApplicationRequest, create_application
+from jobhunt.core.digest import IS_FAVORITE_SQL
 from jobhunt.core.llm import LLMError
 from jobhunt.core.preference import get_current_preference_profile
 from jobhunt.core.profile import get_current_candidate_profile
@@ -49,6 +50,30 @@ def list_jobs(status: str | None = None):
     query += " ORDER BY first_seen_at DESC"
     with get_db() as conn:
         rows = conn.execute(query, params).fetchall()
+    return [_row_to_dict(r) for r in rows]
+
+
+@router.get("/ranked")
+def list_ranked_jobs(status: str = "active"):
+    """All jobs discovered from a tracked source (company board or job board), regardless of
+    whether they made it into a capped daily digest -- ranked best-first by score, with unscored
+    jobs (not yet reached by the daily cap) sorted after scored ones. Backs the "My Sources" page's
+    full browse view, as distinct from the Digest's "new and noteworthy" capped/ranked subset.
+    Manually pasted jobs (no source_id) are excluded -- those go straight to My Jobs, not here."""
+    with get_db() as conn:
+        rows = conn.execute(
+            f"""SELECT j.*, js.interest_fit, js.interest_score, js.candidate_fit, js.candidate_fit_score,
+                       js.summary_text, js.rationale_text, {IS_FAVORITE_SQL}
+                FROM jobs j
+                LEFT JOIN job_scores js ON js.id = (
+                    SELECT id FROM job_scores WHERE job_id = j.id ORDER BY id DESC LIMIT 1
+                )
+                WHERE j.status = ? AND j.source_id IS NOT NULL
+                ORDER BY is_favorite DESC,
+                         (COALESCE(js.interest_score, 0) + COALESCE(js.candidate_fit_score, 0)) DESC,
+                         j.first_seen_at DESC""",
+            (status,),
+        ).fetchall()
     return [_row_to_dict(r) for r in rows]
 
 
@@ -144,7 +169,15 @@ def confirm_job(job_id: int):
     except LLMError as exc:
         raise HTTPException(502, str(exc)) from exc
     store_score(job_id, score)
-    add_to_digest(job_id)
+
+    # Confirming a manually pasted job IS the interest signal -- it goes straight to My Jobs, not
+    # through the Digest's "new and noteworthy" ranking (that's for source-discovered postings the
+    # user hasn't seen yet). Swallow a 409 so re-confirming an already-tracked job is a no-op.
+    try:
+        create_application(CreateApplicationRequest(job_id=job_id))
+    except HTTPException as exc:
+        if exc.status_code != 409:
+            raise
 
     return get_job(job_id)
 

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api, ApiError, CompanySuggestion, JobBoardSuggestion, ResumeSummary, Settings } from "../api";
+import { api, ApiError, ResumeSummary, Settings } from "../api";
 import { Markdown } from "../components/Markdown";
 import { Spinner } from "../components/Spinner";
 import { TagInput } from "../components/TagInput";
@@ -84,7 +84,7 @@ function ResumesSection() {
   const renderRow = (r: ResumeSummary) => (
     <li key={r.id}>
       <span className="tag">{r.kind === "resume" ? "resume" : "cover letter"}</span>{" "}
-      {r.is_template && <span className="star">★ </span>}
+      {!!r.is_template && <span className="star">★ </span>}
       {r.file_name} <span className="muted small">— {r.text_length.toLocaleString()} chars</span> —{" "}
       <button className="link small" onClick={() => api.deleteResume(r.id).then(refresh)}>
         delete
@@ -200,8 +200,8 @@ function DesiredRoleSection() {
     <div className="card">
       <h2>What are you looking for?</h2>
       <p className="muted small">
-        This drives both scoring (jobs that don't match get down-weighted) and the "discover
-        companies" search below.
+        This drives both scoring (jobs that don't match get down-weighted) and company/job-board
+        discovery on the My Sources page.
       </p>
 
       <div className="fsection">
@@ -258,158 +258,16 @@ function DesiredRoleSection() {
   );
 }
 
-function DiscoverCompaniesSection() {
-  const [suggestions, setSuggestions] = useState<CompanySuggestion[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<Record<string, string>>({});
-
-  const runDiscovery = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      setSuggestions(await api.suggestCompanies());
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const approve = async (companyName: string, favorite: boolean) => {
-    setStatus((s) => ({ ...s, [companyName]: "working" }));
-    try {
-      if (favorite) {
-        const result = await api.addFavorite(companyName);
-        setStatus((s) => ({
-          ...s,
-          [companyName]: result.resolution_status === "resolved" ? "added" : "not found",
-        }));
-      } else {
-        await api.resolveSource(companyName);
-        setStatus((s) => ({ ...s, [companyName]: "added" }));
-      }
-    } catch (e) {
-      setStatus((s) => ({ ...s, [companyName]: e instanceof Error ? e.message : String(e) }));
-    }
-  };
-
-  return (
-    <div className="card">
-      <h2>Discover companies</h2>
-      <p className="muted small">
-        Uses your candidate profile and desired role above, plus a web search, to suggest
-        companies worth monitoring. Nothing is added until you approve it.
-      </p>
-      <button className="ghost" onClick={runDiscovery} disabled={busy}>
-        {busy ? <Spinner label="Searching..." /> : "Suggest companies"}
-      </button>
-      {error && <p className="error-text small">{error}</p>}
-
-      {suggestions.map((s) => (
-        <div key={s.company_name} className="card-section">
-          <div className="card-title" style={{ fontSize: "0.95rem" }}>
-            {s.company_name}
-          </div>
-          <p className="muted small">{s.reason}</p>
-          {status[s.company_name] ? (
-            <p className="muted small">{status[s.company_name]}</p>
-          ) : (
-            <div className="form-actions" style={{ marginTop: 0 }}>
-              <button className="ghost small" onClick={() => approve(s.company_name, false)}>
-                Monitor
-              </button>
-              <button className="ghost small" onClick={() => approve(s.company_name, true)}>
-                Monitor &amp; favorite
-              </button>
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function DiscoverJobBoardsSection() {
-  const [suggestions, setSuggestions] = useState<JobBoardSuggestion[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<Record<string, string>>({});
-
-  const runDiscovery = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      setSuggestions(await api.suggestJobBoards());
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const approve = async (board: JobBoardSuggestion) => {
-    setStatus((s) => ({ ...s, [board.url]: "working" }));
-    try {
-      await api.createSource({
-        kind: "custom_board",
-        name: board.name,
-        config: { url: board.url },
-      });
-      setStatus((s) => ({ ...s, [board.url]: "added" }));
-    } catch (e) {
-      setStatus((s) => ({ ...s, [board.url]: e instanceof Error ? e.message : String(e) }));
-    }
-  };
-
-  return (
-    <div className="card">
-      <h2>Discover job boards</h2>
-      <p className="muted small">
-        Uses your candidate profile and desired role above, plus a web search, to suggest
-        multi-employer boards worth monitoring — broader reach than tracking one company at a
-        time. Nothing is added until you approve it.
-      </p>
-      <button className="ghost" onClick={runDiscovery} disabled={busy}>
-        {busy ? <Spinner label="Searching..." /> : "Suggest job boards"}
-      </button>
-      {error && <p className="error-text small">{error}</p>}
-
-      {suggestions.map((s) => (
-        <div key={s.url} className="card-section">
-          <div className="card-title" style={{ fontSize: "0.95rem" }}>
-            {s.name}
-          </div>
-          <p className="muted small">
-            <code className="path">{s.url}</code>
-          </p>
-          <p className="muted small">{s.reason}</p>
-          {status[s.url] ? (
-            <p className="muted small">{status[s.url]}</p>
-          ) : (
-            <div className="form-actions" style={{ marginTop: 0 }}>
-              <button className="ghost small" onClick={() => approve(s)}>
-                Monitor
-              </button>
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
 export default function ProfilePage() {
   return (
     <div>
       <h1>Profile</h1>
       <p className="muted" style={{ marginBottom: "18px" }}>
-        Who you are and what you're looking for — drives scoring, generation, and discovery.
+        Who you are and what you're looking for — drives scoring and generation. Company/job-board
+        discovery lives on the My Sources page.
       </p>
       <ResumesSection />
       <DesiredRoleSection />
-      <DiscoverCompaniesSection />
-      <DiscoverJobBoardsSection />
     </div>
   );
 }

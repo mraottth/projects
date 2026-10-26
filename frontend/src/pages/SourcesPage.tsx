@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { api, Favorite, Source, SourceKind } from "../api";
+import { api, CompanySuggestion, Favorite, JobBoardSuggestion, RankedJob, Source, SourceKind } from "../api";
+import { ScoredJobCard } from "../components/ScoredJobCard";
 import { Spinner } from "../components/Spinner";
 
 const KIND_LABELS: Record<SourceKind, string> = {
@@ -46,6 +47,404 @@ function detectSourceFromUrl(input: string): { kind: SourceKind; config: Record<
     if (match) return { kind, config: { [configKey]: match[1] } };
   }
   return { kind: "custom_board", config: { url: trimmed } };
+}
+
+type FitFilter = "all" | "High" | "Med" | "Low";
+
+function RankedJobsSection() {
+  const [jobs, setJobs] = useState<RankedJob[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [interestFilter, setInterestFilter] = useState<FitFilter>("all");
+  const [candidateFilter, setCandidateFilter] = useState<FitFilter>("all");
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+
+  useEffect(() => {
+    api
+      .getRankedJobs()
+      .then(setJobs)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = jobs.filter((job) => {
+    if (interestFilter !== "all" && job.interest_fit !== interestFilter) return false;
+    if (candidateFilter !== "all" && job.candidate_fit !== candidateFilter) return false;
+    if (favoritesOnly && !job.is_favorite) return false;
+    return true;
+  });
+
+  return (
+    <>
+      <div className="card">
+        <h2>All tracked jobs</h2>
+        <p className="muted small">
+          Every active posting from the companies and job boards you follow, best first — not just
+          what made today's capped digest.
+        </p>
+        {jobs.length > 0 && (
+          <div className="form-row" style={{ marginBottom: 0 }}>
+            <div className="field" style={{ marginBottom: 0 }}>
+              <span>Interest fit</span>
+              <select value={interestFilter} onChange={(e) => setInterestFilter(e.target.value as FitFilter)}>
+                <option value="all">All</option>
+                <option value="High">High</option>
+                <option value="Med">Med</option>
+                <option value="Low">Low</option>
+              </select>
+            </div>
+            <div className="field" style={{ marginBottom: 0 }}>
+              <span>Candidate fit</span>
+              <select value={candidateFilter} onChange={(e) => setCandidateFilter(e.target.value as FitFilter)}>
+                <option value="all">All</option>
+                <option value="High">High</option>
+                <option value="Med">Med</option>
+                <option value="Low">Low</option>
+              </select>
+            </div>
+            <label className="field inline" style={{ marginBottom: 0 }}>
+              <input
+                type="checkbox"
+                checked={favoritesOnly}
+                onChange={(e) => setFavoritesOnly(e.target.checked)}
+              />
+              <span style={{ margin: 0, fontWeight: 400, color: "var(--ink)" }}>Favorites only</span>
+            </label>
+          </div>
+        )}
+      </div>
+
+      {loading && <p className="muted">Loading...</p>}
+      {!loading && jobs.length === 0 && (
+        <p className="empty-state">
+          No jobs yet — add a source below, or run the pipeline to poll what's already tracked.
+        </p>
+      )}
+      {!loading && jobs.length > 0 && filtered.length === 0 && (
+        <p className="empty-state">No jobs match these filters.</p>
+      )}
+      {filtered.map((job) => (
+        <ScoredJobCard key={job.id} job={job} />
+      ))}
+    </>
+  );
+}
+
+function FavoriteCompaniesSection() {
+  const [favorites, setFavorites] = useState<Favorite[]>([]);
+  const [name, setName] = useState("");
+  const [url, setUrl] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = () => api.listFavorites().then(setFavorites);
+
+  useEffect(() => {
+    refresh();
+  }, []);
+
+  const detected = detectSourceFromUrl(url);
+
+  const add = async () => {
+    if (!name.trim() || !url.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.addFavorite(name.trim(), detected ? { kind: detected.kind, config: detected.config } : undefined);
+      setName("");
+      setUrl("");
+      refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const retry = async (id: number) => {
+    setBusy(true);
+    try {
+      await api.retryFavorite(id);
+      refresh();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="card">
+      <h2>
+        <span className="star">★</span> Favorite companies
+      </h2>
+      <p className="muted small">
+        Any new posting from a favorite company always gets scored and flagged, regardless of the
+        daily cap or your exclude-keyword rules.
+      </p>
+      <div className="form-row">
+        <input
+          placeholder="Company name, e.g. Anthropic"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          style={{ flex: "1 1 200px" }}
+        />
+        <input
+          placeholder="Job board URL, e.g. https://jobs.lever.co/anthropic"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          style={{ flex: "2 1 280px" }}
+        />
+        <button className="primary" onClick={add} disabled={busy}>
+          {busy ? <Spinner label="Adding..." /> : "Add favorite"}
+        </button>
+      </div>
+      {detected && <p className="muted small">Detected: {KIND_LABELS[detected.kind]}</p>}
+      {error && <p className="error-text small">{error}</p>}
+
+      <ul>
+        {favorites.map((f) => (
+          <li key={f.id}>
+            {f.company_name} —{" "}
+            {f.resolution_status === "resolved" && (
+              <span className="badge badge-high">resolved via {f.source_kind}</span>
+            )}
+            {f.resolution_status === "pending" && <span className="badge badge-med">resolving...</span>}
+            {f.resolution_status === "failed" && (
+              <span>
+                <span className="badge badge-low">couldn't find a board</span>{" "}
+                <button className="link small" onClick={() => retry(f.id)} disabled={busy}>
+                  retry
+                </button>
+              </span>
+            )}
+            {" — "}
+            <button className="link small" onClick={() => api.removeFavorite(f.id).then(refresh)}>
+              remove
+            </button>
+          </li>
+        ))}
+      </ul>
+      {favorites.length === 0 && <p className="empty-state">No favorite companies yet.</p>}
+    </div>
+  );
+}
+
+function FavoriteBoardsSection({ sources, onChanged }: { sources: Source[]; onChanged: () => void }) {
+  const [name, setName] = useState("");
+  const [url, setUrl] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const detected = detectSourceFromUrl(url);
+  const boards = sources.filter((s) => s.is_favorite && !s.company_name);
+
+  const add = async () => {
+    if (!name.trim() || !detected) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.createSource({
+        kind: detected.kind,
+        name: name.trim(),
+        config: detected.config,
+        is_favorite: true,
+      });
+      setName("");
+      setUrl("");
+      onChanged();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const unfavorite = async (id: number) => {
+    await api.updateSource(id, { is_favorite: false });
+    onChanged();
+  };
+
+  return (
+    <div className="card">
+      <h2>
+        <span className="star">★</span> Favorite job boards
+      </h2>
+      <p className="muted small">
+        Any new posting from a favorite board always gets scored and flagged, regardless of the
+        daily cap or your exclude-keyword rules.
+      </p>
+      <div className="form-row">
+        <input
+          placeholder="Board name, e.g. Tech Jobs for Good"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          style={{ flex: "1 1 200px" }}
+        />
+        <input
+          placeholder="Board URL, e.g. https://www.techjobsforgood.com/"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          style={{ flex: "2 1 280px" }}
+        />
+        <button className="primary" onClick={add} disabled={busy || !detected}>
+          {busy ? <Spinner label="Adding..." /> : "Add favorite"}
+        </button>
+      </div>
+      {detected && <p className="muted small">Detected: {KIND_LABELS[detected.kind]}</p>}
+      {error && <p className="error-text small">{error}</p>}
+
+      <ul>
+        {boards.map((s) => (
+          <li key={s.id}>
+            {s.name} — <code className="path">{JSON.stringify(s.config)}</code>
+            {" — "}
+            <button className="link small" onClick={() => unfavorite(s.id)}>
+              remove
+            </button>
+          </li>
+        ))}
+      </ul>
+      {boards.length === 0 && <p className="empty-state">No favorite job boards yet.</p>}
+    </div>
+  );
+}
+
+function DiscoverCompaniesSection() {
+  const [suggestions, setSuggestions] = useState<CompanySuggestion[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<Record<string, string>>({});
+
+  const runDiscovery = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      setSuggestions(await api.suggestCompanies());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const approve = async (companyName: string, favorite: boolean) => {
+    setStatus((s) => ({ ...s, [companyName]: "working" }));
+    try {
+      if (favorite) {
+        const result = await api.addFavorite(companyName);
+        setStatus((s) => ({
+          ...s,
+          [companyName]: result.resolution_status === "resolved" ? "added" : "not found",
+        }));
+      } else {
+        await api.resolveSource(companyName);
+        setStatus((s) => ({ ...s, [companyName]: "added" }));
+      }
+    } catch (e) {
+      setStatus((s) => ({ ...s, [companyName]: e instanceof Error ? e.message : String(e) }));
+    }
+  };
+
+  return (
+    <div className="card">
+      <h2>Discover companies</h2>
+      <p className="muted small">
+        Uses your candidate profile and desired role (Profile page), plus a web search, to suggest
+        companies worth monitoring. Nothing is added until you approve it.
+      </p>
+      <button className="ghost" onClick={runDiscovery} disabled={busy}>
+        {busy ? <Spinner label="Searching..." /> : "Suggest companies"}
+      </button>
+      {error && <p className="error-text small">{error}</p>}
+
+      {suggestions.map((s) => (
+        <div key={s.company_name} className="card-section">
+          <div className="card-title" style={{ fontSize: "0.95rem" }}>
+            {s.company_name}
+          </div>
+          <p className="muted small">{s.reason}</p>
+          {status[s.company_name] ? (
+            <p className="muted small">{status[s.company_name]}</p>
+          ) : (
+            <div className="form-actions" style={{ marginTop: 0 }}>
+              <button className="ghost small" onClick={() => approve(s.company_name, false)}>
+                Monitor
+              </button>
+              <button className="ghost small" onClick={() => approve(s.company_name, true)}>
+                Monitor &amp; favorite
+              </button>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DiscoverJobBoardsSection() {
+  const [suggestions, setSuggestions] = useState<JobBoardSuggestion[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<Record<string, string>>({});
+
+  const runDiscovery = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      setSuggestions(await api.suggestJobBoards());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const approve = async (board: JobBoardSuggestion) => {
+    setStatus((s) => ({ ...s, [board.url]: "working" }));
+    try {
+      await api.createSource({
+        kind: "custom_board",
+        name: board.name,
+        config: { url: board.url },
+      });
+      setStatus((s) => ({ ...s, [board.url]: "added" }));
+    } catch (e) {
+      setStatus((s) => ({ ...s, [board.url]: e instanceof Error ? e.message : String(e) }));
+    }
+  };
+
+  return (
+    <div className="card">
+      <h2>Discover job boards</h2>
+      <p className="muted small">
+        Uses your candidate profile and desired role (Profile page), plus a web search, to suggest
+        multi-employer boards worth monitoring — broader reach than tracking one company at a
+        time. Nothing is added until you approve it.
+      </p>
+      <button className="ghost" onClick={runDiscovery} disabled={busy}>
+        {busy ? <Spinner label="Searching..." /> : "Suggest job boards"}
+      </button>
+      {error && <p className="error-text small">{error}</p>}
+
+      {suggestions.map((s) => (
+        <div key={s.url} className="card-section">
+          <div className="card-title" style={{ fontSize: "0.95rem" }}>
+            {s.name}
+          </div>
+          <p className="muted small">
+            <code className="path">{s.url}</code>
+          </p>
+          <p className="muted small">{s.reason}</p>
+          {status[s.url] ? (
+            <p className="muted small">{status[s.url]}</p>
+          ) : (
+            <div className="form-actions" style={{ marginTop: 0 }}>
+              <button className="ghost small" onClick={() => approve(s)}>
+                Monitor
+              </button>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function AddSourceForm({ onAdded }: { onAdded: (source: Source) => void }) {
@@ -95,6 +494,10 @@ function AddSourceForm({ onAdded }: { onAdded: (source: Source) => void }) {
   return (
     <div className="card">
       <h2>Add a source</h2>
+      <p className="muted small">
+        Track a company's job board or an aggregator — any new postings feed into All tracked jobs
+        above and the daily digest.
+      </p>
       <div className="fsection">
         <span className="flabel">Kind</span>
         <select value={kind} onChange={(e) => setKind(e.target.value as SourceKind)}>
@@ -150,93 +553,6 @@ function AddSourceForm({ onAdded }: { onAdded: (source: Source) => void }) {
   );
 }
 
-function FavoritesSection() {
-  const [favorites, setFavorites] = useState<Favorite[]>([]);
-  const [name, setName] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const refresh = () => api.listFavorites().then(setFavorites);
-
-  useEffect(() => {
-    refresh();
-  }, []);
-
-  const add = async () => {
-    if (!name.trim()) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await api.addFavorite(name.trim());
-      setName("");
-      refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const retry = async (id: number) => {
-    setBusy(true);
-    try {
-      await api.retryFavorite(id);
-      refresh();
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="card">
-      <h2>
-        <span className="star">★</span> Favorite companies
-      </h2>
-      <p className="muted small">
-        Any new posting from a favorite company always gets scored and flagged in the digest,
-        regardless of the daily cap or your exclude-keyword rules.
-      </p>
-      <div className="form-row">
-        <input
-          placeholder="Company name, e.g. Anthropic"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          style={{ flex: "1 1 260px" }}
-        />
-        <button className="primary" onClick={add} disabled={busy}>
-          {busy ? <Spinner label="Resolving..." /> : "Add favorite"}
-        </button>
-      </div>
-      {error && <p className="error-text small">{error}</p>}
-
-      <ul>
-        {favorites.map((f) => (
-          <li key={f.id}>
-            {f.company_name} —{" "}
-            {f.resolution_status === "resolved" && (
-              <span className="badge badge-high">resolved via {f.source_kind}</span>
-            )}
-            {f.resolution_status === "pending" && <span className="badge badge-med">resolving...</span>}
-            {f.resolution_status === "failed" && (
-              <span>
-                <span className="badge badge-low">couldn't find a board</span>{" "}
-                <button className="link small" onClick={() => retry(f.id)} disabled={busy}>
-                  retry
-                </button>
-              </span>
-            )}
-            {" — "}
-            <button className="link small" onClick={() => api.removeFavorite(f.id).then(refresh)}>
-              remove
-            </button>
-          </li>
-        ))}
-      </ul>
-      {favorites.length === 0 && <p className="empty-state">No favorites yet.</p>}
-    </div>
-  );
-}
-
 function SourceCard({ source, onChanged }: { source: Source; onChanged: () => void }) {
   const [testResult, setTestResult] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -269,7 +585,6 @@ function SourceCard({ source, onChanged }: { source: Source; onChanged: () => vo
       <div className="card-header">
         <div>
           <div className="card-title">
-            {source.is_favorite && <span className="star">★ </span>}
             {source.name}
             {!source.enabled && <span className="pill" style={{ marginLeft: "8px" }}>disabled</span>}
           </div>
@@ -320,17 +635,33 @@ export default function SourcesPage() {
     }
   };
 
+  const trackedSources = sources.filter((s) => !s.is_favorite);
+
   return (
     <div>
-      <h1>Sources</h1>
+      <h1>My Sources</h1>
       <p className="muted" style={{ marginBottom: "18px" }}>
-        Company ATS boards (Greenhouse/Lever/Ashby), aggregator APIs (Adzuna/RemoteOK), and custom
-        boards — any URL, including multi-employer boards. For LinkedIn/Indeed/Glassdoor, use "Add a
-        job" on the Digest page instead (paste-in).
+        Everything your tracked companies and job boards have turned up, plus the tools to manage
+        what's tracked. For LinkedIn/Indeed/Glassdoor or anything you found yourself, use "Add a
+        job" on the My Jobs page instead.
       </p>
 
-      <FavoritesSection />
+      <RankedJobsSection />
+
+      <FavoriteCompaniesSection />
+      <FavoriteBoardsSection sources={sources} onChanged={refresh} />
+
+      <DiscoverCompaniesSection />
+      <DiscoverJobBoardsSection />
+
       <AddSourceForm onAdded={() => refresh()} />
+
+      {trackedSources.map((s) => (
+        <SourceCard key={s.id} source={s} onChanged={refresh} />
+      ))}
+      {trackedSources.length === 0 && (
+        <p className="empty-state">No other tracked sources yet — add one above.</p>
+      )}
 
       <div className="card">
         <h2>Run the daily pipeline now</h2>
@@ -347,11 +678,6 @@ export default function SourcesPage() {
           </pre>
         )}
       </div>
-
-      {sources.map((s) => (
-        <SourceCard key={s.id} source={s} onChanged={refresh} />
-      ))}
-      {sources.length === 0 && <p className="empty-state">No sources yet — add one above.</p>}
     </div>
   );
 }

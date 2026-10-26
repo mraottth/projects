@@ -209,3 +209,42 @@ def test_favorite_company_jobs_bypass_prefilter_excludes_and_cap(monkeypatch):
             )
         }
     assert scored_titles == {"Favorite Role", "Other Role"}
+
+
+def test_favorite_job_board_bypasses_cap_by_source_not_company(monkeypatch):
+    # A favorite job board lists postings from many different companies -- none of them are in
+    # favorite_companies, so only the source-level is_favorite flag can catch this case.
+    from jobhunt.core import scoring
+
+    import json
+
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO sources (kind, name, config_json, is_favorite) VALUES (?, ?, ?, 1)",
+            ("custom_board", "Favorite Board", json.dumps({"url": "https://board.example.com"})),
+        )
+
+    settings.update_settings({"daily_llm_cap": 1, "prefilter_keywords_exclude": ["great role"]})
+
+    monkeypatch.setattr(
+        daily_run,
+        "ADAPTERS",
+        {
+            "custom_board": lambda source: [
+                _make_posting("Board Role", company="Unrelated Co"),  # excluded kw, but favorite board
+            ]
+        },
+    )
+    monkeypatch.setattr(scoring, "get_client", lambda: _fake_score_client())
+
+    summary = daily_run.run_daily()
+
+    assert summary["llm_scored_count"] == 1
+    with get_db() as conn:
+        scored_titles = {
+            row["title"]
+            for row in conn.execute(
+                "SELECT j.title FROM job_scores js JOIN jobs j ON j.id = js.job_id"
+            )
+        }
+    assert scored_titles == {"Board Role"}

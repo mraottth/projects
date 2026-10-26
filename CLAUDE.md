@@ -158,17 +158,53 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   `index.css`), used in place of plain "...ing" button text for any action that calls Claude
   (profile rebuild, company discovery, resume/cover-letter generation, job scoring, favorite
   resolution) or otherwise takes noticeable time (test-fetch, run-daily-now).
-- Digest flow: marking a job "Interested" on `DigestPage` records the feedback *and* auto-creates
-  an `applications` row (status `saved`, swallowing a 409 if one already exists) -- the user
-  shouldn't need a separate "track" step for a job they just said they want. `JobDetailPage` keeps
-  a manual "Track application" button as a fallback for reaching the tracker without going through
-  digest feedback first (e.g. a job pasted in directly). The digest is also filterable client-side
-  by interest fit / candidate fit / favorite-company, reusing the scores already on each entry --
-  no new endpoint needed.
+- **Page split** (Digest / My Sources / My Jobs), each with one job: `DigestPage` is "new and
+  noteworthy" -- today's capped, LLM-scored digest only. `SourcesPage` ("My Sources" in the nav)
+  is everything about where jobs come from: `GET /api/jobs/ranked` (`api/jobs.py`, registered
+  *before* `/{job_id}` since Starlette matches path templates in order -- a later `/ranked` would
+  404 as an invalid `job_id`) returns every active job from a tracked source (`source_id NOT
+  NULL`), scored or not, ranked best-first -- this is the uncapped view the daily cap's 50-job
+  limit would otherwise hide. The same page hosts source management: Favorite Companies/Favorite
+  Job Boards, company/job-board Discovery (moved here from Profile), "Add a source", and the
+  tracked-sources list. `MyJobsPage` (route `/tracker`, file `MyJobsPage.tsx`) is the application
+  tracker plus "Add a job" (manual paste-in, moved here from Digest) -- pasting and confirming a
+  job scores it and immediately creates its `applications` row (`api/jobs.py`'s `confirm_job`
+  calls `create_application` directly, swallowing a 409 so re-confirming is a no-op) rather than
+  adding it to the digest, since pasting a job you already found *is* the interest signal, not a
+  "new and noteworthy" discovery.
+- On both `DigestPage` and `SourcesPage`'s ranked list, marking a job "Interested" records the
+  feedback *and* auto-creates an `applications` row the same way -- `components/ScoredJobCard.tsx`
+  (`JobActions`) is the one shared implementation both pages use, so this only exists in one
+  place. `JobDetailPage` keeps a manual "Track application" button as a fallback for reaching the
+  tracker without going through feedback first. Both job-listing pages are filterable client-side
+  by interest fit / candidate fit / favorite, reusing the scores already on each entry.
+- Favorites (`sources.is_favorite`) now have two independent entry points sharing one mechanism:
+  `core/favorites.py`'s `add_favorite()` (name-only, resolves via `company_resolver` -- used by
+  Discovery's "Monitor & favorite", which only has a company name) and `add_favorite_with_url()`
+  (name + a job-board URL the user already has, kind/config detected client-side -- used by the
+  Sources page's Favorite Companies form, skipping the resolver and its failure modes entirely).
+  "Favorite job boards" (multi-employer, no single company) are added the same way but go straight
+  to `POST /api/sources` with `is_favorite: true` and no `company_name` -- distinguishing the two
+  *lists* in the UI is just `company_name IS NOT NULL` vs `IS NULL` on an already-favorited source,
+  no new table. The cap/exclude-bypass this earns (`pipeline/daily_run.py`'s `_is_favorite_job()`)
+  checks *both* `favorites.is_favorite_company_name()` (by company, for favorite companies) *and*
+  the job's own `source_id`'s `is_favorite` flag (for favorite boards, which have no single
+  company to match on) -- either one is enough. `core/digest.py`'s `IS_FAVORITE_SQL` is the shared
+  SQL fragment backing the same OR, reused by `api/jobs.py`'s ranked endpoint.
 - `api.ts`'s `APPLICATION_STATUS_LABELS` is a display-only relabeling (`saved` → "Drafting" is the
   only real change) -- the underlying `ApplicationStatus` enum and DB `CHECK` constraint are
   unchanged (saved/applied/phone_screen/interview/offer/rejected/withdrawn), so this is purely a
   frontend label fix, not a schema migration.
+- `src/jobhunt/ingest/adapters/custom_board.py` -- `max_tokens` was 4000, too small once a board
+  listing page has 20-30 postings' worth of structured fields; Claude's output got cut off
+  mid-JSON-string and `messages.parse()` raised a JSON-decode error (caught live against a real
+  30-posting board). Raised to 12000 and `MAX_POSTINGS_PER_FETCH` lowered 50→30 for margin.
+- A classic React footgun bit three places: `{x.is_favorite && <span>...</span>}` where
+  `is_favorite` comes back from SQLite as the integer `0`, not `false` -- `0 && <JSX>` evaluates to
+  `0`, and unlike `false`/`null`/`undefined`, React renders a bare `0` as literal text. Caught live
+  as a stray "0" prefixed onto source/resume/job-card names. Fixed by coercing with `!!` everywhere
+  a DB-sourced `0 | 1` flag gates JSX with `&&` -- watch for the same pattern on any other
+  SQLite-backed boolean field rendered this way.
 - Resume/cover-letter storage: `JOBHUNT_RESUME_DIR` (default `data/resumes/`) holds the actual files;
   the DB only stores the path + extracted text. In production this directory is a Cloud Run GCS-volume
   mount, so the code never needs to know it's talking to cloud storage.

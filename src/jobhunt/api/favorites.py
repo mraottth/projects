@@ -8,6 +8,8 @@ router = APIRouter(prefix="/api/favorites", tags=["favorites"])
 
 class AddFavoriteRequest(BaseModel):
     company_name: str
+    kind: str | None = None
+    config: dict | None = None
 
 
 @router.get("")
@@ -17,8 +19,13 @@ def list_favorites():
 
 @router.post("")
 def add_favorite(payload: AddFavoriteRequest):
+    # Given a kind+config (the user supplied a job board URL, detected client-side), skip
+    # company_resolver entirely -- nothing to guess, nothing that can fail. Otherwise fall back to
+    # name-only resolution (used by Discovery's "Monitor & favorite" approval, which has no URL).
     # add_favorite() absorbs resolution failures (including LLM-call errors) into a 'failed'
-    # record rather than raising -- see its docstring -- so there's nothing to catch here.
+    # record rather than raising -- see its docstring -- so there's nothing to catch here either way.
+    if payload.kind and payload.config is not None:
+        return favorites.add_favorite_with_url(payload.company_name, payload.kind, payload.config)
     return favorites.add_favorite(payload.company_name)
 
 

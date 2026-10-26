@@ -133,6 +133,21 @@ def _expire_stale_jobs() -> None:
         )
 
 
+def _is_favorite_job(job: dict, conn) -> bool:
+    """A favorite company says "always show me this company's postings" (matched by name, so it
+    still applies even if the same company's job later turns up via a different source). A
+    favorite job board says "always show me this board's postings" (matched by source_id, since a
+    multi-employer board has no single company name to match on) -- the two are independent, and
+    either one is enough to bypass the cap."""
+    if favorites.is_favorite_company_name(job.get("company")):
+        return True
+    source_id = job.get("source_id")
+    if source_id is None:
+        return False
+    row = conn.execute("SELECT is_favorite FROM sources WHERE id = ?", (source_id,)).fetchone()
+    return bool(row and row["is_favorite"])
+
+
 def _prefilter_and_enqueue(job_ids: list[int]) -> int:
     current_settings = settings_module.get_settings()
     enqueued = 0
@@ -147,10 +162,10 @@ def _prefilter_and_enqueue(job_ids: list[int]) -> int:
             if already_scored:
                 continue
             job = dict(row)
-            if favorites.is_favorite_company_name(job.get("company")):
-                # Bypass pre-filter excludes entirely -- a favorite company said "always show me
-                # this", not "show me this unless it also matches an exclude keyword".
-                queue.enqueue(job_id, 100.0, {"favorite_company": True}, is_favorite=True)
+            if _is_favorite_job(job, conn):
+                # Bypass pre-filter excludes entirely -- a favorite said "always show me this",
+                # not "show me this unless it also matches an exclude keyword".
+                queue.enqueue(job_id, 100.0, {"favorite": True}, is_favorite=True)
             else:
                 score, reasons = prefilter.score_job(job, current_settings)
                 queue.enqueue(job_id, score, reasons)

@@ -77,16 +77,21 @@ export interface Application {
   history: { status: string; changed_at: string }[];
 }
 
-export interface DigestEntry extends Job {
+export interface ScoredJob extends Job {
   interest_fit: "High" | "Med" | "Low" | null;
   interest_score: number | null;
   candidate_fit: "High" | "Med" | "Low" | null;
   candidate_fit_score: number | null;
   summary_text: string | null;
   rationale_text: string | null;
-  rank: number;
-  is_favorite_company: boolean | 0 | 1;
+  is_favorite: boolean | 0 | 1;
 }
+
+export interface DigestEntry extends ScoredJob {
+  rank: number;
+}
+
+export type RankedJob = ScoredJob;
 
 export interface CompanySuggestion {
   company_name: string;
@@ -184,6 +189,8 @@ export const api = {
     }),
 
   confirmJob: (id: number) => request<Job>(`/api/jobs/${id}/confirm`, { method: "POST" }),
+
+  getRankedJobs: () => request<RankedJob[]>("/api/jobs/ranked"),
 
   getDigestToday: () => request<{ date: string; entries: DigestEntry[] }>("/api/digest/today"),
 
@@ -319,11 +326,15 @@ export const api = {
 
   listFavorites: () => request<Favorite[]>("/api/favorites"),
 
-  addFavorite: (companyName: string) =>
+  addFavorite: (companyName: string, board?: { kind: SourceKind; config: Record<string, unknown> }) =>
     request<Favorite>("/api/favorites", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ company_name: companyName }),
+      body: JSON.stringify({
+        company_name: companyName,
+        kind: board?.kind ?? null,
+        config: board?.config ?? null,
+      }),
     }),
 
   retryFavorite: (id: number) => request<Favorite>(`/api/favorites/${id}/retry`, { method: "POST" }),

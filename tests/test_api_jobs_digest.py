@@ -8,7 +8,7 @@ from jobhunt.ingest.manual_import import ParsedJob
 from tests.fakes import FakeAnthropicClient, FakeParseResponse
 
 
-def test_manual_job_confirm_appears_in_digest(monkeypatch):
+def test_manual_job_confirm_scores_and_auto_tracks(monkeypatch):
     parsed = ParsedJob(
         title="Staff Engineer",
         company="Acme Corp",
@@ -49,12 +49,23 @@ def test_manual_job_confirm_appears_in_digest(monkeypatch):
         assert confirmed["needs_review"] == 0
         assert confirmed["scores"][0]["interest_fit"] == "High"
 
+        # Confirming a manually pasted job IS the interest signal -- it goes straight to My Jobs
+        # (an auto-created application), not through the Digest's "new and noteworthy" list.
         resp = client.get("/api/digest/today")
         assert resp.status_code == 200
-        entries = resp.json()["entries"]
-        assert len(entries) == 1
-        assert entries[0]["title"] == "Staff Engineer"
-        assert entries[0]["candidate_fit"] == "High"
+        assert resp.json()["entries"] == []
+
+        resp = client.get("/api/applications")
+        assert resp.status_code == 200
+        apps = resp.json()
+        assert len(apps) == 1
+        assert apps[0]["job_id"] == job["id"]
+        assert apps[0]["status"] == "saved"
+
+        # Re-confirming (e.g. a page refresh) doesn't error or create a second application.
+        resp = client.post(f"/api/jobs/{job['id']}/confirm")
+        assert resp.status_code == 200
+        assert len(client.get("/api/applications").json()) == 1
 
 
 def test_duplicate_manual_job_rejected(monkeypatch):

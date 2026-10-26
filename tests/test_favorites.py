@@ -93,6 +93,31 @@ def test_is_favorite_company_name_false_when_resolution_failed(monkeypatch):
     assert favorites.is_favorite_company_name("Acme") is False
 
 
+def test_add_favorite_with_url_skips_resolver_entirely(monkeypatch):
+    def fail_if_called(name):
+        raise AssertionError("resolve_company should not be called for a direct-URL favorite")
+
+    monkeypatch.setattr(favorites, "resolve_company", fail_if_called)
+
+    result = favorites.add_favorite_with_url(
+        "Blue Rose Research", "custom_board", {"url": "https://blueroseresearch.org/jobs/"}
+    )
+    assert result["resolution_status"] == "resolved"
+    assert result["source_id"] is not None
+
+    with get_db() as conn:
+        source = conn.execute("SELECT * FROM sources WHERE id = ?", (result["source_id"],)).fetchone()
+    assert source["is_favorite"] == 1
+    assert source["kind"] == "custom_board"
+    assert source["company_name"] == "Blue Rose Research"
+
+
+def test_add_favorite_with_url_is_idempotent_by_name(monkeypatch):
+    favorites.add_favorite_with_url("Acme", "ats_lever", {"company_slug": "acme"})
+    favorites.add_favorite_with_url("Acme", "ats_lever", {"company_slug": "acme"})
+    assert len(favorites.list_favorites()) == 1
+
+
 def test_add_favorite_records_failure_instead_of_sticking_at_pending(monkeypatch):
     # Regression: an LLMError from the web-search fallback (e.g. missing credentials) used to
     # propagate out of add_favorite(), leaving the row at resolution_status='pending' forever

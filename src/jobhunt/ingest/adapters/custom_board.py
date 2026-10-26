@@ -16,7 +16,7 @@ from pydantic import BaseModel
 from jobhunt.core.llm import DEFAULT_MODEL, get_client, llm_error_boundary, log_call
 from jobhunt.core.page_fetch import PageFetchError, fetch_page_text
 
-MAX_POSTINGS_PER_FETCH = 50
+MAX_POSTINGS_PER_FETCH = 30
 
 
 def _system_prompt() -> str:
@@ -63,7 +63,7 @@ def fetch(source: dict) -> list[dict]:
     with llm_error_boundary(f"extracting postings from {url}"):
         response = client.messages.parse(
             model=DEFAULT_MODEL,
-            max_tokens=4000,
+            max_tokens=12000,
             system=_system_prompt(),
             messages=[{"role": "user", "content": text}],
             output_format=JobListingsOutput,

@@ -2,6 +2,18 @@ from datetime import date
 
 from jobhunt.db.connection import get_db
 
+# A job is "favorite" if either its company is a resolved favorite company (matched by name, so
+# it applies even if the same company later turns up via a different source) or its own source
+# was favorited directly (matched by source_id -- a multi-employer board has no single company
+# name to match on, so this is the only way a favorite job board's postings get flagged).
+IS_FAVORITE_SQL = """(
+    EXISTS (
+        SELECT 1 FROM favorite_companies fc
+        WHERE lower(fc.company_name) = lower(j.company) AND fc.resolution_status = 'resolved'
+    )
+    OR EXISTS (SELECT 1 FROM sources s WHERE s.id = j.source_id AND s.is_favorite = 1)
+) AS is_favorite"""
+
 
 def today_str() -> str:
     return date.today().isoformat()
@@ -16,12 +28,7 @@ def add_to_digest(job_id: int, digest_date: str | None = None) -> None:
             (digest_date, job_id),
         )
         rows = conn.execute(
-            """SELECT de.job_id, js.interest_score, js.candidate_fit_score,
-                      EXISTS (
-                          SELECT 1 FROM favorite_companies fc
-                          WHERE lower(fc.company_name) = lower(j.company)
-                            AND fc.resolution_status = 'resolved'
-                      ) AS is_favorite_company
+            f"""SELECT de.job_id, js.interest_score, js.candidate_fit_score, {IS_FAVORITE_SQL}
                FROM digest_entries de
                JOIN jobs j ON j.id = de.job_id
                LEFT JOIN job_scores js ON js.id = (
@@ -30,12 +37,12 @@ def add_to_digest(job_id: int, digest_date: str | None = None) -> None:
                WHERE de.digest_date = ?""",
             (digest_date,),
         ).fetchall()
-        # Favorite-company jobs always rank first, regardless of score -- "favorite" means
-        # "always show me this", not "weight it a bit higher".
+        # Favorite jobs always rank first, regardless of score -- "favorite" means "always show
+        # me this", not "weight it a bit higher".
         ranked = sorted(
             rows,
             key=lambda r: (
-                r["is_favorite_company"],
+                r["is_favorite"],
                 (r["interest_score"] or 0) + (r["candidate_fit_score"] or 0),
             ),
             reverse=True,
@@ -49,13 +56,8 @@ def add_to_digest(job_id: int, digest_date: str | None = None) -> None:
 def get_digest(digest_date: str) -> list[dict]:
     with get_db() as conn:
         rows = conn.execute(
-            """SELECT j.*, js.interest_fit, js.interest_score, js.candidate_fit, js.candidate_fit_score,
-                      js.summary_text, js.rationale_text, de.rank,
-                      EXISTS (
-                          SELECT 1 FROM favorite_companies fc
-                          WHERE lower(fc.company_name) = lower(j.company)
-                            AND fc.resolution_status = 'resolved'
-                      ) AS is_favorite_company
+            f"""SELECT j.*, js.interest_fit, js.interest_score, js.candidate_fit, js.candidate_fit_score,
+                      js.summary_text, js.rationale_text, de.rank, {IS_FAVORITE_SQL}
                FROM digest_entries de
                JOIN jobs j ON j.id = de.job_id
                LEFT JOIN job_scores js ON js.id = (
