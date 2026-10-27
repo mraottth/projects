@@ -110,6 +110,33 @@ def test_discovery_suggest_boards_excludes_already_monitored_boards(monkeypatch)
     assert captured["exclude_urls"] == ["https://climatejobslist.com"]
 
 
+def test_discovery_suggest_returns_clean_502_on_unparseable_llm_response(monkeypatch):
+    # Regression: _extract_json raises a plain ValueError when Claude's response has no
+    # parseable JSON (e.g. cut off mid-output after a long web-search tool-use turn). The route
+    # used to catch only LLMError, so this propagated as an unhandled exception -> raw 500.
+    def raise_value_error(profile, settings, exclude_names=None):
+        raise ValueError("no JSON object found in response: 'some truncated text'")
+
+    monkeypatch.setattr(discovery_api, "suggest_companies", raise_value_error)
+
+    with TestClient(app) as client:
+        resp = client.post("/api/discovery/suggest")
+        assert resp.status_code == 502
+        assert "couldn't be parsed" in resp.json()["detail"]
+
+
+def test_discovery_suggest_boards_returns_clean_502_on_unparseable_llm_response(monkeypatch):
+    def raise_value_error(profile, settings, exclude_urls=None):
+        raise ValueError("no JSON object found in response: 'some truncated text'")
+
+    monkeypatch.setattr(discovery_api, "suggest_job_boards", raise_value_error)
+
+    with TestClient(app) as client:
+        resp = client.post("/api/discovery/suggest-boards")
+        assert resp.status_code == 502
+        assert "couldn't be parsed" in resp.json()["detail"]
+
+
 def test_resolve_source_via_api(monkeypatch):
     from jobhunt.api import sources
 

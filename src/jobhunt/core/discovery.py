@@ -94,7 +94,7 @@ def suggest_companies(
     with llm_error_boundary("suggesting companies to monitor"):
         response = client.messages.create(
             model=DEFAULT_MODEL,
-            max_tokens=3000,
+            max_tokens=6000,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": _profile_text(candidate_profile, settings, exclude_names)}],
             tools=[{"type": "web_search_20260209", "name": "web_search", "max_uses": 5}],
@@ -125,7 +125,7 @@ def suggest_job_boards(
     with llm_error_boundary("suggesting job boards to monitor"):
         response = client.messages.create(
             model=DEFAULT_MODEL,
-            max_tokens=3000,
+            max_tokens=6000,
             system=BOARD_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": _profile_text(candidate_profile, settings, exclude_urls)}],
             tools=[{"type": "web_search_20260209", "name": "web_search", "max_uses": 5}],

@@ -45,6 +45,14 @@ def suggest():
             get_settings(),
             exclude_names=_already_monitored_or_favorited_company_names(),
         )
+    except ValueError as exc:
+        # _extract_json raises a plain ValueError if Claude's response has no parseable JSON
+        # (e.g. cut off mid-output after a long web-search tool-use turn); pydantic.ValidationError
+        # from a malformed suggestion also subclasses ValueError, so this catches both -- without
+        # it, either case propagates as an unhandled exception and surfaces as a raw 500.
+        raise HTTPException(
+            502, f"Claude's response couldn't be parsed (likely cut off mid-output) — try again: {exc}"
+        ) from exc
     except LLMError as exc:
         raise HTTPException(502, str(exc)) from exc
     return [s.model_dump() for s in suggestions]
@@ -62,6 +70,10 @@ def suggest_boards():
             get_settings(),
             exclude_urls=_already_monitored_board_urls(),
         )
+    except ValueError as exc:
+        raise HTTPException(
+            502, f"Claude's response couldn't be parsed (likely cut off mid-output) — try again: {exc}"
+        ) from exc
     except LLMError as exc:
         raise HTTPException(502, str(exc)) from exc
     return [s.model_dump() for s in suggestions]
