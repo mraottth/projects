@@ -14,12 +14,18 @@ from pathlib import Path
 
 from jobhunt.config import RESUME_STORAGE_DIR
 from jobhunt.core.docx_writer import (
+    AmbiguousAnchorError,
+    AnchorNotFoundError,
     CoverLetterContent,
-    ResumeContent,
+    DisallowedAnchorError,
+    ResumeEditOp,
+    ResumeEditPlan,
     TemplateError,
+    TemplateLine,
     count_cover_letter_slots,
+    extract_addressable_lines,
     write_cover_letter_docx,
-    write_resume_docx,
+    write_resume_edits,
 )
 from jobhunt.core.llm import DEFAULT_MODEL, get_client, llm_error_boundary, log_call
 from jobhunt.core.settings import get_setting
@@ -27,34 +33,36 @@ from jobhunt.db.connection import get_db
 
 logger = logging.getLogger(__name__)
 
-RESUME_STRUCTURED_SYSTEM_PROMPT = """You tailor a job seeker's resume for a specific posting. \
-You'll be given their candidate profile (career-progression summary), the full text of their most \
-recent resume (a structural and length reference -- match its section headings, roughly how many \
-bullets per role, and overall density; write NEW tailored content grounded in the candidate \
-profile, don't just copy the reference resume's wording), and the job posting.
+RESUME_STRUCTURED_SYSTEM_PROMPT = """You tailor a job seeker's resume for a specific posting by \
+proposing a short list of targeted EDITS to their real resume -- not by writing a new resume from \
+scratch. You'll be given their candidate profile (career-progression summary), the resume's own \
+lines (each tagged with its structural role, and for bullets/headers, which section/job it falls \
+under), and the job posting.
 
-The reference resume fits on one page -- the result must too. Match its total bullet count per \
-role and its bullet length (roughly one line each, not two or three) closely rather than just \
-"roughly similar" -- the single most common way output ends up longer than the reference is \
-adding more bullets per role or writing noticeably longer ones, so err toward the reference's \
-count and brevity when in doubt, not above it. If the candidate profile has more roles than the \
-reference resume shows, prioritize the most relevant ones rather than including all of them.
+Each edit operation is anchored to one existing line's exact text:
+- "replace": reword that line in place (e.g. tailor a bullet's wording, or more accurately \
+represent an internal title). The anchor_text you give must be copied character-for-character \
+from the line list above -- not retyped, not corrected for an apparent typo -- or it will fail to \
+match and the edit will be rejected.
+- "insert_after": add a brand-new line immediately after an existing one (it automatically \
+inherits that line's exact formatting -- use this to add a new bullet under a specific job, \
+anchored on any of that job's existing bullets).
+- "delete": remove a line that isn't relevant to this posting.
 
-Reorder/reweight content to foreground what's most relevant to this posting, and mirror the \
-posting's own terminology where it's honestly accurate. Do not fabricate experience, skills, \
-titles, dates, or employers that aren't implied by the candidate profile or reference resume -- \
-tailoring means emphasis and framing, not invention.
-
-Output structured content matching the reference resume's shape: a name, one contact line, and a \
-list of sections (e.g. "WORK EXPERIENCE", "EDUCATION") each containing a list of lines. Each line \
-is one of: "normal" (a plain line, or one with a bold_part prefix for job/school header lines like \
-"ACME CORP | Senior Engineer" bold + " | Jan 2024 - Present" not bold), "bullet" (one bullet point), \
-or "description" (a one-line company/role blurb, if the reference resume uses those).
-
-For the name field, use the candidate's full name exactly as it appears in the reference resume's \
-own header (e.g. "Matt Roth") -- not a surname-only form like "Roth," which is just how the \
-candidate profile refers to them in its own third-person narrative style and isn't how they'd want \
-to see their own name on their resume."""
+Rules:
+- Never propose an edit anchored on a "title" or "contact" line -- a name and contact info don't \
+vary by job posting.
+- Never change an employer name, a job title actually held, or a date inside a "job_header" line, \
+even via "replace" -- if a job_header line needs rewording at all, keep those facts byte-identical.
+- Keep "replace" edits roughly the same length as what they're replacing, and keep the total \
+number of net new lines small (favor rewording over deleting a bullet and inserting a different \
+one) -- the original resume already fits one page, and small, local edits are the only reliable \
+way to protect that.
+- If a line's exact text isn't unique across the resume (the same wording appears under two \
+different jobs), don't anchor an edit on it -- pick a different, unique line instead; an ambiguous \
+anchor will be rejected.
+- Do not fabricate experience, skills, titles, dates, or employers that aren't implied by the \
+candidate profile."""
 
 RESUME_PLAIN_SYSTEM_PROMPT = """You tailor a job seeker's resume for a specific posting. You'll be \
 given their candidate profile (career-progression summary), their base resume text, and the job \
@@ -152,21 +160,52 @@ def _safe_filename(*parts: str) -> str:
     return cleaned[:120] or "document"
 
 
-def _render_resume_markdown(content: ResumeContent) -> str:
-    lines = [f"# {content.name}", content.contact_line, ""]
-    for section in content.sections:
-        lines.append(f"## {section.heading}")
-        for line in section.lines:
-            if line.kind == "bullet":
-                lines.append(f"- {line.text}")
-            elif line.kind == "description":
-                lines.append(f"*{line.text}*")
-            elif line.bold_part:
-                lines.append(f"**{line.bold_part}**{line.text}")
-            else:
-                lines.append(line.text)
-        lines.append("")
-    return "\n".join(lines).strip()
+def _serialize_lines_for_prompt(lines: list[TemplateLine]) -> str:
+    rows = []
+    for line in lines:
+        meta = []
+        if line.section:
+            meta.append(f'section="{line.section}"')
+        if line.under:
+            meta.append(f'under="{line.under}"')
+        meta_str = (" " + " ".join(meta)) if meta else ""
+        rows.append(f'- role={line.role}{meta_str} text="{line.text}"')
+    return "\n".join(rows)
+
+
+def _apply_ops_to_lines(lines: list[TemplateLine], ops: list[ResumeEditOp]) -> list[TemplateLine]:
+    """A pure-Python preview of the edited resume's final line sequence, used only to render
+    content_text -- safe to trust blindly here because write_resume_edits has already validated
+    every op's anchor resolves to exactly one non-title/contact line before this is ever called."""
+    result = list(lines)
+    for op in ops:
+        idx = next((i for i, line in enumerate(result) if line.text == op.anchor_text), None)
+        if idx is None:
+            continue
+        new_text = f"{op.bold_part}{op.new_text}" if op.bold_part else op.new_text
+        if op.op == "replace":
+            result[idx] = result[idx].model_copy(update={"text": new_text})
+        elif op.op == "insert_after":
+            result.insert(idx + 1, result[idx].model_copy(update={"text": new_text}))
+        else:
+            del result[idx]
+    return result
+
+
+def _render_lines_markdown(lines: list[TemplateLine]) -> str:
+    rendered = []
+    for line in lines:
+        if line.role == "title":
+            rendered.append(f"# {line.text}")
+        elif line.role == "heading":
+            rendered.append(f"\n## {line.text}")
+        elif line.role == "bullet":
+            rendered.append(f"- {line.text}")
+        elif line.role == "description":
+            rendered.append(f"*{line.text}*")
+        else:
+            rendered.append(line.text)
+    return "\n".join(rendered).strip()
 
 
 def generate_resume(job: dict, candidate_profile: str | None, resume_id: int | None = None) -> dict:
@@ -180,20 +219,21 @@ def generate_resume(job: dict, candidate_profile: str | None, resume_id: int | N
         text = _generate_resume_plain(job, candidate_profile, resume.get("raw_text") or "")
         return {"content_text": text, "file_path": None, "based_on_resume_id": resume["id"]}
 
-    reference_resume_text = resume.get("raw_text") or ""
+    lines = extract_addressable_lines(template_path)
     user_content = (
         f"## Candidate profile\n{candidate_profile or '(not available)'}\n\n"
-        f"## Reference resume (structure/length only -- write new content)\n{reference_resume_text}\n\n"
+        f"## Resume's own lines (anchor edits to these -- copy text character-for-character)\n"
+        f"{_serialize_lines_for_prompt(lines)}\n\n"
         f"## Job posting\n{_job_text(job)}"
     )
     client = get_client()
-    with llm_error_boundary("generating a tailored resume"):
+    with llm_error_boundary("generating tailored resume edits"):
         response = client.messages.parse(
             model=DEFAULT_MODEL,
-            max_tokens=8000,
+            max_tokens=4000,
             system=RESUME_STRUCTURED_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_content}],
-            output_format=ResumeContent,
+            output_format=ResumeEditPlan,
         )
     log_call(
         call_type="generation",
@@ -201,30 +241,36 @@ def generate_resume(job: dict, candidate_profile: str | None, resume_id: int | N
         input_tokens=response.usage.input_tokens,
         output_tokens=response.usage.output_tokens,
         job_id=job.get("id"),
-        note="resume (docx template)",
+        note="resume (docx template, edit plan)",
     )
-    content = response.parsed_output
+    plan = response.parsed_output
 
     output_path = _output_dir() / (
         _safe_filename(job.get("company"), job.get("title"), "resume", date.today().isoformat())
         + ".docx"
     )
     try:
-        write_resume_docx(template_path, content, output_path)
+        write_resume_edits(template_path, plan.ops, output_path)
         file_path = str(output_path)
     except TemplateError:
         file_path = None
+    except (AnchorNotFoundError, AmbiguousAnchorError, DisallowedAnchorError):
+        # Claude's proposed edits didn't line up with this template -- a failed generation
+        # attempt, not a template limitation. Let it propagate as a real error (api/generate.py
+        # turns it into a clean 502) rather than silently degrading to a plain-text result that
+        # would look like success.
+        raise
     except Exception:
         # The docx-writing path manipulates real-world XML in ways that can hit an edge case we
         # haven't seen yet (a template quirk, an unusual content shape) -- that shouldn't cost the
         # user the tailored content itself, which is already generated and the far more expensive
         # part. Fall back to markdown-only, same as a recognized TemplateError, but log it so a
         # recurring cause is actually diagnosable instead of silently eaten.
-        logger.exception("write_resume_docx failed for an unexpected reason; falling back to text-only")
+        logger.exception("write_resume_edits failed for an unexpected reason; falling back to text-only")
         file_path = None
 
     return {
-        "content_text": _render_resume_markdown(content),
+        "content_text": _render_lines_markdown(_apply_ops_to_lines(lines, plan.ops)),
         "file_path": file_path,
         "based_on_resume_id": resume["id"],
     }

@@ -1,50 +1,49 @@
-"""Generates a tailored resume/cover-letter .docx by cloning the user's own template document's
-paragraph styles and exact per-run formatting (bold/size) -- not by describing the formatting to
-Claude in prose, which can't produce real visual fidelity, and not by building a fresh style sheet
-from scratch, which would drift from what the user actually uses.
+"""Generates a tailored resume/cover-letter .docx from the user's own template document.
 
-Validated live against a real resume during development: deleting all body paragraphs and
-re-adding clones of a handful of "exemplar" paragraphs (one per structural role: title, contact
-line, section heading, bulleted line, bold-header line, blank spacer) survives a save/reload round
-trip with margins and named styles intact. The one easy-to-miss gotcha: a run's font SIZE is often
-set explicitly per-run in real documents (not just inherited from the named style's default), so it
-has to be captured from an exemplar run and re-applied -- otherwise text silently reverts to
-whatever size the style itself defaults to.
+Resumes and cover letters use two deliberately different strategies:
+
+- Cover letters (`write_cover_letter_docx`) are simple, linear documents -- positional in-place
+  text replacement on the template's own existing paragraphs, preserving each one's own style/
+  run formatting exactly. Nothing is deleted or rebuilt.
+- Resumes (`write_resume_edits`) have real structural variety (distinct bullet-list numbering per
+  job, tables some users rely on, per-line formatting quirks) that a from-scratch rebuild loses.
+  So resumes are edited **in place** too, via a small set of context-anchored operations
+  (`ResumeEditOp`) applied as native Word tracked changes (`<w:ins>`/`<w:del>`) -- every paragraph
+  not explicitly targeted by an op is left byte-for-byte untouched, and the user reviews/accepts
+  each change in Word (or Google Docs, which renders Word's tracked changes as its own Suggesting
+  mode on import) exactly like a human editor's suggested edits, rather than trusting a wholesale
+  regeneration. An earlier version of this module *did* rebuild resumes from scratch out of a
+  handful of cloned "exemplar" paragraphs; that approach is what caused consistently bad output
+  formatting (every bullet in the whole document ended up sharing one global list-numbering
+  definition, tables were silently orphaned) and has been replaced entirely.
 """
 
 import copy
-from dataclasses import dataclass
+import datetime
 from pathlib import Path
 from typing import Literal
 
 from docx import Document
+from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.text.paragraph import Paragraph
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
-# Explicitly forced on every run of generated text, rather than inherited from the template --
-# real-world templates are often inconsistent (e.g. the user's own resume's "Normal" style is
-# explicitly Times New Roman while its Title/Heading styles fall through to the document theme's
-# Calibri/Calibri Light with no run-level override at all), so "inherit whatever the cloned
-# paragraph happens to use" doesn't reliably produce one consistent font across the whole document.
+# Forced on every run write_cover_letter_docx generates, rather than inherited from the template --
+# real-world templates are often inconsistent (e.g. a resume's "Normal" style can be explicitly
+# Times New Roman while its Title/Heading styles fall through to the document theme's Calibri with
+# no run-level override at all), so "inherit whatever the cloned paragraph happens to use" doesn't
+# reliably produce one consistent font. write_resume_edits does NOT use this -- it only ever touches
+# small, locally-consistent neighborhoods of an otherwise-untouched document, so new/replaced resume
+# text inherits its font from the specific neighboring run it's replacing/following instead (see
+# `_rpr_of`), which is strictly more correct and needs no hardcoded font name.
 GENERATED_FONT = "Calibri"
 
-
-class ResumeLine(BaseModel):
-    kind: Literal["normal", "bullet", "description"]
-    bold_part: str | None = None
-    text: str
-
-
-class ResumeSection(BaseModel):
-    heading: str
-    lines: list[ResumeLine]
-
-
-class ResumeContent(BaseModel):
-    name: str
-    contact_line: str
-    sections: list[ResumeSection]
+# Author attribution recorded on every tracked-change element write_resume_edits creates. This is
+# metadata Word/Google Docs display next to each suggested change (not a document field, and not
+# the candidate's own name/identity) -- it should read as "a tool proposed this," which is what it
+# functionally is.
+CHANGE_AUTHOR = "Job Search Assistant"
 
 
 class CoverLetterContent(BaseModel):
@@ -52,19 +51,48 @@ class CoverLetterContent(BaseModel):
 
 
 class TemplateError(Exception):
-    """The template .docx doesn't have paragraph styles we can recognize/clone from."""
+    """The template .docx doesn't have paragraph styles/structure we can recognize/clone from."""
 
 
-@dataclass
-class _Exemplars:
-    title: object
-    contact: object
-    heading: object
-    bullet: object
-    description: object
-    normal_bold: object
-    blank: object
-    sizes: dict
+class AnchorNotFoundError(Exception):
+    """A proposed edit's anchor_text doesn't match any paragraph in the template."""
+
+
+class AmbiguousAnchorError(Exception):
+    """A proposed edit's anchor_text matches more than one paragraph -- no safe target to pick."""
+
+
+class DisallowedAnchorError(Exception):
+    """A proposed edit targets a line (name/contact info) that must never vary per job."""
+
+
+class TemplateLine(BaseModel):
+    """One addressable line from the user's real resume template, shown to Claude so it can
+    propose edits anchored to exact existing text instead of generating a document from scratch."""
+
+    role: Literal["title", "contact", "heading", "job_header", "bullet", "description", "normal"]
+    text: str
+    section: str | None = None  # nearest preceding heading's text, e.g. "WORK EXPERIENCE"
+    under: str | None = None  # nearest preceding job_header's text, e.g. "ACME CORP | Engineer"
+
+
+class ResumeEditOp(BaseModel):
+    op: Literal["replace", "insert_after", "delete"]
+    anchor_text: str
+    new_text: str | None = None
+    bold_part: str | None = None  # only for anchors with a bold+non-bold split (job_header lines)
+
+    @model_validator(mode="after")
+    def _check_fields_for_op(self) -> "ResumeEditOp":
+        if self.op in ("replace", "insert_after") and not self.new_text:
+            raise ValueError(f"{self.op} requires new_text")
+        if self.op == "delete" and (self.new_text or self.bold_part):
+            raise ValueError("delete must not set new_text or bold_part")
+        return self
+
+
+class ResumeEditPlan(BaseModel):
+    ops: list[ResumeEditOp]
 
 
 def _first_nonempty_run(paragraph):
@@ -72,65 +100,6 @@ def _first_nonempty_run(paragraph):
         if run.text.strip():
             return run
     return None
-
-
-def _capture_exemplars(doc: Document) -> _Exemplars:
-    found: dict = {}
-    sizes: dict = {}
-    for p in doc.paragraphs:
-        style = p.style.name
-        runs = [r for r in p.runs if r.text.strip()]
-
-        if style == "Title" and "title" not in found:
-            found["title"] = copy.deepcopy(p._p)
-            sizes["title"] = runs[0].font.size if runs else None
-        elif style.startswith("Heading") and p.text.strip() and "heading" not in found:
-            found["heading"] = copy.deepcopy(p._p)
-            sizes["heading"] = runs[0].font.size if runs else None
-        elif style == "List Paragraph" and p.text.strip() and "bullet" not in found:
-            found["bullet"] = copy.deepcopy(p._p)
-            sizes["bullet"] = runs[0].font.size if runs else None
-        elif style not in ("Title", "Normal", "List Paragraph") and style.lower() not in (
-            "heading 1",
-            "heading 2",
-            "heading 3",
-            "heading 4",
-        ) and "description" not in found and p.text.strip():
-            # a distinct custom style used for a one-off italic/description-style line (e.g. "p1")
-            found["description"] = copy.deepcopy(p._p)
-            sizes["description"] = runs[0].font.size if runs else None
-        elif style == "Normal" and not p.text.strip() and "blank" not in found:
-            found["blank"] = copy.deepcopy(p._p)
-        elif style == "Normal" and p.text.strip():
-            bolds = [r.bold for r in runs]
-            if "contact" not in found and not any(bolds):
-                found["contact"] = copy.deepcopy(p._p)
-                sizes["contact"] = runs[0].font.size if runs else None
-            if "normal_bold" not in found and True in bolds and bolds.count(True) < len(bolds):
-                found["normal_bold"] = copy.deepcopy(p._p)
-                bold_run = next(r for r in runs if r.bold)
-                nonbold_run = next(r for r in runs if not r.bold)
-                sizes["normal_bold_bold"] = bold_run.font.size
-                sizes["normal_bold_nonbold"] = nonbold_run.font.size
-
-    required = {"title", "contact", "heading", "bullet", "normal_bold", "blank"}
-    missing = required - found.keys()
-    if missing:
-        raise TemplateError(f"template is missing recognizable paragraph styles for: {missing}")
-    if "description" not in found:
-        found["description"] = found["bullet"]
-        sizes["description"] = sizes.get("bullet")
-
-    return _Exemplars(
-        title=found["title"],
-        contact=found["contact"],
-        heading=found["heading"],
-        bullet=found["bullet"],
-        description=found["description"],
-        normal_bold=found["normal_bold"],
-        blank=found["blank"],
-        sizes=sizes,
-    )
 
 
 def _clear_runs(p_element) -> Paragraph:
@@ -179,56 +148,272 @@ def _get_sect_pr(body):
     return sect_pr
 
 
-def write_resume_docx(template_path: Path, content: ResumeContent, output_path: Path) -> None:
+# ---------------------------------------------------------------------------
+# Resume editing: extracting addressable lines
+# ---------------------------------------------------------------------------
+
+
+def _extract_lines_with_paragraphs(doc: Document) -> list[tuple[Paragraph, TemplateLine]]:
+    """Walks the template's top-level paragraphs in document order (same enumeration
+    write_cover_letter_docx already uses -- not resume_parse.py's table-aware `_iter_block_items`,
+    which exists for a different concern: flattening table content into plain text for candidate-
+    profile synthesis. Reusing it here would let Claude anchor on text inside a table cell that
+    this module can't locate/mutate. Table-based resumes stay an explicit, documented unsupported
+    case.) Classifies every non-blank paragraph's structural role and pairs it with its real
+    Paragraph object, so write_resume_edits can resolve an anchor straight to the paragraph it
+    needs to mutate without a second pass over the document."""
+    lines: list[tuple[Paragraph, TemplateLine]] = []
+    section: str | None = None
+    under: str | None = None
+    contact_seen = False
+
+    for p in doc.paragraphs:
+        if not p.text.strip():
+            continue
+        style = p.style.name
+        runs = [r for r in p.runs if r.text.strip()]
+        bolds = [bool(r.bold) for r in runs]
+
+        if style == "Title":
+            role: str = "title"
+        elif style.startswith("Heading"):
+            role = "heading"
+        elif style == "List Paragraph":
+            role = "bullet"
+        elif style not in ("Title", "Normal", "List Paragraph"):
+            role = "description"
+        elif bolds and any(bolds) and not all(bolds):
+            role = "job_header"
+        elif not contact_seen:
+            role = "contact"
+            contact_seen = True
+        else:
+            role = "normal"
+
+        line = TemplateLine(role=role, text=p.text, section=section, under=under)
+        lines.append((p, line))
+
+        if role == "heading":
+            section = p.text
+            under = None
+        elif role == "job_header":
+            under = p.text
+
+    return lines
+
+
+def extract_addressable_lines(template_path: Path) -> list[TemplateLine]:
+    """The original resume's own lines, tagged with structural role -- shown to Claude so it can
+    propose edits anchored to exact existing text instead of generating a resume from scratch."""
     doc = Document(str(template_path))
-    body = doc.element.body
-    exemplars = _capture_exemplars(doc)
+    return [line for _, line in _extract_lines_with_paragraphs(doc)]
 
-    for p in list(doc.paragraphs):
-        p._p.getparent().remove(p._p)
-    sect_pr = _get_sect_pr(body)
 
-    def append(element) -> None:
-        body.insert(list(body).index(sect_pr), element)
+# ---------------------------------------------------------------------------
+# Resume editing: applying edits as tracked changes
+# ---------------------------------------------------------------------------
 
-    title_el = copy.deepcopy(exemplars.title)
-    _set_plain(title_el, content.name, exemplars.sizes.get("title"))
-    append(title_el)
 
-    contact_el = copy.deepcopy(exemplars.contact)
-    _set_plain(contact_el, content.contact_line, exemplars.sizes.get("contact"))
-    append(contact_el)
+def _change_timestamp() -> str:
+    return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    for section in content.sections:
-        heading_el = copy.deepcopy(exemplars.heading)
-        _set_plain(heading_el, section.heading, exemplars.sizes.get("heading"))
-        append(heading_el)
-        append(copy.deepcopy(exemplars.blank))
 
-        for line in section.lines:
-            if line.kind == "bullet":
-                el = copy.deepcopy(exemplars.bullet)
-                _set_plain(el, line.text, exemplars.sizes.get("bullet"))
-            elif line.kind == "description":
-                el = copy.deepcopy(exemplars.description)
-                _set_plain(el, line.text, exemplars.sizes.get("description"))
-            elif line.bold_part:
-                el = copy.deepcopy(exemplars.normal_bold)
-                _set_bold_split(
-                    el,
-                    line.bold_part,
-                    line.text,
-                    exemplars.sizes.get("normal_bold_bold"),
-                    exemplars.sizes.get("normal_bold_nonbold"),
-                )
-            else:
-                el = copy.deepcopy(exemplars.contact)
-                _set_plain(el, line.text, exemplars.sizes.get("contact"))
-            append(el)
-        append(copy.deepcopy(exemplars.blank))
+def _next_change_id_counter(doc: Document):
+    """A w:id counter for new tracked-change elements, seeded past any w:id already present
+    anywhere in the template (bookmarks, an existing tracked change, etc.) so new ids never
+    collide with ones the template already uses."""
+    max_id = 0
+    for el in doc.element.body.iter():
+        raw = el.get(qn("w:id"))
+        if raw is None:
+            continue
+        try:
+            max_id = max(max_id, int(raw))
+        except ValueError:
+            continue
+    counter = max_id
+
+    def next_id() -> int:
+        nonlocal counter
+        counter += 1
+        return counter
+
+    return next_id
+
+
+def _rpr_of(run) -> object | None:
+    """A deep copy of a run's <w:rPr>, or None if it has none (inherits from its paragraph style)."""
+    rpr = run._r.find(qn("w:rPr"))
+    return copy.deepcopy(rpr) if rpr is not None else None
+
+
+def _resolve_run_rprs(runs: list) -> tuple[object | None, object | None]:
+    """(bold_rpr, non_bold_rpr) copied from the first bold and first non-bold run among `runs`,
+    each falling back to the other if only one kind is present, or (None, None) if `runs` is
+    empty."""
+    bold = next((r for r in runs if r.bold), None)
+    non_bold = next((r for r in runs if not r.bold), None)
+    bold_rpr = _rpr_of(bold) if bold is not None else (_rpr_of(non_bold) if non_bold is not None else None)
+    non_bold_rpr = (
+        _rpr_of(non_bold) if non_bold is not None else (_rpr_of(bold) if bold is not None else None)
+    )
+    return bold_rpr, non_bold_rpr
+
+
+def _make_text_run(rpr, text: str, *, deleted: bool):
+    """A <w:r> element with `text`, cloning `rpr` (if given) for its formatting -- <w:t> for live
+    text, <w:delText> for text marked as a tracked deletion (the OOXML distinction Word uses to
+    tell "this text still exists" from "this text is proposed for removal")."""
+    run_el = OxmlElement("w:r")
+    if rpr is not None:
+        run_el.append(copy.deepcopy(rpr))
+    text_el = OxmlElement("w:delText" if deleted else "w:t")
+    text_el.set(qn("xml:space"), "preserve")
+    text_el.text = text
+    run_el.append(text_el)
+    return run_el
+
+
+def _wrap_change(tag: str, next_id, *run_elements):
+    """Wraps one or more run elements in a <w:ins> or <w:del> (`tag`), with a fresh w:id and this
+    module's shared w:author/w:date."""
+    change_el = OxmlElement(tag)
+    change_el.set(qn("w:id"), str(next_id()))
+    change_el.set(qn("w:author"), CHANGE_AUTHOR)
+    change_el.set(qn("w:date"), _change_timestamp())
+    for run_el in run_elements:
+        change_el.append(run_el)
+    return change_el
+
+
+def _mark_paragraph_mark(p_element, tag: str, next_id) -> None:
+    """Marks the paragraph's own end-of-paragraph mark as inserted/deleted (tag="w:ins"/"w:del"),
+    via <w:pPr><w:rPr><w:ins/-or-w:del/></w:rPr></w:pPr> -- without this, accepting/rejecting an
+    inserted or deleted paragraph in Word would add/remove its text but leave a stray blank line
+    behind, since the paragraph break itself wouldn't be marked as part of the change."""
+    p_pr = p_element.find(qn("w:pPr"))
+    if p_pr is None:
+        p_pr = OxmlElement("w:pPr")
+        p_element.insert(0, p_pr)
+    r_pr = p_pr.find(qn("w:rPr"))
+    if r_pr is None:
+        r_pr = OxmlElement("w:rPr")
+        p_pr.append(r_pr)
+    mark_el = OxmlElement(tag)
+    mark_el.set(qn("w:id"), str(next_id()))
+    mark_el.set(qn("w:author"), CHANGE_AUTHOR)
+    mark_el.set(qn("w:date"), _change_timestamp())
+    r_pr.insert(0, mark_el)
+
+
+def _apply_replace(paragraph: Paragraph, op: ResumeEditOp, next_id) -> None:
+    p_el = paragraph._p
+    old_runs = [r for r in paragraph.runs if r.text.strip()]
+
+    if old_runs:
+        del_runs = [_make_text_run(_rpr_of(r), r.text, deleted=True) for r in old_runs]
+    else:
+        del_runs = [_make_text_run(None, paragraph.text, deleted=True)]
+    del_el = _wrap_change("w:del", next_id, *del_runs)
+
+    if op.bold_part is not None:
+        bold_rpr, rest_rpr = _resolve_run_rprs(old_runs)
+        ins_runs = [
+            _make_text_run(bold_rpr, op.bold_part, deleted=False),
+            _make_text_run(rest_rpr, op.new_text, deleted=False),
+        ]
+    else:
+        anchor_rpr = _rpr_of(old_runs[0]) if old_runs else None
+        ins_runs = [_make_text_run(anchor_rpr, op.new_text, deleted=False)]
+    ins_el = _wrap_change("w:ins", next_id, *ins_runs)
+
+    anchor_el = old_runs[0]._r if old_runs else None
+    if anchor_el is not None:
+        anchor_el.addprevious(del_el)
+    else:
+        p_el.append(del_el)
+    del_el.addnext(ins_el)
+    for r in old_runs:
+        p_el.remove(r._r)
+
+
+def _apply_insert_after(anchor: Paragraph, op: ResumeEditOp, next_id) -> None:
+    clone_el = copy.deepcopy(anchor._p)
+    clone = Paragraph(clone_el, anchor._parent)
+    _mark_paragraph_mark(clone_el, "w:ins", next_id)
+
+    clone_runs = [r for r in clone.runs if r.text.strip()]
+    if op.bold_part is not None:
+        bold_rpr, rest_rpr = _resolve_run_rprs(clone_runs)
+        new_runs = [
+            _make_text_run(bold_rpr, op.bold_part, deleted=False),
+            _make_text_run(rest_rpr, op.new_text, deleted=False),
+        ]
+    else:
+        fallback_rpr = _rpr_of(clone_runs[0]) if clone_runs else None
+        new_runs = [_make_text_run(fallback_rpr, op.new_text, deleted=False)]
+
+    for r in clone_runs:
+        clone_el.remove(r._r)
+
+    ins_el = _wrap_change("w:ins", next_id, *new_runs)
+    clone_el.append(ins_el)
+
+    anchor._p.addnext(clone_el)
+
+
+def _apply_delete(paragraph: Paragraph, next_id) -> None:
+    p_el = paragraph._p
+    old_runs = [r for r in paragraph.runs if r.text.strip()]
+    for r in old_runs:
+        del_el = _wrap_change("w:del", next_id, _make_text_run(_rpr_of(r), r.text, deleted=True))
+        r._r.addprevious(del_el)
+        p_el.remove(r._r)
+    _mark_paragraph_mark(p_el, "w:del", next_id)
+
+
+def write_resume_edits(template_path: Path, ops: list[ResumeEditOp], output_path: Path) -> None:
+    """Applies `ops` to a fresh copy of the user's real resume template as native Word tracked
+    changes. Resolves every op's anchor against the template first and raises (writing nothing to
+    `output_path`) if any anchor doesn't match exactly one non-title/contact paragraph -- never
+    silently guesses a target."""
+    doc = Document(str(template_path))
+    _get_sect_pr(doc.element.body)
+
+    by_text: dict[str, list[tuple[Paragraph, TemplateLine]]] = {}
+    for p, line in _extract_lines_with_paragraphs(doc):
+        by_text.setdefault(line.text, []).append((p, line))
+
+    resolved: list[tuple[Paragraph, ResumeEditOp]] = []
+    for op in ops:
+        matches = by_text.get(op.anchor_text, [])
+        if not matches:
+            raise AnchorNotFoundError(f"no paragraph in the template matches: {op.anchor_text!r}")
+        if len(matches) > 1:
+            raise AmbiguousAnchorError(
+                f"{len(matches)} paragraphs match {op.anchor_text!r}; anchor text must be unique"
+            )
+        paragraph, line = matches[0]
+        if line.role in ("title", "contact"):
+            raise DisallowedAnchorError(f"cannot edit the {line.role} line: {op.anchor_text!r}")
+        resolved.append((paragraph, op))
+
+    next_id = _next_change_id_counter(doc)
+    for paragraph, op in resolved:
+        if op.op == "replace":
+            _apply_replace(paragraph, op, next_id)
+        elif op.op == "insert_after":
+            _apply_insert_after(paragraph, op, next_id)
+        else:
+            _apply_delete(paragraph, next_id)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     doc.save(str(output_path))
+
+
+# ---------------------------------------------------------------------------
+# Cover letters: unchanged positional in-place replacement
+# ---------------------------------------------------------------------------
 
 
 def count_cover_letter_slots(template_path: Path) -> int:

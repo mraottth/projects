@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, ValidationError
 
+from jobhunt.core.docx_writer import AmbiguousAnchorError, AnchorNotFoundError, DisallowedAnchorError
 from jobhunt.core.generate import generate_cover_letter, generate_resume
 from jobhunt.core.llm import LLMError
 from jobhunt.core.profile import get_current_candidate_profile
@@ -96,6 +97,10 @@ def generate_resume_route(payload: GenerateRequest):
         ) from exc
     except ValueError as exc:
         raise HTTPException(400, f"{exc} — upload one on the Profile page first") from exc
+    except (AnchorNotFoundError, AmbiguousAnchorError, DisallowedAnchorError) as exc:
+        raise HTTPException(
+            502, f"the tailored edits didn't line up with your resume template ({exc}) — try again"
+        ) from exc
     except LLMError as exc:
         raise HTTPException(502, str(exc)) from exc
 

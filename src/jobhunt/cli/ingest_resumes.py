@@ -8,7 +8,7 @@ as reusable templates. Handles all of that:
 - Skips Word lock files (`~$*`), `.DS_Store`, and anything already under the generated-output
   folder (so the app never re-ingests its own tailored output as if it were real history).
 - Prefers .docx over .pdf when both exist for the same stem in the same directory (cleaner text,
-  and it's the one write_resume_docx/write_cover_letter_docx can actually use as a style template).
+  and it's the one write_resume_edits/write_cover_letter_docx can actually edit in place).
 - Dedupes by content hash (normalized extracted text), not filename, so "... copy.pdf" and
   renamed duplicates across reruns don't get re-imported as distinct documents.
 - Classifies kind by filename ("cover" -> cover_letter, else resume) and flags is_template when

@@ -66,39 +66,64 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   `set_candidate_profile()` inserts a user-edited profile directly (no LLM call, `model` recorded
   as `manual_edit`), backing the Profile page's inline edit so the user can fix or add to what the
   LLM produced without a full re-synthesis from resumes.
-- `src/jobhunt/core/docx_writer.py` — generates a tailored resume/cover-letter `.docx` by cloning
-  the user's own template document's paragraph styles and exact per-run formatting (bold/size),
-  not by describing formatting to Claude in prose (which can't produce real visual fidelity) and
-  not by building a style sheet from scratch (which would drift from what the user actually uses).
-  Validated live against a real resume: deleting all body paragraphs and re-adding clones of a
-  handful of "exemplar" paragraphs survives a save/reload round trip with margins and named styles
-  intact -- but font *size* is often set per-run, not just inherited from the style, so it has to
-  be captured from an exemplar run and reapplied explicitly. Clearing a paragraph's old text also
-  has to strip every child element, not just `.runs` -- real documents wrap text in `<w:hyperlink>`
-  (tracked-change and bookmark wrappers are the same issue), which python-docx's `.runs` doesn't
-  enumerate, so a naive clear leaves that text behind to leak into the new content (caught live: a
-  hyperlinked word, "thesis", survived into an unrelated generated cover letter before this fix).
-  Every generated run's font is forced to `GENERATED_FONT` ("Calibri") explicitly, rather than left
-  to inherit from the cloned paragraph -- confirmed live that the user's own resume template has no
-  run-level overrides but an internally inconsistent style sheet (its "Normal" style is explicitly
-  Times New Roman while Title/Heading styles have no override and fall through to the document
-  theme's Calibri), so "inherit whatever the template happens to use" doesn't reliably produce one
-  consistent output font.
-- `src/jobhunt/core/generate.py` — resume/cover-letter generation picks a template via
-  `is_template` first (an explicit "template.docx" filename overrides the recency default), then
-  most-recent non-archived, and only falls back to plain markdown text (no saved file) when the
-  picked document has no usable `.docx` on disk (e.g. only ever uploaded as a PDF). The saved
-  file's directory is the `resume_library_path` setting's `AI Generated` subfolder, or
-  `data/resumes/generated/` if that setting isn't configured. Output is `.docx` only, deliberately
-  -- `docx2pdf` (Word automation via AppleScript) was tried live and does not work on this machine's
-  Word install (opens Word, hangs ~30s, fails with "Message not understood"); don't re-attempt
-  automated PDF export without LibreOffice or a different conversion path. `python-docx` can only
-  read `.docx`, not PDF -- a web-uploaded current resume/cover-letter that's a PDF can never use the
-  clone-template path at all (plain-markdown fallback only), so the user's current resume being a
-  `.docx` is a hard requirement here, not just a convenience. The resume prompt explicitly tells
-  Claude to match the reference resume's bullet count/length closely (erring toward fewer/shorter
-  when in doubt) since the reference fitting one page is the only real one-page guarantee available
-  -- there's no page-layout awareness in `docx_writer.py` to enforce it after the fact.
+- `src/jobhunt/core/docx_writer.py` — resumes and cover letters use two deliberately different
+  strategies. Cover letters (`write_cover_letter_docx`) do positional in-place text replacement on
+  the template's own existing paragraphs -- nothing is deleted/rebuilt, every paragraph keeps its
+  own style/run formatting exactly. Resumes (`write_resume_edits`) are edited in place too, via a
+  small set of context-anchored operations (`ResumeEditOp`: `replace`/`insert_after`/`delete`,
+  each anchored to one paragraph's *exact* existing text) applied as native Word tracked changes
+  (`<w:ins>`/`<w:del>`, including marking the paragraph *mark* itself inserted/deleted so Accept/
+  Reject in Word cleanly adds/removes whole lines). Every paragraph not targeted by an op is left
+  byte-for-byte untouched. An earlier version rebuilt the entire resume from scratch out of ~6
+  cloned "exemplar" paragraphs (one per role, captured once from the template) -- that's what
+  caused consistently bad formatting: every bullet in the whole document ended up sharing one
+  global list-numbering definition (`numPr`/`numId`) regardless of how many distinct lists the
+  real resume had, and tables were silently orphaned (not deleted, not populated). Replaced
+  entirely in favor of the anchored-edit model. `write_resume_edits` resolves every op's anchor
+  against the template *before* mutating anything (`AnchorNotFoundError`/`AmbiguousAnchorError`
+  on zero/multiple matches, `DisallowedAnchorError` for a `title`/`contact` anchor) -- a plan with
+  one bad op writes nothing to disk. New/replaced resume text inherits its font name+size from the
+  *specific* neighboring run it's replacing/following (`<w:rPr>` deep-copy), not a hardcoded font
+  -- this generalizes correctly to any inconsistency in the user's own template, unlike the old
+  rebuild-from-scratch path's hardcoded `GENERATED_FONT = "Calibri"` (kept only for
+  `write_cover_letter_docx`, which still clones/rebuilds small pieces and needs a fallback since
+  it isn't editing arbitrary existing runs in place the way the resume path now does). Clearing a
+  cover-letter paragraph's old text has to strip every child element, not just `.runs` -- real
+  documents wrap text in `<w:hyperlink>` (tracked-change/bookmark wrappers are the same issue),
+  which python-docx's `.runs` doesn't enumerate, so a naive clear leaves that text behind (caught
+  live: a hyperlinked word, "thesis", survived into an unrelated generated cover letter before
+  this fix).
+- `src/jobhunt/core/generate.py` — `extract_addressable_lines()` tags every non-blank paragraph in
+  the resume template with a structural role (title/contact/heading/job_header/bullet/description/
+  normal) plus which section/job it falls under; this is what gets shown to Claude (instead of the
+  old approach of pasting the reference resume's raw flattened text) so it can anchor edits to
+  exact existing lines rather than generating a resume from scratch. `generate_resume()` picks a
+  template via `is_template` first (an explicit "template.docx" filename overrides the recency
+  default), then most-recent non-archived, and only falls back to plain markdown text (no saved
+  file) when the picked document has no usable `.docx` on disk (e.g. only ever uploaded as a PDF)
+  -- `python-docx` can only read `.docx`, not PDF, so a web-uploaded current resume that's a PDF
+  can never use the anchored-edit path at all, making the user's current resume being a `.docx` a
+  hard requirement here, not just a convenience. `AnchorNotFoundError`/`AmbiguousAnchorError`/
+  `DisallowedAnchorError` from `write_resume_edits` are deliberately *not* caught alongside
+  `TemplateError`/generic `Exception` in `generate_resume()` -- they mean "Claude's proposed edits
+  don't line up with this template" (a failed generation attempt that must surface as a real
+  error, `api/generate.py` turns it into a 502), not "template unusable, degrade to plain text
+  silently" (the actual meaning of those other two cases). `content_text` (the API response's
+  always-present text preview) is computed by applying the validated edit plan to the extracted
+  lines in pure Python and rendering that, rather than re-reading the output `.docx`'s
+  tracked-changes XML back into text -- python-docx's `.text` only sees direct `<w:r>` children
+  and would conflate `<w:delText>` with surviving text, the same blind spot as the hyperlink issue
+  above. The saved file's directory is the `resume_library_path` setting's `AI Generated`
+  subfolder, or `data/resumes/generated/` if that setting isn't configured. Output is `.docx` only,
+  deliberately -- `docx2pdf` (Word automation via AppleScript) was tried live and does not work on
+  this machine's Word install (opens Word, hangs ~30s, fails with "Message not understood"); don't
+  re-attempt automated PDF export without LibreOffice or a different conversion path. A `.docx`
+  with tracked changes opens fine in Google Docs too, which renders Word's tracked changes as its
+  own Suggesting-mode review UI on import (a long-standing, unrelated Google Docs capability) --
+  considered building real Google Docs API suggested-edits support instead (Google added a native
+  `writeControl.writeMode: "SUGGEST"` to `batchUpdate`, GA since 2026-09-30, works with personal
+  accounts), but chose this local-`.docx` approach to avoid a new OAuth/Drive integration for the
+  same end-user review experience.
 - `src/jobhunt/core/preference.py` — synthesizes `preference_profile` from feedback marks and
   application-status history, with application outcomes weighted as the stronger signal (a job that
   reached `interview`/`offer` says more than a bare `interested` mark). Rebuilt manually from
@@ -118,8 +143,6 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   explicit ask, not pure guidance), `core/discovery.py`'s company-suggestion prompt (treated as a
   real constraint, not a tiebreaker — a strong brand outside the sector shouldn't get suggested
   anyway), and `core/scoring.py` above.
-- `src/jobhunt/core/generate.py` — tailored resume/cover-letter generation, called only from a
-  user action on a specific job (`api/generate.py`), never automatically.
 - `src/jobhunt/core/prefilter.py` + `core/queue.py` — the cheap rule-based pass that runs before any
   LLM scoring call, and the priority queue/daily-cap mechanism it feeds (unscored jobs carry over
   with an age bonus so a capped day doesn't starve the backlog).
@@ -332,7 +355,9 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   structured-output calls (`core/generate.py`) was too low (4000 for `ResumeContent`, 2000 for
   `CoverLetterContent`) for realistic content length, so Claude's JSON response sometimes got cut
   off mid-string -- the same failure class as the earlier `custom_board.py` truncation bug. Raised
-  to 8000 / 4000 respectively (plain-text fallback paths bumped too, for margin). But raising
+  to 8000 / 4000 respectively (plain-text fallback paths bumped too, for margin; the resume value
+  was later reduced to 4000 after the rewrite to an edit-plan model, whose output is much smaller
+  than a whole regenerated resume). But raising
   `max_tokens` only reduces the odds, so the real fix is in `api/generate.py`: a truncated/malformed
   response raises `pydantic.ValidationError`, which **subclasses `ValueError`** -- the resume route's
   `except ValueError` (meant for "no base resume uploaded") was silently swallowing it and returning
@@ -345,11 +370,14 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   text alone -- confirmed the docx-writing code itself was fine for the normal/overflow/underflow
   paragraph-count cases; the bug was entirely in exception handling upstream.
 - Two more generation hardening passes, found by continuing to chase "Internal Server Error" past
-  the ValidationError fix above: (1) `write_resume_docx()`/`write_cover_letter_docx()` calls in
-  `core/generate.py` now catch `Exception` broadly (logged via `logging`, not silently swallowed),
-  not just `TemplateError` -- a real docx's XML can hit an edge case the synthetic test fixtures
-  don't, and that shouldn't throw away content that was already expensively generated; falls back
-  to markdown-only, same as a recognized `TemplateError`. (2) `api/generate.py`'s post-generation
+  the ValidationError fix above: (1) the docx-writing calls in `core/generate.py` (now
+  `write_resume_edits()`/`write_cover_letter_docx()`) catch `Exception` broadly (logged via
+  `logging`, not silently swallowed), not just `TemplateError` -- a real docx's XML can hit an edge
+  case the synthetic test fixtures don't, and that shouldn't throw away content that was already
+  expensively generated; falls back to markdown-only, same as a recognized `TemplateError` (the
+  resume path additionally re-raises `AnchorNotFoundError`/`AmbiguousAnchorError`/
+  `DisallowedAnchorError` instead of swallowing them into that fallback -- see `core/generate.py`
+  above). (2) `api/generate.py`'s post-generation
   `INSERT INTO generated_documents` had **no** exception handling at all -- a stale
   `application_id` (e.g. the job was removed from My Jobs between the frontend loading its state
   and the user clicking Generate -- very plausible right after the DELETE-application feature
@@ -365,12 +393,14 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   `_rank_key()` and having `get_digest()` sort its results with it live, rather than trusting
   `ORDER BY de.rank` -- the stored rank is now informational/historical only, never the source of
   truth for display order.
-- `core/generate.py`'s resume/cover-letter prompts now explicitly say to use the candidate's real
-  name (e.g. "Matt Roth") when one is needed in the output, not a surname-only form like "Roth" --
-  the candidate profile is written in third-person journalistic style (surname after first mention,
-  per its own system prompt), and without this instruction the generation prompts had no other
-  source for "what does this person want to be called," so they picked up the profile's surname-
-  only style by default.
+- `core/generate.py`'s cover-letter prompt explicitly says to use the candidate's real name (e.g.
+  "Matt Roth") when a signature line needs one, not a surname-only form like "Roth" -- the
+  candidate profile is written in third-person journalistic style (surname after first mention,
+  per its own system prompt), and without this instruction the generation prompt had no other
+  source for "what does this person want to be called," so it picked up the profile's surname-only
+  style by default. The resume path no longer has this problem at all, for a stronger reason than a
+  prompt instruction: `write_resume_edits` hard-denylists any edit anchored on the `title` line, so
+  the candidate's name is never regenerated in the first place (see `core/docx_writer.py` above).
 - `settings.looking_for_notes` (Profile page, "What are you looking for?" card) is a free-text
   field -- a few sentences in the user's own words, fed into both `core/discovery.py`'s
   `_profile_text()` (company/board discovery) and `core/scoring.py`'s prompt (job scoring), told to

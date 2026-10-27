@@ -1,9 +1,10 @@
 from docx import Document
 from fastapi.testclient import TestClient
+from lxml import etree
 
 from jobhunt.api.main import app
 from jobhunt.core import generate
-from jobhunt.core.docx_writer import CoverLetterContent, ResumeContent, ResumeLine, ResumeSection
+from jobhunt.core.docx_writer import CoverLetterContent, ResumeEditOp, ResumeEditPlan
 from jobhunt.db.connection import get_db
 from tests.fakes import FakeAnthropicClient, FakeCreateResponse, FakeParseResponse
 
@@ -134,18 +135,10 @@ def test_generate_resume_uses_docx_template_when_available(tmp_path, monkeypatch
     job_id = _insert_job()
     resume_id = _insert_resume_with_docx(tmp_path)
 
-    new_content = ResumeContent(
-        name="JANE TESTER",
-        contact_line="jane@example.com",
-        sections=[
-            ResumeSection(
-                heading="WORK EXPERIENCE",
-                lines=[
-                    ResumeLine(kind="normal", bold_part="ACME | Senior Engineer", text=" | 2024 - Present"),
-                    ResumeLine(kind="bullet", text="Shipped a tailored thing."),
-                ],
-            )
-        ],
+    new_content = ResumeEditPlan(
+        ops=[
+            ResumeEditOp(op="replace", anchor_text="Did an old thing.", new_text="Did a tailored thing.")
+        ]
     )
     monkeypatch.setattr(
         generate, "get_client", lambda: FakeAnthropicClient(parse_result=FakeParseResponse(new_content))
@@ -158,11 +151,18 @@ def test_generate_resume_uses_docx_template_when_available(tmp_path, monkeypatch
         body = resp.json()
         assert body["file_path"] is not None
         assert body["based_on_resume_id"] == resume_id
-        assert "Shipped a tailored thing." in body["content_text"]
+        assert "Did a tailored thing." in body["content_text"]
 
     doc = Document(body["file_path"])
-    assert "JANE TESTER" in [p.text for p in doc.paragraphs]
-    assert "OLD NAME" not in " ".join(p.text for p in doc.paragraphs)
+    body_xml = etree.tostring(doc.element.body, encoding="unicode")
+    # The edit lands as a tracked change, not flattened text -- python-docx's own `.text`/
+    # `.paragraphs` only see direct <w:r> children, not ones wrapped in <w:ins>/<w:del>.
+    assert "Did a tailored thing." in body_xml
+    # The name is never touched by design (title/contact lines are denylisted from every op) --
+    # the inverse of what this test used to assert, back when the whole document was regenerated
+    # from scratch and the name could get silently rewritten from the candidate profile's own
+    # third-person narrative style.
+    assert "OLD NAME" in [p.text for p in doc.paragraphs]
 
 
 def test_generate_resume_uses_docx_template_from_web_upload_with_no_source_path(tmp_path, monkeypatch):
@@ -181,7 +181,9 @@ def test_generate_resume_uses_docx_template_from_web_upload_with_no_source_path(
         )
         resume_id = cursor.lastrowid
 
-    new_content = ResumeContent(name="Web Upload Test", contact_line="x@example.com", sections=[])
+    new_content = ResumeEditPlan(
+        ops=[ResumeEditOp(op="replace", anchor_text="Did an old thing.", new_text="Web upload test.")]
+    )
     monkeypatch.setattr(
         generate, "get_client", lambda: FakeAnthropicClient(parse_result=FakeParseResponse(new_content))
     )
@@ -250,7 +252,7 @@ def test_generate_resume_returns_clean_502_on_truncated_llm_response(tmp_path, m
 
     class _BadMessages:
         def parse(self, **kwargs):
-            ResumeContent.model_validate({})  # raises a real pydantic.ValidationError
+            ResumeEditPlan.model_validate({})  # raises a real pydantic.ValidationError
 
     class _BadClient:
         messages = _BadMessages()
@@ -262,6 +264,28 @@ def test_generate_resume_returns_clean_502_on_truncated_llm_response(tmp_path, m
         assert resp.status_code == 502
         assert "couldn't be parsed" in resp.json()["detail"]
         assert "upload one" not in resp.json()["detail"]
+
+
+def test_generate_resume_returns_502_when_edit_anchor_doesnt_match_template(tmp_path, monkeypatch):
+    # Claude's proposed edit plan can be well-formed JSON that still doesn't line up with the
+    # real template (e.g. it hallucinated an anchor_text, or retyped it instead of copying it
+    # character-for-character) -- this must surface as a clear, actionable error, not a silent
+    # plain-text fallback that would look like a successful (but wrong) generation.
+    job_id = _insert_job()
+    _insert_resume_with_docx(tmp_path)
+
+    bad_plan = ResumeEditPlan(
+        ops=[ResumeEditOp(op="replace", anchor_text="This text is not in the template.", new_text="x")]
+    )
+    monkeypatch.setattr(
+        generate, "get_client", lambda: FakeAnthropicClient(parse_result=FakeParseResponse(bad_plan))
+    )
+    monkeypatch.setattr(generate, "_output_dir", lambda: tmp_path / "out")
+
+    with TestClient(app) as client:
+        resp = client.post("/api/generate/resume", json={"job_id": job_id})
+        assert resp.status_code == 502
+        assert "didn't line up with your resume template" in resp.json()["detail"]
 
 
 def test_generate_cover_letter_returns_clean_502_on_truncated_llm_response(tmp_path, monkeypatch):
@@ -290,7 +314,7 @@ def test_generate_resume_prefers_is_template_flag_over_recency(tmp_path, monkeyp
     _insert_resume_with_docx(tmp_path, kind="resume", is_template=0)
     template_id = _insert_resume_with_docx(tmp_path, kind="resume", is_template=1)
 
-    new_content = ResumeContent(name="X", contact_line="x", sections=[])
+    new_content = ResumeEditPlan(ops=[])
     monkeypatch.setattr(
         generate, "get_client", lambda: FakeAnthropicClient(parse_result=FakeParseResponse(new_content))
     )
@@ -375,7 +399,9 @@ def test_download_docx_document_returns_the_file(tmp_path, monkeypatch):
     job_id = _insert_job()
     resume_id = _insert_resume_with_docx(tmp_path)
 
-    new_content = ResumeContent(name="Jane Tester", contact_line="jane@example.com", sections=[])
+    new_content = ResumeEditPlan(
+        ops=[ResumeEditOp(op="replace", anchor_text="Did an old thing.", new_text="Did a tailored thing.")]
+    )
     monkeypatch.setattr(
         generate, "get_client", lambda: FakeAnthropicClient(parse_result=FakeParseResponse(new_content))
     )
