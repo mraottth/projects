@@ -2,47 +2,7 @@ from fastapi.testclient import TestClient
 
 from jobhunt.api.main import app
 from jobhunt.api import discovery as discovery_api
-from jobhunt.core import company_resolver, discovery, favorites
-
-
-def test_favorite_lifecycle_via_api(monkeypatch):
-    monkeypatch.setattr(
-        favorites,
-        "resolve_company",
-        lambda name: company_resolver.ResolvedSource(
-            kind="ats_greenhouse", config={"board_token": "acme"}, note="x"
-        ),
-    )
-
-    with TestClient(app) as client:
-        resp = client.post("/api/favorites", json={"company_name": "Acme"})
-        assert resp.status_code == 200
-        favorite = resp.json()
-        assert favorite["resolution_status"] == "resolved"
-
-        resp = client.get("/api/favorites")
-        assert len(resp.json()) == 1
-
-        resp = client.delete(f"/api/favorites/{favorite['id']}")
-        assert resp.status_code == 200
-        assert client.get("/api/favorites").json() == []
-
-
-def test_favorite_retry_via_api(monkeypatch):
-    monkeypatch.setattr(favorites, "resolve_company", lambda name: None)
-
-    with TestClient(app) as client:
-        resp = client.post("/api/favorites", json={"company_name": "Acme"})
-        assert resp.json()["resolution_status"] == "failed"
-        favorite_id = resp.json()["id"]
-
-        monkeypatch.setattr(
-            favorites,
-            "resolve_company",
-            lambda name: company_resolver.ResolvedSource(kind="ats_lever", config={}, note="x"),
-        )
-        resp = client.post(f"/api/favorites/{favorite_id}/retry")
-        assert resp.json()["resolution_status"] == "resolved"
+from jobhunt.core import company_resolver, discovery
 
 
 def test_discovery_suggest_via_api(monkeypatch):
@@ -60,12 +20,7 @@ def test_discovery_suggest_via_api(monkeypatch):
         assert resp.json() == [{"company_name": "Acme", "reason": "Hiring now"}]
 
 
-def test_discovery_suggest_excludes_already_monitored_and_favorited_companies(monkeypatch):
-    monkeypatch.setattr(
-        favorites,
-        "resolve_company",
-        lambda name: company_resolver.ResolvedSource(kind="ats_lever", config={}, note="x"),
-    )
+def test_discovery_suggest_excludes_already_monitored_companies(monkeypatch):
     captured = {}
 
     def fake_suggest_companies(profile, settings, exclude_names=None):
@@ -75,7 +30,6 @@ def test_discovery_suggest_excludes_already_monitored_and_favorited_companies(mo
     monkeypatch.setattr(discovery_api, "suggest_companies", fake_suggest_companies)
 
     with TestClient(app) as client:
-        client.post("/api/favorites", json={"company_name": "Acme"})
         client.post(
             "/api/sources",
             json={"kind": "custom_board", "name": "Niche Board", "company_name": "Niche Co", "config": {}},
@@ -83,7 +37,7 @@ def test_discovery_suggest_excludes_already_monitored_and_favorited_companies(mo
         resp = client.post("/api/discovery/suggest")
         assert resp.status_code == 200
 
-    assert sorted(captured["exclude_names"]) == ["Acme", "Niche Co"]
+    assert captured["exclude_names"] == ["Niche Co"]
 
 
 def test_discovery_suggest_boards_excludes_already_monitored_boards(monkeypatch):
@@ -153,7 +107,6 @@ def test_resolve_source_via_api(monkeypatch):
         assert resp.status_code == 200
         source = resp.json()
         assert source["kind"] == "ats_ashby"
-        assert source["is_favorite"] == 0
 
 
 def test_resolve_source_404_when_unresolvable(monkeypatch):

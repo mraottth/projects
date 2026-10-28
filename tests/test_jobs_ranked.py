@@ -4,11 +4,11 @@ from jobhunt.api.main import app
 from jobhunt.db.connection import get_db
 
 
-def _insert_source(is_favorite: int = 0) -> int:
+def _insert_source() -> int:
     with get_db() as conn:
         cursor = conn.execute(
-            "INSERT INTO sources (kind, name, config_json, is_favorite) VALUES (?, ?, '{}', ?)",
-            ("custom_board", "Some Board", is_favorite),
+            "INSERT INTO sources (kind, name, config_json) VALUES (?, ?, '{}')",
+            ("custom_board", "Some Board"),
         )
         return cursor.lastrowid
 
@@ -44,15 +44,14 @@ def test_ranked_jobs_excludes_manually_pasted_jobs():
     assert titles == {"Sourced Job"}
 
 
-def test_ranked_jobs_sorts_favorites_first_then_by_score():
-    fav_source = _insert_source(is_favorite=1)
-    plain_source = _insert_source(is_favorite=0)
-    _insert_job("k1", "Low Score Favorite", fav_source, score=10)
-    _insert_job("k2", "High Score Non-Favorite", plain_source, score=90)
-    _insert_job("k3", "Unscored Non-Favorite", plain_source)
+def test_ranked_jobs_sorts_by_score_with_unscored_last():
+    source = _insert_source()
+    _insert_job("k1", "Low Score", source, score=10)
+    _insert_job("k2", "High Score", source, score=90)
+    _insert_job("k3", "Unscored", source)
 
     with TestClient(app) as client:
         resp = client.get("/api/jobs/ranked")
     assert resp.status_code == 200
     titles = [row["title"] for row in resp.json()]
-    assert titles == ["Low Score Favorite", "High Score Non-Favorite", "Unscored Non-Favorite"]
+    assert titles == ["High Score", "Low Score", "Unscored"]

@@ -62,31 +62,3 @@ def test_pending_count():
     queue.enqueue(_insert_job("A"), 50.0, {})
     queue.enqueue(_insert_job("B"), 50.0, {})
     assert queue.pending_count() == 2
-
-
-def test_favorite_jobs_bypass_the_cap():
-    favorite_ids = [_insert_job(f"Fav{i}") for i in range(3)]
-    other_ids = [_insert_job(f"Other{i}") for i in range(5)]
-    for job_id in favorite_ids:
-        queue.enqueue(job_id, 10.0, {"favorite_company": True}, is_favorite=True)
-    for job_id in other_ids:
-        queue.enqueue(job_id, 50.0, {})
-
-    batch = queue.select_batch(cap=2)
-
-    # all 3 favorites included despite their low raw score, PLUS the full cap of 2 others --
-    # total exceeds the cap because favorites don't count against it.
-    assert set(favorite_ids).issubset(set(batch))
-    assert len(batch) == 5
-
-
-def test_favorite_jobs_do_not_shrink_the_cap_for_others():
-    favorite_ids = [_insert_job(f"Fav{i}") for i in range(10)]
-    other_ids = [_insert_job(f"Other{i}") for i in range(4)]
-    for job_id in favorite_ids:
-        queue.enqueue(job_id, 10.0, {}, is_favorite=True)
-    for job_id in other_ids:
-        queue.enqueue(job_id, 50.0, {})
-
-    batch = queue.select_batch(cap=4)
-    assert len(batch) == 14  # 10 favorites + all 4 others, cap untouched for the non-favorites

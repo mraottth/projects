@@ -20,7 +20,6 @@ class SourceRequest(BaseModel):
     config: dict = {}
     enabled: bool = True
     poll_frequency_hours: int = 24
-    is_favorite: bool = False
 
 
 class ResolveSourceRequest(BaseModel):
@@ -33,7 +32,6 @@ class SourceUpdateRequest(BaseModel):
     config: dict | None = None
     enabled: bool | None = None
     poll_frequency_hours: int | None = None
-    is_favorite: bool | None = None
 
 
 def _row_to_dict(row) -> dict:
@@ -56,8 +54,8 @@ def create_source(payload: SourceRequest):
     with get_db() as conn:
         cursor = conn.execute(
             """INSERT INTO sources
-               (kind, name, company_name, config_json, enabled, poll_frequency_hours, is_favorite)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+               (kind, name, company_name, config_json, enabled, poll_frequency_hours)
+               VALUES (?, ?, ?, ?, ?, ?)""",
             (
                 payload.kind,
                 payload.name,
@@ -65,7 +63,6 @@ def create_source(payload: SourceRequest):
                 json.dumps(payload.config),
                 int(payload.enabled),
                 payload.poll_frequency_hours,
-                int(payload.is_favorite),
             ),
         )
         source_id = cursor.lastrowid
@@ -74,7 +71,7 @@ def create_source(payload: SourceRequest):
 
 @router.post("/resolve")
 def resolve_source(payload: ResolveSourceRequest):
-    """Resolve a company name to an actual job board and add it as a (non-favorite) source --
+    """Resolve a company name to an actual job board and add it as a source --
     used when approving a discovery suggestion, or adding a company by name directly."""
     try:
         resolved = resolve_company(payload.company_name)
@@ -113,8 +110,6 @@ def update_source(source_id: int, payload: SourceUpdateRequest):
         updates["config_json"] = json.dumps(updates.pop("config"))
     if "enabled" in updates:
         updates["enabled"] = int(updates["enabled"])
-    if "is_favorite" in updates:
-        updates["is_favorite"] = int(updates["is_favorite"])
     if not updates:
         return get_source(source_id)
     with get_db() as conn:

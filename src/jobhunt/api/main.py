@@ -9,7 +9,6 @@ from jobhunt.api import (
     applications,
     digest,
     discovery,
-    favorites,
     generate,
     internal,
     jobs,
@@ -40,7 +39,6 @@ app.include_router(settings.router)
 app.include_router(sources.router)
 app.include_router(internal.router)
 app.include_router(generate.router)
-app.include_router(favorites.router)
 app.include_router(discovery.router)
 app.include_router(onboarding.router)
 app.include_router(pipeline.router)

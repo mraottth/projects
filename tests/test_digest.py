@@ -112,30 +112,6 @@ def test_rank_order_score_beats_recency_and_salary():
     assert titles == ["Best Score, Old, Low Salary", "Worse Score, New, High Salary"]
 
 
-def test_favorite_still_ranks_above_everything_else():
-    with get_db() as conn:
-        conn.execute(
-            "INSERT INTO sources (kind, name, config_json, is_favorite) "
-            "VALUES ('custom_board', 'Fav', '{}', 1)"
-        )
-        source_id = conn.execute("SELECT id FROM sources WHERE name = 'Fav'").fetchone()["id"]
-        cursor = conn.execute(
-            "INSERT INTO jobs (source_id, dedupe_key, title, company, posted_at) VALUES (?, ?, ?, ?, ?)",
-            (source_id, "fav-job", "Low Score Favorite", "Acme", _days_ago(50)),
-        )
-        fav_job_id = cursor.lastrowid
-    _score_job(fav_job_id, 10, 10)
-
-    strong_job = _insert_job("High Score Non-Favorite", posted_at=_days_ago(1))
-    _score_job(strong_job, 99, 99)
-
-    digest.add_to_digest(fav_job_id, "2026-01-01")
-    digest.add_to_digest(strong_job, "2026-01-01")
-
-    titles = [e["title"] for e in digest.get_digest("2026-01-01")]
-    assert titles == ["Low Score Favorite", "High Score Non-Favorite"]
-
-
 def test_get_digest_sorts_live_even_if_stored_rank_is_stale():
     # Regression: digest_entries.rank is only recomputed when a *new* job gets added to that
     # date's digest -- scoring/feedback changes that happen afterward don't trigger a re-rank, so

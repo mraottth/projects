@@ -9,9 +9,7 @@ from jobhunt.db.connection import get_db
 AGE_BONUS_PER_DAY = 5.0
 
 
-def enqueue(
-    job_id: int, prefilter_score: float, matched_rules: dict, *, is_favorite: bool = False
-) -> None:
+def enqueue(job_id: int, prefilter_score: float, matched_rules: dict) -> None:
     with get_db() as conn:
         existing = conn.execute(
             "SELECT id, status FROM scoring_queue WHERE job_id = ?", (job_id,)
@@ -19,16 +17,15 @@ def enqueue(
         if existing and existing["status"] in ("pending", "in_progress"):
             # Refresh the score but keep the original queued_at so its age bonus keeps accruing.
             conn.execute(
-                "UPDATE scoring_queue SET prefilter_score = ?, matched_rules_json = ?, "
-                "is_favorite = ? WHERE id = ?",
-                (prefilter_score, json.dumps(matched_rules), int(is_favorite), existing["id"]),
+                "UPDATE scoring_queue SET prefilter_score = ?, matched_rules_json = ? WHERE id = ?",
+                (prefilter_score, json.dumps(matched_rules), existing["id"]),
             )
             return
         conn.execute(
             """INSERT INTO scoring_queue
-               (job_id, prefilter_score, priority, matched_rules_json, is_favorite, status)
-               VALUES (?, ?, ?, ?, ?, 'pending')""",
-            (job_id, prefilter_score, prefilter_score, json.dumps(matched_rules), int(is_favorite)),
+               (job_id, prefilter_score, priority, matched_rules_json, status)
+               VALUES (?, ?, ?, ?, 'pending')""",
+            (job_id, prefilter_score, prefilter_score, json.dumps(matched_rules)),
         )
 
 
@@ -42,19 +39,14 @@ def _apply_age_bonus() -> None:
 
 
 def select_batch(cap: int) -> list[int]:
-    """Favorite-company jobs bypass the cap entirely (all pending ones are always included); the
-    cap applies in full to everything else, independent of how many favorites there are."""
+    """The `cap` highest-priority pending jobs, marked in_progress."""
     _apply_age_bonus()
     with get_db() as conn:
-        favorite_rows = conn.execute(
-            "SELECT id, job_id FROM scoring_queue WHERE status = 'pending' AND is_favorite = 1"
-        ).fetchall()
-        other_rows = conn.execute(
-            "SELECT id, job_id FROM scoring_queue WHERE status = 'pending' AND is_favorite = 0 "
+        rows = conn.execute(
+            "SELECT id, job_id FROM scoring_queue WHERE status = 'pending' "
             "ORDER BY priority DESC LIMIT ?",
             (cap,),
         ).fetchall()
-        rows = [*favorite_rows, *other_rows]
         ids = [row["id"] for row in rows]
         if ids:
             conn.executemany(

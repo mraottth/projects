@@ -10,9 +10,10 @@ SCHEMA_PATH = Path(__file__).resolve().parent / "schema.sql"
 # schema.sql's CREATE TABLE IF NOT EXISTS never alters an already-existing table, so a new column
 # on an existing table needs an explicit migration here. Each statement is applied once; "duplicate
 # column" errors (already applied) are swallowed so this is safe to run on every startup.
+# (The Favorite feature's `sources.is_favorite` / `scoring_queue.is_favorite` columns and
+# `favorite_companies` table were removed from schema.sql; databases created before that still have
+# them, unused and harmless.)
 MIGRATIONS = [
-    "ALTER TABLE sources ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0",
-    "ALTER TABLE scoring_queue ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE resumes ADD COLUMN source_path TEXT",
     "ALTER TABLE resumes ADD COLUMN source_modified_at TEXT",
     "ALTER TABLE resumes ADD COLUMN is_archived INTEGER NOT NULL DEFAULT 0",

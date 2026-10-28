@@ -1,7 +1,7 @@
 """Suggests companies worth monitoring, given the user's candidate profile and desired-role
 settings -- via Claude + web search. Deliberately returns suggestions for the user to review and
 approve (api/discovery.py), not auto-added sources; resolving an approved suggestion into an
-actual monitored source reuses core/company_resolver.resolve_company(), same as Favorites."""
+actual monitored source reuses core/company_resolver.resolve_company() (POST /api/sources/resolve)."""
 
 import json
 import re
@@ -126,7 +126,7 @@ def _profile_text(candidate_profile: str | None, settings: dict, exclude: list[s
         f"## Desired locations\n{locations}{' (remote only)' if remote_only else ''}\n\n"
         f"## Minimum salary\n{salary_floor if salary_floor else '(not specified)'}\n\n"
         f"## In their own words, what they're looking for\n{notes}\n\n"
-        f"## Already being monitored or favorited -- do not suggest these again\n{exclude_text}"
+        f"## Already being monitored -- do not suggest these again\n{exclude_text}"
     )
 
 

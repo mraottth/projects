@@ -4,18 +4,6 @@ from jobhunt.db.connection import get_db
 
 MAX_AGE_DAYS = 90
 
-# A job is "favorite" if either its company is a resolved favorite company (matched by name, so
-# it applies even if the same company later turns up via a different source) or its own source
-# was favorited directly (matched by source_id -- a multi-employer board has no single company
-# name to match on, so this is the only way a favorite job board's postings get flagged).
-IS_FAVORITE_SQL = """(
-    EXISTS (
-        SELECT 1 FROM favorite_companies fc
-        WHERE lower(fc.company_name) = lower(j.company) AND fc.resolution_status = 'resolved'
-    )
-    OR EXISTS (SELECT 1 FROM sources s WHERE s.id = j.source_id AND s.is_favorite = 1)
-) AS is_favorite"""
-
 # "New and noteworthy" excludes a job the user already dismissed (once marked not interested,
 # it's done surfacing here -- still reachable from All Jobs, just not pushed at the user again)
 # and a posting old enough that it isn't really "new" -- unless we simply don't know its age, in
@@ -33,14 +21,12 @@ def today_str() -> str:
 
 
 def _rank_key(row) -> tuple:
-    """Shared sort key: favorite first (unconditional -- "favorite" means "always show me this,"
-    not "weight it a bit higher"), then interest+candidate fit score, then how recently it was
-    posted, then salary. Used both to persist `digest_entries.rank` (informational/historical) and,
-    more importantly, to sort get_digest()'s results live -- the stored rank only gets recomputed
+    """Shared sort key: interest+candidate fit score, then how recently it was posted, then
+    salary. Used both to persist `digest_entries.rank` (informational/historical) and, more
+    importantly, to sort get_digest()'s results live -- the stored rank only gets recomputed
     when a *new* job is added to that date's digest, so trusting it alone goes stale the moment a
     feedback mark or anything else changes what should be excluded/reordered without a new insert."""
     return (
-        row["is_favorite"],
         (row["interest_score"] or 0) + (row["candidate_fit_score"] or 0),
         row["posted_at"] or row["first_seen_at"] or "",
         row["salary_max"] or row["salary_min"] or 0,
@@ -64,8 +50,8 @@ def add_to_digest(job_id: int, digest_date: str | None = None) -> None:
             (digest_date, job_id),
         )
         rows = conn.execute(
-            f"""SELECT de.job_id, js.interest_score, js.candidate_fit_score,
-                      j.posted_at, j.first_seen_at, j.salary_max, j.salary_min, {IS_FAVORITE_SQL}
+            """SELECT de.job_id, js.interest_score, js.candidate_fit_score,
+                      j.posted_at, j.first_seen_at, j.salary_max, j.salary_min
                FROM digest_entries de
                JOIN jobs j ON j.id = de.job_id
                LEFT JOIN job_scores js ON js.id = (
@@ -85,7 +71,7 @@ def get_digest(digest_date: str) -> list[dict]:
     with get_db() as conn:
         rows = conn.execute(
             f"""SELECT j.*, js.interest_fit, js.interest_score, js.candidate_fit, js.candidate_fit_score,
-                      js.summary_text, js.rationale_text, de.rank, s.name AS source_name, {IS_FAVORITE_SQL}
+                      js.summary_text, js.rationale_text, de.rank, s.name AS source_name
                FROM digest_entries de
                JOIN jobs j ON j.id = de.job_id
                LEFT JOIN job_scores js ON js.id = (

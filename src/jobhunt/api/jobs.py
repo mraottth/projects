@@ -2,7 +2,6 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from jobhunt.api.applications import CreateApplicationRequest, create_application
-from jobhunt.core.digest import IS_FAVORITE_SQL
 from jobhunt.core.llm import LLMError
 from jobhunt.core.preference import get_current_preference_profile
 from jobhunt.core.profile import get_current_candidate_profile
@@ -60,19 +59,18 @@ def list_ranked_jobs(status: str = "active"):
     "New & Noteworthy" -- ranked best-first by score, with unscored jobs (not yet reached by the
     daily cap) sorted after scored ones. Backs the All Jobs page's full browse view. Manually
     pasted jobs (no source_id) are excluded -- those go straight to My Jobs, not here. Same rank
-    order as the digest (favorite, then score, then recency, then salary) for consistency."""
+    order as the digest (score, then recency, then salary) for consistency."""
     with get_db() as conn:
         rows = conn.execute(
-            f"""SELECT j.*, js.interest_fit, js.interest_score, js.candidate_fit, js.candidate_fit_score,
-                       js.summary_text, js.rationale_text, s.name AS source_name, {IS_FAVORITE_SQL}
+            """SELECT j.*, js.interest_fit, js.interest_score, js.candidate_fit, js.candidate_fit_score,
+                       js.summary_text, js.rationale_text, s.name AS source_name
                 FROM jobs j
                 LEFT JOIN job_scores js ON js.id = (
                     SELECT id FROM job_scores WHERE job_id = j.id ORDER BY id DESC LIMIT 1
                 )
                 LEFT JOIN sources s ON s.id = j.source_id
                 WHERE j.status = ? AND j.source_id IS NOT NULL
-                ORDER BY is_favorite DESC,
-                         (COALESCE(js.interest_score, 0) + COALESCE(js.candidate_fit_score, 0)) DESC,
+                ORDER BY (COALESCE(js.interest_score, 0) + COALESCE(js.candidate_fit_score, 0)) DESC,
                          COALESCE(j.posted_at, j.first_seen_at) DESC,
                          COALESCE(j.salary_max, j.salary_min, 0) DESC""",
             (status,),
