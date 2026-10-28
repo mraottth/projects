@@ -96,3 +96,17 @@ def test_resume_and_cover_letter_current_flags_are_independent():
                 ).fetchone()
             )
         assert cl_row["is_template"] == 1
+
+
+def test_download_returns_the_uploaded_file_under_its_name(tmp_path, monkeypatch):
+    from jobhunt.api import resumes
+
+    monkeypatch.setattr(resumes, "RESUME_STORAGE_DIR", tmp_path)
+    with TestClient(app) as client:
+        resume_id = _upload(client, filename="My Resume.txt").json()["id"]
+        resp = client.get(f"/api/resumes/{resume_id}/download")
+        assert resp.status_code == 200
+        assert resp.content == b"Some resume text content."
+        assert "My%20Resume.txt" in resp.headers["content-disposition"]  # RFC 5987-encoded
+
+        assert client.get("/api/resumes/9999/download").status_code == 404

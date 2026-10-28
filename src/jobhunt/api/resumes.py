@@ -2,6 +2,7 @@ import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from jobhunt.config import RESUME_STORAGE_DIR
@@ -118,6 +119,23 @@ def update_resume(resume_id: int, payload: ResumeUpdateRequest):
             conn.execute("UPDATE resumes SET is_archived = 0 WHERE id = ?", (resume_id,))
 
     return {"ok": True}
+
+
+@router.get("/{resume_id}/download")
+def download_resume(resume_id: int):
+    """The uploaded file itself (resume or cover letter), under its original file name -- backs the
+    Profile page's download links. Generated documents have their own download route
+    (api/generate.py)."""
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT file_name, stored_path FROM resumes WHERE id = ?", (resume_id,)
+        ).fetchone()
+    if row is None:
+        raise HTTPException(404, "document not found")
+    path = Path(row["stored_path"])
+    if not path.exists():
+        raise HTTPException(404, "the file is no longer on disk")
+    return FileResponse(path, filename=row["file_name"])
 
 
 @router.delete("/{resume_id}")
