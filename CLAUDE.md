@@ -197,7 +197,7 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   `index.css`), used in place of plain "...ing" button text for any action that calls Claude
   (profile rebuild, company discovery, resume/cover-letter generation, job scoring, favorite
   resolution) or otherwise takes noticeable time (test-fetch, run-daily-now).
-- **Page split**, five pages each with one job, nav order New & Noteworthy → All Jobs → My Jobs →
+- **Page split**, six pages each with one job (plus the first-run `/onboarding` wizard, below), nav order New & Noteworthy → All Jobs → My Jobs →
   Manage Sources → Profile → Settings: `DigestPage` (route `/`, nav label "New & Noteworthy") is
   today's capped, LLM-scored digest only. `AllJobsPage` (route `/all-jobs`) is
   `GET /api/jobs/ranked` (`api/jobs.py`, registered *before* `/{job_id}` since Starlette matches
@@ -214,6 +214,31 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   `create_application` directly, swallowing a 409 so re-confirming is a no-op) rather than adding
   it to the digest, since pasting a job you already found *is* the interest signal, not a "new and
   noteworthy" discovery.
+- **Onboarding** (`pages/OnboardingPage.tsx`, route `/onboarding`) is a 7-step wizard: current
+  resume (required) → "What are you looking for?" → recent cover letter (upload, or "Write one for
+  me") → older docs (multi-file, uploaded as archived, kind guessed by the same "cover"-in-filename
+  rule as `cli/ingest_resumes.py`) → candidate profile (auto-rebuilt on arrival, then revisable) →
+  company/board discovery (auto-run) → first daily run, then the digest. `App.tsx` redirects every
+  route there, and hides the nav, only while `GET /api/onboarding/status` says `needs_onboarding`
+  = no rows in `resumes` at all *and* the `onboarding_completed` setting is false -- so an existing
+  user with documents (including bulk-CLI-imported ones) is never forced through it. Progress is
+  the `onboarding_step` setting, written on every step change, so a refresh resumes in place.
+  "Skip setup" just sets `onboarding_completed`; `DigestPage` shows a "Finish setting up" card
+  whenever there's no resume, which covers anyone who skipped. The three reused pieces are shared
+  components rather than copies: `components/DesiredRoleForm.tsx` (also the Profile page's card),
+  `components/Discovery.tsx` (also Manage Sources; `autoRun` fires on mount), and
+  `components/CandidateProfileCard.tsx` (also the Profile page). Every on-mount Claude call there
+  (`autoRun`, `autoRebuild`, the finish step's run-daily) is guarded by a `useRef` flag, since
+  `main.tsx` uses `StrictMode`, which double-mounts in dev and would otherwise make two paid calls.
+  "Write one for me" is `core/generate.py`'s `generate_starter_cover_letter()`: built from the
+  current resume's text plus titles/sectors/notes (no candidate profile exists yet at that step,
+  and no job), saved as a plain one-paragraph-per-element `.docx` in `RESUME_STORAGE_DIR` and
+  inserted as the *current* cover letter, so later per-job generation uses it as its positional
+  template. A regenerated draft deletes the previous draft rather than letting it pile up in Old,
+  since a discarded AI draft isn't a real past cover letter and shouldn't feed the profile.
+- `CandidateProfileCard`'s "Ask Claude to change it" is `POST /api/resumes/profile/revise`
+  (`core/profile.py`'s `revise_candidate_profile()`): one call applying the user's plain-language
+  change request to the current profile, inserted as a new row like every rebuild/edit.
 - `api/applications.py`'s `list_applications()` used to omit `history` entirely (only the
   single-item `_get_application()` joined it), while the frontend's `MyJobsPage` called
   `app.history.map(...)` unconditionally on every row -- crashed the whole page the moment a real
@@ -492,18 +517,15 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
 - Resumes/cover letters and the job/application DB are real personal data — never relax `.gitignore`
   for `data/` or commit a `.db` file, even for debugging.
 
-## Deploy (Milestone 6 — Dockerfile/Makefile ready, not yet actually deployed)
+## Deploy (Milestone 6 — live on Cloud Run)
 
 Cloud Run + Cloud Scheduler, same `gcloud builds submit` → `gcloud run deploy` pattern as Shelf Life,
 with two differences from that project:
 
-- **`--no-allow-unauthenticated`** — this app must never be publicly reachable. Lock it down with
-  Identity-Aware Proxy: enable the IAP API, configure the OAuth consent screen, enable IAP on the
-  Cloud Run service, then grant "IAP-secured Web App User" to just your own Google account. This is
-  a one-time setup via the GCP console (Security → Identity-Aware Proxy) or `gcloud iap` — the exact
-  flags shift as Google iterates on Cloud Run's IAP integration, so follow GCP's current
-  documentation at deploy time rather than a command memorized here. **Before relying on it**,
-  confirm from a signed-out/incognito browser that the URL actually refuses you.
+- **`--no-allow-unauthenticated` + direct IAP** (`--iap` on `gcloud run deploy`, Cloud Run's
+  native IAP integration -- no load balancer). `make iap-setup` grants just `IAP_USER`'s Google
+  account access. This app must never be publicly reachable: after any change to the IAP setup,
+  confirm from a signed-out/incognito browser that the URL redirects to Google sign-in.
 - **A GCS-bucket volume mount for `data/`** (the SQLite file + resume blobs) via Cloud Run's native
   volume-mount support, so it survives restarts — Cloud Run's local disk is ephemeral otherwise.
   `--max-instances 1` avoids SQLite multi-writer issues entirely (single personal user anyway).
@@ -511,9 +533,10 @@ with two differences from that project:
 The image also bundles Playwright + Chromium (for `custom_board`'s JS-rendering fallback), which
 makes it noticeably bigger than Shelf Life's — expect a slower Cloud Build and a slower cold start.
 
-**Not yet done, and deliberately not run from here without you present**: actually running
-`make deploy` creates a real GCP Artifact Registry image and a real Cloud Run service, and `gcloud
-builds submit` consumes Cloud Build minutes — all real spend. Needs a GCP project id (`GCP_PROJECT`
-in a git-ignored `.deploy.local.mk`, same pattern as Shelf Life), `make anthropic-secret` and `make
-scheduler-secret` run once first, then `make deploy`, then the IAP console setup above, then `make
-scheduler-setup`.
+Deployed to the `job-searcher-512814` GCP project, service `jobhunt`, region `us-central1`.
+The URL isn't recorded in this repo; get it with `gcloud run services describe jobhunt --project
+job-searcher-512814 --region us-central1 --format='value(status.url)'` or from the Cloud Run
+console. One-time setup order (see the Makefile): `apis-setup` → `bucket-setup` → `anthropic-secret`
+/ `scheduler-secret` → `deploy` → `iap-setup` → `scheduler-setup`; after that, `make deploy` alone
+ships every update. Every one of these is real spend/real infrastructure, so don't run them from
+here without the user present.
