@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, Source, SourceKind } from "../api";
 import { DiscoverCompaniesSection, DiscoverJobBoardsSection, DiscoverySeed } from "../components/Discovery";
+import { Modal } from "../components/Modal";
 import { detectSourceFromUrl } from "../sourceUrl";
 import { Spinner } from "../components/Spinner";
 
@@ -81,10 +82,10 @@ function AddSourceForm({ onAdded }: { onAdded: (source: Source) => void }) {
 
   return (
     <div className="card">
-      <h2>Add a source</h2>
+      <h2>Add a source manually</h2>
       <p className="muted small">
-        Track an organization's job board or an aggregator — any new postings feed into the All
-        Jobs page and the daily digest.
+        For anything "Add more" doesn't cover — like a keyword search on Adzuna or RemoteOK — or to
+        set a source's details by hand. New postings feed into All Jobs and the daily digest.
       </p>
       <div className="fsection">
         <span className="flabel">Kind</span>
@@ -222,24 +223,165 @@ function SourceCard({
   );
 }
 
+type SectionKind = "organizations" | "boards";
+type DialogTab = "link" | "discover";
+
+const DETECTED_LABELS: Partial<Record<SourceKind, string>> = {
+  ats_greenhouse: "Greenhouse board — new postings come straight from its API",
+  ats_lever: "Lever board — new postings come straight from its API",
+  ats_ashby: "Ashby board — new postings come straight from its API",
+  custom_board: "Careers page — checked like a web page each day",
+};
+
+function AddByLinkForm({ kind, onAdded }: { kind: SectionKind; onAdded: () => void }) {
+  const [name, setName] = useState("");
+  const [url, setUrl] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const detected = detectSourceFromUrl(url);
+  const org = kind === "organizations";
+
+  const submit = async () => {
+    if (!name.trim() || !detected) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.createSource({
+        kind: detected.kind,
+        name: name.trim(),
+        // An organization name is what files it under Organizations (see isOrganization).
+        company_name: org ? name.trim() : null,
+        config: detected.config,
+      });
+      setName("");
+      setUrl("");
+      onAdded();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div>
+      <label className="field">
+        <span>Name</span>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder={org ? "e.g. Nava PBC" : "e.g. Tech Jobs for Good"}
+        />
+      </label>
+      <label className="field">
+        <span>{org ? "Link to their jobs page" : "Link to the board"}</span>
+        <input
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder={org ? "e.g. https://boards.greenhouse.io/nava" : "e.g. https://techjobsforgood.com"}
+        />
+      </label>
+      <p className="muted small" style={{ marginTop: 0 }}>
+        {detected
+          ? DETECTED_LABELS[detected.kind]
+          : url.trim()
+            ? "Enter a full link, starting with https://"
+            : "Paste the page where their open jobs are listed."}
+      </p>
+      {error && <p className="error-text small">{error}</p>}
+      <button className="primary" onClick={submit} disabled={busy || !name.trim() || !detected}>
+        {busy ? <Spinner label="Adding..." /> : org ? "Add organization" : "Add job board"}
+      </button>
+    </div>
+  );
+}
+
+// "Add more" for one section: add a source by link, or discover suggestions. Discovery stays
+// mounted inside the (closed) dialog, so its results survive closing and reopening.
+function AddMoreDialog({
+  kind,
+  open,
+  tab,
+  onTab,
+  onClose,
+  seed,
+  onAdded,
+}: {
+  kind: SectionKind;
+  open: boolean;
+  tab: DialogTab;
+  onTab: (tab: DialogTab) => void;
+  onClose: () => void;
+  seed: DiscoverySeed | null;
+  onAdded: () => void;
+}) {
+  const org = kind === "organizations";
+  return (
+    <Modal open={open} onClose={onClose} title={org ? "Add organizations" : "Add job boards"}>
+      <div className="seg" style={{ marginBottom: "16px" }}>
+        <button className={tab === "link" ? "on" : ""} onClick={() => onTab("link")}>
+          Add by link
+        </button>
+        <button className={tab === "discover" ? "on" : ""} onClick={() => onTab("discover")}>
+          Discover suggestions
+        </button>
+      </div>
+      <div hidden={tab !== "link"}>
+        <AddByLinkForm
+          kind={kind}
+          onAdded={() => {
+            onAdded();
+            onClose();
+          }}
+        />
+      </div>
+      <div hidden={tab !== "discover"}>
+        {org ? (
+          <DiscoverCompaniesSection bare seed={seed} onAdded={onAdded} />
+        ) : (
+          <DiscoverJobBoardsSection bare seed={seed} onAdded={onAdded} />
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+function SectionHeader({ title, blurb, onAddMore }: { title: string; blurb: string; onAddMore: () => void }) {
+  return (
+    <div className="source-section-head">
+      <div>
+        <h2 className="source-section-title">{title}</h2>
+        <p className="muted small">{blurb}</p>
+      </div>
+      <button className="primary" onClick={onAddMore}>
+        + Add more
+      </button>
+    </div>
+  );
+}
+
 export default function ManageSourcesPage() {
   const [sources, setSources] = useState<Source[]>([]);
   const [runResult, setRunResult] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [orgSeed, setOrgSeed] = useState<DiscoverySeed | null>(null);
   const [boardSeed, setBoardSeed] = useState<DiscoverySeed | null>(null);
+  const [dialog, setDialog] = useState<SectionKind | null>(null);
+  const [dialogTab, setDialogTab] = useState<DialogTab>("link");
+
+  const openDialog = (kind: SectionKind, tab: DialogTab = "link") => {
+    setDialogTab(tab);
+    setDialog(kind);
+  };
 
   const refresh = () => api.listSources().then(setSources);
 
-  // Starts a "more like this" search in the matching Discover card, and scrolls to it so the
-  // results are where the user's looking.
+  // Opens the matching "Add more" dialog on its Discover tab and starts a "more like this" search.
   const findMoreLikeThis = (source: Source) => {
     const seed = { like: describeForDiscovery(source), label: source.name, nonce: Date.now() };
     const org = isOrganization(source);
     (org ? setOrgSeed : setBoardSeed)(seed);
-    document
-      .getElementById(org ? "discover-organizations" : "discover-job-boards")
-      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    openDialog(org ? "organizations" : "boards", "discover");
   };
 
   useEffect(() => {
@@ -274,28 +416,51 @@ export default function ManageSourcesPage() {
       </p>
 
       <section className="source-section">
-        <h2 className="source-section-title">Organizations</h2>
-        <p className="muted small">Single employers whose job boards you follow.</p>
+        <SectionHeader
+          title="Organizations"
+          blurb="Single employers whose job boards you follow."
+          onAddMore={() => openDialog("organizations")}
+        />
         {organizations.map((s) => (
           <SourceCard key={s.id} source={s} onChanged={refresh} onFindMoreLikeThis={findMoreLikeThis} />
         ))}
         {organizations.length === 0 && (
-          <p className="empty-state">No organizations yet — discover some below, or add one by URL.</p>
+          <p className="empty-state">No organizations yet — use "Add more" to find or add some.</p>
         )}
-        <DiscoverCompaniesSection seed={orgSeed} onAdded={refresh} />
       </section>
 
       <section className="source-section">
-        <h2 className="source-section-title">Job boards</h2>
-        <p className="muted small">Multi-employer boards and job searches.</p>
+        <SectionHeader
+          title="Job boards"
+          blurb="Multi-employer boards and job searches."
+          onAddMore={() => openDialog("boards")}
+        />
         {boards.map((s) => (
           <SourceCard key={s.id} source={s} onChanged={refresh} onFindMoreLikeThis={findMoreLikeThis} />
         ))}
         {boards.length === 0 && (
-          <p className="empty-state">No job boards yet — discover some below, or add one by URL.</p>
+          <p className="empty-state">No job boards yet — use "Add more" to find or add some.</p>
         )}
-        <DiscoverJobBoardsSection seed={boardSeed} onAdded={refresh} />
       </section>
+
+      <AddMoreDialog
+        kind="organizations"
+        open={dialog === "organizations"}
+        tab={dialogTab}
+        onTab={setDialogTab}
+        onClose={() => setDialog(null)}
+        seed={orgSeed}
+        onAdded={refresh}
+      />
+      <AddMoreDialog
+        kind="boards"
+        open={dialog === "boards"}
+        tab={dialogTab}
+        onTab={setDialogTab}
+        onClose={() => setDialog(null)}
+        seed={boardSeed}
+        onAdded={refresh}
+      />
 
       <AddSourceForm onAdded={() => refresh()} />
 

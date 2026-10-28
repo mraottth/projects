@@ -399,3 +399,29 @@ a.jobby-link { white-space: nowrap; }
   .jobby-picker ul { max-height: 220px; }
   .jobby-starters { padding-left: 0; }
 }
+
+/* ---------- modal (native <dialog>) */
+.modal {
+  width: min(640px, calc(100vw - 32px)); max-height: 85vh; padding: 0; border: 1px solid var(--ring);
+  border-radius: 14px; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.18); background: var(--card); color: var(--ink);
+}
+.modal::backdrop { background: rgba(11, 11, 11, 0.35); }
+.modal[open] { display: flex; flex-direction: column; }
+.modal-head {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  padding: 16px 20px 10px;
+}
+.modal-head h2 { margin: 0; }
+.modal-close {
+  background: none; border: 0; font-size: 1.5rem; line-height: 1; color: var(--muted);
+  padding: 2px 8px; border-radius: 6px;
+}
+.modal-close:hover { background: #efeee9; color: var(--ink); }
+.modal-body { padding: 4px 20px 20px; overflow-y: auto; }
+
+/* ---------- add more / discovery */
+.source-section-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+.source-section-head .muted.small { margin: 0; }
+.discover-go { font-size: 1rem; padding: 11px 22px; }
+.discover-steer { margin: 14px 0 10px; }
+.discover-bare > .muted.small:first-child { margin-top: 0; }

@@ -223,7 +223,10 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   there is one). Both are an optional JSON body on `/api/discovery/suggest[-boards]`, appended by
   `_search_direction()` after the profile; neither is saved. Manage Sources hands a tracked
   source's seed to the right Discover card through a `seed` prop (`DiscoverySeed`, with a `nonce`
-  so asking twice re-runs) and scrolls to it.
+  so asking twice re-runs), opening that section's "Add more" dialog on its Discover tab. In
+  `DiscoveryControls`, the big primary "Suggest ..." button (`.discover-go`) comes first and the
+  steering box sits under it, per the user's ask; `bare` drops the card and heading for use
+  inside the dialog.
 - **Favorite was removed** (favorite companies and favorite sources, which bypassed the pre-filter
   and daily cap and always ranked first) at the user's request -- every source is now just a
   monitored source. `schema.sql` no longer has `sources.is_favorite`, `scoring_queue.is_favorite`,
@@ -248,9 +251,14 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   path templates in order -- a later `/ranked` would 404 as an invalid `job_id`) -- every active
   job from a tracked source (`source_id NOT NULL`), scored or not, ranked best-first, the uncapped
   view the daily cap's 50-job limit would otherwise hide. `ManageSourcesPage` (route `/sources`) is
-  purely source management, in two sections -- **Organizations** (tracked single-employer sources,
-  then Discover organizations) and **Job boards** (multi-employer boards and the keyword
-  aggregators, then Discover job boards) -- then "Add a source" and run-daily-now. A source is an
+  purely source management, in two sections -- **Organizations** (single-employer sources) and
+  **Job boards** (multi-employer boards and the keyword aggregators) -- each with a "+ Add more"
+  button opening `AddMoreDialog` (`components/Modal.tsx`, a native `<dialog>`). It has two tabs:
+  "Add by link" (name + URL through `detectSourceFromUrl()`; an organization gets `company_name`
+  = its name so it files under Organizations) and "Discover suggestions" (the Discover cards,
+  which no longer sit inline on the page). The dialog stays mounted while closed, so discovery
+  results survive closing and reopening. "Add a source manually" stays at the bottom, as the only
+  way to add the Adzuna/RemoteOK keyword aggregators, then run-daily-now. A source is an
   organization if it's an `ats_*` kind or has a `company_name` (`isOrganization()`); there's no
   stored type, so this needs no migration. Monitoring a suggestion refreshes the lists (`onAdded`). No job
   listing on this page at all; it used to be a single page with two tabs, split into separate
