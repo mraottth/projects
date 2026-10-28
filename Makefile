@@ -1,11 +1,23 @@
 export PYTHONPATH := src
 PY := uv run python -m
 
-.PHONY: serve dev frontend test ingest-resumes docker apis-setup bucket-setup deploy iap-setup \
+.PHONY: serve serve-sandbox reset-sandbox dev frontend test ingest-resumes docker apis-setup bucket-setup deploy iap-setup \
         anthropic-secret scheduler-secret scheduler-setup
 
 serve:        ## API (serves frontend/dist if built) on http://localhost:8000
 	uv run uvicorn jobhunt.api.main:app --reload --port 8000
+
+# A throwaway data dir (its own SQLite DB + uploaded files) -- starts empty, so the first-run
+# onboarding wizard shows up, and nothing touches the real data/jobhunt.db or your resumes. Lives
+# under data/, so it's git-ignored like everything else there. Claude calls are still real (and
+# still logged/costed, in the sandbox DB's own usage log).
+SANDBOX_DIR ?= data/sandbox
+
+serve-sandbox:  ## like `serve`, but on :8001 against SANDBOX_DIR (run `make frontend` first)
+	JOBHUNT_DATA_DIR=$(SANDBOX_DIR) uv run uvicorn jobhunt.api.main:app --reload --port 8001
+
+reset-sandbox:  ## wipe SANDBOX_DIR to see onboarding from scratch again
+	rm -rf $(SANDBOX_DIR)
 
 dev:          ## Vite dev server (proxies /api to :8000); run `make serve` alongside
 	cd frontend && npm run dev

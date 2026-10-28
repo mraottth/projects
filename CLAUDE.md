@@ -16,6 +16,8 @@ issue Shelf Life's CLAUDE.md notes) — `import jobhunt` then fails outside `mak
 
 ```bash
 make serve             # uvicorn on :8000; serves frontend/dist if built
+make serve-sandbox     # same on :8001 against a throwaway data/sandbox/ (empty -> onboarding); real data untouched
+make reset-sandbox     # wipe data/sandbox/ to start onboarding over
 make dev                # Vite dev server (proxies /api to :8000); run `make serve` alongside
 make frontend           # npm install + build frontend/dist
 make test                # pytest
