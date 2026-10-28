@@ -18,7 +18,7 @@ because it's a strong brand name. Use web search to find real companies that are
 for roles like this right now, not just companies that seem like a generic fit -- prioritize \
 current, concrete evidence (an open posting, a recent hiring announcement) over general reputation.
 
-Suggest 6-10 companies. For each, give a one-sentence reason tied to their specific profile/targets \
+Suggest 5-8 companies. For each, give a one-sentence reason tied to their specific profile/targets \
 (not generic "great culture" reasoning). Prefer a mix of company sizes/stages over obvious mega-cap \
 names only.
 
@@ -43,7 +43,7 @@ Use web search to confirm each board is real, currently active, and actually rel
 of role they want -- don't suggest a well-known generic board (e.g. LinkedIn, Indeed) that offers \
 no narrower reach than what the user can already search themselves.
 
-Suggest 4-8 boards. For each, give its direct URL and a one-sentence reason tied to their specific \
+Suggest 3-6 boards. For each, give its direct URL and a one-sentence reason tied to their specific \
 profile/targets (not generic reasoning).
 
 Respond with ONLY a JSON object on the last line of your response, no other text after it:
@@ -56,11 +56,59 @@ class JobBoardSuggestion(BaseModel):
     reason: str
 
 
+# Low effort + a small search budget keeps a discovery call to roughly a minute instead of several
+# (high, the default, ran up to five filtered web searches with long reasoning between them); the
+# task is "find a handful of real, relevant names," which doesn't need deep deliberation.
+DISCOVERY_EFFORT = "low"
+MAX_WEB_SEARCHES = 3
+# A long server-tool turn can stop with stop_reason "pause_turn" before the final JSON is written;
+# re-sending the paused turn lets the server pick up where it left off. Capped so a misbehaving
+# turn can't loop forever.
+MAX_CONTINUATIONS = 3
+
+
 def _extract_json(text: str) -> dict:
-    match = re.search(r"\{.*\}", text, re.DOTALL)
-    if not match:
-        raise ValueError(f"no JSON object found in response: {text[:200]!r}")
-    return json.loads(match.group(0))
+    """Parses the last {"suggestions": ...} object in the response. Scanning for that specific
+    object (rather than greedily matching from the first "{" to the last "}") keeps stray braces in
+    the prose before it -- e.g. a quoted snippet from a search result -- from breaking the parse."""
+    decoder = json.JSONDecoder()
+    for match in reversed(list(re.finditer(r'\{\s*"suggestions"', text))):
+        try:
+            data, _ = decoder.raw_decode(text, match.start())
+        except json.JSONDecodeError:
+            continue
+        if isinstance(data, dict):
+            return data
+    raise ValueError(f"no suggestions JSON found in response: {text[:200]!r}")
+
+
+def _run_discovery(system: str, user_content: str, note: str) -> str:
+    """One discovery call with web search, resuming on pause_turn. Returns all text output."""
+    client = get_client()
+    messages = [{"role": "user", "content": user_content}]
+    texts = []
+    for _ in range(MAX_CONTINUATIONS + 1):
+        response = client.messages.create(
+            model=DEFAULT_MODEL,
+            max_tokens=6000,
+            system=system,
+            messages=messages,
+            tools=[{"type": "web_search_20260209", "name": "web_search", "max_uses": MAX_WEB_SEARCHES}],
+            output_config={"effort": DISCOVERY_EFFORT},
+        )
+        texts.extend(b.text for b in response.content if b.type == "text")
+        search_uses = sum(1 for b in response.content if b.type == "server_tool_use")
+        log_call(
+            call_type="parsing",
+            model=DEFAULT_MODEL,
+            input_tokens=response.usage.input_tokens,
+            output_tokens=response.usage.output_tokens,
+            note=f"{note} ({search_uses} web search(es))",
+        )
+        if getattr(response, "stop_reason", None) != "pause_turn":
+            break
+        messages = [*messages, {"role": "assistant", "content": response.content}]
+    return "\n".join(texts)
 
 
 def _profile_text(candidate_profile: str | None, settings: dict, exclude: list[str] | None = None) -> str:
@@ -90,24 +138,12 @@ def _hostname(url: str) -> str:
 def suggest_companies(
     candidate_profile: str | None, settings: dict, exclude_names: list[str] | None = None
 ) -> list[CompanySuggestion]:
-    client = get_client()
     with llm_error_boundary("suggesting companies to monitor"):
-        response = client.messages.create(
-            model=DEFAULT_MODEL,
-            max_tokens=6000,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": _profile_text(candidate_profile, settings, exclude_names)}],
-            tools=[{"type": "web_search_20260209", "name": "web_search", "max_uses": 5}],
+        text = _run_discovery(
+            SYSTEM_PROMPT,
+            _profile_text(candidate_profile, settings, exclude_names),
+            "discovery:suggest_companies",
         )
-    text = "\n".join(b.text for b in response.content if b.type == "text")
-    search_uses = sum(1 for b in response.content if b.type == "server_tool_use")
-    log_call(
-        call_type="parsing",
-        model=DEFAULT_MODEL,
-        input_tokens=response.usage.input_tokens,
-        output_tokens=response.usage.output_tokens,
-        note=f"discovery:suggest_companies ({search_uses} web search(es))",
-    )
 
     data = _extract_json(text)
     suggestions = [CompanySuggestion(**s) for s in data.get("suggestions", [])]
@@ -120,25 +156,13 @@ def suggest_companies(
 def suggest_job_boards(
     candidate_profile: str | None, settings: dict, exclude_urls: list[str] | None = None
 ) -> list[JobBoardSuggestion]:
-    client = get_client()
     exclude_hosts = [_hostname(u) for u in exclude_urls] if exclude_urls else None
     with llm_error_boundary("suggesting job boards to monitor"):
-        response = client.messages.create(
-            model=DEFAULT_MODEL,
-            max_tokens=6000,
-            system=BOARD_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": _profile_text(candidate_profile, settings, exclude_urls)}],
-            tools=[{"type": "web_search_20260209", "name": "web_search", "max_uses": 5}],
+        text = _run_discovery(
+            BOARD_SYSTEM_PROMPT,
+            _profile_text(candidate_profile, settings, exclude_urls),
+            "discovery:suggest_job_boards",
         )
-    text = "\n".join(b.text for b in response.content if b.type == "text")
-    search_uses = sum(1 for b in response.content if b.type == "server_tool_use")
-    log_call(
-        call_type="parsing",
-        model=DEFAULT_MODEL,
-        input_tokens=response.usage.input_tokens,
-        output_tokens=response.usage.output_tokens,
-        note=f"discovery:suggest_job_boards ({search_uses} web search(es))",
-    )
 
     data = _extract_json(text)
     suggestions = [JobBoardSuggestion(**s) for s in data.get("suggestions", [])]

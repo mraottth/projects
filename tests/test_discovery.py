@@ -120,3 +120,72 @@ def test_profile_text_includes_settings():
     assert "Climate Tech" in text
     assert "Remote" in text
     assert "150000" in text
+
+
+class _ScriptedClient:
+    """Returns the given responses in order and records each request's kwargs."""
+
+    def __init__(self, *responses):
+        self.calls = []
+        self._responses = list(responses)
+        self.messages = self
+
+    def create(self, **kwargs):
+        self.calls.append(kwargs)
+        return self._responses.pop(0)
+
+
+def _response(text, stop_reason="end_turn"):
+    response = FakeCreateResponse(text)
+    response.stop_reason = stop_reason
+    return response
+
+
+def test_discovery_resumes_after_pause_turn(monkeypatch):
+    # A long web-search turn can pause before the JSON is written; the paused turn has to be sent
+    # back so the server finishes it, otherwise there's nothing to parse.
+    client = _ScriptedClient(
+        _response("Searching niche boards...", stop_reason="pause_turn"),
+        _response('{"suggestions": [{"name": "Tech Jobs for Good", "url": "https://techjobsforgood.com", '
+                  '"reason": "Mission-driven roles"}]}'),
+    )
+    monkeypatch.setattr(discovery, "get_client", lambda: client)
+
+    suggestions = discovery.suggest_job_boards(None, {})
+    assert [s.name for s in suggestions] == ["Tech Jobs for Good"]
+    assert len(client.calls) == 2
+    resumed = client.calls[1]["messages"]
+    assert resumed[-1]["role"] == "assistant"
+
+    from jobhunt.db.connection import get_db
+
+    with get_db() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM llm_calls").fetchone()[0] == 2
+
+
+def test_discovery_stops_resuming_after_the_continuation_cap(monkeypatch):
+    paused = [_response("still going", stop_reason="pause_turn") for _ in range(10)]
+    client = _ScriptedClient(*paused)
+    monkeypatch.setattr(discovery, "get_client", lambda: client)
+
+    with pytest.raises(ValueError):
+        discovery.suggest_companies(None, {})
+    assert len(client.calls) == discovery.MAX_CONTINUATIONS + 1
+
+
+def test_discovery_requests_low_effort_and_a_small_search_budget(monkeypatch):
+    client = _ScriptedClient(_response('{"suggestions": []}'))
+    monkeypatch.setattr(discovery, "get_client", lambda: client)
+
+    assert discovery.suggest_companies(None, {}) == []
+    request = client.calls[0]
+    assert request["output_config"] == {"effort": "low"}
+    assert request["tools"][0]["max_uses"] == 3
+
+
+def test_extract_json_ignores_stray_braces_before_the_suggestions():
+    text = (
+        'One posting said {"remote": true} in its listing.\n'
+        '{"suggestions": [{"company_name": "Acme", "reason": "Hiring"}]}'
+    )
+    assert discovery._extract_json(text)["suggestions"][0]["company_name"] == "Acme"
