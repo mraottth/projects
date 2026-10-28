@@ -11,14 +11,20 @@ export function CandidateProfileCard({
   autoRebuild = false,
   title = "Candidate profile",
   description = "Synthesized from everything uploaded above.",
+  onProfileChange,
 }: {
   hasDocuments: boolean;
   // Onboarding builds the profile as soon as the step opens instead of waiting for a click.
   autoRebuild?: boolean;
   title?: string;
   description?: string;
+  onProfileChange?: (text: string | null) => void;
 }) {
-  const [profile, setProfile] = useState<string | null>(null);
+  const [profile, setProfileState] = useState<string | null>(null);
+  const setProfile = (text: string | null) => {
+    setProfileState(text);
+    onProfileChange?.(text);
+  };
   const [busy, setBusy] = useState<null | "rebuild" | "revise" | "save">(null);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);

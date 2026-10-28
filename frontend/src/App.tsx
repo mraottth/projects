@@ -1,8 +1,11 @@
-import { NavLink, Route, Routes, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
+import { api } from "./api";
 import DigestPage from "./pages/DigestPage";
 import JobDetailPage from "./pages/JobDetailPage";
 import AllJobsPage from "./pages/AllJobsPage";
 import MyJobsPage from "./pages/MyJobsPage";
+import OnboardingPage from "./pages/OnboardingPage";
 import ManageSourcesPage from "./pages/ManageSourcesPage";
 import ProfilePage from "./pages/ProfilePage";
 import SettingsPage from "./pages/SettingsPage";
@@ -20,12 +23,22 @@ const NAV_LINKS = [
 // prose-friendly max-width doesn't give them.
 const WIDE_ROUTES = ["/", "/all-jobs", "/tracker"];
 
-function AppMain() {
+function AppMain({
+  needsOnboarding,
+  onOnboardingDone,
+}: {
+  needsOnboarding: boolean;
+  onOnboardingDone: () => void;
+}) {
   const location = useLocation();
   const wide = WIDE_ROUTES.includes(location.pathname);
+  if (needsOnboarding && location.pathname !== "/onboarding") {
+    return <Navigate to="/onboarding" replace />;
+  }
   return (
     <main className={wide ? "app-main wide" : "app-main"}>
       <Routes>
+        <Route path="/onboarding" element={<OnboardingPage onDone={onOnboardingDone} />} />
         <Route path="/" element={<DigestPage />} />
         <Route path="/jobs/:id" element={<JobDetailPage />} />
         <Route path="/all-jobs" element={<AllJobsPage />} />
@@ -39,24 +52,43 @@ function AppMain() {
 }
 
 export default function App() {
+  const location = useLocation();
+  // null while loading: hold off rendering any page so a first-run user doesn't see a flash of
+  // the empty digest before being redirected. A failed status check just skips onboarding.
+  const [needsOnboarding, setNeedsOnboarding] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    api
+      .getOnboardingStatus()
+      .then((s) => setNeedsOnboarding(s.needs_onboarding))
+      .catch(() => setNeedsOnboarding(false));
+  }, []);
+
+  // The wizard hides the nav so it reads as one focused flow; "Skip setup" is the way out.
+  const inOnboarding = location.pathname === "/onboarding";
+
   return (
     <div className="app-shell">
       <header className="topbar">
         <span className="brand">Job Search Assistant</span>
-        <nav>
-          {NAV_LINKS.map((link) => (
-            <NavLink
-              key={link.to}
-              to={link.to}
-              end={link.end}
-              className={({ isActive }) => (isActive ? "active" : "")}
-            >
-              {link.label}
-            </NavLink>
-          ))}
-        </nav>
+        {!inOnboarding && (
+          <nav>
+            {NAV_LINKS.map((link) => (
+              <NavLink
+                key={link.to}
+                to={link.to}
+                end={link.end}
+                className={({ isActive }) => (isActive ? "active" : "")}
+              >
+                {link.label}
+              </NavLink>
+            ))}
+          </nav>
+        )}
       </header>
-      <AppMain />
+      {needsOnboarding !== null && (
+        <AppMain needsOnboarding={needsOnboarding} onOnboardingDone={() => setNeedsOnboarding(false)} />
+      )}
     </div>
   );
 }
