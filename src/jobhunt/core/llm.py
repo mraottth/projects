@@ -44,6 +44,13 @@ def get_client() -> anthropic.Anthropic:
     return _client
 
 
+OUT_OF_CREDITS_MESSAGE = (
+    "your Anthropic API account is out of credits. API usage is billed separately from a "
+    "claude.ai plan — add credits at platform.claude.com (Plans & Billing) for the organization "
+    "that owns this app's API key, then try again."
+)
+
+
 @contextmanager
 def llm_error_boundary(action: str):
     """Wrap a Claude call site so missing credentials / API errors surface as a clean LLMError
@@ -51,6 +58,13 @@ def llm_error_boundary(action: str):
     one of its typed API errors, so that's caught here too."""
     try:
         yield
+    except anthropic.BadRequestError as exc:
+        # Caught live: the raw "credit balance is too low" 400 read as an app bug. The usual cause
+        # is paying for a claude.ai plan, which doesn't fund the API -- say so plainly, since this
+        # hits every Claude-backed feature at once.
+        if "credit balance is too low" in str(exc).lower():
+            raise LLMError(f"{action} failed: {OUT_OF_CREDITS_MESSAGE}") from exc
+        raise LLMError(f"{action} failed: {exc}") from exc
     except anthropic.APIError as exc:
         raise LLMError(f"{action} failed: {exc}") from exc
     except TypeError as exc:

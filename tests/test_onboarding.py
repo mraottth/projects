@@ -110,3 +110,49 @@ def test_revise_profile_rejects_missing_profile_or_blank_instructions():
         assert http.post("/api/resumes/profile/revise", json={"instructions": "x"}).status_code == 400
         profile.set_candidate_profile("Original profile.")
         assert http.post("/api/resumes/profile/revise", json={"instructions": "  "}).status_code == 400
+
+
+def _bad_request(message):
+    import anthropic
+    import httpx2
+
+    request = httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
+    response = httpx2.Response(400, request=request)
+    return anthropic.BadRequestError(message, response=response, body=None)
+
+
+class _RaisingClient:
+    def __init__(self, exc):
+        self.messages = self
+        self._exc = exc
+
+    def parse(self, **kwargs):
+        raise self._exc
+
+
+def test_out_of_credits_error_says_what_to_do(monkeypatch):
+    # Caught live: a claude.ai plan doesn't fund the API, and the raw 400 read like an app bug.
+    _insert_doc(kind="resume")
+    exc = _bad_request(
+        "Error code: 400 - Your credit balance is too low to access the Anthropic API. "
+        "Please go to Plans & Billing to upgrade or purchase credits."
+    )
+    monkeypatch.setattr(generate, "get_client", lambda: _RaisingClient(exc))
+
+    with TestClient(app) as client:
+        resp = client.post("/api/onboarding/generate-cover-letter")
+    assert resp.status_code == 502
+    detail = resp.json()["detail"]
+    assert "out of credits" in detail
+    assert "platform.claude.com" in detail
+
+
+def test_other_bad_requests_keep_the_raw_error(monkeypatch):
+    _insert_doc(kind="resume")
+    monkeypatch.setattr(generate, "get_client", lambda: _RaisingClient(_bad_request("max_tokens too large")))
+
+    with TestClient(app) as client:
+        resp = client.post("/api/onboarding/generate-cover-letter")
+    assert resp.status_code == 502
+    assert "max_tokens too large" in resp.json()["detail"]
+    assert "out of credits" not in resp.json()["detail"]

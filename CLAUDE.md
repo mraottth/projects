@@ -328,7 +328,9 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   `log_call()`, which writes to `llm_calls` with an estimated cost — this backs the Settings-page
   usage log. Claude-call failures (including missing credentials) are wrapped by
   `llm.llm_error_boundary()` into a catchable `LLMError` so they surface as a clean 502, not a raw
-  500 — every call site uses it.
+  500 — every call site uses it. An out-of-credits 400 ("credit balance is too low") gets its own plain message
+  (`OUT_OF_CREDITS_MESSAGE`) pointing at platform.claude.com billing: caught live, when the user had
+  paid for a claude.ai plan, which doesn't fund the API, and the raw error read like an app bug.
 - `MyJobsPage` is a sortable/filterable/searchable table (Company, Title, Location, Salary, Applied
   Date, Status, Documents), not a card list -- status transitions still go through `StatusSelect`
   (same `api/applications.py` endpoint as before), and Applied Date is directly editable via a
