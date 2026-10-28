@@ -77,3 +77,19 @@ def test_ui_run_daily_needs_no_scheduler_secret(monkeypatch):
         assert resp.status_code == 200
         assert "llm_scored_count" in resp.json()
         assert client.post("/internal/run-daily").status_code == 403
+
+
+def test_ui_run_daily_passes_cap(monkeypatch):
+    captured = {}
+
+    def fake_run_daily(cap=None):
+        captured["cap"] = cap
+        return {"ok": True}
+
+    monkeypatch.setattr(daily_run, "run_daily", fake_run_daily)
+    with TestClient(app) as client:
+        assert client.post("/api/pipeline/run-daily?cap=20").status_code == 200
+        assert captured["cap"] == 20
+        assert client.post("/api/pipeline/run-daily").status_code == 200
+        assert captured["cap"] is None
+        assert client.post("/api/pipeline/run-daily?cap=0").status_code == 422

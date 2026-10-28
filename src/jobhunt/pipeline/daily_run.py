@@ -4,6 +4,8 @@ conditionally refresh the preference profile -> record a run summary. Triggered 
 via POST /internal/run-daily (see api/internal.py); safe to run manually/repeatedly."""
 
 import json
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, date, datetime
 
 from jobhunt.core import prefilter, queue
@@ -31,31 +33,76 @@ STALE_AFTER_DAYS = 14
 REBUILD_FEEDBACK_THRESHOLD = 5
 REBUILD_MAX_DAYS = 7
 
+# Sources are polled, and jobs scored, concurrently -- done one at a time, a run took many minutes
+# (onboarding's last step waits on a whole run). Scoring is capped at 4 in flight because a new API
+# account's per-minute limits are low; the SDK retries an occasional 429 with backoff. Polling is
+# mostly network waits (page fetches, sometimes Playwright plus a Claude extraction), so more is fine.
+SCORING_CONCURRENCY = 4
+POLL_CONCURRENCY = 6
+
+# Live progress of the current run, for the UI to poll (GET /api/pipeline/progress) while its
+# run-daily request is still open. In-process state is the real state: Cloud Run runs a single
+# instance (--max-instances 1).
+_progress_lock = threading.Lock()
+_progress = {"stage": "idle", "sources_done": 0, "sources_total": 0, "jobs_done": 0, "jobs_total": 0}
+
+
+def get_progress() -> dict:
+    with _progress_lock:
+        return dict(_progress)
+
+
+def _set_progress(**updates) -> None:
+    with _progress_lock:
+        _progress.update(updates)
+
+
+def _bump_progress(key: str) -> None:
+    with _progress_lock:
+        _progress[key] += 1
+
+
+def _fetch_source(source: dict) -> tuple[list[dict] | None, str | None]:
+    """Runs one source's adapter (in a worker thread). Returns (postings, error); postings is None
+    for a failed fetch or a kind with no adapter."""
+    try:
+        adapter = ADAPTERS.get(source["kind"])
+        if adapter is None:
+            return None, None
+        try:
+            return adapter(source), None
+        except Exception as exc:  # noqa: BLE001 - one bad source must not abort the whole run
+            with get_db() as conn:
+                conn.execute(
+                    "UPDATE sources SET last_polled_at = datetime('now'), last_error = ? WHERE id = ?",
+                    (str(exc), source["id"]),
+                )
+            return None, f"{source['name']}: {exc}"
+    finally:
+        _bump_progress("sources_done")
+
 
 def _poll_sources() -> dict:
     with get_db() as conn:
         sources = [dict(row) for row in conn.execute("SELECT * FROM sources WHERE enabled = 1")]
+    for source in sources:
+        source["config"] = json.loads(source.pop("config_json") or "{}")
+    _set_progress(stage="polling", sources_done=0, sources_total=len(sources))
 
     fetched = 0
     upserted = 0
     errors = []
     job_ids = []
 
-    for source in sources:
-        source["config"] = json.loads(source.pop("config_json") or "{}")
-        adapter = ADAPTERS.get(source["kind"])
-        if adapter is None:
-            continue
+    # Fetches run concurrently; upserts stay sequential here, in source order -- two sources can
+    # produce the same URL-based dedupe key, and _upsert_job's select-then-insert would race.
+    with ThreadPoolExecutor(max_workers=POLL_CONCURRENCY) as pool:
+        results = list(pool.map(_fetch_source, sources))
 
-        try:
-            postings = adapter(source)
-        except Exception as exc:  # noqa: BLE001 - one bad source must not abort the whole run
-            errors.append(f"{source['name']}: {exc}")
-            with get_db() as conn:
-                conn.execute(
-                    "UPDATE sources SET last_polled_at = datetime('now'), last_error = ? WHERE id = ?",
-                    (str(exc), source["id"]),
-                )
+    for source, (postings, error) in zip(sources, results, strict=True):
+        if error:
+            errors.append(error)
+        if postings is None:
             continue
 
         fetched += len(postings)
@@ -192,49 +239,73 @@ def _maybe_rebuild_preference_profile() -> bool:
     return False
 
 
-def run_daily() -> dict:
-    started_at = datetime.now(UTC).isoformat()
+def _score_one(job_id: int, score_args: tuple) -> tuple[bool, str | None]:
+    """Scores one queued job (in a worker thread). Returns (scored, error)."""
+    try:
+        with get_db() as conn:
+            row = conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
+        if row is None:
+            return False, None
+        job = _backfill_description(dict(row))
+        try:
+            score = score_job(job, *score_args)
+        except LLMError as exc:
+            queue.mark_pending_again(job_id)
+            return False, f"job {job_id}: {exc}"
+        store_score(job_id, score)
+        queue.mark_scored(job_id)
+        return True, None
+    finally:
+        _bump_progress("jobs_done")
 
+
+def run_daily(cap: int | None = None) -> dict:
+    """`cap` overrides the daily_llm_cap setting for this run only -- onboarding scores just the top
+    few so the user isn't kept waiting; the rest stay queued for the next run."""
+    started_at = datetime.now(UTC).isoformat()
+    _set_progress(stage="starting", sources_done=0, sources_total=0, jobs_done=0, jobs_total=0)
+
+    try:
+        return _run_daily(started_at, cap)
+    finally:
+        with _progress_lock:
+            if _progress["stage"] != "done":
+                _progress["stage"] = "failed"
+
+
+def _run_daily(started_at: str, cap: int | None) -> dict:
     poll_result = _poll_sources()
     _expire_stale_jobs()
     enqueued = _prefilter_and_enqueue(poll_result["job_ids"])
 
-    daily_cap = settings_module.get_setting("daily_llm_cap", 50)
+    daily_cap = cap if cap is not None else settings_module.get_setting("daily_llm_cap", 50)
     batch = queue.select_batch(daily_cap)
+    _set_progress(stage="scoring", jobs_done=0, jobs_total=len(batch))
 
-    candidate_profile = get_current_candidate_profile()
-    preference_profile = get_current_preference_profile()
-    desired_sectors = settings_module.get_setting("prefilter_sectors", [])
-    desired_titles = settings_module.get_setting("prefilter_titles_include", [])
-    salary_floor = settings_module.get_setting("salary_floor", None)
-    looking_for_notes = settings_module.get_setting("looking_for_notes", "")
+    score_args = (
+        get_current_candidate_profile(),
+        get_current_preference_profile(),
+        settings_module.get_setting("prefilter_sectors", []),
+        settings_module.get_setting("prefilter_titles_include", []),
+        settings_module.get_setting("salary_floor", None),
+        settings_module.get_setting("looking_for_notes", ""),
+    )
 
-    scored_count = 0
     scoring_errors = []
-    for job_id in batch:
-        with get_db() as conn:
-            row = conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
-        if row is None:
-            continue
-        job = _backfill_description(dict(row))
-        try:
-            score = score_job(
-                job,
-                candidate_profile,
-                preference_profile,
-                desired_sectors,
-                desired_titles,
-                salary_floor,
-                looking_for_notes,
-            )
-        except LLMError as exc:
-            scoring_errors.append(f"job {job_id}: {exc}")
-            queue.mark_pending_again(job_id)
-            continue
-        store_score(job_id, score)
+    scored_ids = []
+    if batch:
+        with ThreadPoolExecutor(max_workers=min(SCORING_CONCURRENCY, len(batch))) as pool:
+            results = list(pool.map(lambda job_id: _score_one(job_id, score_args), batch))
+        for job_id, (scored, error) in zip(batch, results, strict=True):
+            if scored:
+                scored_ids.append(job_id)
+            if error:
+                scoring_errors.append(error)
+    # add_to_digest re-ranks the whole day on every call, so it runs here, sequentially, rather
+    # than in the workers where concurrent re-ranks could interleave.
+    for job_id in scored_ids:
         add_to_digest(job_id)
-        queue.mark_scored(job_id)
-        scored_count += 1
+    scored_count = len(scored_ids)
 
     preference_rebuilt = _maybe_rebuild_preference_profile()
 
@@ -273,4 +344,5 @@ def run_daily() -> dict:
             ),
         )
 
+    _set_progress(stage="done")
     return summary

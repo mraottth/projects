@@ -168,3 +168,101 @@ def test_run_daily_triggers_preference_rebuild_when_signal_present(monkeypatch):
 
     summary = daily_run.run_daily()
     assert summary["preference_profile_rebuilt"] is True
+
+
+def test_run_daily_cap_override_scores_only_that_many(monkeypatch):
+    # Onboarding passes a small cap so the first run is quick; the rest carry over.
+    from jobhunt.core import scoring
+
+    _add_source()
+    monkeypatch.setattr(
+        daily_run,
+        "ADAPTERS",
+        {"ats_greenhouse": lambda source: [_make_posting(f"Job {i}") for i in range(5)]},
+    )
+    monkeypatch.setattr(scoring, "get_client", lambda: _fake_score_client())
+
+    summary = daily_run.run_daily(cap=2)
+
+    assert summary["llm_scored_count"] == 2
+    assert summary["cap_used"] == 2
+    assert queue.pending_count() == 3
+
+
+def test_run_daily_scores_jobs_concurrently(monkeypatch):
+    import time
+
+    _add_source()
+    monkeypatch.setattr(
+        daily_run,
+        "ADAPTERS",
+        {"ats_greenhouse": lambda source: [_make_posting(f"Job {i}") for i in range(8)]},
+    )
+    scores = {f"Job {i}": 10 * i for i in range(8)}
+
+    def slow_score(job, *args):
+        time.sleep(0.3)
+        return JobScore(
+            interest_fit="Med",
+            interest_score=scores[job["title"]],
+            candidate_fit="Med",
+            candidate_fit_score=0,
+            summary_text="s",
+            rationale_text="r",
+        )
+
+    monkeypatch.setattr(daily_run, "score_job", slow_score)
+
+    started = time.monotonic()
+    summary = daily_run.run_daily()
+    elapsed = time.monotonic() - started
+
+    assert summary["llm_scored_count"] == 8
+    # 8 jobs x 0.3s serially would be 2.4s; 4 at a time is ~0.6s.
+    assert elapsed < 1.5
+
+    from jobhunt.core.digest import get_digest, today_str
+
+    titles = [entry["title"] for entry in get_digest(today_str())]
+    assert titles == [f"Job {i}" for i in reversed(range(8))]
+
+
+def test_run_daily_reports_progress(monkeypatch):
+    from jobhunt.core import scoring
+
+    _add_source()
+    _add_source()
+    monkeypatch.setattr(
+        daily_run,
+        "ADAPTERS",
+        {"ats_greenhouse": lambda source: [_make_posting(f"Job {source['id']}-{i}") for i in range(2)]},
+    )
+    monkeypatch.setattr(scoring, "get_client", lambda: _fake_score_client())
+
+    daily_run.run_daily(cap=3)
+
+    from fastapi.testclient import TestClient
+
+    from jobhunt.api.main import app
+
+    with TestClient(app) as client:
+        progress = client.get("/api/pipeline/progress").json()
+    assert progress == {
+        "stage": "done",
+        "sources_done": 2,
+        "sources_total": 2,
+        "jobs_done": 3,
+        "jobs_total": 3,
+    }
+
+
+def test_run_daily_marks_progress_failed_on_crash(monkeypatch):
+    import pytest
+
+    def boom():
+        raise RuntimeError("db gone")
+
+    monkeypatch.setattr(daily_run, "_expire_stale_jobs", boom)
+    with pytest.raises(RuntimeError):
+        daily_run.run_daily()
+    assert daily_run.get_progress()["stage"] == "failed"
