@@ -225,6 +225,9 @@ function DocActions({ app, onChanged }: { app: Application; onChanged: (app: App
           {busy === "cover-letter" ? <Spinner label="Tailoring..." /> : "Tailor my cover letter"}
         </button>
       )}
+      <Link className="ghost small jobby-link" to={`/jobby?job=${app.job_id}`}>
+        Prep with Jobby
+      </Link>
       {error && <span className="error-text small">{error}</span>}
     </div>
   );

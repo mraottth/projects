@@ -231,7 +231,8 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   unused leftovers; nothing reads them, and a `SELECT *` from `sources` there still returns an
   `is_favorite` field the frontend ignores. Don't reintroduce a cap/rank bypass without being asked.
 - `src/jobhunt/api/` — one FastAPI route module per resource: `resumes`, `jobs`, `digest`,
-  `applications`, `sources`, `generate`, `settings`, `internal`, `pipeline`, `discovery`, `onboarding`.
+  `applications`, `sources`, `generate`, `settings`, `internal`, `pipeline`, `discovery`, `onboarding`,
+  `jobby`.
   `api/main.py` wires all routers and serves `frontend/dist` if built.
 - `frontend/` — React 19 + Vite + TS, react-router-dom for navigation, no UI library. Unlike Shelf
   Life's stateless localStorage-only app, this one's source of truth is server-persisted SQLite —
@@ -240,8 +241,8 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   `index.css`), used in place of plain "...ing" button text for any action that calls Claude
   (profile rebuild, company discovery, resume/cover-letter generation, job scoring, company
   resolution) or otherwise takes noticeable time (test-fetch, run-daily-now).
-- **Page split**, six pages each with one job (plus the first-run `/onboarding` wizard, below), nav order New & Noteworthy → All Jobs → My Jobs →
-  Manage Sources → Profile → Settings: `DigestPage` (route `/`, nav label "New & Noteworthy") is
+- **Page split**, seven pages each with one job (plus the first-run `/onboarding` wizard, below), nav order New & Noteworthy → All Jobs → My Jobs →
+  Jobby → Manage Sources → Profile → Settings: `DigestPage` (route `/`, nav label "New & Noteworthy") is
   today's capped, LLM-scored digest only. `AllJobsPage` (route `/all-jobs`) is
   `GET /api/jobs/ranked` (`api/jobs.py`, registered *before* `/{job_id}` since Starlette matches
   path templates in order -- a later `/ranked` would 404 as an invalid `job_id`) -- every active
@@ -287,6 +288,26 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   inserted as the *current* cover letter, so later per-job generation uses it as its positional
   template. A regenerated draft deletes the previous draft rather than letting it pile up in Old,
   since a discarded AI draft isn't a real past cover letter and shouldn't feed the profile.
+- **Jobby** (`core/jobby.py`, `api/jobby.py`, `pages/JobbyPage.tsx`, route `/jobby?job=<id>`) is the
+  interview-prep chat. There's one saved conversation per job (`jobby_threads.job_id` UNIQUE), plus
+  one general conversation (`job_id` NULL; SQLite's UNIQUE allows many NULLs, so `get_thread()`
+  enforces "only one"). "Start over" deletes the thread. The picker lists My Jobs (open
+  applications first) plus "No specific job"; "Prep with Jobby" on My Jobs rows and `JobDetailPage`
+  links straight to a job's conversation. `build_context()` puts the posting, tracking status/notes
+  and fit rationale, the candidate profile, "What are you looking for?", the current and tailored
+  documents (whole, up to generous limits), and older documents (trimmed to a shared budget) into
+  the system prompt behind a `cache_control` breakpoint, so every later turn re-reads it from cache.
+  Replies stream as server-sent events over the POST (`stream_reply()` yields `delta`/`status`/
+  `done`/`error`; `api.ts`'s `streamJobbyMessage()` reads the body, since `EventSource` can't POST).
+  Web search is on (`max_uses` 3, `pause_turn` resumed), and a search shows "Searching the web...".
+  A failed turn keeps nothing, not even the user's message, so the UI puts their text back to
+  retry. Turns log as `call_type='generation'` with a `jobby chat` note, because `llm_calls`'
+  CHECK constraint can't be widened on the live table without a rebuild. The five starter prompts
+  (mock interview, likely questions, frame my background, questions to ask, prep & research plan)
+  are frontend constants (`STARTERS`) sent as ordinary user messages; the mock-interview behavior
+  (one question at a time, feedback, wrap-up) lives in `PERSONA`. `JobbyLogo.tsx` is an original
+  inline-SVG mascot (robot head, elf ears, one LED eye), used in the nav tab, the header and the
+  message avatars.
 - `CandidateProfileCard`'s "Ask Claude to change it" is `POST /api/resumes/profile/revise`
   (`core/profile.py`'s `revise_candidate_profile()`): one call applying the user's plain-language
   change request to the current profile, inserted as a new row like every rebuild/edit.

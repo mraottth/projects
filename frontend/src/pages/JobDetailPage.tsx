@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { api, Application, APPLICATION_STATUS_LABELS, GeneratedDoc, Job } from "../api";
 import { Markdown } from "../components/Markdown";
 import { Spinner } from "../components/Spinner";
@@ -145,6 +145,9 @@ export default function JobDetailPage() {
           <button className="primary" onClick={() => generate("cover-letter")} disabled={busy === "cover-letter"}>
             {busy === "cover-letter" ? <Spinner label="Tailoring..." /> : "Tailor my cover letter"}
           </button>
+          <Link className="ghost button-link" to={`/jobby?job=${jobId}`}>
+            Prep with Jobby
+          </Link>
         </div>
         {error && <p className="error-text small">{error}</p>}
       </div>
