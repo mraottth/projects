@@ -194,3 +194,22 @@ CREATE TABLE IF NOT EXISTS llm_calls (
     note TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_llm_calls_created ON llm_calls(created_at);
+
+-- Jobby (interview-prep chat): one saved conversation per tracked job, plus one general
+-- conversation (job_id NULL -- SQLite's UNIQUE allows many NULLs, so "only one general thread"
+-- is enforced in core/jobby.py rather than here).
+CREATE TABLE IF NOT EXISTS jobby_threads (
+    id INTEGER PRIMARY KEY,
+    job_id INTEGER UNIQUE REFERENCES jobs(id),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS jobby_messages (
+    id INTEGER PRIMARY KEY,
+    thread_id INTEGER NOT NULL REFERENCES jobby_threads(id) ON DELETE CASCADE,
+    role TEXT NOT NULL CHECK(role IN ('user', 'assistant')),
+    content TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_jobby_messages_thread ON jobby_messages(thread_id, id);
