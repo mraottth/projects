@@ -91,3 +91,33 @@ def test_slug_candidates_handles_spaces_and_punctuation():
     candidates = company_resolver._slug_candidates("Acme, Inc.")
     assert "acme inc" not in candidates  # spaces must be resolved one way or the other
     assert any("acme" in c for c in candidates)
+
+
+def test_probe_ats_skips_a_guess_that_fails_without_an_http_error(monkeypatch):
+    # e.g. a 200 with a non-JSON body. Only httpx errors used to be caught, so this crashed the
+    # whole resolve request instead of trying the next guess.
+    class RespNotJson:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            raise ValueError("Expecting value")
+
+    def fake_get(url, **kwargs):
+        if "ashbyhq.com" in url:
+            return RespJobs([{"id": "1", "title": "Engineer", "descriptionPlain": "x"}])
+        return RespNotJson()
+
+    monkeypatch.setattr(httpx, "get", fake_get)
+    resolved = company_resolver._probe_ats("Notion")
+    assert resolved is not None
+    assert resolved.kind == "ats_ashby"
+
+
+def test_resolve_via_web_search_unparseable_answer_is_not_found(monkeypatch):
+    monkeypatch.setattr(
+        company_resolver,
+        "get_client",
+        lambda: FakeAnthropicClient(create_result=FakeCreateResponse("I couldn't tell, sorry.")),
+    )
+    assert company_resolver._resolve_via_web_search("Acme") is None

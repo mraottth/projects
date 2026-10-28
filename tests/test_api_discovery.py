@@ -17,7 +17,7 @@ def test_discovery_suggest_via_api(monkeypatch):
     with TestClient(app) as client:
         resp = client.post("/api/discovery/suggest")
         assert resp.status_code == 200
-        assert resp.json() == [{"company_name": "Acme", "reason": "Hiring now"}]
+        assert resp.json() == [{"company_name": "Acme", "reason": "Hiring now", "careers_url": None}]
 
 
 def test_discovery_suggest_excludes_already_monitored_companies(monkeypatch):

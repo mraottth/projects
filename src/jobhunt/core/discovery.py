@@ -22,13 +22,23 @@ Suggest 5-8 companies. For each, give a one-sentence reason tied to their specif
 (not generic "great culture" reasoning). Prefer a mix of company sizes/stages over obvious mega-cap \
 names only.
 
+For each, also give careers_url: the direct URL of the page that lists the company's open jobs, as \
+you found it while searching -- their Greenhouse/Lever/Ashby board URL if they use one \
+(boards.greenhouse.io/..., jobs.lever.co/..., jobs.ashbyhq.com/...), otherwise their own careers \
+page. Use null if you didn't find one; never guess a URL.
+
 Respond with ONLY a JSON object on the last line of your response, no other text after it:
-{"suggestions": [{"company_name": "...", "reason": "..."}, ...]}"""
+{"suggestions": [{"company_name": "...", "reason": "...", "careers_url": "https://..." | null}, ...]}"""
 
 
 class CompanySuggestion(BaseModel):
     company_name: str
     reason: str
+    # Lets "Monitor" add the company directly, the way a board suggestion already does, instead of
+    # re-resolving the name to a job board -- that resolution step failed often for real
+    # organizations not on Greenhouse/Lever/Ashby (caught live: organizations Monitored during
+    # onboarding never saved, while boards did).
+    careers_url: str | None = None
 
 
 BOARD_SYSTEM_PROMPT = """You suggest job boards worth monitoring for a job seeker, based on their \
@@ -82,9 +92,10 @@ def _extract_json(text: str) -> dict:
     raise ValueError(f"no suggestions JSON found in response: {text[:200]!r}")
 
 
-def _run_discovery(system: str, user_content: str, note: str) -> str:
-    """One discovery call with web search, resuming on pause_turn. Returns all text output."""
-    client = get_client()
+def run_web_search(system: str, user_content: str, note: str, client=None) -> str:
+    """One Claude call with web search at low effort, resuming on pause_turn. Returns all text
+    output. Shared by discovery and core/company_resolver.py (which passes its own client)."""
+    client = client or get_client()
     messages = [{"role": "user", "content": user_content}]
     texts = []
     for _ in range(MAX_CONTINUATIONS + 1):
@@ -139,7 +150,7 @@ def suggest_companies(
     candidate_profile: str | None, settings: dict, exclude_names: list[str] | None = None
 ) -> list[CompanySuggestion]:
     with llm_error_boundary("suggesting companies to monitor"):
-        text = _run_discovery(
+        text = run_web_search(
             SYSTEM_PROMPT,
             _profile_text(candidate_profile, settings, exclude_names),
             "discovery:suggest_companies",
@@ -158,7 +169,7 @@ def suggest_job_boards(
 ) -> list[JobBoardSuggestion]:
     exclude_hosts = [_hostname(u) for u in exclude_urls] if exclude_urls else None
     with llm_error_boundary("suggesting job boards to monitor"):
-        text = _run_discovery(
+        text = run_web_search(
             BOARD_SYSTEM_PROMPT,
             _profile_text(candidate_profile, settings, exclude_urls),
             "discovery:suggest_job_boards",

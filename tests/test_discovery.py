@@ -189,3 +189,20 @@ def test_extract_json_ignores_stray_braces_before_the_suggestions():
         '{"suggestions": [{"company_name": "Acme", "reason": "Hiring"}]}'
     )
     assert discovery._extract_json(text)["suggestions"][0]["company_name"] == "Acme"
+
+
+def test_suggest_companies_returns_careers_urls(monkeypatch):
+    client = _ScriptedClient(
+        _response(
+            '{"suggestions": ['
+            '{"company_name": "Nava PBC", "reason": "Civic tech", '
+            '"careers_url": "https://boards.greenhouse.io/nava"},'
+            '{"company_name": "Small Org", "reason": "Mission fit", "careers_url": null}'
+            "]}"
+        )
+    )
+    monkeypatch.setattr(discovery, "get_client", lambda: client)
+
+    suggestions = discovery.suggest_companies(None, {})
+    assert suggestions[0].careers_url == "https://boards.greenhouse.io/nava"
+    assert suggestions[1].careers_url is None

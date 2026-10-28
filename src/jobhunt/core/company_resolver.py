@@ -5,13 +5,15 @@ e.g. "anthropic" and "figma" resolve immediately on Greenhouse), and only fall b
 web-search call when none of the guesses pan out."""
 
 import json
+import logging
 import re
 from dataclasses import dataclass
 
-import httpx
-
-from jobhunt.core.llm import DEFAULT_MODEL, get_client, llm_error_boundary, log_call
+from jobhunt.core.discovery import run_web_search
+from jobhunt.core.llm import get_client, llm_error_boundary
 from jobhunt.ingest.adapters import ashby, greenhouse, lever
+
+logger = logging.getLogger(__name__)
 
 ATS_PROBES = [
     ("ats_greenhouse", "board_token", greenhouse.fetch),
@@ -54,7 +56,9 @@ def _probe_ats(company_name: str) -> ResolvedSource | None:
         for slug in _slug_candidates(company_name):
             try:
                 postings = fetch({"config": {config_key: slug}, "company_name": company_name})
-            except httpx.HTTPError:
+            except Exception:  # noqa: BLE001 - a guess that errors (404, non-JSON page, odd
+                # payload) just means "not this one"; only HTTP errors used to be caught, so any
+                # other failure crashed the whole request instead of moving on to the next guess.
                 continue
             if postings:
                 return ResolvedSource(
@@ -73,26 +77,19 @@ def _extract_json(text: str) -> dict:
 
 
 def _resolve_via_web_search(company_name: str) -> ResolvedSource | None:
-    client = get_client()
     with llm_error_boundary(f"resolving {company_name}'s job board via web search"):
-        response = client.messages.create(
-            model=DEFAULT_MODEL,
-            max_tokens=2000,
-            system=WEB_SEARCH_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": f"Company: {company_name}"}],
-            tools=[{"type": "web_search_20260209", "name": "web_search", "max_uses": 3}],
+        text = run_web_search(
+            WEB_SEARCH_SYSTEM_PROMPT,
+            f"Company: {company_name}",
+            f"resolve_company:{company_name}",
+            client=get_client(),
         )
-    text_blocks = [b.text for b in response.content if b.type == "text"]
-    search_uses = sum(1 for b in response.content if b.type == "server_tool_use")
-    log_call(
-        call_type="parsing",
-        model=DEFAULT_MODEL,
-        input_tokens=response.usage.input_tokens,
-        output_tokens=response.usage.output_tokens,
-        note=f"resolve_company:{company_name} ({search_uses} web search(es))",
-    )
-
-    result = _extract_json("\n".join(text_blocks))
+    try:
+        result = _extract_json(text)
+    except ValueError:
+        # An unparseable answer is a "couldn't find it", not a crash (it used to surface as a raw 500).
+        logger.warning("couldn't parse job-board lookup for %s: %r", company_name, text[:200])
+        return None
     kind, value = result.get("kind"), result.get("value")
     if kind == "not_found" or not value:
         return None
