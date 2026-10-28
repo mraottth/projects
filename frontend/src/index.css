@@ -346,7 +346,7 @@ a.onboarding-cta { display: inline-block; text-decoration: none; }
 a.button-link { display: inline-block; text-decoration: none; }
 
 /* ---------- jobby */
-.topbar nav a .jobby-logo { vertical-align: -4px; margin-right: 5px; }
+.topbar nav a .jobby-logo { vertical-align: -6px; margin-right: 5px; }
 .jobby-header { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
 .jobby-header h1 { margin: 0; }
 .jobby-layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 20px; align-items: start; }
@@ -388,6 +388,8 @@ a.button-link { display: inline-block; text-decoration: none; }
 .jobby-starter:hover { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(42, 120, 214, 0.12); }
 .jobby-starter-label { font-weight: 600; color: var(--ink); }
 .jobby-welcome { display: flex; flex-direction: column; gap: 12px; }
+.jobby-welcome > .jobby-logo { align-self: center; margin-bottom: -6px; }
+img.jobby-logo { object-fit: contain; flex: none; }
 .jobby-try { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px 18px 0; }
 .jobby-input { display: flex; gap: 10px; align-items: flex-end; padding: 12px 18px 16px; }
 .jobby-chat > .error-text { padding: 6px 18px 0; margin: 0; }

@@ -84,7 +84,7 @@ export default function App() {
                 end={link.end}
                 className={({ isActive }) => (isActive ? "active" : "")}
               >
-                {link.to === "/jobby" && <JobbyLogo size={18} title="" />}
+                {link.to === "/jobby" && <JobbyLogo size={22} title="" />}
                 {link.label}
               </NavLink>
             ))}

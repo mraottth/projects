@@ -241,6 +241,7 @@ export default function JobbyPage() {
             {!thread && !loadError && <Spinner label="Loading..." />}
             {thread && empty && (
               <div className="jobby-welcome">
+                <JobbyLogo variant="full" size={180} title="Jobby at a laptop" />
                 <Bubble
                   message={{
                     role: "assistant",

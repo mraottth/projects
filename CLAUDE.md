@@ -313,9 +313,12 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   CHECK constraint can't be widened on the live table without a rebuild. The five starter prompts
   (mock interview, likely questions, frame my background, questions to ask, prep & research plan)
   are frontend constants (`STARTERS`) sent as ordinary user messages; the mock-interview behavior
-  (one question at a time, feedback, wrap-up) lives in `PERSONA`. `JobbyLogo.tsx` is an original
-  inline-SVG mascot (robot head, elf ears, one LED eye), used in the nav tab, the header and the
-  message avatars.
+  (one question at a time, feedback, wrap-up) lives in `PERSONA`. `JobbyLogo.tsx` renders the
+  user-supplied Jobby art: `src/assets/jobby-avatar.png` (a tight head crop, for the nav tab,
+  header and message avatars) and `jobby-full.png` (Jobby at a laptop, the empty-conversation
+  welcome). The off-white backgrounds were cut out to transparent PNGs with a one-off Pillow
+  flood fill, so Pillow isn't a project dependency. They're imported rather than put in
+  `public/`: `api/main.py`'s SPA fallback answers every non-`/assets/` path with `index.html`.
 - `CandidateProfileCard`'s "Ask Claude to change it" is `POST /api/resumes/profile/revise`
   (`core/profile.py`'s `revise_candidate_profile()`): one call applying the user's plain-language
   change request to the current profile, inserted as a new row like every rebuild/edit.
