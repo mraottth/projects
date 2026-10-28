@@ -98,6 +98,17 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
   text-decoration: none; font-size: 0.92rem;
 }
 .topbar nav a.active, .topbar nav a:hover { background: #efeee9; color: var(--ink); }
+.settings-gear {
+  margin-left: auto; display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; flex-shrink: 0; border-radius: 999px; color: var(--ink-2);
+}
+.settings-gear:hover, .settings-gear.active { background: #efeee9; color: var(--ink); }
+.danger-card { border-color: rgba(208, 59, 59, 0.3); }
+.danger-solid {
+  background: var(--bad); color: #fff; border: none; border-radius: 999px; padding: 8px 16px;
+  font-weight: 600; cursor: pointer;
+}
+.danger-solid:disabled { opacity: 0.45; cursor: not-allowed; }
 .app-main { max-width: 880px; margin: 0 auto; padding: 24px 20px 56px; width: 100%; flex: 1; }
 .app-main.wide { max-width: 1240px; }
 

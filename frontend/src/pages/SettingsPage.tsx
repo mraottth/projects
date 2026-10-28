@@ -10,6 +10,73 @@ function toList(s: string): string[] {
     .filter(Boolean);
 }
 
+// Wipes everything and starts over at onboarding. Typing DELETE is the confirmation: it's the one
+// irreversible action in the app, and the backend refuses without it too.
+function DeleteAllData() {
+  const [open, setOpen] = useState(false);
+  const [typed, setTyped] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const run = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.deleteAllData(typed);
+      // A full reload, so the app re-checks onboarding status and drops every page's loaded data.
+      window.location.assign("/onboarding");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="card danger-card">
+      <h2>Start over</h2>
+      <p className="muted small">
+        Permanently deletes your resumes and cover letters, profile, sources, jobs, My Jobs,
+        Jobby conversations and settings, then takes you back to onboarding. Your Claude usage
+        log is kept. This can't be undone.
+      </p>
+      {!open ? (
+        <button className="ghost danger" onClick={() => setOpen(true)}>
+          Delete all my data…
+        </button>
+      ) : (
+        <div className="fsection">
+          <label className="flabel" htmlFor="confirm-delete">
+            Type DELETE to confirm
+          </label>
+          <div className="form-actions" style={{ marginTop: 0 }}>
+            <input
+              id="confirm-delete"
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              autoComplete="off"
+              disabled={busy}
+            />
+            <button className="danger-solid" onClick={run} disabled={typed !== "DELETE" || busy}>
+              {busy ? <Spinner label="Deleting..." /> : "Delete everything"}
+            </button>
+            <button
+              className="link small"
+              onClick={() => {
+                setOpen(false);
+                setTyped("");
+              }}
+              disabled={busy}
+            >
+              Cancel
+            </button>
+          </div>
+          {error && <p className="error-text small">{error}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PrefilterSettings() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [busy, setBusy] = useState(false);
@@ -186,6 +253,7 @@ export default function SettingsPage() {
 
       <PrefilterSettings />
       <UsageLog />
+      <DeleteAllData />
     </div>
   );
 }

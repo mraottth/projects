@@ -1,11 +1,26 @@
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 from jobhunt.core.llm import LLMError
+from jobhunt.core.reset import delete_all_data
 from jobhunt.core.preference import get_current_preference_profile, rebuild_preference_profile
 from jobhunt.core.settings import get_settings, update_settings
 from jobhunt.db.connection import get_db
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
+
+
+class DeleteAllRequest(BaseModel):
+    confirm: str
+
+
+@router.post("/delete-all-data")
+def delete_all_data_route(payload: DeleteAllRequest):
+    """Settings' "Delete all my data". Requires {"confirm": "DELETE"} so a stray request can't
+    wipe everything; the UI makes the user type it."""
+    if payload.confirm != "DELETE":
+        raise HTTPException(400, 'type DELETE to confirm')
+    return delete_all_data()
 
 
 @router.get("")

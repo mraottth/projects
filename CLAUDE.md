@@ -268,6 +268,15 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   `index.css`), used in place of plain "...ing" button text for any action that calls Claude
   (profile rebuild, company discovery, resume/cover-letter generation, job scoring, company
   resolution) or otherwise takes noticeable time (test-fetch, run-daily-now).
+- **Settings' "Start over"** (`core/reset.py`'s `delete_all_data()`, `POST
+  /api/settings/delete-all-data` with `{"confirm": "DELETE"}`, which the UI makes the user type)
+  deletes every row of every table except `llm_calls` (real spend history; its `job_id`s are
+  nulled), re-inserts `DEFAULT_SETTINGS` (so `onboarding_completed` is false again), and deletes
+  uploaded/generated files, but only ones inside `RESUME_STORAGE_DIR`, never the user's own
+  `resume_library_path` folder. With no resumes left, the next load goes through onboarding; the
+  UI does a full page load to `/onboarding` so `App.tsx` re-checks status. Tables are listed from
+  `sqlite_master` with foreign keys off, so the live DB's leftover tables are cleared too.
+- **Settings is a gear icon** (`.settings-gear`, right end of the top bar), not a nav tab.
 - **Page split**, seven pages each with one job (plus the first-run `/onboarding` wizard, below), nav order New & Noteworthy → All Jobs → My Jobs →
   Jobby → Manage Sources → Profile → Settings: `DigestPage` (route `/`, nav label "New & Noteworthy") is
   today's capped, LLM-scored digest only. `AllJobsPage` (route `/all-jobs`) is

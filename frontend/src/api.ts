@@ -412,6 +412,13 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
+  deleteAllData: (confirm: string) =>
+    request<{ tables_cleared: number; files_deleted: number }>("/api/settings/delete-all-data", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirm }),
+    }),
+
   getUsageLog: () =>
     request<{ calls: LlmCall[]; totals: { total_cost: number; today_cost: number; total_calls: number } }>(
       "/api/settings/usage-log",
