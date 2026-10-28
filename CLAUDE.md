@@ -237,6 +237,11 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   = no rows in `resumes` at all *and* the `onboarding_completed` setting is false -- so an existing
   user with documents (including bulk-CLI-imported ones) is never forced through it. Progress is
   the `onboarding_step` setting, written on every step change, so a refresh resumes in place.
+  Completed steps in the stepper are buttons back to that step (forward still goes only through
+  Next, which enforces the required resume). Returning to the profile step must not re-run the
+  build: that's a paid call and would discard the user's revisions. So `goTo("profile")`
+  auto-rebuilds only when there's no profile yet or `docsChanged` (set by any upload/generation,
+  cleared once a profile is reported).
   "Skip setup" just sets `onboarding_completed`; `DigestPage` shows a "Finish setting up" card
   whenever there's no resume, which covers anyone who skipped. The three reused pieces are shared
   components rather than copies: `components/DesiredRoleForm.tsx` (also the Profile page's card),

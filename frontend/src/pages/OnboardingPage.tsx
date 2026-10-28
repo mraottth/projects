@@ -28,10 +28,22 @@ function guessKind(fileName: string): "resume" | "cover_letter" {
   return fileName.toLowerCase().includes("cover") ? "cover_letter" : "resume";
 }
 
-function ResumeStep({ current, onUploaded }: { current?: ResumeSummary; onUploaded: () => void }) {
+// The upload control for a step's "current" document. Once one is on file, the confirmation is
+// the prominent thing and replacing it shrinks to a small link -- before this, a tiny check and
+// chip sat above a full-size file input and button, so a successful upload didn't read as done.
+function DocUploader({
+  kind,
+  current,
+  onUploaded,
+}: {
+  kind: "resume" | "cover_letter";
+  current?: ResumeSummary;
+  onUploaded: () => void;
+}) {
   const fileInput = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [replacing, setReplacing] = useState(false);
 
   const upload = async () => {
     const file = fileInput.current?.files?.[0];
@@ -39,8 +51,9 @@ function ResumeStep({ current, onUploaded }: { current?: ResumeSummary; onUpload
     setBusy(true);
     setError(null);
     try {
-      await api.uploadResume(file, "resume");
+      await api.uploadResume(file, kind);
       if (fileInput.current) fileInput.current.value = "";
+      setReplacing(false);
       onUploaded();
     } catch (e) {
       setError(errorText(e));
@@ -49,6 +62,47 @@ function ResumeStep({ current, onUploaded }: { current?: ResumeSummary; onUpload
     }
   };
 
+  const picker = (small: boolean) => (
+    <div className="form-row" style={{ marginBottom: 0 }}>
+      <input ref={fileInput} type="file" accept={ACCEPT} />
+      <button className={small ? "ghost small" : "primary"} onClick={upload} disabled={busy}>
+        {busy ? <Spinner label="Uploading..." /> : "Upload"}
+      </button>
+    </div>
+  );
+
+  return (
+    <>
+      {current ? (
+        <>
+          <div className="upload-success">
+            <span className="upload-success-check" aria-hidden="true">
+              ✓
+            </span>
+            <div>
+              <span className="upload-success-file">{current.file_name}</span>
+              <div className="muted small">
+                Uploaded — {current.text_length.toLocaleString()} characters read
+              </div>
+            </div>
+          </div>
+          {replacing ? (
+            picker(true)
+          ) : (
+            <button className="link small" onClick={() => setReplacing(true)}>
+              Replace with a different file
+            </button>
+          )}
+        </>
+      ) : (
+        picker(false)
+      )}
+      {error && <p className="error-text small">{error}</p>}
+    </>
+  );
+}
+
+function ResumeStep({ current, onUploaded }: { current?: ResumeSummary; onUploaded: () => void }) {
   return (
     <div className="card">
       <h2>Upload your current resume</h2>
@@ -57,46 +111,16 @@ function ResumeStep({ current, onUploaded }: { current?: ResumeSummary; onUpload
         Word file (<code>.docx</code>) works best. Tailored resumes are written as tracked changes
         to your own <code>.docx</code>, so with a PDF you'd only get plain text back.
       </p>
-      {current && (
-        <p className="onboarding-done">
-          ✓ <span className="tag">{current.file_name}</span>{" "}
-          <span className="muted small">— {current.text_length.toLocaleString()} chars</span>
-        </p>
-      )}
-      <div className="form-row" style={{ marginBottom: 0 }}>
-        <input ref={fileInput} type="file" accept={ACCEPT} />
-        <button className={current ? "ghost" : "primary"} onClick={upload} disabled={busy}>
-          {busy ? <Spinner label="Uploading..." /> : current ? "Replace" : "Upload"}
-        </button>
-      </div>
-      {error && <p className="error-text small">{error}</p>}
+      <DocUploader kind="resume" current={current} onUploaded={onUploaded} />
     </div>
   );
 }
 
 function CoverLetterStep({ current, onChanged }: { current?: ResumeSummary; onChanged: () => void }) {
-  const fileInput = useRef<HTMLInputElement>(null);
   const [mode, setMode] = useState<"upload" | "generate">("upload");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [generated, setGenerated] = useState<{ id: number; content_text: string } | null>(null);
-
-  const upload = async () => {
-    const file = fileInput.current?.files?.[0];
-    if (!file) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await api.uploadResume(file, "cover_letter");
-      if (fileInput.current) fileInput.current.value = "";
-      setGenerated(null);
-      onChanged();
-    } catch (e) {
-      setError(errorText(e));
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const generate = async () => {
     setBusy(true);
@@ -122,12 +146,6 @@ function CoverLetterStep({ current, onChanged }: { current?: ResumeSummary; onCh
         Tailored cover letters reuse its structure and formatting. Don't have a recent one? Claude
         can write a general-purpose one from your resume and what you're looking for.
       </p>
-      {current && !generated && (
-        <p className="onboarding-done">
-          ✓ <span className="tag">{current.file_name}</span>{" "}
-          <span className="muted small">— {current.text_length.toLocaleString()} chars</span>
-        </p>
-      )}
       <div style={{ marginBottom: "12px" }}>
         <div className="seg">
           <button className={mode === "upload" ? "on" : ""} onClick={() => setMode("upload")}>
@@ -140,12 +158,14 @@ function CoverLetterStep({ current, onChanged }: { current?: ResumeSummary; onCh
       </div>
 
       {mode === "upload" ? (
-        <div className="form-row" style={{ marginBottom: 0 }}>
-          <input ref={fileInput} type="file" accept={ACCEPT} />
-          <button className="primary" onClick={upload} disabled={busy}>
-            {busy ? <Spinner label="Uploading..." /> : "Upload"}
-          </button>
-        </div>
+        <DocUploader
+          kind="cover_letter"
+          current={generated ? undefined : current}
+          onUploaded={() => {
+            setGenerated(null);
+            onChanged();
+          }}
+        />
       ) : (
         <>
           <button className={generated ? "ghost" : "primary"} onClick={generate} disabled={busy}>
@@ -313,11 +333,17 @@ export default function OnboardingPage({ onDone }: { onDone: () => void }) {
   const [step, setStep] = useState<OnboardingStep | null>(null);
   const [docs, setDocs] = useState<ResumeSummary[]>([]);
   const [hasProfile, setHasProfile] = useState(false);
-  // Only rebuild the profile automatically when the user arrives at that step by clicking
-  // through (they may have just added documents), not when a page refresh restores it.
+  // Rebuild the profile automatically on arriving at that step only when there's none yet or a
+  // document was added since it was built -- never just because the user went back to it, which
+  // would spend a Claude call and throw away any revisions they made.
   const [rebuildOnProfileStep, setRebuildOnProfileStep] = useState(false);
+  const [docsChanged, setDocsChanged] = useState(false);
 
   const refreshDocs = () => api.listResumes().then(setDocs);
+  const docsUpdated = () => {
+    setDocsChanged(true);
+    refreshDocs();
+  };
 
   useEffect(() => {
     refreshDocs();
@@ -335,7 +361,7 @@ export default function OnboardingPage({ onDone }: { onDone: () => void }) {
 
   const index = STEPS.findIndex((s) => s.key === step);
   const goTo = (next: OnboardingStep) => {
-    if (next === "profile") setRebuildOnProfileStep(true);
+    if (next === "profile") setRebuildOnProfileStep(docsChanged || !hasProfile);
     setStep(next);
     window.scrollTo(0, 0);
     if (next !== "finish") api.putSettings({ onboarding_step: next }).catch(() => undefined);
@@ -387,23 +413,41 @@ export default function OnboardingPage({ onDone }: { onDone: () => void }) {
       <ol className="stepper">
         {STEPS.map((s, i) => (
           <li key={s.key} className={i < index ? "done" : i === index ? "current" : ""}>
-            <span className="stepper-dot">{i < index ? "✓" : i + 1}</span>
-            <span className="stepper-label">{s.label}</span>
+            {/* Earlier steps are links back; forward still goes through Next, which is where the
+                required resume is enforced. Locked while the first job search runs. */}
+            {i < index && step !== "finish" ? (
+              <button
+                className="stepper-step"
+                onClick={() => goTo(s.key)}
+                aria-label={`Go back to ${s.label}`}
+              >
+                <span className="stepper-dot">✓</span>
+                <span className="stepper-label">{s.label}</span>
+              </button>
+            ) : (
+              <>
+                <span className="stepper-dot">{i < index ? "✓" : i + 1}</span>
+                <span className="stepper-label">{s.label}</span>
+              </>
+            )}
           </li>
         ))}
       </ol>
 
-      {step === "resume" && <ResumeStep current={currentResume} onUploaded={refreshDocs} />}
+      {step === "resume" && <ResumeStep current={currentResume} onUploaded={docsUpdated} />}
       {step === "looking_for" && <DesiredRoleForm />}
-      {step === "cover_letter" && <CoverLetterStep current={currentCoverLetter} onChanged={refreshDocs} />}
-      {step === "old_docs" && <OldDocsStep existing={olderDocs} onUploaded={refreshDocs} />}
+      {step === "cover_letter" && <CoverLetterStep current={currentCoverLetter} onChanged={docsUpdated} />}
+      {step === "old_docs" && <OldDocsStep existing={olderDocs} onUploaded={docsUpdated} />}
       {step === "profile" && (
         <CandidateProfileCard
           hasDocuments={docs.length > 0}
           autoRebuild={rebuildOnProfileStep}
           title="Your candidate profile"
           description="A summary of your background built from the documents you added. Jobs and company suggestions are matched against it, so make sure it sounds like you. Ask Claude for changes, or edit it directly."
-          onProfileChange={(text) => setHasProfile(!!text)}
+          onProfileChange={(text) => {
+            setHasProfile(!!text);
+            if (text) setDocsChanged(false);
+          }}
         />
       )}
       {step === "sources" && (

@@ -50,6 +50,9 @@ export function DesiredRoleForm() {
 
       <div className="fsection">
         <span className="flabel">Desired job titles</span>
+        <p className="muted small" style={{ marginTop: 0 }}>
+          Add as many as you like — type one and press Enter (or a comma) after each.
+        </p>
         <TagInput
           value={settings.prefilter_titles_include}
           onChange={(tags) => save({ prefilter_titles_include: tags })}

@@ -46,6 +46,8 @@ export function TagInput({
         onBlur={commit}
         placeholder={value.length === 0 ? placeholder : undefined}
       />
+      {/* Typed-but-not-added text is easy to mistake for an added tag. */}
+      {draft.trim() && <span className="tag-input-hint">↵ Enter to add</span>}
     </div>
   );
 }
