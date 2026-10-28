@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, Source, SourceKind } from "../api";
-import { DiscoverCompaniesSection, DiscoverJobBoardsSection } from "../components/Discovery";
+import { DiscoverCompaniesSection, DiscoverJobBoardsSection, DiscoverySeed } from "../components/Discovery";
 import { detectSourceFromUrl } from "../sourceUrl";
 import { Spinner } from "../components/Spinner";
 
@@ -141,7 +141,28 @@ function AddSourceForm({ onAdded }: { onAdded: (source: Source) => void }) {
   );
 }
 
-function SourceCard({ source, onChanged }: { source: Source; onChanged: () => void }) {
+// Organizations vs. job boards, for the page's two sections: a single employer's ATS board, or
+// any source with an organization name, is an organization; multi-employer boards and the
+// keyword aggregators (no single employer) are job boards.
+function isOrganization(source: Source): boolean {
+  return source.kind.startsWith("ats_") || !!source.company_name;
+}
+
+// What "find more like this" asks discovery for: the name, plus the URL when there is one.
+function describeForDiscovery(source: Source): string {
+  const url = typeof source.config.url === "string" ? source.config.url : null;
+  return url ? `${source.name} (${url})` : source.name;
+}
+
+function SourceCard({
+  source,
+  onChanged,
+  onFindMoreLikeThis,
+}: {
+  source: Source;
+  onChanged: () => void;
+  onFindMoreLikeThis: (source: Source) => void;
+}) {
   const [testResult, setTestResult] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -192,6 +213,9 @@ function SourceCard({ source, onChanged }: { source: Source; onChanged: () => vo
         <button className="ghost small danger" onClick={remove}>
           Delete
         </button>
+        <button className="link small" onClick={() => onFindMoreLikeThis(source)}>
+          Find more like this
+        </button>
       </div>
       {testResult && <p className="muted small">{testResult}</p>}
     </div>
@@ -202,8 +226,21 @@ export default function ManageSourcesPage() {
   const [sources, setSources] = useState<Source[]>([]);
   const [runResult, setRunResult] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
+  const [orgSeed, setOrgSeed] = useState<DiscoverySeed | null>(null);
+  const [boardSeed, setBoardSeed] = useState<DiscoverySeed | null>(null);
 
   const refresh = () => api.listSources().then(setSources);
+
+  // Starts a "more like this" search in the matching Discover card, and scrolls to it so the
+  // results are where the user's looking.
+  const findMoreLikeThis = (source: Source) => {
+    const seed = { like: describeForDiscovery(source), label: source.name, nonce: Date.now() };
+    const org = isOrganization(source);
+    (org ? setOrgSeed : setBoardSeed)(seed);
+    document
+      .getElementById(org ? "discover-organizations" : "discover-job-boards")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   useEffect(() => {
     refresh();
@@ -224,26 +261,43 @@ export default function ManageSourcesPage() {
   };
 
 
+  const organizations = sources.filter(isOrganization);
+  const boards = sources.filter((s) => !isOrganization(s));
+
   return (
     <div>
       <h1>Manage Sources</h1>
       <p className="muted" style={{ marginBottom: "18px" }}>
-        Discover organizations and job boards worth monitoring, and track whatever else you want
-        polled. See the All Jobs page for what's turned up. For LinkedIn/Indeed/Glassdoor or anything you found
-        yourself, use "Add a job" on the My Jobs page instead.
+        The organizations and job boards checked for new postings every day, and suggestions for
+        more. See the All Jobs page for what's turned up. For LinkedIn/Indeed/Glassdoor or anything
+        you found yourself, use "Add a job" on the My Jobs page instead.
       </p>
 
-      <DiscoverCompaniesSection />
-      <DiscoverJobBoardsSection />
+      <section className="source-section">
+        <h2 className="source-section-title">Organizations</h2>
+        <p className="muted small">Single employers whose job boards you follow.</p>
+        {organizations.map((s) => (
+          <SourceCard key={s.id} source={s} onChanged={refresh} onFindMoreLikeThis={findMoreLikeThis} />
+        ))}
+        {organizations.length === 0 && (
+          <p className="empty-state">No organizations yet — discover some below, or add one by URL.</p>
+        )}
+        <DiscoverCompaniesSection seed={orgSeed} onAdded={refresh} />
+      </section>
+
+      <section className="source-section">
+        <h2 className="source-section-title">Job boards</h2>
+        <p className="muted small">Multi-employer boards and job searches.</p>
+        {boards.map((s) => (
+          <SourceCard key={s.id} source={s} onChanged={refresh} onFindMoreLikeThis={findMoreLikeThis} />
+        ))}
+        {boards.length === 0 && (
+          <p className="empty-state">No job boards yet — discover some below, or add one by URL.</p>
+        )}
+        <DiscoverJobBoardsSection seed={boardSeed} onAdded={refresh} />
+      </section>
 
       <AddSourceForm onAdded={() => refresh()} />
-
-      {sources.map((s) => (
-        <SourceCard key={s.id} source={s} onChanged={refresh} />
-      ))}
-      {sources.length === 0 && (
-        <p className="empty-state">No tracked sources yet — add one above.</p>
-      )}
 
       <div className="card">
         <h2>Run the daily pipeline now</h2>

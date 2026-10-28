@@ -105,6 +105,12 @@ export interface CompanySuggestion {
   careers_url: string | null;
 }
 
+// Optional steering for one discovery search: free-text direction, and/or something to find more of.
+export interface DiscoveryRequest {
+  guidance?: string;
+  like?: string;
+}
+
 export interface JobBoardSuggestion {
   name: string;
   url: string;
@@ -385,11 +391,19 @@ export const api = {
 
   resumeDownloadUrl: (resumeId: number) => `/api/resumes/${resumeId}/download`,
 
-  suggestCompanies: () =>
-    request<CompanySuggestion[]>("/api/discovery/suggest", { method: "POST" }),
+  suggestCompanies: (req: DiscoveryRequest = {}) =>
+    request<CompanySuggestion[]>("/api/discovery/suggest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req),
+    }),
 
-  suggestJobBoards: () =>
-    request<JobBoardSuggestion[]>("/api/discovery/suggest-boards", { method: "POST" }),
+  suggestJobBoards: (req: DiscoveryRequest = {}) =>
+    request<JobBoardSuggestion[]>("/api/discovery/suggest-boards", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req),
+    }),
 
   resolveSource: (companyName: string) =>
     request<Source>("/api/sources/resolve", {
