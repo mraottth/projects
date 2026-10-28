@@ -108,7 +108,7 @@ scheduler-setup:  ## create/update the daily Cloud Scheduler job (M6) -- also gr
 	gcloud scheduler jobs describe run-daily --project $(GCP_PROJECT) --location $(GCP_REGION) >/dev/null 2>&1 \
 	  && gcloud scheduler jobs update http run-daily --project $(GCP_PROJECT) --location $(GCP_REGION) \
 	       --uri "$$(gcloud run services describe jobhunt --project $(GCP_PROJECT) --region $(GCP_REGION) --format 'value(status.url)')/internal/run-daily" \
-	       --http-method POST --headers "X-Scheduler-Secret=$$(gcloud secrets versions access latest --secret=scheduler-secret --project $(GCP_PROJECT))" \
+	       --http-method POST --update-headers "X-Scheduler-Secret=$$(gcloud secrets versions access latest --secret=scheduler-secret --project $(GCP_PROJECT))" \
 	       --schedule "0 6 * * *" --oidc-service-account-email $(SCHEDULER_SA) --oidc-token-audience $(IAP_CLIENT_ID) \
 	  || gcloud scheduler jobs create http run-daily --project $(GCP_PROJECT) --location $(GCP_REGION) \
 	       --uri "$$(gcloud run services describe jobhunt --project $(GCP_PROJECT) --region $(GCP_REGION) --format 'value(status.url)')/internal/run-daily" \
