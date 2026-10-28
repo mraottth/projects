@@ -45,6 +45,11 @@ that most explains the rating, not whole sentences. The UI renders these as high
 it sparingly and only for words/short phrases that genuinely matter most, not as general emphasis."""
 
 
+# Medium rather than the default high: a High/Med/Low rating plus a short rationale doesn't need
+# the deepest reasoning, and scoring runs up to daily_llm_cap times per run, so per-call latency is
+# most of how long a run (and onboarding's last step) takes. Raise it if ratings start missing nuance.
+SCORING_EFFORT = "medium"
+
 class JobScore(BaseModel):
     interest_fit: Literal["High", "Med", "Low"]
     interest_score: float
@@ -107,10 +112,11 @@ def score_job(
     with llm_error_boundary("scoring the job"):
         response = client.messages.parse(
             model=DEFAULT_MODEL,
-            max_tokens=1500,
+            max_tokens=3000,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_content}],
             output_format=JobScore,
+            output_config={"effort": SCORING_EFFORT},
         )
     log_call(
         call_type="scoring",
