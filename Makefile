@@ -85,11 +85,32 @@ scheduler-secret:  ## once: store $SCHEDULER_SECRET in Secret Manager (re-run to
 	  || gcloud secrets create scheduler-secret --project $(GCP_PROJECT) --replication-policy automatic
 	printf %s "$$SCHEDULER_SECRET" | gcloud secrets versions add scheduler-secret --project $(GCP_PROJECT) --data-file=-
 
-scheduler-setup:  ## create/update the daily Cloud Scheduler job (M6)
+SCHEDULER_SA = $(shell gcloud projects describe $(GCP_PROJECT) --format='value(projectNumber)')-compute@developer.gserviceaccount.com
+IAP_CLIENT_ID ?= $(error set IAP_CLIENT_ID on the command line -- the OAuth client id from `gcloud iap settings get`)
+
+# A plain custom header is NOT enough once --iap protects the whole service: IAP itself rejects
+# the request (401 "Invalid IAP credentials: empty token") before it ever reaches the app's own
+# X-Scheduler-Secret check (confirmed live -- this is exactly what happened on the first attempt).
+# Cloud Scheduler instead needs a real Google-signed OIDC identity, scoped to the IAP OAuth
+# client as its audience, from a service account IAP has been told to trust. The custom header is
+# kept too (defense in depth, and internal.py still checks it) -- just no longer sufficient alone.
+scheduler-setup:  ## create/update the daily Cloud Scheduler job (M6) -- also grants the default
+                  ## compute service account IAP + Cloud Run invoker access, and grants Cloud
+                  ## Scheduler's own service agent permission to mint tokens as it
+	gcloud run services add-iam-policy-binding jobhunt --project $(GCP_PROJECT) --region $(GCP_REGION) \
+	  --member="serviceAccount:$(SCHEDULER_SA)" --role roles/run.invoker
+	gcloud iap web add-iam-policy-binding --project $(GCP_PROJECT) --region $(GCP_REGION) \
+	  --resource-type cloud-run --service jobhunt \
+	  --member="serviceAccount:$(SCHEDULER_SA)" --role roles/iap.httpsResourceAccessor
+	gcloud iam service-accounts add-iam-policy-binding $(SCHEDULER_SA) --project $(GCP_PROJECT) \
+	  --member="serviceAccount:service-$$(gcloud projects describe $(GCP_PROJECT) --format='value(projectNumber)')@gcp-sa-cloudscheduler.iam.gserviceaccount.com" \
+	  --role roles/iam.serviceAccountTokenCreator
 	gcloud scheduler jobs describe run-daily --project $(GCP_PROJECT) --location $(GCP_REGION) >/dev/null 2>&1 \
 	  && gcloud scheduler jobs update http run-daily --project $(GCP_PROJECT) --location $(GCP_REGION) \
 	       --uri "$$(gcloud run services describe jobhunt --project $(GCP_PROJECT) --region $(GCP_REGION) --format 'value(status.url)')/internal/run-daily" \
-	       --http-method POST --headers "X-Scheduler-Secret=$$SCHEDULER_SECRET" --schedule "0 6 * * *" \
+	       --http-method POST --headers "X-Scheduler-Secret=$$(gcloud secrets versions access latest --secret=scheduler-secret --project $(GCP_PROJECT))" \
+	       --schedule "0 6 * * *" --oidc-service-account-email $(SCHEDULER_SA) --oidc-token-audience $(IAP_CLIENT_ID) \
 	  || gcloud scheduler jobs create http run-daily --project $(GCP_PROJECT) --location $(GCP_REGION) \
 	       --uri "$$(gcloud run services describe jobhunt --project $(GCP_PROJECT) --region $(GCP_REGION) --format 'value(status.url)')/internal/run-daily" \
-	       --http-method POST --headers "X-Scheduler-Secret=$$SCHEDULER_SECRET" --schedule "0 6 * * *"
+	       --http-method POST --headers "X-Scheduler-Secret=$$(gcloud secrets versions access latest --secret=scheduler-secret --project $(GCP_PROJECT))" \
+	       --schedule "0 6 * * *" --oidc-service-account-email $(SCHEDULER_SA) --oidc-token-audience $(IAP_CLIENT_ID)
