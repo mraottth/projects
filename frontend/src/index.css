@@ -16,7 +16,6 @@
   --warn-bg: rgba(184, 134, 11, 0.13);
   --bad: #d03b3b;
   --bad-bg: rgba(208, 59, 59, 0.1);
-  --star: #e8a200;
   --radius: 10px;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.05);
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -198,7 +197,6 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .badge-high { background: var(--good-bg); color: var(--good); }
 .badge-med { background: var(--warn-bg); color: var(--warn); }
 .badge-low { background: var(--bad-bg); color: var(--bad); }
-.badge-favorite { background: rgba(232, 162, 0, 0.14); color: #92660a; }
 .pill {
   display: inline-flex; align-items: center; padding: 3px 11px; border-radius: 999px;
   font-size: 0.8rem; font-weight: 600; background: #f1f0eb; color: var(--ink-2);
@@ -214,7 +212,6 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
   background: #f1f0eb; font-size: 0.78rem; color: var(--ink-2);
 }
 .tag.removable button { background: none; border: 0; padding: 0 0 0 2px; color: var(--muted); font-size: 0.9em; }
-.star { color: var(--star); }
 
 /* ---------- tag input */
 .tag-input {

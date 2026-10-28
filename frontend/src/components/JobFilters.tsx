@@ -7,7 +7,6 @@ const FIT_OPTIONS = ["High", "Med", "Low"];
 export interface JobFilterState {
   interestFilter: string[];
   candidateFilter: string[];
-  favoritesOnly: boolean;
   source: string[];
   minSalary: string;
   recency: RecencyFilter;
@@ -18,7 +17,6 @@ export interface JobFilterState {
 export const DEFAULT_JOB_FILTERS: JobFilterState = {
   interestFilter: ["High", "Med"],
   candidateFilter: ["High", "Med"],
-  favoritesOnly: false,
   source: [],
   minSalary: "",
   recency: "all",
@@ -34,7 +32,6 @@ export function filterJobs(jobs: ScoredJob[], f: JobFilterState): ScoredJob[] {
   return jobs.filter((job) => {
     if (f.interestFilter.length > 0 && !f.interestFilter.includes(job.interest_fit ?? "")) return false;
     if (f.candidateFilter.length > 0 && !f.candidateFilter.includes(job.candidate_fit ?? "")) return false;
-    if (f.favoritesOnly && !job.is_favorite) return false;
     if (f.source.length > 0 && !f.source.includes(job.source_name ?? "Unknown source")) return false;
     if (f.location.length > 0 && !f.location.includes(job.location ?? "Unknown location")) return false;
 
@@ -66,7 +63,6 @@ function countActive(f: JobFilterState): number {
   let n = 0;
   if (f.interestFilter.length) n++;
   if (f.candidateFilter.length) n++;
-  if (f.favoritesOnly) n++;
   if (f.source.length) n++;
   if (f.minSalary.trim()) n++;
   if (f.recency !== "all") n++;
@@ -242,17 +238,6 @@ export function JobFilterBar({
           onChange={(e) => set("minSalary", e.target.value)}
           style={{ width: "100%" }}
         />
-      </div>
-
-      <div className="fsection" style={{ marginBottom: 0 }}>
-        <label className="field inline" style={{ marginBottom: 0 }}>
-          <input
-            type="checkbox"
-            checked={filters.favoritesOnly}
-            onChange={(e) => set("favoritesOnly", e.target.checked)}
-          />
-          <span style={{ margin: 0, fontWeight: 400, color: "var(--ink)" }}>Favorites only</span>
-        </label>
       </div>
     </div>
   );

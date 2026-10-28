@@ -91,7 +91,6 @@ export interface ScoredJob extends Job {
   summary_text: string | null;
   rationale_text: string | null;
   source_name: string | null;
-  is_favorite: boolean | 0 | 1;
 }
 
 export interface DigestEntry extends ScoredJob {
@@ -111,16 +110,6 @@ export interface JobBoardSuggestion {
   reason: string;
 }
 
-export interface Favorite {
-  id: number;
-  company_name: string;
-  source_id: number | null;
-  resolution_status: "pending" | "resolved" | "failed";
-  resolution_note: string | null;
-  source_kind: SourceKind | null;
-  source_config_json: string | null;
-}
-
 export type SourceKind =
   | "ats_greenhouse"
   | "ats_lever"
@@ -137,7 +126,6 @@ export interface Source {
   config: Record<string, unknown>;
   enabled: boolean | 0 | 1;
   poll_frequency_hours: number;
-  is_favorite: boolean | 0 | 1;
   last_polled_at: string | null;
   last_success_at: string | null;
   last_error: string | null;
@@ -392,21 +380,4 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ company_name: companyName }),
     }),
-
-  listFavorites: () => request<Favorite[]>("/api/favorites"),
-
-  addFavorite: (companyName: string, board?: { kind: SourceKind; config: Record<string, unknown> }) =>
-    request<Favorite>("/api/favorites", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        company_name: companyName,
-        kind: board?.kind ?? null,
-        config: board?.config ?? null,
-      }),
-    }),
-
-  retryFavorite: (id: number) => request<Favorite>(`/api/favorites/${id}/retry`, { method: "POST" }),
-
-  removeFavorite: (id: number) => request<{ ok: true }>(`/api/favorites/${id}`, { method: "DELETE" }),
 };

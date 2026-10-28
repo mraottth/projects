@@ -153,7 +153,6 @@ export function ScoredJobCard({ job, onDismissed }: { job: ScoredJob; onDismisse
           <CompanyLogo company={job.company} />
           <div>
             <div className="card-title">
-              {!!job.is_favorite && <span className="star">★ </span>}
               <Link to={`/jobs/${job.id}`}>
                 {job.title} — {job.company}
               </Link>

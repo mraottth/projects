@@ -401,8 +401,8 @@ export default function OnboardingPage({ onDone }: { onDone: () => void }) {
         <CandidateProfileCard
           hasDocuments={docs.length > 0}
           autoRebuild={rebuildOnProfileStep}
-          title="Here's how Claude reads your background"
-          description="Built from the documents you just added. Job scoring and company suggestions are judged against this, so make sure it sounds like you. Ask Claude for changes, or edit it directly."
+          title="Your candidate profile"
+          description="A summary of your background built from the documents you added. Jobs and company suggestions are matched against it, so make sure it sounds like you. Ask Claude for changes, or edit it directly."
           onProfileChange={(text) => setHasProfile(!!text)}
         />
       )}
@@ -410,9 +410,8 @@ export default function OnboardingPage({ onDone }: { onDone: () => void }) {
         <>
           <p className="muted small">
             Claude is searching the web for organizations and job boards that match your profile.
-            Pick <strong>Monitor</strong> on any you want polled daily, or{" "}
-            <strong>Monitor &amp; favorite</strong> to always see their postings first. You can add
-            more later from Manage Sources.
+            Click <strong>Monitor</strong> on any you want checked for new postings every day. You
+            can add more later from Manage Sources.
           </p>
           <DiscoverCompaniesSection autoRun />
           <DiscoverJobBoardsSection autoRun />
