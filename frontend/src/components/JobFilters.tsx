@@ -12,6 +12,9 @@ export interface JobFilterState {
   recency: RecencyFilter;
   location: string[];
   search: string;
+  // Jobs the daily cap hasn't scored yet have no fit at all, so the fit filters can't judge them;
+  // this alone decides whether they show.
+  includeUnscored: boolean;
 }
 
 export const DEFAULT_JOB_FILTERS: JobFilterState = {
@@ -22,10 +25,10 @@ export const DEFAULT_JOB_FILTERS: JobFilterState = {
   recency: "all",
   location: [],
   search: "",
+  includeUnscored: true,
 };
 
-// Truly no filters -- unlike DEFAULT_JOB_FILTERS, which already hides Low fits (and, since an
-// unscored job has no fit at all, every job the daily cap hasn't reached yet).
+// Truly no filters -- unlike DEFAULT_JOB_FILTERS, which already hides Low fits.
 export const NO_JOB_FILTERS: JobFilterState = {
   interestFilter: [],
   candidateFilter: [],
@@ -34,6 +37,7 @@ export const NO_JOB_FILTERS: JobFilterState = {
   recency: "all",
   location: [],
   search: "",
+  includeUnscored: true,
 };
 
 // Shown in place of the list when jobs exist but the filters hide all of them.
@@ -42,7 +46,7 @@ export function FilteredEmptyState({ onClear }: { onClear: () => void }) {
     <div className="card empty-card">
       <p>No jobs match these filters.</p>
       <p className="muted small">
-        The default filters hide Low fits and jobs that haven't been scored yet.
+        The default filters hide Low fits.
       </p>
       <button className="primary" onClick={onClear}>
         Clear all filters
@@ -57,8 +61,12 @@ export function filterJobs(jobs: ScoredJob[], f: JobFilterState): ScoredJob[] {
   const searchQuery = f.search.trim().toLowerCase();
 
   return jobs.filter((job) => {
-    if (f.interestFilter.length > 0 && !f.interestFilter.includes(job.interest_fit ?? "")) return false;
-    if (f.candidateFilter.length > 0 && !f.candidateFilter.includes(job.candidate_fit ?? "")) return false;
+    if (!job.interest_fit && !job.candidate_fit) {
+      if (!f.includeUnscored) return false;
+    } else {
+      if (f.interestFilter.length > 0 && !f.interestFilter.includes(job.interest_fit ?? "")) return false;
+      if (f.candidateFilter.length > 0 && !f.candidateFilter.includes(job.candidate_fit ?? "")) return false;
+    }
     if (f.source.length > 0 && !f.source.includes(job.source_name ?? "Unknown source")) return false;
     if (f.location.length > 0 && !f.location.includes(job.location ?? "Unknown location")) return false;
 
@@ -95,6 +103,7 @@ function countActive(f: JobFilterState): number {
   if (f.recency !== "all") n++;
   if (f.location.length) n++;
   if (f.search.trim()) n++;
+  if (!f.includeUnscored) n++;
   return n;
 }
 
@@ -225,6 +234,17 @@ export function JobFilterBar({
         selected={filters.candidateFilter}
         onChange={(v) => set("candidateFilter", v)}
       />
+
+      <div className="fsection">
+        <label className="small" style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+          <input
+            type="checkbox"
+            checked={filters.includeUnscored}
+            onChange={(e) => set("includeUnscored", e.target.checked)}
+          />
+          Include jobs not yet scored
+        </label>
+      </div>
 
       <DropdownMultiSelect
         label="Source"

@@ -39,12 +39,24 @@ def _apply_age_bonus() -> None:
 
 
 def select_batch(cap: int) -> list[int]:
-    """The `cap` highest-priority pending jobs, marked in_progress."""
+    """Up to `cap` pending jobs, marked in_progress, taken round-robin across sources: every
+    source's best job first, then every source's second-best, and so on (highest priority first
+    within each round). A plain top-N by priority let one big board whose postings all match the
+    titles/sectors (Civis, live) take every slot of onboarding's 20-job first run, leaving every
+    other source unscored."""
     _apply_age_bonus()
     with get_db() as conn:
         rows = conn.execute(
-            "SELECT id, job_id FROM scoring_queue WHERE status = 'pending' "
-            "ORDER BY priority DESC LIMIT ?",
+            """SELECT id, job_id FROM (
+                   SELECT q.id, q.job_id, q.priority,
+                          ROW_NUMBER() OVER (
+                              PARTITION BY j.source_id ORDER BY q.priority DESC, q.id
+                          ) AS source_rank
+                     FROM scoring_queue q JOIN jobs j ON j.id = q.job_id
+                    WHERE q.status = 'pending'
+               )
+               ORDER BY source_rank, priority DESC, id
+               LIMIT ?""",
             (cap,),
         ).fetchall()
         ids = [row["id"] for row in rows]

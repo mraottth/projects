@@ -77,3 +77,33 @@ def test_requeue_stranded_returns_interrupted_jobs_to_pending():
     assert queue.pending_count() == 3
     assert sorted(queue.select_batch(10)) == sorted(job_ids)
     assert batch
+
+
+def test_select_batch_spreads_across_sources():
+    with get_db() as conn:
+        big = conn.execute(
+            "INSERT INTO sources (kind, name, config_json) VALUES ('custom_board', 'Big', '{}')"
+        ).lastrowid
+        small = conn.execute(
+            "INSERT INTO sources (kind, name, config_json) VALUES ('custom_board', 'Small', '{}')"
+        ).lastrowid
+
+    def job(source_id, n):
+        with get_db() as conn:
+            return conn.execute(
+                "INSERT INTO jobs (dedupe_key, title, company, source_id) VALUES (?, ?, 'Acme', ?)",
+                (f"{source_id}-{n}", f"Job {n}", source_id),
+            ).lastrowid
+
+    big_jobs = [job(big, n) for n in range(10)]
+    small_jobs = [job(small, n) for n in range(3)]
+    for j in big_jobs:
+        queue.enqueue(j, 90.0, {})
+    for j in small_jobs:
+        queue.enqueue(j, 40.0, {})
+
+    batch = queue.select_batch(cap=4)
+    assert len([j for j in batch if j in big_jobs]) == 2
+    assert len([j for j in batch if j in small_jobs]) == 2
+    # The big board's best still leads each round.
+    assert batch[0] in big_jobs

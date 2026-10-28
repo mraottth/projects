@@ -148,7 +148,11 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   anyway), and `core/scoring.py` above.
 - `src/jobhunt/core/prefilter.py` + `core/queue.py` — the cheap rule-based pass that runs before any
   LLM scoring call, and the priority queue/daily-cap mechanism it feeds (unscored jobs carry over
-  with an age bonus so a capped day doesn't starve the backlog).
+  with an age bonus so a capped day doesn't starve the backlog). `select_batch()` takes jobs
+  round-robin across sources (`ROW_NUMBER() OVER (PARTITION BY source_id)`): every source's best
+  job, then every source's second-best, and so on. A plain top-N by priority let one big board
+  whose postings all matched the titles/sectors take every slot of onboarding's 20-job first run
+  (caught live: only Civis jobs got scored, so All Jobs showed only Civis).
 - `src/jobhunt/core/page_fetch.py` + `core/browser_fetch.py` — fetch a page's readable text, trying
   a plain static GET first and falling back to headless-browser rendering (Playwright) only when
   the static fetch yields too little text. The Playwright fallback is real, not speculative: at
@@ -340,8 +344,9 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
 - Empty states: `DigestPage` with no entries shows "Browse All Jobs" / "Add more sources"
   buttons; when filters hide every job, both job lists show `FilteredEmptyState` with "Clear all
   filters", which applies `NO_JOB_FILTERS` (truly empty), not `DEFAULT_JOB_FILTERS`. The defaults
-  already hide Low fits *and every unscored job* (no fit to match), so after onboarding's 20-job
-  first run, All Jobs can look empty under the defaults while holding many jobs.
+  hide Low fits. Unscored jobs (no fit at all) skip the fit filters and are governed only by
+  `includeUnscored` ("Include jobs not yet scored", on by default) -- they used to fail the
+  High/Med fit filters, so every job the daily cap hadn't reached yet was invisible on All Jobs.
 - `components/ScoredJobCard.tsx` always shows salary and posted date now, "N/A" when either is
   missing, rather than omitting the line entirely -- and "posted" means the job description's own
   `posted_at`, never `first_seen_at` (when our pipeline happened to discover it, which isn't what
