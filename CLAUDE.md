@@ -158,6 +158,18 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   the static fetch yields too little text. The Playwright fallback is real, not speculative: at
   least one source the user wants (techjobsforgov.com, a WP Job Manager board) only renders its
   listings via client-side JS, confirmed by fetching it directly during development.
+  `MIN_CHARS` (200) alone missed the common case, though: an organization's /careers page has
+  plenty of nav/"about us"/footer text, so it never reached the browser, while its listings load
+  via JS or sit in an embedded ATS iframe (caught live: "Test fetch" found nothing on several
+  careers pages, e.g. blueroseresearch.org/jobs, and All Jobs had 2 listings). So `custom_board.fetch()`
+  now (1) checks the raw HTML for an embedded Greenhouse/Lever/Ashby board
+  (`core/ats_detect.py`; an embed script/iframe/API URL counts on any page, a plain link only on a
+  single-organization source, and two or more distinct boards count as none) and reads it through
+  that ATS's adapter, no Claude call; (2) if Claude finds zero postings in a static page, re-renders
+  it in the browser (`fetch_page(force_render=True)`) and tries again, skipping the second paid call
+  when the rendered text is identical. `render_page_html()` appends every child frame's HTML (an
+  ATS board is often an iframe, which `page.content()` omits) and keeps whatever rendered when
+  `networkidle` times out (analytics/chat widgets can keep the network busy forever).
 - `src/jobhunt/core/dedupe.py` — `compute_dedupe_key` prefers `(source_id, external_id)` when an
   adapter provides one, falling back to a normalized URL, then normalized company+title+location.
   The external_id preference matters: Greenhouse-shaped URLs carry the real job id in the query

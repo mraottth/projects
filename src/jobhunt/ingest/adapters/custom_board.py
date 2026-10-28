@@ -13,10 +13,15 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from jobhunt.core.ats_detect import detect_embedded_ats
 from jobhunt.core.llm import DEFAULT_MODEL, get_client, llm_error_boundary, log_call
-from jobhunt.core.page_fetch import PageFetchError, fetch_page_text
+from jobhunt.core.page_fetch import PageFetchError, fetch_page
+from jobhunt.ingest.adapters import ashby, greenhouse, lever
 
 MAX_POSTINGS_PER_FETCH = 30
+PAGE_MAX_CHARS = 40_000
+
+ATS_ADAPTERS = {"ats_greenhouse": greenhouse.fetch, "ats_lever": lever.fetch, "ats_ashby": ashby.fetch}
 
 
 def _system_prompt() -> str:
@@ -28,7 +33,7 @@ def _system_prompt() -> str:
         "the page doesn't name one, it's a single-company board -- leave company null and the "
         "caller will fill in the known company). Links appear inline as `text [https://...]` -- "
         "use the URL immediately following a posting's title as that posting's url.\n\n"
-        f"Dates are often relative (\"Posted 3 days ago\", \"Closes in 10d\") -- today's date is "
+        f'Dates are often relative ("Posted 3 days ago", "Closes in 10d") -- today\'s date is '
         f"{date.today().isoformat()}; convert a relative posted-date to an absolute ISO date, and "
         f"use null if you can't determine one. Extract at most {MAX_POSTINGS_PER_FETCH} postings; "
         f"if there are more, take the first {MAX_POSTINGS_PER_FETCH} as they appear on the page "
@@ -53,12 +58,51 @@ class JobListingsOutput(BaseModel):
 
 
 def fetch(source: dict) -> list[dict]:
+    """Reads the page and asks Claude for its postings, with two ways around a careers page that
+    lists nothing in its own text (the usual case for an organization's /careers page, caught
+    live when "Test fetch" came back empty on several): an embedded Greenhouse/Lever/Ashby board
+    is read through that ATS's API instead, and if Claude finds nothing in the static page, it's
+    re-read in the headless browser (listings loaded by JS, or in an iframe) and tried again."""
     url = source["config"]["url"]
     try:
-        text = fetch_page_text(url, preserve_links=True, max_chars=40_000)
+        page = fetch_page(url, preserve_links=True, max_chars=PAGE_MAX_CHARS)
     except PageFetchError as exc:
         raise RuntimeError(f"custom board {url} could not be fetched: {exc}") from exc
 
+    embedded = _fetch_embedded_ats(page.html, source)
+    if embedded is not None:
+        return embedded
+    postings = _extract_postings(page.text, source)
+    if postings or page.rendered:
+        return postings
+
+    try:
+        rendered = fetch_page(url, preserve_links=True, max_chars=PAGE_MAX_CHARS, force_render=True)
+    except PageFetchError:
+        return postings
+    embedded = _fetch_embedded_ats(rendered.html, source)
+    if embedded is not None:
+        return embedded
+    if rendered.text == page.text:
+        return postings  # nothing new to read; don't pay for the same answer twice
+    return _extract_postings(rendered.text, source)
+
+
+def _fetch_embedded_ats(html: str, source: dict) -> list[dict] | None:
+    """Postings from the ATS board embedded in this page, or None if there isn't exactly one or
+    reading it fails (then the page itself is read as usual)."""
+    found = detect_embedded_ats(html, single_organization=bool(source.get("company_name")))
+    if found is None:
+        return None
+    kind, config = found
+    try:
+        return ATS_ADAPTERS[kind]({**source, "kind": kind, "config": config})
+    except Exception:  # noqa: BLE001 - a wrong guess at the board's name is just "not this way"
+        return None
+
+
+def _extract_postings(text: str, source: dict) -> list[dict]:
+    url = source["config"]["url"]
     client = get_client()
     with llm_error_boundary(f"extracting postings from {url}"):
         response = client.messages.parse(

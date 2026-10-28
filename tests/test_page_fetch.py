@@ -58,3 +58,17 @@ def test_preserve_links_keeps_hrefs_inline(monkeypatch):
 
     text = fetch_page_text("https://example.com/board", preserve_links=True)
     assert "[https://example.com/jobs/1]" in text
+
+
+def test_force_render_skips_the_static_fetch(monkeypatch):
+    def no_static(*a, **k):
+        raise AssertionError("force_render should go straight to the browser")
+
+    rendered_html = f"<html><body>{'Rendered listing. ' * 30}</body></html>"
+    monkeypatch.setattr(page_fetch.httpx, "get", no_static)
+    monkeypatch.setattr(page_fetch, "render_page_html", lambda *a, **k: rendered_html)
+
+    page = page_fetch.fetch_page("https://example.com/jobs", force_render=True)
+    assert page.rendered
+    assert "Rendered listing." in page.text
+    assert page.html == rendered_html
