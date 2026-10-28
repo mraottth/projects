@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, Source, SourceKind } from "../api";
 import { DiscoverCompaniesSection, DiscoverJobBoardsSection } from "../components/Discovery";
+import { detectSourceFromUrl } from "../sourceUrl";
 import { Spinner } from "../components/Spinner";
 
 const KIND_LABELS: Record<SourceKind, string> = {
@@ -33,21 +34,6 @@ const CONFIG_FIELD: Record<SourceKind, { key: string; label: string; placeholder
   custom_board: { key: "url", label: "Job board URL", placeholder: "https://blueroseresearch.org/jobs/" },
 };
 
-const URL_PATTERNS: { kind: SourceKind; configKey: string; pattern: RegExp }[] = [
-  { kind: "ats_greenhouse", configKey: "board_token", pattern: /(?:boards|job-boards)\.greenhouse\.io\/([a-z0-9_-]+)/i },
-  { kind: "ats_lever", configKey: "company_slug", pattern: /jobs\.lever\.co\/([a-z0-9_-]+)/i },
-  { kind: "ats_ashby", configKey: "board_name", pattern: /jobs\.ashbyhq\.com\/([a-z0-9_-]+)/i },
-];
-
-function detectSourceFromUrl(input: string): { kind: SourceKind; config: Record<string, string> } | null {
-  const trimmed = input.trim();
-  if (!/^https?:\/\//i.test(trimmed)) return null;
-  for (const { kind, configKey, pattern } of URL_PATTERNS) {
-    const match = trimmed.match(pattern);
-    if (match) return { kind, config: { [configKey]: match[1] } };
-  }
-  return { kind: "custom_board", config: { url: trimmed } };
-}
 
 function AddSourceForm({ onAdded }: { onAdded: (source: Source) => void }) {
   const [kind, setKind] = useState<SourceKind>("ats_greenhouse");

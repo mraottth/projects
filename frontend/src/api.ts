@@ -102,6 +102,7 @@ export type RankedJob = ScoredJob;
 export interface CompanySuggestion {
   company_name: string;
   reason: string;
+  careers_url: string | null;
 }
 
 export interface JobBoardSuggestion {

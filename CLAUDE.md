@@ -184,7 +184,14 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
 - `src/jobhunt/core/company_resolver.py` — turns a company name into an actual monitorable source:
   cheap direct probes against the three ATS APIs first (confirmed live that "anthropic"/"figma"
   resolve immediately this way, no LLM needed), falling back to a Claude + web-search call only
-  when none of the slug guesses pan out. Used by approving a discovery suggestion (`POST /api/sources/resolve`).
+  when none of the slug guesses pan out. Now only a fallback for a discovery suggestion that came
+  without a `careers_url` (`POST /api/sources/resolve`): live, organizations Monitored during
+  onboarding never saved while boards did. Many real organizations aren't on the three ATSes, and
+  this path was fragile: a probe failing with anything but an HTTP error crashed the request, and
+  the web-search fallback ran at default effort with no `pause_turn` handling and raised on an
+  unparseable answer. Now a probe failure of any kind just means "next guess", the fallback uses
+  `discovery.run_web_search()` (low effort, resumes `pause_turn`), and an unparseable answer counts
+  as not found.
 - `src/jobhunt/core/discovery.py` — `suggest_companies()` suggests single companies to monitor, and
   `suggest_job_boards()` suggests multi-employer boards (niche/sector boards, regional boards,
   aggregators) -- the two are deliberately separate prompts: a board suggestion needs to describe a
@@ -197,7 +204,11 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   URLs (by hostname, so a path/protocol difference doesn't defeat the match) as an exclude list --
   both in the prompt (so Claude doesn't waste a suggestion slot on them) and as a belt-and-suspenders
   post-filter on the response, since prompt instructions alone aren't guaranteed to be followed.
-  Both share `_run_discovery()`, tuned for speed after a live run took several minutes and
+  Company suggestions include `careers_url` (the jobs page Claude found while searching, or null),
+  so Monitor adds it directly via `sourceUrl.ts`'s `detectSourceFromUrl()` (a Greenhouse/Lever/
+  Ashby URL becomes that ATS, anything else a `custom_board`), the way a board suggestion already
+  works. Only a suggestion without one goes through `company_resolver`, and a failure there tells
+  the user to add it by URL. Both share `run_web_search()` (formerly `_run_discovery`), tuned for speed after a live run took several minutes and
   "Discover job boards" came back with nothing: `output_config.effort` is `low` (the default, high,
   reasoned at length between up to five filtered web searches -- "find a handful of real, relevant
   names" doesn't need that) and `max_uses` is 3. It resumes a `pause_turn` (a long server-tool

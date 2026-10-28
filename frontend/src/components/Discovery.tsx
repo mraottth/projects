@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api, CompanySuggestion, JobBoardSuggestion } from "../api";
+import { detectSourceFromUrl } from "../sourceUrl";
 import { Spinner } from "./Spinner";
 
 // Shared by the Manage Sources page (run on demand via the button) and onboarding's "Sources to
@@ -45,6 +46,25 @@ function useDiscovery<T>(fetch: () => Promise<T[]>, autoRun: boolean) {
 }
 
 // Per-suggestion "Monitor" state, keyed by name/URL: working, added, or an error message.
+// A company suggestion that came with its careers URL is added directly, like a board; only one
+// without falls back to resolving the name to a job board (slower, and it can come up empty).
+function monitorCompany(s: CompanySuggestion) {
+  const detected = s.careers_url ? detectSourceFromUrl(s.careers_url) : null;
+  if (detected) {
+    return api.createSource({
+      kind: detected.kind,
+      name: s.company_name,
+      company_name: s.company_name,
+      config: detected.config,
+    });
+  }
+  return api.resolveSource(s.company_name).catch((e) => {
+    throw new Error(
+      `${errorText(e)} — you can add it by URL under Manage Sources → "Add a source".`,
+    );
+  });
+}
+
 function useApprovals() {
   const [status, setStatus] = useState<Record<string, string>>({});
   const approve = async (key: string, action: () => Promise<unknown>) => {
@@ -96,7 +116,7 @@ export function DiscoverCompaniesSection({ autoRun = false }: { autoRun?: boolea
           <p className="muted small">{s.reason}</p>
           <SuggestionActions
             status={status[s.company_name]}
-            onMonitor={() => approve(s.company_name, () => api.resolveSource(s.company_name))}
+            onMonitor={() => approve(s.company_name, () => monitorCompany(s))}
           />
         </div>
       ))}
