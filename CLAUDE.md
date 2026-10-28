@@ -130,7 +130,8 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   application-status history, with application outcomes weighted as the stronger signal (a job that
   reached `interview`/`offer` says more than a bare `interested` mark). Rebuilt manually from
   Settings, or automatically by the daily pipeline once enough new signal has accumulated.
-- `src/jobhunt/core/scoring.py` — the per-job LLM call (interest-fit + candidate-fit, High/Med/Low)
+- `src/jobhunt/core/scoring.py` — the per-job LLM call (interest-fit + candidate-fit, High/Med/Low,
+  at `SCORING_EFFORT = "medium"` for speed -- raise it if ratings start missing nuance)
   against the candidate profile, preference profile, recent raw feedback, desired sectors, desired
   titles, and minimum salary. Titles and salary are passed as explicit guidance, not a filter: the
   prompt tells the model a differently-worded but equivalent/adjacent title (e.g. "VP of Analytics"
@@ -171,6 +172,15 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   `SCHEDULER_SECRET` is set -- always, in production -- so the browser got 403 "invalid or missing
   scheduler secret" there (caught live on onboarding's last step). `/api/pipeline/run-daily` relies
   on IAP for access control like every other `/api/*` route.
+  A run used to do everything one at a time, and onboarding's last step (which waits on a whole
+  run) took many minutes live. Now sources are fetched `POLL_CONCURRENCY` (6) at a time and jobs
+  scored `SCORING_CONCURRENCY` (4) at a time. Scoring is kept low because a new API account's
+  per-minute limits are low; the SDK retries a stray 429. `_upsert_job` and `add_to_digest` (which
+  re-ranks the whole day per call) stay sequential in the main thread: a concurrent
+  select-then-insert or re-rank could race. `run_daily(cap=)` / `?cap=N` overrides
+  `daily_llm_cap` for one run; onboarding passes 20 (`FIRST_RUN_CAP`), and the rest stay queued.
+  `GET /api/pipeline/progress` exposes an in-process progress dict (fine with one Cloud Run
+  instance) that the finish step polls every 2 s to show "Scored 12 of 20 jobs...".
 - `src/jobhunt/core/company_resolver.py` — turns a company name into an actual monitorable source:
   cheap direct probes against the three ATS APIs first (confirmed live that "anthropic"/"figma"
   resolve immediately this way, no LLM needed), falling back to a Claude + web-search call only

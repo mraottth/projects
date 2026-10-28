@@ -154,6 +154,14 @@ export type OnboardingStep =
   | "sources"
   | "finish";
 
+export interface RunProgress {
+  stage: "idle" | "starting" | "polling" | "scoring" | "done" | "failed";
+  sources_done: number;
+  sources_total: number;
+  jobs_done: number;
+  jobs_total: number;
+}
+
 export interface OnboardingStatus {
   needs_onboarding: boolean;
   step: OnboardingStep;
@@ -342,7 +350,13 @@ export const api = {
       "/api/settings/usage-log",
     ),
 
-  runDailyNow: () => request<Record<string, unknown>>("/api/pipeline/run-daily", { method: "POST" }),
+  runDailyNow: (cap?: number) =>
+    request<Record<string, unknown>>(
+      cap ? `/api/pipeline/run-daily?cap=${cap}` : "/api/pipeline/run-daily",
+      { method: "POST" },
+    ),
+
+  getRunProgress: () => request<RunProgress>("/api/pipeline/progress"),
 
   generateResume: (jobId: number, applicationId?: number) =>
     request<{ id: number; content_text: string; file_path: string | null }>("/api/generate/resume", {

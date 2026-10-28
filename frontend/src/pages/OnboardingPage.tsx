@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, OnboardingStep, ResumeSummary } from "../api";
+import { api, OnboardingStep, ResumeSummary, RunProgress } from "../api";
 import { CandidateProfileCard } from "../components/CandidateProfileCard";
 import { DesiredRoleForm } from "../components/DesiredRoleForm";
 import { DiscoverCompaniesSection, DiscoverJobBoardsSection } from "../components/Discovery";
@@ -18,6 +18,10 @@ const STEPS: { key: OnboardingStep; label: string }[] = [
 ];
 
 const ACCEPT = ".pdf,.docx,.md,.txt";
+
+// The first run scores only the most promising jobs so the user isn't kept waiting; the rest stay
+// queued (highest priority first) for the next daily run.
+const FIRST_RUN_CAP = 20;
 
 function errorText(e: unknown) {
   return e instanceof Error ? e.message : String(e);
@@ -278,9 +282,26 @@ function OldDocsStep({ existing, onUploaded }: { existing: ResumeSummary[]; onUp
   );
 }
 
+function progressText(p: RunProgress | null): string {
+  if (!p) return "Starting...";
+  if (p.stage === "polling") {
+    return p.sources_total
+      ? `Checked ${p.sources_done} of ${p.sources_total} sources for new postings...`
+      : "Checking your sources for new postings...";
+  }
+  if (p.stage === "scoring") {
+    return p.jobs_total
+      ? `Scored ${p.jobs_done} of ${p.jobs_total} jobs...`
+      : "Nothing new to score — wrapping up...";
+  }
+  if (p.stage === "done") return "Done — loading your matches...";
+  return "Starting...";
+}
+
 function FinishStep({ onDone }: { onDone: () => void }) {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<RunProgress | null>(null);
   const started = useRef(false);
 
   useEffect(() => {
@@ -291,10 +312,21 @@ function FinishStep({ onDone }: { onDone: () => void }) {
       try {
         await api.putSettings({ onboarding_completed: true, onboarding_step: "finish" });
         onDone();
-        await api.runDailyNow();
+      } catch (e) {
+        setError(errorText(e));
+        return;
+      }
+      // Poll the run's progress while its (long-lived) request is open.
+      const poll = window.setInterval(() => {
+        api.getRunProgress().then(setProgress).catch(() => undefined);
+      }, 2000);
+      try {
+        await api.runDailyNow(FIRST_RUN_CAP);
         navigate("/", { replace: true });
       } catch (e) {
         setError(errorText(e));
+      } finally {
+        window.clearInterval(poll);
       }
     })();
   }, []);
@@ -317,11 +349,11 @@ function FinishStep({ onDone }: { onDone: () => void }) {
         <>
           <h2>Finding and scoring your first jobs</h2>
           <p className="muted small">
-            Polling your sources, filtering, and having Claude score the most promising postings
-            against your profile. This can take a few minutes. You'll land on New &amp; Noteworthy
-            when it's done.
+            Checking your sources, then having Claude score your {FIRST_RUN_CAP} most promising
+            matches against your profile — the rest are scored in tomorrow's daily run. You'll land
+            on New &amp; Noteworthy when it's done.
           </p>
-          <Spinner label="Working..." />
+          <Spinner label={progressText(progress)} />
         </>
       )}
     </div>
