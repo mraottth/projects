@@ -98,3 +98,9 @@ def test_set_candidate_profile_overrides_current_without_llm_call():
     with get_db() as conn:
         calls = conn.execute("SELECT * FROM llm_calls").fetchall()
     assert len(calls) == 0
+
+
+def test_profile_prompts_use_first_name_not_surname():
+    # Caught live: the profile called the user "Roth" (third-person style defaults to surname).
+    assert "first name" in profile.SYSTEM_PROMPT
+    assert "first name" in profile.REVISE_SYSTEM_PROMPT

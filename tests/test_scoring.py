@@ -143,3 +143,8 @@ def test_score_job_runs_at_medium_effort(monkeypatch):
     score_job(job, None, None)
     assert captured["output_config"] == {"effort": "medium"}
     assert captured["output_format"] is JobScore
+
+
+def test_rationale_is_written_to_the_user_in_second_person():
+    # The user reads the rationale directly; it used to come back in the third person.
+    assert "second person" in scoring.SYSTEM_PROMPT

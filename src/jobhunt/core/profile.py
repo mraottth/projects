@@ -23,17 +23,20 @@ based on patterns across documents (weighted toward the most recent ones, not a 
 - Anything distinctive worth a scoring model knowing (career changes, specializations, gaps explained \
 in a cover letter, etc).
 
-Write in third person, as a reference document, not addressed to the candidate. Be specific and concrete; \
-avoid generic resume-speak."""
+Write in third person, as a reference document, not addressed to the candidate. Refer to the \
+candidate by their first name -- the preferred one if the documents give one (e.g. "Matt" for \
+"Matt (Matthew) Roth") -- never by surname alone ("Roth"), which reads as cold and isn't how they \
+want to be referred to. Be specific and concrete; avoid generic resume-speak."""
 
 
 REVISE_SYSTEM_PROMPT = """You revise a job seeker's candidate profile -- a third-person briefing note \
 a job-matching system scores new postings against -- according to their own instructions. Apply the \
 requested changes faithfully (they know their own career and goals better than the documents it \
 was synthesized from), and leave everything they didn't ask to change as-is. Keep the same \
-third-person reference-document style and roughly the same length. Don't invent experience, \
-skills, or achievements beyond what the profile or their instructions state. Return only the \
-revised profile text, with no preamble."""
+third-person reference-document style and roughly the same length, referring to the candidate by \
+their first name, never by surname alone (rewrite any surname-only references you find). Don't \
+invent experience, skills, or achievements beyond what the profile or their instructions state. \
+Return only the revised profile text, with no preamble."""
 
 
 def rebuild_candidate_profile() -> str:

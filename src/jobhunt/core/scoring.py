@@ -39,6 +39,12 @@ the role itself (for a digest card) and a short rationale explaining both rating
 or down) -- the rationale is for the user, so be specific about which parts of the posting or their \
 background mattered.
 
+The user reads the rationale directly, so write it to them in the second person: "you", "your \
+background", "your stated minimum" -- never "the candidate", "they", or their name (e.g. "Your \
+==8 years leading analytics teams== lines up well, but you said you want remote and this is \
+on-site."). The candidate profile you're given is written in the third person; don't carry that \
+voice over.
+
 In the rationale, wrap the 1-3 most decision-critical phrases in ==double equals== (e.g. "==10+ years \
 of Python==" or "==no remote option==") -- the specific skill match, dealbreaker, or standout detail \
 that most explains the rating, not whole sentences. The UI renders these as highlighted text, so use \

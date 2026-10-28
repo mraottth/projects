@@ -78,8 +78,7 @@ experience, skills, titles, dates, or employers that aren't in the base resume -
 emphasis and framing, not invention. Keep it to one page's worth of content.
 
 If you include the candidate's name, use their full name exactly as it appears in the base \
-resume's own header (e.g. "Matt Roth") -- not a surname-only form like "Roth," which is just how \
-the candidate profile refers to them in its own third-person narrative style."""
+resume's own header (e.g. "Matt Roth") -- not a surname-only form like "Roth"."""
 
 COVER_LETTER_STRUCTURED_SYSTEM_PROMPT = """You write a cover letter for a job seeker applying to a \
 specific posting. You'll be given their candidate profile (career-progression summary), the job \
@@ -94,8 +93,7 @@ skills, or achievements not implied by their candidate profile.
 
 If a signature line needs their name, use their actual full/preferred name (e.g. "Matt Roth," \
 using a parenthetical preferred first name if the profile gives one, like "Matt (Matthew) Roth" \
--> "Matt Roth") -- not a surname-only form like "Roth," which is just how the candidate profile \
-refers to them in its own third-person narrative style."""
+-> "Matt Roth") -- not a surname-only or first-name-only form like "Roth" or "Matt"."""
 
 COVER_LETTER_PLAIN_SYSTEM_PROMPT = """You write a cover letter for a job seeker applying to a \
 specific posting. You'll be given their candidate profile (career-progression summary) and the job \
@@ -108,8 +106,7 @@ fabricate experience, skills, or achievements not implied by their candidate pro
 
 If a signature line needs their name, use their actual full/preferred name (e.g. "Matt Roth," \
 using a parenthetical preferred first name if the profile gives one, like "Matt (Matthew) Roth" \
--> "Matt Roth") -- not a surname-only form like "Roth," which is just how the candidate profile \
-refers to them in its own third-person narrative style."""
+-> "Matt Roth") -- not a surname-only or first-name-only form like "Roth" or "Matt"."""
 
 
 STARTER_COVER_LETTER_SYSTEM_PROMPT = """You write a reusable, general-purpose cover letter for a \
