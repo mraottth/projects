@@ -115,6 +115,9 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 /* ---------- job-list layout (main content + filter sidebar) */
 .list-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; align-items: start; }
 .list-main { min-width: 0; }
+.list-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
+.list-sort { display: inline-flex; align-items: center; gap: 8px; color: var(--ink-2); }
+.list-sort select { padding-top: 6px; padding-bottom: 6px; }
 .list-side {
   position: sticky; top: 76px; max-height: calc(100vh - 92px); overflow-y: auto;
   display: flex; flex-direction: column; gap: 14px;

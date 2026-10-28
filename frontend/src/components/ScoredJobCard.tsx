@@ -14,16 +14,24 @@ interface SalaryFields {
   salary_min: number | null;
   salary_max: number | null;
   salary_period: string | null;
+  salary_currency?: string | null;
 }
 
+const CURRENCY_SYMBOLS: Record<string, string> = { USD: "$", CAD: "CA$", GBP: "£", EUR: "€" };
+const PERIOD_LABELS: Record<string, string> = { year: "/yr", hour: "/hr" };
+
+// "$120k-150k/yr", "$45-60/hr". Hourly figures stay whole dollars: rounding them to thousands
+// showed $40/hour as "$0k".
 export function salaryText(job: SalaryFields): string {
   if (!job.salary_min && !job.salary_max) return "N/A";
-  const fmt = (n: number) => `$${Math.round(n / 1000)}k`;
+  const symbol = CURRENCY_SYMBOLS[job.salary_currency ?? "USD"] ?? `${job.salary_currency} `;
+  const fmt = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)}k` : `${Math.round(n * 100) / 100}`);
   const range =
-    job.salary_min && job.salary_max
+    job.salary_min && job.salary_max && job.salary_min !== job.salary_max
       ? `${fmt(job.salary_min)}-${fmt(job.salary_max)}`
       : fmt(job.salary_min ?? job.salary_max!);
-  return `${range}${job.salary_period ? `/${job.salary_period}` : ""}`;
+  const period = job.salary_period ? (PERIOD_LABELS[job.salary_period] ?? `/${job.salary_period}`) : "";
+  return `${symbol}${range}${period}`;
 }
 
 export function salaryValue(job: Pick<SalaryFields, "salary_min" | "salary_max">): number {

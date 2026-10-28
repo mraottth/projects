@@ -20,9 +20,33 @@ def _clean_description(content: str | None) -> str | None:
     return extract_readable_text(html.unescape(content))
 
 
+def _salary(job: dict) -> dict:
+    """Greenhouse's pay-transparency ranges (requested with pay_transparency=true):
+    {"pay_input_ranges": [{"min_cents", "max_cents", "currency_type"}]}. Annual unless the range is
+    clearly hourly money; empty when not published (the description is read instead). Shape per
+    Greenhouse's API docs, not yet confirmed against a live board here."""
+    for r in job.get("pay_input_ranges") or []:
+        low, high = r.get("min_cents"), r.get("max_cents")
+        if not (low or high):
+            continue
+        low = low / 100 if low else None
+        high = high / 100 if high else None
+        return {
+            "salary_min": low,
+            "salary_max": high,
+            "salary_currency": r.get("currency_type"),
+            "salary_period": "hour" if (high or low) < 1000 else "year",
+        }
+    return {}
+
+
 def fetch(source: dict) -> list[dict]:
     board_token = source["config"]["board_token"]
-    resp = httpx.get(BASE_URL.format(board_token=board_token), params={"content": "true"}, timeout=20.0)
+    resp = httpx.get(
+        BASE_URL.format(board_token=board_token),
+        params={"content": "true", "pay_transparency": "true"},
+        timeout=20.0,
+    )
     resp.raise_for_status()
     jobs = resp.json().get("jobs", [])
 
@@ -39,6 +63,7 @@ def fetch(source: dict) -> list[dict]:
                 "salary_max": None,
                 "salary_currency": None,
                 "salary_period": None,
+                **_salary(job),
                 "description_text": _clean_description(job.get("content")),
                 "url": job.get("absolute_url"),
                 "posted_at": job.get("first_published"),

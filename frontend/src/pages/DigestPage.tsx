@@ -5,6 +5,7 @@ import {
   DEFAULT_JOB_FILTERS,
   FilteredEmptyState,
   JobFilterBar,
+  JobListHeader,
   JobFilterState,
   NO_JOB_FILTERS,
   filterJobs,
@@ -74,6 +75,12 @@ export default function DigestPage() {
       {entries.length > 0 && (
         <div className="list-layout">
           <div className="list-main">
+            <JobListHeader
+              count={filtered.length}
+              total={entries.length}
+              sort={filters.sort}
+              onSort={(sort) => setFilters({ ...filters, sort })}
+            />
             {filtered.length === 0 && <FilteredEmptyState onClear={() => setFilters(NO_JOB_FILTERS)} />}
             {filtered.map((entry) => (
               <ScoredJobCard

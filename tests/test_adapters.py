@@ -182,3 +182,93 @@ def test_adzuna_adapter_normalizes_fields(monkeypatch):
     assert len(postings) == 1
     assert postings[0]["company"] == "Acme"
     assert postings[0]["salary_min"] == 120000
+
+
+def test_ats_pay_fields_become_salary(monkeypatch):
+    monkeypatch.setattr(
+        lever.httpx,
+        "get",
+        lambda *a, **k: FakeResponse(
+            [
+                {
+                    "id": "l1",
+                    "text": "Analyst",
+                    "categories": {},
+                    "salaryRange": {
+                        "min": 90000,
+                        "max": 120000,
+                        "currency": "USD",
+                        "interval": "per-year-salary",
+                    },
+                }
+            ]
+        ),
+    )
+    p = lever.fetch({"config": {"company_slug": "acme"}})[0]
+    assert (p["salary_min"], p["salary_max"], p["salary_currency"], p["salary_period"]) == (
+        90000,
+        120000,
+        "USD",
+        "year",
+    )
+
+    seen = {}
+
+    def ashby_get(url, params=None, **k):
+        seen.update(params or {})
+        return FakeResponse(
+            {
+                "jobs": [
+                    {
+                        "id": "a1",
+                        "title": "Data Lead",
+                        "compensation": {
+                            "summaryComponents": [
+                                {"compensationType": "EquityPercentage", "minValue": 0.1, "maxValue": 0.2},
+                                {
+                                    "compensationType": "Salary",
+                                    "interval": "1 YEAR",
+                                    "currencyCode": "USD",
+                                    "minValue": 150000,
+                                    "maxValue": 180000,
+                                },
+                            ]
+                        },
+                    }
+                ]
+            }
+        )
+
+    monkeypatch.setattr(ashby.httpx, "get", ashby_get)
+    p = ashby.fetch({"config": {"board_name": "acme"}})[0]
+    assert seen["includeCompensation"] == "true"
+    assert (p["salary_min"], p["salary_max"], p["salary_period"]) == (150000, 180000, "year")
+
+    monkeypatch.setattr(
+        greenhouse.httpx,
+        "get",
+        lambda *a, **k: FakeResponse(
+            {
+                "jobs": [
+                    {
+                        "id": 1,
+                        "title": "Analyst",
+                        "location": {},
+                        "pay_input_ranges": [
+                            {"min_cents": 10000000, "max_cents": 13000000, "currency_type": "USD"}
+                        ],
+                    }
+                ]
+            }
+        ),
+    )
+    p = greenhouse.fetch({"config": {"board_token": "acme"}})[0]
+    assert (p["salary_min"], p["salary_max"], p["salary_period"]) == (100000, 130000, "year")
+
+
+def test_ats_without_pay_fields_leaves_salary_empty(monkeypatch):
+    monkeypatch.setattr(
+        ashby.httpx, "get", lambda *a, **k: FakeResponse({"jobs": [{"id": "a", "title": "x"}]})
+    )
+    p = ashby.fetch({"config": {"board_name": "acme"}})[0]
+    assert p["salary_min"] is None and p["salary_max"] is None

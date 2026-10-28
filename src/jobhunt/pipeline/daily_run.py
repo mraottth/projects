@@ -19,6 +19,7 @@ from jobhunt.core.llm import LLMError
 from jobhunt.core.page_fetch import PageFetchError, fetch_page_text
 from jobhunt.core.preference import get_current_preference_profile, rebuild_preference_profile
 from jobhunt.core.profile import get_current_candidate_profile
+from jobhunt.core.salary_extract import extract_salary
 from jobhunt.core.scoring import score_job, store_score
 from jobhunt.db.connection import get_db
 from jobhunt.ingest.adapters import adzuna, ashby, custom_board, greenhouse, lever, remoteok
@@ -133,7 +134,20 @@ def _poll_sources(source_ids: list[int] | None = None) -> dict:
     }
 
 
+SALARY_FIELDS = ("salary_min", "salary_max", "salary_currency", "salary_period")
+
+
+def _with_salary(posting: dict) -> dict:
+    """The adapter's own salary if it had one (an ATS pay field, or what Claude read off a board's
+    listing page), else whatever the description states (core/salary_extract.py)."""
+    if posting.get("salary_min") or posting.get("salary_max"):
+        return posting
+    found = extract_salary(posting.get("description_text"))
+    return {**posting, **found} if found else posting
+
+
 def _upsert_job(source_id: int, posting: dict) -> int:
+    posting = _with_salary(posting)
     dedupe_key = compute_dedupe_key(
         url=posting.get("url"),
         company=posting.get("company") or "",
@@ -149,6 +163,13 @@ def _upsert_job(source_id: int, posting: dict) -> int:
                 "UPDATE jobs SET last_seen_at = datetime('now'), status = 'active' WHERE id = ?",
                 (existing["id"],),
             )
+            if posting.get("salary_min") or posting.get("salary_max"):
+                # Fill a salary the job was first saved without; never overwrite one it has.
+                conn.execute(
+                    "UPDATE jobs SET salary_min = ?, salary_max = ?, salary_currency = ?, salary_period = ? "
+                    "WHERE id = ? AND salary_min IS NULL AND salary_max IS NULL",
+                    (*(posting.get(f) for f in SALARY_FIELDS), existing["id"]),
+                )
             return existing["id"]
 
         cursor = conn.execute(
@@ -214,7 +235,35 @@ def _backfill_description(job: dict) -> dict:
     with get_db() as conn:
         conn.execute("UPDATE jobs SET description_text = ? WHERE id = ?", (text, job["id"]))
     job["description_text"] = text
+    if not (job.get("salary_min") or job.get("salary_max")) and (found := extract_salary(text)):
+        _store_salary(job["id"], found)
+        job.update(found)
     return job
+
+
+def _store_salary(job_id: int, salary: dict) -> None:
+    with get_db() as conn:
+        conn.execute(
+            "UPDATE jobs SET salary_min = ?, salary_max = ?, salary_currency = ?, salary_period = ? "
+            "WHERE id = ?",
+            (*(salary.get(f) for f in SALARY_FIELDS), job_id),
+        )
+
+
+def _backfill_salaries() -> int:
+    """Reads a salary out of the description of every active job still without one -- catches jobs
+    saved before descriptions were read for pay. Regex only, so it's free to run every day."""
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT id, description_text FROM jobs WHERE status = 'active' AND salary_min IS NULL "
+            "AND salary_max IS NULL AND description_text IS NOT NULL"
+        ).fetchall()
+    filled = 0
+    for row in rows:
+        if found := extract_salary(row["description_text"]):
+            _store_salary(row["id"], found)
+            filled += 1
+    return filled
 
 
 def _maybe_rebuild_preference_profile() -> bool:
@@ -382,6 +431,7 @@ def _run_daily(started_at: str, cap: int | None) -> dict:
     queue.requeue_stranded()
     poll_result = _poll_sources()
     _expire_stale_jobs()
+    _backfill_salaries()
     enqueued = _prefilter_and_enqueue(poll_result["job_ids"])
 
     daily_cap = cap if cap is not None else settings_module.get_setting("daily_llm_cap", 50)

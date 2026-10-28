@@ -384,10 +384,12 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   search across title/company/location/summary/full description. All client-side over the already
   -loaded job list, same approach as the earlier fit filters -- no new query-param surface
   on the backend.
-- Both job lists have a "Sort by" select at the top of the filter sidebar (`JobFilterState.sort`,
-  `sortJobs()` in `components/JobFilters.tsx`): Best match (the server's order, unchanged),
-  Interest, Fit (each on its 0-100 score, the other score breaking ties), Date posted, Salary
-  (`salary_max` falling back to `salary_min`). A job missing the value (unscored, no salary, no
+- Both job lists have a "Sort by" select above the list (`JobListHeader`, which also shows "N of
+  M jobs"; moved out of the filter sidebar at the user's request), stored as `JobFilterState.sort`
+  and applied by `sortJobs()` in `components/JobFilters.tsx`: Best match (the server's order,
+  unchanged), Interest, Fit (each on its 0-100 score, the other score breaking ties), Date posted,
+  Salary (`salary_max` falling back to `salary_min`; hourly pay x2080 so it compares with annual
+  pay, and the Minimum salary filter does the same). A job missing the value (unscored, no salary, no
   posted date) sorts last, and the stable sort keeps best-match order among ties. Client-side, like
   the filters. "Clear all" keeps the chosen sort.
 - General-application / talent-pool / resume-drop "postings" ("Don't see your role?", "Join our
@@ -404,6 +406,18 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   hide Low fits. Unscored jobs (no fit at all) skip the fit filters and are governed only by
   `includeUnscored` ("Include jobs not yet scored", on by default) -- they used to fail the
   High/Med fit filters, so every job the daily cap hadn't reached yet was invisible on All Jobs.
+- **Salary** used to read "N/A" on nearly every card: the ATS adapters hard-coded it empty. Now
+  Lever's `salaryRange`, Ashby's `compensation` (`includeCompensation=true`) and Greenhouse's
+  `pay_input_ranges` (`pay_transparency=true`) fill it. Those shapes come from each API's docs and
+  haven't been seen on a live board from this sandbox, which can't reach them. Otherwise
+  `core/salary_extract.py` reads it from the description: ranges like "$120K-$150K", "$45-60/hr",
+  "GBP 55,000-65,000", or a single amount only next to a pay word, ignoring figures outside a
+  plausible pay range (funding rounds, signing bonuses). The pipeline applies it when a job is
+  first saved (`_with_salary`), when a job saved without pay is seen again (never overwriting a
+  stored salary), when a custom-board job's description is fetched before scoring, and once per
+  daily run over active jobs still missing pay (`_backfill_salaries`, regex only, so free).
+  `salaryText()` prints hourly pay as whole dollars ("$45-60/hr"; rounding to thousands showed
+  "$0k") and uses the currency's symbol.
 - `components/ScoredJobCard.tsx` always shows salary and posted date now, "N/A" when either is
   missing, rather than omitting the line entirely -- and "posted" means the job description's own
   `posted_at`, never `first_seen_at` (when our pipeline happened to discover it, which isn't what

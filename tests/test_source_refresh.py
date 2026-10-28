@@ -86,3 +86,45 @@ def test_refresh_is_skipped_during_onboarding(monkeypatch):
     assert len(started) == 1
     assert daily_run._pending_refresh == {1, 2}
     daily_run._pending_refresh.clear()
+
+
+def test_salary_is_read_from_the_description_and_filled_on_reseen_jobs():
+    source = _source("Board")
+    posting = {
+        "title": "Data Director",
+        "company": "Acme",
+        "external_id": "1",
+        "description_text": "The salary range for this role is $150,000 - $180,000.",
+    }
+    job_id = daily_run._upsert_job(source, posting)
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT salary_min, salary_max, salary_period FROM jobs WHERE id = ?", (job_id,)
+        ).fetchone()
+    assert tuple(row) == (150000, 180000, "year")
+
+    # A job first saved without a salary gets one when it's seen again with pay information...
+    with get_db() as conn:
+        conn.execute("UPDATE jobs SET salary_min = NULL, salary_max = NULL WHERE id = ?", (job_id,))
+    daily_run._upsert_job(source, posting)
+    # ...but an existing salary is never overwritten.
+    daily_run._upsert_job(source, {**posting, "salary_min": 1, "salary_max": 2})
+    with get_db() as conn:
+        row = conn.execute("SELECT salary_min, salary_max FROM jobs WHERE id = ?", (job_id,)).fetchone()
+    assert tuple(row) == (150000, 180000)
+
+
+def test_backfill_salaries_reads_existing_descriptions():
+    source = _source("Board")
+    with get_db() as conn:
+        job_id = conn.execute(
+            "INSERT INTO jobs (dedupe_key, title, company, source_id, description_text) "
+            "VALUES ('k', 'Analyst', 'Acme', ?, 'Pay: $40 - $55 per hour')",
+            (source,),
+        ).lastrowid
+    assert daily_run._backfill_salaries() == 1
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT salary_min, salary_max, salary_period FROM jobs WHERE id = ?", (job_id,)
+        ).fetchone()
+    assert tuple(row) == (40, 55, "hour")

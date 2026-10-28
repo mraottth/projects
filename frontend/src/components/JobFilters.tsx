@@ -54,6 +54,39 @@ export const NO_JOB_FILTERS: JobFilterState = {
   sort: "best",
 };
 
+// Above the job list: how many jobs match, and the sort order.
+export function JobListHeader({
+  count,
+  total,
+  sort,
+  onSort,
+}: {
+  count: number;
+  total: number;
+  sort: SortKey;
+  onSort: (sort: SortKey) => void;
+}) {
+  return (
+    <div className="list-head">
+      <span className="muted small">
+        {count === total ? `${total} ${total === 1 ? "job" : "jobs"}` : `${count} of ${total} jobs`}
+      </span>
+      <label className="list-sort small">
+        Sort by
+        <span className="select-wrap">
+          <select value={sort} onChange={(e) => onSort(e.target.value as SortKey)}>
+            {SORT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </span>
+      </label>
+    </div>
+  );
+}
+
 // Shown in place of the list when jobs exist but the filters hide all of them.
 export function FilteredEmptyState({ onClear }: { onClear: () => void }) {
   return (
@@ -79,8 +112,11 @@ function sortValue(job: ScoredJob, sort: SortKey): number | null {
       return job.candidate_fit_score == null ? null : job.candidate_fit_score * 1000 + (job.interest_score ?? 0);
     case "posted":
       return job.posted_at ? new Date(job.posted_at).getTime() || null : null;
-    case "salary":
-      return job.salary_max ?? job.salary_min ?? null;
+    case "salary": {
+      const pay = job.salary_max ?? job.salary_min;
+      // Hourly pay compared as a full-time year (2,080 hours), so $60/hr ranks near $125k.
+      return pay == null ? null : job.salary_period === "hour" ? pay * 2080 : pay;
+    }
     default:
       return 0;
   }
@@ -112,7 +148,8 @@ export function filterJobs(jobs: ScoredJob[], f: JobFilterState): ScoredJob[] {
     if (f.location.length > 0 && !f.location.includes(job.location ?? "Unknown location")) return false;
 
     if (minSalary !== null) {
-      const jobSalary = job.salary_max ?? job.salary_min;
+      const pay = job.salary_max ?? job.salary_min;
+      const jobSalary = pay != null && job.salary_period === "hour" ? pay * 2080 : pay;
       if (jobSalary == null || jobSalary < minSalary) return false;
     }
 
@@ -251,21 +288,6 @@ export function JobFilterBar({
             Clear all
           </button>
         )}
-      </div>
-
-      <div className="fsection">
-        <label className="flabel" htmlFor="job-sort">
-          Sort by
-        </label>
-        <div className="select-wrap">
-          <select id="job-sort" value={filters.sort} onChange={(e) => set("sort", e.target.value as SortKey)}>
-            {SORT_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </div>
       </div>
 
       <div className="fsection">

@@ -5,6 +5,7 @@ import {
   DEFAULT_JOB_FILTERS,
   FilteredEmptyState,
   JobFilterBar,
+  JobListHeader,
   JobFilterState,
   NO_JOB_FILTERS,
   filterJobs,
@@ -50,6 +51,12 @@ export default function AllJobsPage() {
       {jobs.length > 0 && (
         <div className="list-layout">
           <div className="list-main">
+            <JobListHeader
+              count={filtered.length}
+              total={jobs.length}
+              sort={filters.sort}
+              onSort={(sort) => setFilters({ ...filters, sort })}
+            />
             {filtered.length === 0 && <FilteredEmptyState onClear={() => setFilters(NO_JOB_FILTERS)} />}
             {filtered.map((job) => (
               <ScoredJobCard key={job.id} job={job} />

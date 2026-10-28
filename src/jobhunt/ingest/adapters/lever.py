@@ -12,6 +12,24 @@ BASE_URL = "https://api.lever.co/v0/postings/{company_slug}"
 WORKPLACE_TYPE_MAP = {"remote": "remote", "hybrid": "hybrid", "onsite": "onsite"}
 
 
+def _salary(p: dict) -> dict:
+    """Lever's optional `salaryRange` ({"min", "max", "currency", "interval": "per-year-salary" /
+    "per-hour-wage" / ...}); empty when the posting doesn't publish one (the pipeline then falls
+    back to reading the description, core/salary_extract.py). Shape per Lever's API docs, not yet
+    confirmed against a live board here (the dev sandbox can't reach Lever)."""
+    r = p.get("salaryRange") or {}
+    interval = (r.get("interval") or "").lower()
+    period = "hour" if "hour" in interval else ("year" if "year" in interval else None)
+    if not (r.get("min") or r.get("max")) or period is None:
+        return {}
+    return {
+        "salary_min": r.get("min"),
+        "salary_max": r.get("max"),
+        "salary_currency": r.get("currency"),
+        "salary_period": period,
+    }
+
+
 def fetch(source: dict) -> list[dict]:
     company_slug = source["config"]["company_slug"]
     resp = httpx.get(BASE_URL.format(company_slug=company_slug), params={"mode": "json"}, timeout=20.0)
@@ -38,6 +56,7 @@ def fetch(source: dict) -> list[dict]:
                 "salary_max": None,
                 "salary_currency": None,
                 "salary_period": None,
+                **_salary(p),
                 "description_text": p.get("descriptionPlain"),
                 "url": p.get("hostedUrl"),
                 "posted_at": posted_at,
