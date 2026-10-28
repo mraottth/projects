@@ -17,4 +17,7 @@ DEFAULT_SETTINGS = {
     "prefilter_remote_only": False,
     "salary_floor": None,
     "looking_for_notes": "",
+    # Guided first-run setup (frontend OnboardingPage) -- see api/onboarding.py.
+    "onboarding_completed": False,
+    "onboarding_step": "resume",
 }

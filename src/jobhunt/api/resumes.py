@@ -9,6 +9,7 @@ from jobhunt.core.llm import LLMError
 from jobhunt.core.profile import (
     get_current_candidate_profile,
     rebuild_candidate_profile,
+    revise_candidate_profile,
     set_candidate_profile,
 )
 from jobhunt.core.resume_parse import extract_text
@@ -158,4 +159,19 @@ def update_profile(payload: ProfileUpdateRequest):
     if not payload.text.strip():
         raise HTTPException(400, "profile text cannot be empty")
     text = set_candidate_profile(payload.text)
+    return {"text": text}
+
+
+class ProfileReviseRequest(BaseModel):
+    instructions: str
+
+
+@router.post("/profile/revise")
+def revise_profile(payload: ProfileReviseRequest):
+    try:
+        text = revise_candidate_profile(payload.instructions)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except LLMError as exc:
+        raise HTTPException(502, str(exc)) from exc
     return {"text": text}

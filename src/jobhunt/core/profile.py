@@ -27,6 +27,15 @@ Write in third person, as a reference document, not addressed to the candidate. 
 avoid generic resume-speak."""
 
 
+REVISE_SYSTEM_PROMPT = """You revise a job seeker's candidate profile -- a third-person briefing note \
+a job-matching system scores new postings against -- according to their own instructions. Apply the \
+requested changes faithfully (they know their own career and goals better than the documents it \
+was synthesized from), and leave everything they didn't ask to change as-is. Keep the same \
+third-person reference-document style and roughly the same length. Don't invent experience, \
+skills, or achievements beyond what the profile or their instructions state. Return only the \
+revised profile text, with no preamble."""
+
+
 def rebuild_candidate_profile() -> str:
     with get_db() as conn:
         rows = conn.execute(
@@ -84,5 +93,46 @@ def set_candidate_profile(text: str) -> str:
         conn.execute(
             "INSERT INTO candidate_profile (text, model, source_resume_ids_json) VALUES (?, ?, ?)",
             (text, "manual_edit", json.dumps([])),
+        )
+    return text
+
+
+def revise_candidate_profile(instructions: str) -> str:
+    """Applies the user's plain-language change request ("emphasize X, drop Y") to the current
+    profile in one Claude call, inserting the result as a new row like every other rebuild/edit.
+    Raises ValueError if there's no profile yet or the instructions are blank."""
+    if not instructions.strip():
+        raise ValueError("describe what you'd like changed")
+    current = get_current_candidate_profile()
+    if current is None:
+        raise ValueError("no candidate profile yet — build one first")
+
+    client = get_client()
+    with llm_error_boundary("revising the candidate profile"):
+        response = client.messages.create(
+            model=DEFAULT_MODEL,
+            max_tokens=2000,
+            system=REVISE_SYSTEM_PROMPT,
+            messages=[
+                {
+                    "role": "user",
+                    "content": f"## Current profile\n{current}\n\n## Requested changes\n{instructions}",
+                }
+            ],
+        )
+    text = next(b.text for b in response.content if b.type == "text")
+
+    log_call(
+        call_type="career_profile",
+        model=DEFAULT_MODEL,
+        input_tokens=response.usage.input_tokens,
+        output_tokens=response.usage.output_tokens,
+        note="revision from user instructions",
+    )
+
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO candidate_profile (text, model, source_resume_ids_json) VALUES (?, ?, ?)",
+            (text, DEFAULT_MODEL, json.dumps([])),
         )
     return text

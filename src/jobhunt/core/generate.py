@@ -9,10 +9,13 @@ template is on file (e.g. only a PDF was ever uploaded), so the feature still wo
 
 import logging
 import re
+import uuid
 from datetime import date
 from pathlib import Path
 
 from jobhunt.config import RESUME_STORAGE_DIR
+from docx import Document
+
 from jobhunt.core.docx_writer import (
     AmbiguousAnchorError,
     AnchorNotFoundError,
@@ -28,7 +31,7 @@ from jobhunt.core.docx_writer import (
     write_resume_edits,
 )
 from jobhunt.core.llm import DEFAULT_MODEL, get_client, llm_error_boundary, log_call
-from jobhunt.core.settings import get_setting
+from jobhunt.core.settings import get_setting, get_settings
 from jobhunt.db.connection import get_db
 
 logger = logging.getLogger(__name__)
@@ -107,6 +110,24 @@ If a signature line needs their name, use their actual full/preferred name (e.g.
 using a parenthetical preferred first name if the profile gives one, like "Matt (Matthew) Roth" \
 -> "Matt Roth") -- not a surname-only form like "Roth," which is just how the candidate profile \
 refers to them in its own third-person narrative style."""
+
+
+STARTER_COVER_LETTER_SYSTEM_PROMPT = """You write a reusable, general-purpose cover letter for a \
+job seeker who doesn't have a recent one on file. You'll be given their current resume and what \
+they're looking for (target roles, sectors, and a description in their own words). There is no \
+specific job posting -- write a letter aimed at the kind of role they want, which they'll later \
+tailor per posting, and which will also be used as the paragraph-structure template for tailored \
+cover letters.
+
+Return one paragraph per element: a greeting line ("Dear Hiring Manager,") as its own paragraph, \
+3-4 body paragraphs, a closing line ("Sincerely,") as its own paragraph, and a signature line as its \
+own paragraph. Be concise and specific -- avoid generic enthusiasm ("I'm excited about...") in favor \
+of concrete strengths grounded in their actual resume, connected to the roles/sectors they want. Do \
+not fabricate experience, skills, or achievements not in their resume, and don't name a specific \
+company.
+
+For the signature line, use their actual full/preferred name as it appears at the top of their \
+resume (e.g. "Matt Roth"), not a surname-only form."""
 
 
 def _job_text(job: dict) -> str:
@@ -373,3 +394,68 @@ def _generate_cover_letter_plain(job: dict, candidate_profile: str | None) -> st
         note="cover_letter (plain text -- no usable docx template)",
     )
     return text
+
+
+def generate_starter_cover_letter() -> dict:
+    """Onboarding's "write one for me" option: a general-purpose cover letter generated from the
+    current resume plus the "What are you looking for?" settings -- there's no candidate profile
+    yet at that point in onboarding, and no job, so generate_cover_letter() doesn't apply. Saved as
+    a plain .docx and inserted as the new *current* cover letter (demoting any previous current
+    one, same as an upload), so later per-job generation uses it as its template.
+    Returns {"id": int, "content_text": str}. Raises ValueError if no resume is on file."""
+    resume = _pick_resume("resume", None)
+    if resume is None or not (resume.get("raw_text") or "").strip():
+        raise ValueError("no resume on file to write a cover letter from")
+
+    settings = get_settings()
+    titles = ", ".join(settings.get("prefilter_titles_include") or []) or "(not specified)"
+    sectors = ", ".join(settings.get("prefilter_sectors") or []) or "(not specified)"
+    notes = (settings.get("looking_for_notes") or "").strip() or "(not specified)"
+    user_content = (
+        f"## Current resume\n{resume['raw_text']}\n\n"
+        f"## What they're looking for\nTarget roles: {titles}\nTarget sectors: {sectors}\n"
+        f"In their own words: {notes}"
+    )
+
+    client = get_client()
+    with llm_error_boundary("writing a starter cover letter"):
+        response = client.messages.parse(
+            model=DEFAULT_MODEL,
+            max_tokens=4000,
+            system=STARTER_COVER_LETTER_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": user_content}],
+            output_format=CoverLetterContent,
+        )
+    log_call(
+        call_type="generation",
+        model=DEFAULT_MODEL,
+        input_tokens=response.usage.input_tokens,
+        output_tokens=response.usage.output_tokens,
+        note="starter cover letter (onboarding)",
+    )
+    paragraphs = [p.strip() for p in response.parsed_output.paragraphs if p.strip()]
+    if not paragraphs:
+        raise ValueError("Claude returned an empty cover letter -- try again")
+
+    RESUME_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+    stored_path = RESUME_STORAGE_DIR / f"{uuid.uuid4().hex}.docx"
+    doc = Document()
+    for paragraph in paragraphs:
+        doc.add_paragraph(paragraph)
+    doc.save(str(stored_path))
+
+    content_text = "\n\n".join(paragraphs)
+    with get_db() as conn:
+        conn.execute(
+            "UPDATE resumes SET is_template = 0, is_archived = 1 "
+            "WHERE kind = 'cover_letter' AND is_template = 1"
+        )
+        cursor = conn.execute(
+            """INSERT INTO resumes
+               (kind, label, file_name, file_type, stored_path, raw_text, is_archived, is_template)
+               VALUES ('cover_letter', 'AI-generated starter', 'starter_cover_letter.docx', 'docx',
+                       ?, ?, 0, 1)""",
+            (str(stored_path), content_text),
+        )
+        doc_id = cursor.lastrowid
+    return {"id": doc_id, "content_text": content_text}
