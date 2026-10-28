@@ -196,6 +196,8 @@ export interface Source {
   last_polled_at: string | null;
   last_success_at: string | null;
   last_error: string | null;
+  created_at: string;
+  job_count: number;
 }
 
 export interface Settings {

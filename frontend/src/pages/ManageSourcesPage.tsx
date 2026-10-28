@@ -155,7 +155,58 @@ function describeForDiscovery(source: Source): string {
   return url ? `${source.name} (${url})` : source.name;
 }
 
-function SourceCard({
+// Short labels for a source row; KIND_LABELS (the manual form's options) are longer.
+const SHORT_KIND: Record<SourceKind, string> = {
+  ats_greenhouse: "Greenhouse",
+  ats_lever: "Lever",
+  ats_ashby: "Ashby",
+  aggregator_adzuna: "Adzuna search",
+  aggregator_remoteok: "RemoteOK",
+  custom_board: "Web page",
+};
+
+// Where a source reads from, in a line: the page's host+path, or the ATS board / search term.
+function sourceWhere(source: Source): string {
+  const c = source.config;
+  if (typeof c.url === "string") return c.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "");
+  const value = c.board_token ?? c.company_slug ?? c.board_name ?? c.what ?? c.tags;
+  return Array.isArray(value) ? value.join(", ") : String(value ?? "");
+}
+
+// SQLite's datetime('now') is UTC without a zone marker.
+function parseDbTime(value: string): number {
+  return new Date(value.includes("T") ? value : `${value.replace(" ", "T")}Z`).getTime();
+}
+
+function timeAgo(value: string): string {
+  const minutes = Math.round((Date.now() - parseDbTime(value)) / 60_000);
+  if (minutes < 2) return "just now";
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.round(hours / 24)}d ago`;
+}
+
+// A just-added source is checked in the background (daily_run.schedule_source_refresh); one that's
+// still never been checked a while later is just waiting for the daily run.
+const CHECKING_WINDOW_MS = 5 * 60_000;
+
+function isChecking(source: Source): boolean {
+  return !!source.enabled && !source.last_polled_at && Date.now() - parseDbTime(source.created_at) < CHECKING_WINDOW_MS;
+}
+
+function SourceStatus({ source }: { source: Source }) {
+  if (!source.enabled) return <span className="pill">disabled</span>;
+  if (isChecking(source)) return <Spinner label="Checking for jobs..." />;
+  if (!source.last_polled_at) return <span className="muted">Not checked yet</span>;
+  return (
+    <span className="muted">
+      {source.job_count} {source.job_count === 1 ? "job" : "jobs"} · checked {timeAgo(source.last_polled_at)}
+    </span>
+  );
+}
+
+function SourceRow({
   source,
   onChanged,
   onFindMoreLikeThis,
@@ -172,7 +223,9 @@ function SourceCard({
     setTestResult(null);
     try {
       const r = await api.testSource(source.id);
-      setTestResult(`found ${r.count} posting(s) — e.g. "${r.preview[0]?.title ?? "none"}"`);
+      setTestResult(
+        r.count ? `Found ${r.count} posting(s), e.g. "${r.preview[0]?.title}"` : "Found no postings on this page.",
+      );
     } catch (e) {
       setTestResult(e instanceof Error ? e.message : String(e));
     } finally {
@@ -191,35 +244,37 @@ function SourceCard({
   };
 
   return (
-    <div className="card">
-      <div className="card-header">
-        <div>
-          <div className="card-title">
-            {source.name}
-            {!source.enabled && <span className="pill" style={{ marginLeft: "8px" }}>disabled</span>}
-          </div>
-          <div className="card-meta">
-            {KIND_LABELS[source.kind]} · <code className="path">{JSON.stringify(source.config)}</code>
-          </div>
-        </div>
+    <li className={`source-row${source.enabled ? "" : " off"}`}>
+      <div className="source-row-top">
+        <span className="source-row-name">{source.name}</span>
+        <span className="source-row-status small">
+          <SourceStatus source={source} />
+        </span>
       </div>
-      {source.last_error && <p className="error-text small">Last error: {source.last_error}</p>}
-      <div className="form-actions" style={{ marginTop: 0 }}>
-        <button className="ghost small" onClick={test} disabled={busy}>
+      <div className="source-row-where small" title={JSON.stringify(source.config)}>
+        {SHORT_KIND[source.kind]} · {sourceWhere(source)}
+      </div>
+      {source.last_error && (
+        <p className="error-text small source-row-error" title={source.last_error}>
+          Last check failed: {source.last_error}
+        </p>
+      )}
+      <div className="source-row-actions small">
+        <button className="link small" onClick={test} disabled={busy}>
           {busy ? <Spinner label="Testing..." /> : "Test fetch"}
         </button>
-        <button className="ghost small" onClick={toggle}>
+        <button className="link small" onClick={() => onFindMoreLikeThis(source)}>
+          More like this
+        </button>
+        <button className="link small" onClick={toggle}>
           {source.enabled ? "Disable" : "Enable"}
         </button>
-        <button className="ghost small danger" onClick={remove}>
+        <button className="link small danger" onClick={remove}>
           Delete
         </button>
-        <button className="link small" onClick={() => onFindMoreLikeThis(source)}>
-          Find more like this
-        </button>
       </div>
-      {testResult && <p className="muted small">{testResult}</p>}
-    </div>
+      {testResult && <p className="muted small source-row-test">{testResult}</p>}
+    </li>
   );
 }
 
@@ -346,17 +401,47 @@ function AddMoreDialog({
   );
 }
 
-function SectionHeader({ title, blurb, onAddMore }: { title: string; blurb: string; onAddMore: () => void }) {
+// One column of the page: a header with "Add more", then a fixed-height, scrolling list.
+function SourcePanel({
+  title,
+  blurb,
+  empty,
+  sources,
+  onAddMore,
+  onChanged,
+  onFindMoreLikeThis,
+}: {
+  title: string;
+  blurb: string;
+  empty: string;
+  sources: Source[];
+  onAddMore: () => void;
+  onChanged: () => void;
+  onFindMoreLikeThis: (source: Source) => void;
+}) {
   return (
-    <div className="source-section-head">
-      <div>
-        <h2 className="source-section-title">{title}</h2>
-        <p className="muted small">{blurb}</p>
+    <section className="card source-panel">
+      <div className="source-section-head">
+        <div>
+          <h2 className="source-section-title">
+            {title} <span className="muted source-count">{sources.length}</span>
+          </h2>
+          <p className="muted small">{blurb}</p>
+        </div>
+        <button className="primary" onClick={onAddMore}>
+          + Add more
+        </button>
       </div>
-      <button className="primary" onClick={onAddMore}>
-        + Add more
-      </button>
-    </div>
+      {sources.length === 0 ? (
+        <p className="empty-state">{empty}</p>
+      ) : (
+        <ul className="source-list">
+          {sources.map((s) => (
+            <SourceRow key={s.id} source={s} onChanged={onChanged} onFindMoreLikeThis={onFindMoreLikeThis} />
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
@@ -388,12 +473,31 @@ export default function ManageSourcesPage() {
     refresh();
   }, []);
 
+  // While a just-added source is being checked in the background, refresh the lists so its job
+  // count appears when the check finishes.
+  const checking = sources.some(isChecking);
+  useEffect(() => {
+    if (!checking) return;
+    const timer = setInterval(refresh, 4000);
+    return () => clearInterval(timer);
+  }, [checking]);
+
   const runNow = async () => {
     setRunning(true);
     setRunResult(null);
     try {
-      const summary = await api.runDailyNow();
-      setRunResult(JSON.stringify(summary, null, 2));
+      const r = (await api.runDailyNow()) as {
+        sources_polled?: number;
+        jobs_fetched?: number;
+        llm_scored_count?: number;
+        errors?: string[];
+      };
+      const errors = r.errors ?? [];
+      setRunResult(
+        `Checked ${r.sources_polled ?? 0} sources, found ${r.jobs_fetched ?? 0} postings, scored ` +
+          `${r.llm_scored_count ?? 0} new jobs.` +
+          (errors.length ? `\n\n${errors.length} problem(s):\n${errors.join("\n")}` : ""),
+      );
       refresh();
     } catch (e) {
       setRunResult(e instanceof Error ? e.message : String(e));
@@ -415,33 +519,26 @@ export default function ManageSourcesPage() {
         you found yourself, use "Add a job" on the My Jobs page instead.
       </p>
 
-      <section className="source-section">
-        <SectionHeader
+      <div className="sources-grid">
+        <SourcePanel
           title="Organizations"
           blurb="Single employers whose job boards you follow."
+          empty='No organizations yet — use "Add more" to find or add some.'
+          sources={organizations}
           onAddMore={() => openDialog("organizations")}
+          onChanged={refresh}
+          onFindMoreLikeThis={findMoreLikeThis}
         />
-        {organizations.map((s) => (
-          <SourceCard key={s.id} source={s} onChanged={refresh} onFindMoreLikeThis={findMoreLikeThis} />
-        ))}
-        {organizations.length === 0 && (
-          <p className="empty-state">No organizations yet — use "Add more" to find or add some.</p>
-        )}
-      </section>
-
-      <section className="source-section">
-        <SectionHeader
+        <SourcePanel
           title="Job boards"
           blurb="Multi-employer boards and job searches."
+          empty='No job boards yet — use "Add more" to find or add some.'
+          sources={boards}
           onAddMore={() => openDialog("boards")}
+          onChanged={refresh}
+          onFindMoreLikeThis={findMoreLikeThis}
         />
-        {boards.map((s) => (
-          <SourceCard key={s.id} source={s} onChanged={refresh} onFindMoreLikeThis={findMoreLikeThis} />
-        ))}
-        {boards.length === 0 && (
-          <p className="empty-state">No job boards yet — use "Add more" to find or add some.</p>
-        )}
-      </section>
+      </div>
 
       <AddMoreDialog
         kind="organizations"
@@ -465,18 +562,18 @@ export default function ManageSourcesPage() {
       <AddSourceForm onAdded={() => refresh()} />
 
       <div className="card">
-        <h2>Run the daily pipeline now</h2>
+        <h2>Check every source now</h2>
         <p className="muted small">
-          In production this runs automatically via Cloud Scheduler. Locally, trigger it manually
-          to test.
+          This runs automatically every morning: check every source, score the most promising new
+          jobs, and update New &amp; Noteworthy. New sources are checked as soon as you add them.
         </p>
         <button className="ghost" onClick={runNow} disabled={running}>
           {running ? <Spinner label="Running..." /> : "Run now"}
         </button>
         {runResult && (
-          <pre style={{ whiteSpace: "pre-wrap", marginTop: "10px" }}>
-            <code>{runResult}</code>
-          </pre>
+          <p className="small" style={{ whiteSpace: "pre-wrap", marginTop: "10px" }}>
+            {runResult}
+          </p>
         )}
       </div>
     </div>

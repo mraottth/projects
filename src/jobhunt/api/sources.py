@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from jobhunt.core.company_resolver import resolve_company
 from jobhunt.core.llm import LLMError
 from jobhunt.db.connection import get_db
-from jobhunt.pipeline.daily_run import ADAPTERS
+from jobhunt.pipeline.daily_run import ADAPTERS, schedule_source_refresh
 
 router = APIRouter(prefix="/api/sources", tags=["sources"])
 
@@ -42,8 +42,13 @@ def _row_to_dict(row) -> dict:
 
 @router.get("")
 def list_sources():
+    """Each source with `job_count`, its active jobs (shown on Manage Sources)."""
     with get_db() as conn:
-        rows = conn.execute("SELECT * FROM sources ORDER BY created_at DESC").fetchall()
+        rows = conn.execute(
+            """SELECT s.*, (SELECT COUNT(*) FROM jobs j WHERE j.source_id = s.id AND j.status = 'active')
+                   AS job_count
+               FROM sources s ORDER BY s.created_at DESC, s.id DESC"""
+        ).fetchall()
     return [_row_to_dict(r) for r in rows]
 
 
@@ -66,6 +71,8 @@ def create_source(payload: SourceRequest):
             ),
         )
         source_id = cursor.lastrowid
+    if payload.enabled:
+        schedule_source_refresh(source_id)
     return get_source(source_id)
 
 
@@ -91,6 +98,7 @@ def resolve_source(payload: ResolveSourceRequest):
             ),
         )
         source_id = cursor.lastrowid
+    schedule_source_refresh(source_id)
     return get_source(source_id)
 
 
@@ -113,11 +121,13 @@ def update_source(source_id: int, payload: SourceUpdateRequest):
     if not updates:
         return get_source(source_id)
     with get_db() as conn:
-        row = conn.execute("SELECT id FROM sources WHERE id = ?", (source_id,)).fetchone()
+        row = conn.execute("SELECT id, enabled FROM sources WHERE id = ?", (source_id,)).fetchone()
         if row is None:
             raise HTTPException(404, "source not found")
         set_clause = ", ".join(f"{k} = ?" for k in updates)
         conn.execute(f"UPDATE sources SET {set_clause} WHERE id = ?", (*updates.values(), source_id))
+    if updates.get("enabled") == 1 and not row["enabled"]:
+        schedule_source_refresh(source_id)  # re-enabled: check it now, like a new source
     return get_source(source_id)
 
 

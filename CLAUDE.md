@@ -197,6 +197,15 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   `daily_llm_cap` for one run; onboarding passes 20 (`FIRST_RUN_CAP`), and the rest stay queued.
   `GET /api/pipeline/progress` exposes an in-process progress dict (fine with one Cloud Run
   instance) that the finish step polls every 2 s to show "Scored 12 of 20 jobs...".
+  A newly added (or re-enabled) source is checked right away rather than at the next daily run
+  (asked for live): `api/sources.py`'s create/resolve/re-enable call
+  `schedule_source_refresh()`, which gathers adds made within `REFRESH_GATHER_SECONDS` (3) into
+  one background `refresh_sources(ids)`: poll just those sources, prefilter, score up to
+  `NEW_SOURCE_SCORE_CAP` (10, ~30 cents) of *their* jobs (`queue.select_batch(source_ids=)`), and
+  add them to today's digest. Skipped while onboarding isn't completed, since its last step runs
+  the whole pipeline anyway. `_run_lock` keeps a refresh and a daily run from overlapping.
+  `conftest.py` stubs `schedule_source_refresh` for every test so creating a source never reaches
+  a real job board.
 - `src/jobhunt/core/company_resolver.py` — turns a company name into an actual monitorable source:
   cheap direct probes against the three ATS APIs first (confirmed live that "anthropic"/"figma"
   resolve immediately this way, no LLM needed), falling back to a Claude + web-search call only
@@ -283,9 +292,14 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   `GET /api/jobs/ranked` (`api/jobs.py`, registered *before* `/{job_id}` since Starlette matches
   path templates in order -- a later `/ranked` would 404 as an invalid `job_id`) -- every active
   job from a tracked source (`source_id NOT NULL`), scored or not, ranked best-first, the uncapped
-  view the daily cap's 50-job limit would otherwise hide. `ManageSourcesPage` (route `/sources`) is
-  purely source management, in two sections -- **Organizations** (single-employer sources) and
-  **Job boards** (multi-employer boards and the keyword aggregators) -- each with a "+ Add more"
+  view the daily cap's 50-job limit would otherwise hide. `ManageSourcesPage` (route `/sources`, a
+  wide route) is purely source management, in two side-by-side `SourcePanel`s (`.sources-grid`;
+  one column under 860px), each a fixed-height card whose list scrolls. A source is a compact
+  `SourceRow`: name, status ("N jobs · checked 3h ago" from `GET /api/sources`' `job_count`,
+  "Checking for jobs..." for five minutes after it's added and before its first check, while the
+  page polls every 4 s, or "disabled"), kind and host/board, the last error clamped to two lines,
+  and text-link actions. The two sections are **Organizations** (single-employer sources) and
+  **Job boards** (multi-employer boards and the keyword aggregators), each with a "+ Add more"
   button opening `AddMoreDialog` (`components/Modal.tsx`, a native `<dialog>`). It has two tabs:
   "Add by link" (name + URL through `detectSourceFromUrl()`; an organization gets `company_name`
   = its name so it files under Organizations) and "Discover suggestions" (the Discover cards,

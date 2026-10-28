@@ -31,9 +31,9 @@ function GearIcon() {
   );
 }
 
-// These pages need the extra room (a filter sidebar, a wide table, or Jobby's job picker beside
-// the chat) that the default prose-friendly max-width doesn't give them.
-const WIDE_ROUTES = ["/", "/all-jobs", "/tracker", "/jobby"];
+// These pages need the extra room (a filter sidebar, a wide table, Jobby's job picker beside
+// the chat, or Manage Sources' two columns) that the default prose-friendly max-width doesn't give them.
+const WIDE_ROUTES = ["/", "/all-jobs", "/tracker", "/jobby", "/sources"];
 
 function AppMain({
   needsOnboarding,

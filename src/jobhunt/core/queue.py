@@ -11,9 +11,7 @@ AGE_BONUS_PER_DAY = 5.0
 
 def enqueue(job_id: int, prefilter_score: float, matched_rules: dict) -> None:
     with get_db() as conn:
-        existing = conn.execute(
-            "SELECT id, status FROM scoring_queue WHERE job_id = ?", (job_id,)
-        ).fetchone()
+        existing = conn.execute("SELECT id, status FROM scoring_queue WHERE job_id = ?", (job_id,)).fetchone()
         if existing and existing["status"] in ("pending", "in_progress"):
             # Refresh the score but keep the original queued_at so its age bonus keeps accruing.
             conn.execute(
@@ -38,22 +36,26 @@ def _apply_age_bonus() -> None:
         )
 
 
-def select_batch(cap: int) -> list[int]:
+def select_batch(cap: int, source_ids: list[int] | None = None) -> list[int]:
     """Up to `cap` pending jobs, marked in_progress, taken round-robin across sources: every
     source's best job first, then every source's second-best, and so on (highest priority first
     within each round). A plain top-N by priority let one big board whose postings all match the
     titles/sectors (Civis, live) take every slot of onboarding's 20-job first run, leaving every
     other source unscored."""
     _apply_age_bonus()
+    only_sources = ""
+    if source_ids:
+        # Ints from our own DB, so inlining them is safe; it keeps the LIMIT parameter simple.
+        only_sources = f"AND j.source_id IN ({','.join(str(int(i)) for i in source_ids)})"
     with get_db() as conn:
         rows = conn.execute(
-            """SELECT id, job_id FROM (
+            f"""SELECT id, job_id FROM (
                    SELECT q.id, q.job_id, q.priority,
                           ROW_NUMBER() OVER (
                               PARTITION BY j.source_id ORDER BY q.priority DESC, q.id
                           ) AS source_rank
                      FROM scoring_queue q JOIN jobs j ON j.id = q.job_id
-                    WHERE q.status = 'pending'
+                    WHERE q.status = 'pending' {only_sources}
                )
                ORDER BY source_rank, priority DESC, id
                LIMIT ?""",
@@ -73,9 +75,7 @@ def requeue_stranded() -> int:
     never be scored. Called at the start of each run; runs don't overlap in practice (one daily
     scheduled run, plus the occasional manual one)."""
     with get_db() as conn:
-        cursor = conn.execute(
-            "UPDATE scoring_queue SET status = 'pending' WHERE status = 'in_progress'"
-        )
+        cursor = conn.execute("UPDATE scoring_queue SET status = 'pending' WHERE status = 'in_progress'")
     return cursor.rowcount
 
 
