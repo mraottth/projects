@@ -1,6 +1,7 @@
 import json
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
 
 from jobhunt.core.discovery import suggest_companies, suggest_job_boards
 from jobhunt.core.llm import LLMError
@@ -30,8 +31,16 @@ def _already_monitored_board_urls() -> list[str]:
     return urls
 
 
+class DiscoveryRequest(BaseModel):
+    """Optional per-search steering. `guidance` is free text ("mission-driven tech startups");
+    `like` describes a source or suggestion to find more of ("Nava PBC (https://...)")."""
+
+    guidance: str | None = Field(default=None, max_length=500)
+    like: str | None = Field(default=None, max_length=500)
+
+
 @router.post("/suggest")
-def suggest():
+def suggest(payload: DiscoveryRequest | None = None):
     """Returns suggested companies for the user to review -- nothing is persisted here. Approving
     one calls POST /api/sources/resolve from the frontend. Companies already monitored are
     excluded so re-running discovery doesn't keep re-suggesting the same ones."""
@@ -40,6 +49,8 @@ def suggest():
             get_current_candidate_profile(),
             get_settings(),
             exclude_names=_already_monitored_company_names(),
+            guidance=payload.guidance if payload else None,
+            like=payload.like if payload else None,
         )
     except ValueError as exc:
         # _extract_json raises a plain ValueError if Claude's response has no parseable JSON
@@ -55,7 +66,7 @@ def suggest():
 
 
 @router.post("/suggest-boards")
-def suggest_boards():
+def suggest_boards(payload: DiscoveryRequest | None = None):
     """Returns suggested multi-employer job boards for the user to review -- nothing is persisted
     here. Approving one calls POST /api/sources directly (kind=custom_board) from the frontend,
     since a board's URL is already known -- no resolution step needed. Boards already monitored
@@ -65,6 +76,8 @@ def suggest_boards():
             get_current_candidate_profile(),
             get_settings(),
             exclude_urls=_already_monitored_board_urls(),
+            guidance=payload.guidance if payload else None,
+            like=payload.like if payload else None,
         )
     except ValueError as exc:
         raise HTTPException(

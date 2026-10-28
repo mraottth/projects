@@ -141,18 +141,43 @@ def _profile_text(candidate_profile: str | None, settings: dict, exclude: list[s
     )
 
 
+def _search_direction(guidance: str | None, like: str | None, noun: str) -> str:
+    """Per-search steering from the user, appended after the profile: free-text direction ("mission-
+    driven tech startups") and/or a "find more like this" seed. Empty when neither is given."""
+    parts = []
+    if guidance and guidance.strip():
+        parts.append(
+            f"## Direction for this search, from the user\n{guidance.strip()}\n\n"
+            "Make this the main focus of this search -- it narrows or redirects what they want this "
+            "time. The profile and preferences above still apply wherever they don't conflict with it."
+        )
+    if like and like.strip():
+        parts.append(
+            f"## Find more like this\nSuggest {noun} similar to: {like.strip()}\n\n"
+            "Similar means the same kind of fit for this user -- comparable mission/sector, size or "
+            f"stage, and kinds of roles. Don't suggest that one itself, or any {noun} already monitored."
+        )
+    return "".join(f"\n\n{p}" for p in parts)
+
+
 def _hostname(url: str) -> str:
     host = urlparse(url if "://" in url else f"//{url}").hostname or url
     return host.lower().removeprefix("www.")
 
 
 def suggest_companies(
-    candidate_profile: str | None, settings: dict, exclude_names: list[str] | None = None
+    candidate_profile: str | None,
+    settings: dict,
+    exclude_names: list[str] | None = None,
+    *,
+    guidance: str | None = None,
+    like: str | None = None,
 ) -> list[CompanySuggestion]:
     with llm_error_boundary("suggesting companies to monitor"):
         text = run_web_search(
             SYSTEM_PROMPT,
-            _profile_text(candidate_profile, settings, exclude_names),
+            _profile_text(candidate_profile, settings, exclude_names)
+            + _search_direction(guidance, like, "companies"),
             "discovery:suggest_companies",
         )
 
@@ -165,13 +190,19 @@ def suggest_companies(
 
 
 def suggest_job_boards(
-    candidate_profile: str | None, settings: dict, exclude_urls: list[str] | None = None
+    candidate_profile: str | None,
+    settings: dict,
+    exclude_urls: list[str] | None = None,
+    *,
+    guidance: str | None = None,
+    like: str | None = None,
 ) -> list[JobBoardSuggestion]:
     exclude_hosts = [_hostname(u) for u in exclude_urls] if exclude_urls else None
     with llm_error_boundary("suggesting job boards to monitor"):
         text = run_web_search(
             BOARD_SYSTEM_PROMPT,
-            _profile_text(candidate_profile, settings, exclude_urls),
+            _profile_text(candidate_profile, settings, exclude_urls)
+            + _search_direction(guidance, like, "job boards"),
             "discovery:suggest_job_boards",
         )
 

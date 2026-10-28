@@ -9,7 +9,7 @@ def test_discovery_suggest_via_api(monkeypatch):
     monkeypatch.setattr(
         discovery_api,
         "suggest_companies",
-        lambda profile, settings, exclude_names=None: [
+        lambda profile, settings, exclude_names=None, **kwargs: [
             discovery.CompanySuggestion(company_name="Acme", reason="Hiring now")
         ],
     )
@@ -23,7 +23,7 @@ def test_discovery_suggest_via_api(monkeypatch):
 def test_discovery_suggest_excludes_already_monitored_companies(monkeypatch):
     captured = {}
 
-    def fake_suggest_companies(profile, settings, exclude_names=None):
+    def fake_suggest_companies(profile, settings, exclude_names=None, **kwargs):
         captured["exclude_names"] = exclude_names
         return []
 
@@ -43,7 +43,7 @@ def test_discovery_suggest_excludes_already_monitored_companies(monkeypatch):
 def test_discovery_suggest_boards_excludes_already_monitored_boards(monkeypatch):
     captured = {}
 
-    def fake_suggest_job_boards(profile, settings, exclude_urls=None):
+    def fake_suggest_job_boards(profile, settings, exclude_urls=None, **kwargs):
         captured["exclude_urls"] = exclude_urls
         return []
 
@@ -68,7 +68,7 @@ def test_discovery_suggest_returns_clean_502_on_unparseable_llm_response(monkeyp
     # Regression: _extract_json raises a plain ValueError when Claude's response has no
     # parseable JSON (e.g. cut off mid-output after a long web-search tool-use turn). The route
     # used to catch only LLMError, so this propagated as an unhandled exception -> raw 500.
-    def raise_value_error(profile, settings, exclude_names=None):
+    def raise_value_error(profile, settings, exclude_names=None, **kwargs):
         raise ValueError("no JSON object found in response: 'some truncated text'")
 
     monkeypatch.setattr(discovery_api, "suggest_companies", raise_value_error)
@@ -80,7 +80,7 @@ def test_discovery_suggest_returns_clean_502_on_unparseable_llm_response(monkeyp
 
 
 def test_discovery_suggest_boards_returns_clean_502_on_unparseable_llm_response(monkeypatch):
-    def raise_value_error(profile, settings, exclude_urls=None):
+    def raise_value_error(profile, settings, exclude_urls=None, **kwargs):
         raise ValueError("no JSON object found in response: 'some truncated text'")
 
     monkeypatch.setattr(discovery_api, "suggest_job_boards", raise_value_error)
@@ -117,3 +117,24 @@ def test_resolve_source_404_when_unresolvable(monkeypatch):
     with TestClient(app) as client:
         resp = client.post("/api/sources/resolve", json={"company_name": "Nonexistent"})
         assert resp.status_code == 404
+
+
+def test_discovery_passes_guidance_and_like_through(monkeypatch):
+    captured = {}
+
+    def fake_suggest_job_boards(profile, settings, exclude_urls=None, **kwargs):
+        captured.update(kwargs)
+        return []
+
+    monkeypatch.setattr(discovery_api, "suggest_job_boards", fake_suggest_job_boards)
+    with TestClient(app) as client:
+        resp = client.post(
+            "/api/discovery/suggest-boards",
+            json={"guidance": "mission-driven tech startups", "like": "Tech Jobs for Good"},
+        )
+        assert resp.status_code == 200
+        assert captured == {"guidance": "mission-driven tech startups", "like": "Tech Jobs for Good"}
+
+        # No body at all still works (the original, unsteered search).
+        assert client.post("/api/discovery/suggest-boards").status_code == 200
+        assert captured == {"guidance": None, "like": None}

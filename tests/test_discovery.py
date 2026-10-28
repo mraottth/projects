@@ -206,3 +206,24 @@ def test_suggest_companies_returns_careers_urls(monkeypatch):
     suggestions = discovery.suggest_companies(None, {})
     assert suggestions[0].careers_url == "https://boards.greenhouse.io/nava"
     assert suggestions[1].careers_url is None
+
+
+def test_guidance_and_like_reach_the_prompt(monkeypatch):
+    client = _ScriptedClient(_response('{"suggestions": []}'))
+    monkeypatch.setattr(discovery, "get_client", lambda: client)
+
+    discovery.suggest_companies(None, {}, guidance="mission-driven tech startups", like="Nava PBC")
+    prompt = client.calls[0]["messages"][0]["content"]
+    assert "mission-driven tech startups" in prompt
+    assert "Make this the main focus" in prompt
+    assert "similar to: Nava PBC" in prompt
+
+
+def test_unsteered_search_prompt_has_no_direction_sections(monkeypatch):
+    client = _ScriptedClient(_response('{"suggestions": []}'))
+    monkeypatch.setattr(discovery, "get_client", lambda: client)
+
+    discovery.suggest_job_boards(None, {})
+    prompt = client.calls[0]["messages"][0]["content"]
+    assert "Direction for this search" not in prompt
+    assert "Find more like this" not in prompt
