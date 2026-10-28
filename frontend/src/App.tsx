@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { api } from "./api";
+import { JobbyLogo } from "./components/JobbyLogo";
 import DigestPage from "./pages/DigestPage";
 import JobDetailPage from "./pages/JobDetailPage";
+import JobbyPage from "./pages/JobbyPage";
 import AllJobsPage from "./pages/AllJobsPage";
 import MyJobsPage from "./pages/MyJobsPage";
 import OnboardingPage from "./pages/OnboardingPage";
@@ -14,14 +16,15 @@ const NAV_LINKS = [
   { to: "/", label: "New & Noteworthy", end: true },
   { to: "/all-jobs", label: "All Jobs" },
   { to: "/tracker", label: "My Jobs" },
+  { to: "/jobby", label: "Jobby" },
   { to: "/sources", label: "Manage Sources" },
   { to: "/profile", label: "Profile" },
   { to: "/settings", label: "Settings" },
 ];
 
-// These three pages need the extra room (a filter sidebar, or a wide table) that the default
-// prose-friendly max-width doesn't give them.
-const WIDE_ROUTES = ["/", "/all-jobs", "/tracker"];
+// These pages need the extra room (a filter sidebar, a wide table, or Jobby's job picker beside
+// the chat) that the default prose-friendly max-width doesn't give them.
+const WIDE_ROUTES = ["/", "/all-jobs", "/tracker", "/jobby"];
 
 function AppMain({
   needsOnboarding,
@@ -43,6 +46,7 @@ function AppMain({
         <Route path="/jobs/:id" element={<JobDetailPage />} />
         <Route path="/all-jobs" element={<AllJobsPage />} />
         <Route path="/tracker" element={<MyJobsPage />} />
+        <Route path="/jobby" element={<JobbyPage />} />
         <Route path="/sources" element={<ManageSourcesPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/settings" element={<SettingsPage />} />
@@ -80,6 +84,7 @@ export default function App() {
                 end={link.end}
                 className={({ isActive }) => (isActive ? "active" : "")}
               >
+                {link.to === "/jobby" && <JobbyLogo size={18} title="" />}
                 {link.label}
               </NavLink>
             ))}

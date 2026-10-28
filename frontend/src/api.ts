@@ -111,6 +111,29 @@ export interface DiscoveryRequest {
   like?: string;
 }
 
+export interface JobbyMessage {
+  id: number;
+  role: "user" | "assistant";
+  content: string;
+  created_at: string;
+}
+
+export interface JobbyThread {
+  job: { id: number; title: string; company: string; status: ApplicationStatus | null } | null;
+  messages: JobbyMessage[];
+}
+
+// One server-sent event from POST /api/jobby/thread/messages (see core/jobby.stream_reply).
+export type JobbyEvent =
+  | { type: "delta"; text: string }
+  | { type: "status"; text: string }
+  | { type: "done"; user: JobbyMessage; assistant: JobbyMessage }
+  | { type: "error"; message: string };
+
+function jobbyQuery(jobId: number | null) {
+  return jobId === null ? "" : `?job_id=${jobId}`;
+}
+
 export interface JobBoardSuggestion {
   name: string;
   url: string;
@@ -390,6 +413,42 @@ export const api = {
   generatedDocumentDownloadUrl: (docId: number) => `/api/generate/documents/${docId}/download`,
 
   resumeDownloadUrl: (resumeId: number) => `/api/resumes/${resumeId}/download`,
+
+  getJobbyThread: (jobId: number | null) => request<JobbyThread>(`/api/jobby/thread${jobbyQuery(jobId)}`),
+
+  clearJobbyThread: (jobId: number | null) =>
+    request<{ ok: true }>(`/api/jobby/thread${jobbyQuery(jobId)}`, { method: "DELETE" }),
+
+  // Sends a message and calls onEvent for each streamed event as it arrives. The reply streams
+  // as server-sent events over a POST, which EventSource can't do, so this reads the body directly.
+  streamJobbyMessage: async (jobId: number | null, content: string, onEvent: (e: JobbyEvent) => void) => {
+    const res = await fetch(`/api/jobby/thread/messages${jobbyQuery(jobId)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content }),
+    });
+    if (!res.ok || !res.body) {
+      const body = await res.json().catch(() => ({ detail: res.statusText }));
+      const detail = typeof body.detail === "string" ? body.detail : res.statusText;
+      throw new ApiError(res.status, detail);
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let boundary;
+      while ((boundary = buffer.indexOf("\n\n")) !== -1) {
+        const chunk = buffer.slice(0, boundary);
+        buffer = buffer.slice(boundary + 2);
+        for (const line of chunk.split("\n")) {
+          if (line.startsWith("data: ")) onEvent(JSON.parse(line.slice(6)) as JobbyEvent);
+        }
+      }
+    }
+  },
 
   suggestCompanies: (req: DiscoveryRequest = {}) =>
     request<CompanySuggestion[]>("/api/discovery/suggest", {

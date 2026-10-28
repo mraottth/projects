@@ -344,3 +344,58 @@ a.onboarding-cta { display: inline-block; text-decoration: none; }
 .empty-card .form-actions { justify-content: center; margin-top: 12px; }
 .empty-card > .primary, .empty-card > .ghost { margin-top: 10px; }
 a.button-link { display: inline-block; text-decoration: none; }
+
+/* ---------- jobby */
+.topbar nav a .jobby-logo { vertical-align: -4px; margin-right: 5px; }
+.jobby-header { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+.jobby-header h1 { margin: 0; }
+.jobby-layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 20px; align-items: start; }
+.jobby-picker { position: sticky; top: 16px; padding: 14px; }
+.jobby-picker ul { list-style: none; margin: 0; padding: 0; max-height: 60vh; overflow-y: auto; }
+.jobby-pick {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%;
+  text-align: left; background: none; border: 1px solid transparent; border-radius: 8px;
+  padding: 8px 10px; margin-bottom: 2px; color: var(--ink);
+}
+.jobby-pick:hover:not(:disabled) { background: #efeee9; }
+.jobby-pick.on { background: rgba(42, 120, 214, 0.08); border-color: rgba(42, 120, 214, 0.35); }
+.jobby-pick:disabled { cursor: default; opacity: 0.7; }
+.jobby-pick-title { font-weight: 600; font-size: 0.9rem; }
+.jobby-pick .pill { font-size: 0.7rem; padding: 1px 7px; }
+.jobby-chat { display: flex; flex-direction: column; min-height: 70vh; padding: 0; overflow: hidden; }
+.jobby-chat-head {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  padding: 14px 18px; border-bottom: 1px solid var(--grid);
+}
+.jobby-messages { flex: 1; overflow-y: auto; max-height: 62vh; padding: 16px 18px; display: flex; flex-direction: column; gap: 14px; }
+.jobby-msg.user {
+  align-self: flex-end; max-width: 80%; background: var(--accent); color: #fff;
+  padding: 9px 13px; border-radius: 14px 14px 4px 14px; white-space: pre-wrap; word-break: break-word;
+}
+.jobby-msg.assistant { display: flex; gap: 10px; align-items: flex-start; max-width: 92%; }
+.jobby-msg.assistant > .jobby-logo { flex: none; margin-top: 2px; }
+.jobby-msg-body {
+  background: var(--page); border: 1px solid var(--grid); border-radius: 4px 14px 14px 14px;
+  padding: 9px 13px; min-width: 0; word-break: break-word;
+}
+.jobby-msg-body > :first-child { margin-top: 0; }
+.jobby-msg-body > :last-child { margin-bottom: 0; }
+.jobby-starters { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; margin-top: 4px; padding-left: 38px; }
+.jobby-starter {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left;
+  background: var(--card); border: 1px solid var(--ring); border-radius: 12px; padding: 11px 13px;
+}
+.jobby-starter:hover { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(42, 120, 214, 0.12); }
+.jobby-starter-label { font-weight: 600; color: var(--ink); }
+.jobby-welcome { display: flex; flex-direction: column; gap: 12px; }
+.jobby-try { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px 18px 0; }
+.jobby-input { display: flex; gap: 10px; align-items: flex-end; padding: 12px 18px 16px; }
+.jobby-chat > .error-text { padding: 6px 18px 0; margin: 0; }
+.jobby-input textarea { flex: 1; resize: vertical; min-height: 44px; font: inherit; }
+a.jobby-link { white-space: nowrap; }
+@media (max-width: 860px) {
+  .jobby-layout { grid-template-columns: 1fr; }
+  .jobby-picker { position: static; }
+  .jobby-picker ul { max-height: 220px; }
+  .jobby-starters { padding-left: 0; }
+}
