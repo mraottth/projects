@@ -64,11 +64,13 @@ bucket-setup:  ## once: create the GCS bucket backing persistent SQLite + resume
 # The frontend is built inside the Dockerfile's node stage -- no separate local build step needed
 # before `gcloud builds submit`. --iap locks the service down directly (GA Cloud Run + IAP
 # integration, no load balancer needed) -- run `make iap-setup` once afterward to actually grant
-# your own account access, or nobody (including you) can reach it.
+# your own account access, or nobody (including you) can reach it. --timeout 3600 (Cloud Run's max,
+# default is 300s) because a full daily run -- polling plus up to daily_llm_cap serial scoring calls
+# -- and a web-search discovery call can both outlast 5 minutes.
 deploy:       ## build the image in Cloud Build and deploy to Cloud Run, locked behind IAP
 	gcloud builds submit --project $(GCP_PROJECT) --region $(GCP_REGION) --tag $(IMAGE) .
 	gcloud run deploy jobhunt --project $(GCP_PROJECT) --region $(GCP_REGION) --image $(IMAGE) \
-	  --memory 1Gi --cpu 1 --max-instances 1 --no-allow-unauthenticated --iap \
+	  --memory 1Gi --cpu 1 --max-instances 1 --no-allow-unauthenticated --iap --timeout 3600 \
 	  --execution-environment gen2 \
 	  --add-volume name=data,type=cloud-storage,bucket=$(BUCKET) \
 	  --add-volume-mount volume=data,mount-path=/data \

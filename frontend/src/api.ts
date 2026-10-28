@@ -354,7 +354,7 @@ export const api = {
       "/api/settings/usage-log",
     ),
 
-  runDailyNow: () => request<Record<string, unknown>>("/internal/run-daily", { method: "POST" }),
+  runDailyNow: () => request<Record<string, unknown>>("/api/pipeline/run-daily", { method: "POST" }),
 
   generateResume: (jobId: number, applicationId?: number) =>
     request<{ id: number; content_text: string; file_path: string | null }>("/api/generate/resume", {

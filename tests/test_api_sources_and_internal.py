@@ -64,3 +64,16 @@ def test_internal_run_daily_rejects_bad_secret(monkeypatch):
 
         resp = client.post("/internal/run-daily", headers={"X-Scheduler-Secret": "s3cr3t"})
         assert resp.status_code == 200
+
+
+def test_ui_run_daily_needs_no_scheduler_secret(monkeypatch):
+    # The browser can't send the scheduler secret -- this route relies on IAP instead, so it must
+    # work even when SCHEDULER_SECRET is set (as it always is in production).
+    monkeypatch.setenv("SCHEDULER_SECRET", "s3cr3t")
+    monkeypatch.setattr(daily_run, "ADAPTERS", {})
+
+    with TestClient(app) as client:
+        resp = client.post("/api/pipeline/run-daily")
+        assert resp.status_code == 200
+        assert "llm_scored_count" in resp.json()
+        assert client.post("/internal/run-daily").status_code == 403
