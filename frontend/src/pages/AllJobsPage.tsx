@@ -1,6 +1,14 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api, RankedJob } from "../api";
-import { DEFAULT_JOB_FILTERS, JobFilterBar, JobFilterState, filterJobs } from "../components/JobFilters";
+import {
+  DEFAULT_JOB_FILTERS,
+  FilteredEmptyState,
+  JobFilterBar,
+  JobFilterState,
+  NO_JOB_FILTERS,
+  filterJobs,
+} from "../components/JobFilters";
 import { ScoredJobCard } from "../components/ScoredJobCard";
 
 export default function AllJobsPage() {
@@ -27,16 +35,22 @@ export default function AllJobsPage() {
 
       {loading && <p className="muted">Loading...</p>}
       {!loading && jobs.length === 0 && (
-        <p className="empty-state">
-          No jobs yet — add a source on the Manage Sources page, or run the pipeline to poll what's
-          already tracked.
-        </p>
+        <div className="card empty-card">
+          <p>No jobs yet.</p>
+          <p className="muted small">
+            Jobs show up here once your sources are checked — that happens every morning, or right
+            away with "Run now" on Manage Sources.
+          </p>
+          <Link className="primary button-link" to="/sources">
+            Manage sources
+          </Link>
+        </div>
       )}
 
       {jobs.length > 0 && (
         <div className="list-layout">
           <div className="list-main">
-            {filtered.length === 0 && <p className="empty-state">No jobs match these filters.</p>}
+            {filtered.length === 0 && <FilteredEmptyState onClear={() => setFilters(NO_JOB_FILTERS)} />}
             {filtered.map((job) => (
               <ScoredJobCard key={job.id} job={job} />
             ))}

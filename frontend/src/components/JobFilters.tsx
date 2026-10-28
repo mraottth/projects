@@ -24,6 +24,33 @@ export const DEFAULT_JOB_FILTERS: JobFilterState = {
   search: "",
 };
 
+// Truly no filters -- unlike DEFAULT_JOB_FILTERS, which already hides Low fits (and, since an
+// unscored job has no fit at all, every job the daily cap hasn't reached yet).
+export const NO_JOB_FILTERS: JobFilterState = {
+  interestFilter: [],
+  candidateFilter: [],
+  source: [],
+  minSalary: "",
+  recency: "all",
+  location: [],
+  search: "",
+};
+
+// Shown in place of the list when jobs exist but the filters hide all of them.
+export function FilteredEmptyState({ onClear }: { onClear: () => void }) {
+  return (
+    <div className="card empty-card">
+      <p>No jobs match these filters.</p>
+      <p className="muted small">
+        The default filters hide Low fits and jobs that haven't been scored yet.
+      </p>
+      <button className="primary" onClick={onClear}>
+        Clear all filters
+      </button>
+    </div>
+  );
+}
+
 export function filterJobs(jobs: ScoredJob[], f: JobFilterState): ScoredJob[] {
   const minSalary = f.minSalary.trim() ? Number(f.minSalary) : null;
   const recencyDays = f.recency === "all" ? null : Number(f.recency);

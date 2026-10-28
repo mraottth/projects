@@ -333,3 +333,14 @@ a.onboarding-cta { display: inline-block; text-decoration: none; }
   .stepper-label { display: none; }
   .stepper li.current .stepper-label { display: inline; }
 }
+
+/* ---------- manage sources sections */
+.source-section { margin-bottom: 28px; }
+.source-section-title { font-size: 1.25rem; margin: 0 0 2px; }
+.source-section > .muted.small { margin: 0 0 12px; }
+.discovery-like { margin: 0 0 10px; color: var(--ink-2); }
+.empty-card { text-align: center; padding: 28px 18px; }
+.empty-card p { margin: 0 0 6px; }
+.empty-card .form-actions { justify-content: center; margin-top: 12px; }
+.empty-card > .primary, .empty-card > .ghost { margin-top: 10px; }
+a.button-link { display: inline-block; text-decoration: none; }

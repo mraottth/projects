@@ -217,6 +217,13 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   than greedily matching first-`{`-to-last-`}`, so a stray `{...}` quoted in the prose can't break
   the parse. The frontend (`components/Discovery.tsx`) says a search usually takes 1-2 minutes and
   shows a "no new suggestions" message on an empty result rather than rendering nothing.
+  Each search can be steered: an optional `guidance` ("Steer this search": free text like
+  "mission-driven tech startups", made the main focus of that one search) and/or `like` ("More
+  like this" on a suggestion, or "Find more like this" on a tracked source -- name plus URL when
+  there is one). Both are an optional JSON body on `/api/discovery/suggest[-boards]`, appended by
+  `_search_direction()` after the profile; neither is saved. Manage Sources hands a tracked
+  source's seed to the right Discover card through a `seed` prop (`DiscoverySeed`, with a `nonce`
+  so asking twice re-runs) and scrolls to it.
 - **Favorite was removed** (favorite companies and favorite sources, which bypassed the pre-filter
   and daily cap and always ranked first) at the user's request -- every source is now just a
   monitored source. `schema.sql` no longer has `sources.is_favorite`, `scoring_queue.is_favorite`,
@@ -240,7 +247,11 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   path templates in order -- a later `/ranked` would 404 as an invalid `job_id`) -- every active
   job from a tracked source (`source_id NOT NULL`), scored or not, ranked best-first, the uncapped
   view the daily cap's 50-job limit would otherwise hide. `ManageSourcesPage` (route `/sources`) is
-  purely source management: company/job-board Discovery (moved here from Profile), "Add a source", the tracked-sources list, run-daily-now -- no job
+  purely source management, in two sections -- **Organizations** (tracked single-employer sources,
+  then Discover organizations) and **Job boards** (multi-employer boards and the keyword
+  aggregators, then Discover job boards) -- then "Add a source" and run-daily-now. A source is an
+  organization if it's an `ats_*` kind or has a `company_name` (`isOrganization()`); there's no
+  stored type, so this needs no migration. Monitoring a suggestion refreshes the lists (`onAdded`). No job
   listing on this page at all; it used to be a single page with two tabs, split into separate
   pages/routes on request so the management page isn't also a long job feed one click away.
   `MyJobsPage` (route `/tracker`, file `MyJobsPage.tsx`) is the application tracker plus "Add a
@@ -293,6 +304,11 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   search across title/company/location/summary/full description. All client-side over the already
   -loaded job list, same approach as the earlier fit filters -- no new query-param surface
   on the backend.
+- Empty states: `DigestPage` with no entries shows "Browse All Jobs" / "Add more sources"
+  buttons; when filters hide every job, both job lists show `FilteredEmptyState` with "Clear all
+  filters", which applies `NO_JOB_FILTERS` (truly empty), not `DEFAULT_JOB_FILTERS`. The defaults
+  already hide Low fits *and every unscored job* (no fit to match), so after onboarding's 20-job
+  first run, All Jobs can look empty under the defaults while holding many jobs.
 - `components/ScoredJobCard.tsx` always shows salary and posted date now, "N/A" when either is
   missing, rather than omitting the line entirely -- and "posted" means the job description's own
   `posted_at`, never `first_seen_at` (when our pipeline happened to discover it, which isn't what

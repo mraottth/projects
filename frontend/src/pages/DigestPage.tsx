@@ -1,16 +1,27 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, DigestEntry } from "../api";
-import { DEFAULT_JOB_FILTERS, JobFilterBar, JobFilterState, filterJobs } from "../components/JobFilters";
+import {
+  DEFAULT_JOB_FILTERS,
+  FilteredEmptyState,
+  JobFilterBar,
+  JobFilterState,
+  NO_JOB_FILTERS,
+  filterJobs,
+} from "../components/JobFilters";
 import { ScoredJobCard } from "../components/ScoredJobCard";
 
 export default function DigestPage() {
   const [entries, setEntries] = useState<DigestEntry[]>([]);
   const [filters, setFilters] = useState<JobFilterState>(DEFAULT_JOB_FILTERS);
   const [hasResume, setHasResume] = useState(true);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.getDigestToday().then((r) => setEntries(r.entries));
+    api
+      .getDigestToday()
+      .then((r) => setEntries(r.entries))
+      .finally(() => setLoading(false));
     // Covers anyone who skipped onboarding: nothing gets scored well without a resume.
     api
       .getOnboardingStatus()
@@ -41,12 +52,29 @@ export default function DigestPage() {
         </div>
       )}
 
-      {entries.length === 0 && <p className="empty-state">Nothing new and noteworthy yet.</p>}
+      {loading && <p className="muted">Loading...</p>}
+      {!loading && entries.length === 0 && hasResume && (
+        <div className="card empty-card">
+          <p>Nothing new and noteworthy today.</p>
+          <p className="muted small">
+            New postings are checked and scored every morning. In the meantime, browse everything
+            your sources have already found, or add more sources to widen the net.
+          </p>
+          <div className="form-actions">
+            <Link className="primary button-link" to="/all-jobs">
+              Browse All Jobs
+            </Link>
+            <Link className="ghost button-link" to="/sources">
+              Add more sources
+            </Link>
+          </div>
+        </div>
+      )}
 
       {entries.length > 0 && (
         <div className="list-layout">
           <div className="list-main">
-            {filtered.length === 0 && <p className="empty-state">No jobs match these filters.</p>}
+            {filtered.length === 0 && <FilteredEmptyState onClear={() => setFilters(NO_JOB_FILTERS)} />}
             {filtered.map((entry) => (
               <ScoredJobCard
                 key={entry.id}
