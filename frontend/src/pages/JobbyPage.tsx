@@ -26,11 +26,6 @@ const STARTERS: { label: string; blurb: string; text: string }[] = [
     text: "Help me frame my background for this role: draft a 60–90 second \"tell me about yourself\", map my strongest stories to what the posting asks for, and suggest honest ways to handle any gaps.",
   },
   {
-    label: "Questions to ask them",
-    blurb: "Thoughtful questions for each interviewer",
-    text: "Suggest thoughtful questions I could ask my interviewers for this role — for the hiring manager, future teammates, and leadership — informed by what you can find about the company right now.",
-  },
-  {
     label: "Prep & research plan",
     blurb: "A checklist of what to do beforehand",
     text: "Give me a prep checklist for this interview: what to research about the company (look up anything recent and relevant), skills or examples to brush up on, and logistics to sort out beforehand.",

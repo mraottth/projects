@@ -310,8 +310,9 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   Web search is on (`max_uses` 3, `pause_turn` resumed), and a search shows "Searching the web...".
   A failed turn keeps nothing, not even the user's message, so the UI puts their text back to
   retry. Turns log as `call_type='generation'` with a `jobby chat` note, because `llm_calls`'
-  CHECK constraint can't be widened on the live table without a rebuild. The five starter prompts
-  (mock interview, likely questions, frame my background, questions to ask, prep & research plan)
+  CHECK constraint can't be widened on the live table without a rebuild. The four starter prompts
+  (mock interview, likely questions, frame my background, prep & research plan; "questions to ask
+  them" was dropped at the user's request)
   are frontend constants (`STARTERS`) sent as ordinary user messages; the mock-interview behavior
   (one question at a time, feedback, wrap-up) lives in `PERSONA`. `JobbyLogo.tsx` renders the
   user-supplied Jobby art: `src/assets/jobby-avatar.png` (a tight head crop, for the nav tab,
