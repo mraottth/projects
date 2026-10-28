@@ -153,6 +153,25 @@ export interface Settings {
   prefilter_remote_only: boolean;
   salary_floor: number | null;
   looking_for_notes: string;
+  onboarding_completed: boolean;
+  onboarding_step: OnboardingStep;
+}
+
+export type OnboardingStep =
+  | "resume"
+  | "looking_for"
+  | "cover_letter"
+  | "old_docs"
+  | "profile"
+  | "sources"
+  | "finish";
+
+export interface OnboardingStatus {
+  needs_onboarding: boolean;
+  step: OnboardingStep;
+  has_resume: boolean;
+  has_cover_letter: boolean;
+  has_profile: boolean;
 }
 
 export interface GeneratedDoc {
@@ -282,6 +301,20 @@ export const api = {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text }),
+    }),
+
+  reviseCandidateProfile: (instructions: string) =>
+    request<{ text: string }>("/api/resumes/profile/revise", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ instructions }),
+    }),
+
+  getOnboardingStatus: () => request<OnboardingStatus>("/api/onboarding/status"),
+
+  generateStarterCoverLetter: () =>
+    request<{ id: number; content_text: string }>("/api/onboarding/generate-cover-letter", {
+      method: "POST",
     }),
 
   listSources: () => request<Source[]>("/api/sources"),
