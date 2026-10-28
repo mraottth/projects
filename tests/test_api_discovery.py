@@ -1,3 +1,5 @@
+import time
+
 from fastapi.testclient import TestClient
 
 from jobhunt.api.main import app
@@ -138,3 +140,50 @@ def test_discovery_passes_guidance_and_like_through(monkeypatch):
         # No body at all still works (the original, unsteered search).
         assert client.post("/api/discovery/suggest-boards").status_code == 200
         assert captured == {"guidance": None, "like": None}
+
+
+def _wait_for_task(client, task_id):
+    for _ in range(100):
+        body = client.get(f"/api/discovery/tasks/{task_id}").json()
+        if body["status"] != "running":
+            return body
+        time.sleep(0.02)
+    raise AssertionError("discovery task never finished")
+
+
+def test_discovery_background_task_returns_suggestions(monkeypatch):
+    captured = {}
+
+    def fake_suggest_companies(profile, settings, exclude_names=None, **kwargs):
+        captured.update(kwargs)
+        return [discovery.CompanySuggestion(company_name="Acme", reason="Hiring now")]
+
+    monkeypatch.setattr(discovery_api, "suggest_companies", fake_suggest_companies)
+    with TestClient(app) as client:
+        resp = client.post("/api/discovery/suggest/start", json={"like": "Civis Analytics"})
+        assert resp.status_code == 200
+        body = _wait_for_task(client, resp.json()["task_id"])
+
+    assert body == {
+        "status": "done",
+        "result": [{"company_name": "Acme", "reason": "Hiring now", "careers_url": None}],
+    }
+    assert captured["like"] == "Civis Analytics"
+
+
+def test_discovery_background_task_reports_errors(monkeypatch):
+    def raise_value_error(profile, settings, exclude_urls=None, **kwargs):
+        raise ValueError("no JSON object found in response")
+
+    monkeypatch.setattr(discovery_api, "suggest_job_boards", raise_value_error)
+    with TestClient(app) as client:
+        task_id = client.post("/api/discovery/suggest-boards/start").json()["task_id"]
+        body = _wait_for_task(client, task_id)
+
+    assert body["status"] == "error"
+    assert "couldn't be parsed" in body["error"]
+
+
+def test_discovery_unknown_task_404s():
+    with TestClient(app) as client:
+        assert client.get("/api/discovery/tasks/nope").status_code == 404

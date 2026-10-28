@@ -4,8 +4,17 @@ export class ApiError extends Error {
   }
 }
 
+const NETWORK_ERROR = "Lost the connection to the app before it answered — check your connection and try again.";
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, init);
+  let res: Response;
+  try {
+    res = await fetch(path, init);
+  } catch {
+    // fetch() itself only rejects when no response arrived at all; browsers word that unhelpfully
+    // ("Load failed" in Safari, "Failed to fetch" in Chrome).
+    throw new Error(NETWORK_ERROR);
+  }
   if (!res.ok) {
     const body = await res.json().catch(() => ({ detail: res.statusText }));
     throw new ApiError(res.status, body.detail ?? res.statusText);
@@ -109,6 +118,34 @@ export interface CompanySuggestion {
 export interface DiscoveryRequest {
   guidance?: string;
   like?: string;
+}
+
+const DISCOVERY_POLL_MS = 2000;
+const MAX_POLL_FAILURES = 5;
+
+// A discovery search takes a minute or two. Holding one request open that long got it dropped
+// ("Load failed" in Safari), so it starts in the background and is polled with short requests.
+async function runDiscovery<T>(startPath: string, req: DiscoveryRequest): Promise<T[]> {
+  const { task_id } = await request<{ task_id: string }>(startPath, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+  });
+  let failures = 0;
+  for (;;) {
+    await new Promise((resolve) => setTimeout(resolve, DISCOVERY_POLL_MS));
+    let task: { status: "running" | "done" | "error"; result?: T[]; error?: string };
+    try {
+      task = await request(`/api/discovery/tasks/${task_id}`);
+      failures = 0;
+    } catch (e) {
+      // A dropped poll (phone asleep, a network blip) doesn't lose the search; keep trying a bit.
+      if (e instanceof ApiError || ++failures >= MAX_POLL_FAILURES) throw e;
+      continue;
+    }
+    if (task.status === "done") return task.result ?? [];
+    if (task.status === "error") throw new Error(task.error ?? "Discovery failed");
+  }
 }
 
 export interface JobbyMessage {
@@ -451,18 +488,10 @@ export const api = {
   },
 
   suggestCompanies: (req: DiscoveryRequest = {}) =>
-    request<CompanySuggestion[]>("/api/discovery/suggest", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(req),
-    }),
+    runDiscovery<CompanySuggestion>("/api/discovery/suggest/start", req),
 
   suggestJobBoards: (req: DiscoveryRequest = {}) =>
-    request<JobBoardSuggestion[]>("/api/discovery/suggest-boards", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(req),
-    }),
+    runDiscovery<JobBoardSuggestion>("/api/discovery/suggest-boards/start", req),
 
   resolveSource: (companyName: string) =>
     request<Source>("/api/sources/resolve", {

@@ -221,6 +221,14 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   than greedily matching first-`{`-to-last-`}`, so a stray `{...}` quoted in the prose can't break
   the parse. The frontend (`components/Discovery.tsx`) says a search usually takes 1-2 minutes and
   shows a "no new suggestions" message on an empty result rather than rendering nothing.
+  The UI doesn't wait on one long request for a search: `POST /api/discovery/suggest[-boards]/start`
+  runs the same route handler in a background thread and returns a `task_id`, and `api.ts`'s
+  `runDiscovery()` polls `GET /api/discovery/tasks/{id}` every 2 s (tolerating a few dropped polls).
+  A single request that's silent for 1-2 minutes got cut before the answer arrived (caught live in
+  Safari as "Load failed" on "Find more like this"). Tasks are in-process memory (one Cloud Run
+  instance), pruned after an hour. The synchronous `/suggest[-boards]` routes still exist. `api.ts`'s
+  `request()` also turns a bare fetch network failure ("Load failed"/"Failed to fetch") into a
+  readable message.
   Each search can be steered: an optional `guidance` ("Steer this search": free text like
   "mission-driven tech startups", made the main focus of that one search) and/or `like` ("More
   like this" on a suggestion, or "Find more like this" on a tracked source -- name plus URL when

@@ -1,4 +1,8 @@
 import json
+import threading
+import time
+import uuid
+from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -86,3 +90,56 @@ def suggest_boards(payload: DiscoveryRequest | None = None):
     except LLMError as exc:
         raise HTTPException(502, str(exc)) from exc
     return [s.model_dump() for s in suggestions]
+
+
+# A discovery search takes 1-2 minutes and sends nothing back until it's done. Held open as one
+# request, that silent wait got the connection dropped before the answer arrived (caught live in
+# Safari: "Load failed" on "Find more like this"). So the UI starts a search in the background and
+# polls for its result with short requests instead. Tasks live in this process's memory, which is
+# fine with Cloud Run's single instance; a restart mid-search just 404s the poll.
+TASK_TTL_SECONDS = 3600
+_tasks: dict[str, dict] = {}
+_tasks_lock = threading.Lock()
+
+
+def _start_task(handler: Callable[[DiscoveryRequest | None], list], payload: DiscoveryRequest | None) -> str:
+    task_id = uuid.uuid4().hex
+    with _tasks_lock:
+        cutoff = time.time() - TASK_TTL_SECONDS
+        for old in [k for k, t in _tasks.items() if t["started"] < cutoff]:
+            del _tasks[old]
+        _tasks[task_id] = {"status": "running", "started": time.time()}
+
+    def work():
+        try:
+            update = {"status": "done", "result": handler(payload)}
+        except HTTPException as exc:
+            update = {"status": "error", "error": exc.detail}
+        except Exception as exc:  # noqa: BLE001 -- surfaced to the UI rather than lost in a thread
+            update = {"status": "error", "error": f"Discovery failed: {exc}"}
+        with _tasks_lock:
+            _tasks[task_id].update(update)
+
+    threading.Thread(target=work, daemon=True).start()
+    return task_id
+
+
+@router.post("/suggest/start")
+def start_suggest(payload: DiscoveryRequest | None = None):
+    return {"task_id": _start_task(suggest, payload)}
+
+
+@router.post("/suggest-boards/start")
+def start_suggest_boards(payload: DiscoveryRequest | None = None):
+    return {"task_id": _start_task(suggest_boards, payload)}
+
+
+@router.get("/tasks/{task_id}")
+def get_task(task_id: str):
+    """{"status": "running"} until the search finishes, then "done" with `result` (the same list the
+    synchronous routes return) or "error" with `error`."""
+    with _tasks_lock:
+        task = _tasks.get(task_id)
+        if task is None:
+            raise HTTPException(404, "This search was interrupted (the server restarted) — try again.")
+        return {k: v for k, v in task.items() if k != "started"}
