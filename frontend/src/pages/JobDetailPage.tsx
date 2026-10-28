@@ -140,10 +140,10 @@ export default function JobDetailPage() {
 
         <div className="form-actions">
           <button className="primary" onClick={() => generate("resume")} disabled={busy === "resume"}>
-            {busy === "resume" ? <Spinner label="Generating..." /> : "Generate tailored resume"}
+            {busy === "resume" ? <Spinner label="Tailoring..." /> : "Tailor my resume"}
           </button>
           <button className="primary" onClick={() => generate("cover-letter")} disabled={busy === "cover-letter"}>
-            {busy === "cover-letter" ? <Spinner label="Generating..." /> : "Generate cover letter"}
+            {busy === "cover-letter" ? <Spinner label="Tailoring..." /> : "Tailor my cover letter"}
           </button>
         </div>
         {error && <p className="error-text small">{error}</p>}

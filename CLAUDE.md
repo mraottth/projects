@@ -443,10 +443,13 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   truth for display order.
 - `core/generate.py`'s cover-letter prompt explicitly says to use the candidate's real name (e.g.
   "Matt Roth") when a signature line needs one, not a surname-only form like "Roth" -- the
-  candidate profile is written in third-person journalistic style (surname after first mention,
-  per its own system prompt), and without this instruction the generation prompt had no other
-  source for "what does this person want to be called," so it picked up the profile's surname-only
-  style by default. The resume path no longer has this problem at all, for a stronger reason than a
+  candidate profile used to call the user by surname (third-person journalistic style), and the
+  generation prompt picked that up. The profile itself now refers to the user by (preferred) first
+  name: `core/profile.py`'s build and revise prompts say so explicitly, since the user objected to
+  "Roth" live. It stays third person, a briefing note for the scoring model. By contrast, the
+  scoring *rationale* the user reads on every job card is second person ("your background..."),
+  per `core/scoring.py`'s prompt, which also warns against carrying over the profile's third-person
+  voice. The resume path no longer has this problem at all, for a stronger reason than a
   prompt instruction: `write_resume_edits` hard-denylists any edit anchored on the `title` line, so
   the candidate's name is never regenerated in the first place (see `core/docx_writer.py` above).
 - `settings.looking_for_notes` (Profile page, "What are you looking for?" card) is a free-text
@@ -492,14 +495,18 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   width; this one's inset via `left: 6%; right: 6%` so it doesn't touch either edge), and `.flabel`
   is darker/bolder (`color: var(--ink); font-weight: 700`) specifically inside `.filters`, not
   changing the shared global `.flabel` used elsewhere.
+- `GET /api/resumes/{id}/download` (`api/resumes.py`) returns an uploaded resume/cover letter under its
+  original file name -- the Profile page's "Download" links (current docs and the Old list).
 - `GET /api/generate/documents/{id}/download` (`api/generate.py`) streams the actual `.docx` via
   `FileResponse` when `file_path` exists and the file's still on disk, falling back to the
   markdown `content_text` as a downloadable `.md` (`Content-Disposition: attachment`) for the
   plain-text-only generation path or a file that's been moved/deleted since. Used from both
   `MyJobsPage`'s `DocActions` (a plain `<a download>`, not a fetch -- lets the browser handle the
-  download natively) and the Profile page's Generated Documents table. In `MyJobsPage`, clicking a
-  ✓-prefixed Resume/Cover letter control now downloads instead of regenerating -- it's rendered as
-  an `<a>` when a doc id already exists, a `<button>` (the original generate action) otherwise;
+  download natively) and the Profile page's Generated Documents table. In `MyJobsPage`, each
+  document control reads "Tailor my resume"/"Tailor my cover letter" (same wording as
+  `JobDetailPage`'s buttons) until one exists, then "Download resume"/"Download cover letter",
+  which downloads instead of regenerating -- it's rendered as an `<a>` when a doc id already
+  exists, a `<button>` (the generate action) otherwise;
   `a.ghost` needed `display: inline-block; text-decoration: none` added since `.ghost`'s existing
   rules were written assuming a `<button>`, which doesn't need either reset.
 - `MyJobsPage`'s row-remove control is now a `×` (`.remove-x`, `aria-label`/`title` for

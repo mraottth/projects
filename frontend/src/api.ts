@@ -383,6 +383,8 @@ export const api = {
 
   generatedDocumentDownloadUrl: (docId: number) => `/api/generate/documents/${docId}/download`,
 
+  resumeDownloadUrl: (resumeId: number) => `/api/resumes/${resumeId}/download`,
+
   suggestCompanies: () =>
     request<CompanySuggestion[]>("/api/discovery/suggest", { method: "POST" }),
 

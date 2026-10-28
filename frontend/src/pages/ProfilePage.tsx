@@ -45,6 +45,9 @@ function CurrentDocCard({
         >
           <span className="tag">{doc.file_name}</span>
           <span className="muted small"> — {doc.text_length.toLocaleString()} chars</span>
+          <a className="link small doc-download" href={api.resumeDownloadUrl(doc.id)} download>
+            Download
+          </a>
         </div>
       ) : (
         <p className="empty-state">None yet — upload one below.</p>
@@ -142,6 +145,9 @@ function OldDocsSection({
                 <span className="tag">{d.kind === "resume" ? "resume" : "cover letter"}</span>{" "}
                 {d.file_name}{" "}
                 <span className="muted small">— {d.text_length.toLocaleString()} chars</span> —{" "}
+                <a className="link small" href={api.resumeDownloadUrl(d.id)} download>
+                  download
+                </a>{" "}
                 <button className="link small" onClick={() => promote(d.id)}>
                   make current
                 </button>{" "}

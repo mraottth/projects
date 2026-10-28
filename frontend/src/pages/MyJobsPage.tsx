@@ -205,11 +205,11 @@ function DocActions({ app, onChanged }: { app: Application; onChanged: (app: App
           href={api.generatedDocumentDownloadUrl(app.resume_doc_id)}
           download
         >
-          ✓ Resume
+          Download resume
         </a>
       ) : (
         <button className="ghost small" onClick={() => generate("resume")} disabled={busy !== null}>
-          {busy === "resume" ? <Spinner /> : "Resume"}
+          {busy === "resume" ? <Spinner label="Tailoring..." /> : "Tailor my resume"}
         </button>
       )}
       {app.cover_letter_doc_id ? (
@@ -218,11 +218,11 @@ function DocActions({ app, onChanged }: { app: Application; onChanged: (app: App
           href={api.generatedDocumentDownloadUrl(app.cover_letter_doc_id)}
           download
         >
-          ✓ Cover letter
+          Download cover letter
         </a>
       ) : (
         <button className="ghost small" onClick={() => generate("cover-letter")} disabled={busy !== null}>
-          {busy === "cover-letter" ? <Spinner /> : "Cover letter"}
+          {busy === "cover-letter" ? <Spinner label="Tailoring..." /> : "Tailor my cover letter"}
         </button>
       )}
       {error && <span className="error-text small">{error}</span>}
