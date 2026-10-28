@@ -139,7 +139,10 @@ function DiscoveryControls({
 }) {
   return (
     <>
-      <div className="fsection" style={{ marginBottom: "10px" }}>
+      <button className="primary discover-go" onClick={() => d.run(d.like)} disabled={d.busy}>
+        {d.busy ? <Spinner label={SEARCHING_LABEL} /> : `Suggest ${noun}`}
+      </button>
+      <div className="fsection discover-steer">
         <span className="flabel">Steer this search (optional)</span>
         <input
           type="text"
@@ -166,9 +169,6 @@ function DiscoveryControls({
           </button>
         </p>
       )}
-      <button className="ghost" onClick={() => d.run(d.like)} disabled={d.busy}>
-        {d.busy ? <Spinner label={SEARCHING_LABEL} /> : `Suggest ${noun}`}
-      </button>
       {d.error && <p className="error-text small">{d.error}</p>}
       {!d.busy && d.results?.length === 0 && <p className="empty-state small">{NO_RESULTS}</p>}
     </>
@@ -190,19 +190,22 @@ export function DiscoverCompaniesSection({
   autoRun = false,
   seed,
   onAdded,
+  bare = false,
 }: {
   autoRun?: boolean;
   seed?: DiscoverySeed | null;
   // Called after a suggestion is Monitored, so a parent listing sources can refresh.
   onAdded?: () => void;
+  // Inside a dialog that already has its own title: no card wrapper, no heading.
+  bare?: boolean;
 }) {
   const d = useDiscovery<CompanySuggestion>(api.suggestCompanies, autoRun);
   const { status, approve } = useApprovals(onAdded);
   useSeed(seed, d.run);
 
   return (
-    <div className="card" id="discover-organizations">
-      <h2>Discover organizations</h2>
+    <div className={bare ? "discover-bare" : "card"} id="discover-organizations">
+      {!bare && <h2>Discover organizations</h2>}
       <p className="muted small">
         Uses your candidate profile and what you're looking for, plus a web search, to suggest
         organizations worth monitoring. Monitoring one checks its job board for new postings every
@@ -241,19 +244,22 @@ export function DiscoverJobBoardsSection({
   autoRun = false,
   seed,
   onAdded,
+  bare = false,
 }: {
   autoRun?: boolean;
   seed?: DiscoverySeed | null;
   // Called after a suggestion is Monitored, so a parent listing sources can refresh.
   onAdded?: () => void;
+  // Inside a dialog that already has its own title: no card wrapper, no heading.
+  bare?: boolean;
 }) {
   const d = useDiscovery<JobBoardSuggestion>(api.suggestJobBoards, autoRun);
   const { status, approve } = useApprovals(onAdded);
   useSeed(seed, d.run);
 
   return (
-    <div className="card" id="discover-job-boards">
-      <h2>Discover job boards</h2>
+    <div className={bare ? "discover-bare" : "card"} id="discover-job-boards">
+      {!bare && <h2>Discover job boards</h2>}
       <p className="muted small">
         Suggests multi-employer boards worth monitoring — broader reach than tracking one
         organization at a time. Monitoring one checks it for new postings every day. Nothing is
