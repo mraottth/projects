@@ -14,6 +14,7 @@ from jobhunt.core import prefilter, queue
 from jobhunt.core import settings as settings_module
 from jobhunt.core.dedupe import compute_dedupe_key
 from jobhunt.core.digest import add_to_digest
+from jobhunt.core.generic_postings import is_generic_posting
 from jobhunt.core.llm import LLMError
 from jobhunt.core.page_fetch import PageFetchError, fetch_page_text
 from jobhunt.core.preference import get_current_preference_profile, rebuild_preference_profile
@@ -195,8 +196,8 @@ def _prefilter_and_enqueue(job_ids: list[int]) -> int:
             if row is None:
                 continue
             already_scored = conn.execute("SELECT 1 FROM job_scores WHERE job_id = ?", (job_id,)).fetchone()
-            if already_scored:
-                continue
+            if already_scored or is_generic_posting(row["title"]):
+                continue  # a general application / talent pool isn't a job worth scoring
             score, reasons = prefilter.score_job(dict(row), current_settings)
             queue.enqueue(job_id, score, reasons)
             enqueued += 1
@@ -290,6 +291,16 @@ def _score_args() -> tuple:
 def _score_and_digest(batch: list[int]) -> tuple[int, list[str]]:
     """Scores the batch concurrently, then adds each scored job to today's digest. Returns
     (scored count, errors)."""
+    # Queued before general-application postings were recognized: skip rather than pay to score.
+    placeholders = ",".join("?" * len(batch))
+    with get_db() as conn:
+        rows = conn.execute(f"SELECT id, title FROM jobs WHERE id IN ({placeholders})", batch)
+        titles = {row["id"]: row["title"] for row in rows}
+    generic = [job_id for job_id in batch if is_generic_posting(titles.get(job_id))]
+    for job_id in generic:
+        queue.mark_skipped(job_id)
+    batch = [job_id for job_id in batch if job_id not in generic]
+
     _set_progress(stage="scoring", jobs_done=0, jobs_total=len(batch))
     score_args = _score_args()
     scoring_errors = []

@@ -9,6 +9,7 @@ from jobhunt.core.scoring import score_job, store_score
 from jobhunt.core.settings import get_setting
 from jobhunt.db.connection import get_db
 from jobhunt.ingest.manual_import import ManualImportError, parse_job_posting
+from jobhunt.core.generic_postings import is_generic_posting
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
 
@@ -58,8 +59,9 @@ def list_ranked_jobs(status: str = "active"):
     whether they made it into a capped daily digest or the 90-day/not-interested cuts that gate
     "New & Noteworthy" -- ranked best-first by score, with unscored jobs (not yet reached by the
     daily cap) sorted after scored ones. Backs the All Jobs page's full browse view. Manually
-    pasted jobs (no source_id) are excluded -- those go straight to My Jobs, not here. Same rank
-    order as the digest (score, then recency, then salary) for consistency."""
+    pasted jobs (no source_id) are excluded -- those go straight to My Jobs, not here, and so are
+    general-application/talent-pool "postings" (core/generic_postings.py). Same rank order as the
+    digest (score, then recency, then salary) for consistency."""
     with get_db() as conn:
         rows = conn.execute(
             """SELECT j.*, js.interest_fit, js.interest_score, js.candidate_fit, js.candidate_fit_score,
@@ -75,7 +77,7 @@ def list_ranked_jobs(status: str = "active"):
                          COALESCE(j.salary_max, j.salary_min, 0) DESC""",
             (status,),
         ).fetchall()
-    return [_row_to_dict(r) for r in rows]
+    return [_row_to_dict(r) for r in rows if not is_generic_posting(r["title"])]
 
 
 @router.get("/{job_id}")

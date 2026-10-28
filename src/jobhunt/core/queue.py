@@ -87,6 +87,12 @@ def mark_scored(job_id: int) -> None:
         )
 
 
+def mark_skipped(job_id: int) -> None:
+    """Takes a job out of the queue for good (a general-application posting: nothing to score)."""
+    with get_db() as conn:
+        conn.execute("UPDATE scoring_queue SET status = 'skipped' WHERE job_id = ?", (job_id,))
+
+
 def mark_pending_again(job_id: int) -> None:
     """Revert an in_progress row to pending on a scoring failure, so it's retried, not dropped."""
     with get_db() as conn:

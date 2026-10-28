@@ -15,7 +15,19 @@ export interface JobFilterState {
   // Jobs the daily cap hasn't scored yet have no fit at all, so the fit filters can't judge them;
   // this alone decides whether they show.
   includeUnscored: boolean;
+  sort: SortKey;
 }
+
+// "best" keeps the server's order: interest + fit together, then most recent, then salary.
+export type SortKey = "best" | "interest" | "fit" | "posted" | "salary";
+
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: "best", label: "Best match" },
+  { value: "interest", label: "Interest" },
+  { value: "fit", label: "Fit" },
+  { value: "posted", label: "Date posted" },
+  { value: "salary", label: "Salary" },
+];
 
 export const DEFAULT_JOB_FILTERS: JobFilterState = {
   interestFilter: ["High", "Med"],
@@ -26,6 +38,7 @@ export const DEFAULT_JOB_FILTERS: JobFilterState = {
   location: [],
   search: "",
   includeUnscored: true,
+  sort: "best",
 };
 
 // Truly no filters -- unlike DEFAULT_JOB_FILTERS, which already hides Low fits.
@@ -38,6 +51,7 @@ export const NO_JOB_FILTERS: JobFilterState = {
   location: [],
   search: "",
   includeUnscored: true,
+  sort: "best",
 };
 
 // Shown in place of the list when jobs exist but the filters hide all of them.
@@ -55,12 +69,39 @@ export function FilteredEmptyState({ onClear }: { onClear: () => void }) {
   );
 }
 
+// Highest first (scores are 0-100; the other score breaks ties); a job missing the value (unscored, no salary, unknown date) goes last. Ties keep
+// the incoming order (Array.sort is stable), which is the "best match" ranking.
+function sortValue(job: ScoredJob, sort: SortKey): number | null {
+  switch (sort) {
+    case "interest":
+      return job.interest_score == null ? null : job.interest_score * 1000 + (job.candidate_fit_score ?? 0);
+    case "fit":
+      return job.candidate_fit_score == null ? null : job.candidate_fit_score * 1000 + (job.interest_score ?? 0);
+    case "posted":
+      return job.posted_at ? new Date(job.posted_at).getTime() || null : null;
+    case "salary":
+      return job.salary_max ?? job.salary_min ?? null;
+    default:
+      return 0;
+  }
+}
+
+export function sortJobs(jobs: ScoredJob[], sort: SortKey): ScoredJob[] {
+  if (sort === "best") return jobs;
+  return [...jobs].sort((a, b) => {
+    const va = sortValue(a, sort);
+    const vb = sortValue(b, sort);
+    if (va === null || vb === null) return va === vb ? 0 : va === null ? 1 : -1;
+    return vb - va;
+  });
+}
+
 export function filterJobs(jobs: ScoredJob[], f: JobFilterState): ScoredJob[] {
   const minSalary = f.minSalary.trim() ? Number(f.minSalary) : null;
   const recencyDays = f.recency === "all" ? null : Number(f.recency);
   const searchQuery = f.search.trim().toLowerCase();
 
-  return jobs.filter((job) => {
+  const filtered = jobs.filter((job) => {
     if (!job.interest_fit && !job.candidate_fit) {
       if (!f.includeUnscored) return false;
     } else {
@@ -92,6 +133,7 @@ export function filterJobs(jobs: ScoredJob[], f: JobFilterState): ScoredJob[] {
 
     return true;
   });
+  return sortJobs(filtered, f.sort);
 }
 
 function countActive(f: JobFilterState): number {
@@ -205,10 +247,25 @@ export function JobFilterBar({
       <div className="filters-head">
         <h2 style={{ fontSize: "1rem", margin: 0 }}>Filters{active ? ` (${active})` : ""}</h2>
         {active > 0 && (
-          <button className="link small" onClick={() => onChange(DEFAULT_JOB_FILTERS)}>
+          <button className="link small" onClick={() => onChange({ ...DEFAULT_JOB_FILTERS, sort: filters.sort })}>
             Clear all
           </button>
         )}
+      </div>
+
+      <div className="fsection">
+        <label className="flabel" htmlFor="job-sort">
+          Sort by
+        </label>
+        <div className="select-wrap">
+          <select id="job-sort" value={filters.sort} onChange={(e) => set("sort", e.target.value as SortKey)}>
+            {SORT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div className="fsection">

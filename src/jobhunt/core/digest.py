@@ -1,5 +1,6 @@
 from datetime import date
 
+from jobhunt.core.generic_postings import is_generic_posting
 from jobhunt.db.connection import get_db
 
 MAX_AGE_DAYS = 90
@@ -40,9 +41,9 @@ def add_to_digest(job_id: int, digest_date: str | None = None) -> None:
     digest_date = digest_date or today_str()
     with get_db() as conn:
         is_recent = conn.execute(
-            f"SELECT {RECENT_OR_UNKNOWN_SQL} AS ok FROM jobs j WHERE j.id = ?", (job_id,)
+            f"SELECT {RECENT_OR_UNKNOWN_SQL} AS ok, j.title FROM jobs j WHERE j.id = ?", (job_id,)
         ).fetchone()
-        if is_recent is None or not is_recent["ok"]:
+        if is_recent is None or not is_recent["ok"] or is_generic_posting(is_recent["title"]):
             return
 
         conn.execute(
@@ -81,7 +82,9 @@ def get_digest(digest_date: str) -> list[dict]:
                WHERE de.digest_date = ? AND {NOT_DISMISSED_SQL} AND {RECENT_OR_UNKNOWN_SQL}""",
             (digest_date,),
         ).fetchall()
-    # Sort live rather than trusting the stored `rank` column -- see _rank_key's docstring.
+    # Sort live rather than trusting the stored `rank` column -- see _rank_key's docstring. A
+    # general-application posting already in an older digest is dropped here too.
+    rows = [row for row in rows if not is_generic_posting(row["title"])]
     return [dict(row) for row in sorted(rows, key=_rank_key, reverse=True)]
 
 

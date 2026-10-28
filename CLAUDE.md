@@ -384,6 +384,20 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   search across title/company/location/summary/full description. All client-side over the already
   -loaded job list, same approach as the earlier fit filters -- no new query-param surface
   on the backend.
+- Both job lists have a "Sort by" select at the top of the filter sidebar (`JobFilterState.sort`,
+  `sortJobs()` in `components/JobFilters.tsx`): Best match (the server's order, unchanged),
+  Interest, Fit (each on its 0-100 score, the other score breaking ties), Date posted, Salary
+  (`salary_max` falling back to `salary_min`). A job missing the value (unscored, no salary, no
+  posted date) sorts last, and the stable sort keeps best-match order among ties. Client-side, like
+  the filters. "Clear all" keeps the chosen sort.
+- General-application / talent-pool / resume-drop "postings" ("Don't see your role?", "Join our
+  Talent Community") are excluded at the user's request: `core/generic_postings.py`'s
+  `is_generic_posting()` matches the *title* only (a real job's description often mentions a
+  talent community). It's applied when jobs are queued for scoring (`_prefilter_and_enqueue`
+  skips them, and `_score_and_digest` marks any already-queued ones `skipped`, so none is paid
+  for), in `add_to_digest()`/`get_digest()`, and in `GET /api/jobs/ranked`. Filtering at read
+  time covers rows stored before this existed, with no migration. Manually pasted My Jobs entries
+  aren't affected.
 - Empty states: `DigestPage` with no entries shows "Browse All Jobs" / "Add more sources"
   buttons; when filters hide every job, both job lists show `FilteredEmptyState` with "Clear all
   filters", which applies `NO_JOB_FILTERS` (truly empty), not `DEFAULT_JOB_FILTERS`. The defaults
