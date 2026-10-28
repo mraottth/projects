@@ -9,6 +9,7 @@ export function DesiredRoleForm() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     api.getSettings().then(setSettings);
@@ -16,13 +17,24 @@ export function DesiredRoleForm() {
 
   if (!settings) return <p className="muted">Loading...</p>;
 
+  // Optimistic: the field updates immediately (a tag chip shouldn't wait on a server round trip,
+  // which on a cold Cloud Run instance can take seconds), then saves in the background. The
+  // server's response deliberately isn't written back -- with two quick edits in flight, the first
+  // response would briefly clobber the second edit. A failed save reverts just the fields it touched.
   const save = async (patch: Partial<Settings>) => {
+    const previous = Object.fromEntries(
+      Object.keys(patch).map((k) => [k, settings[k as keyof Settings]]),
+    ) as Partial<Settings>;
+    setSettings((s) => (s ? { ...s, ...patch } : s));
     setBusy(true);
     setSaved(false);
+    setError(null);
     try {
-      const updated = await api.putSettings(patch);
-      setSettings(updated);
+      await api.putSettings(patch);
       setSaved(true);
+    } catch (e) {
+      setSettings((s) => (s ? { ...s, ...previous } : s));
+      setError(`Couldn't save: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setBusy(false);
     }
@@ -103,6 +115,7 @@ export function DesiredRoleForm() {
 
       {busy && <p className="muted small">Saving...</p>}
       {saved && !busy && <p className="muted small">Saved.</p>}
+      {error && <p className="error-text small">{error}</p>}
     </div>
   );
 }
