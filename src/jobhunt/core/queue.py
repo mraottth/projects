@@ -55,6 +55,18 @@ def select_batch(cap: int) -> list[int]:
     return [row["job_id"] for row in rows]
 
 
+def requeue_stranded() -> int:
+    """Returns jobs left in_progress by a run that never finished (the instance was restarted or
+    replaced mid-run) to pending. select_batch only picks pending rows, so without this they'd
+    never be scored. Called at the start of each run; runs don't overlap in practice (one daily
+    scheduled run, plus the occasional manual one)."""
+    with get_db() as conn:
+        cursor = conn.execute(
+            "UPDATE scoring_queue SET status = 'pending' WHERE status = 'in_progress'"
+        )
+    return cursor.rowcount
+
+
 def mark_scored(job_id: int) -> None:
     with get_db() as conn:
         conn.execute(

@@ -274,6 +274,7 @@ def run_daily(cap: int | None = None) -> dict:
 
 
 def _run_daily(started_at: str, cap: int | None) -> dict:
+    queue.requeue_stranded()
     poll_result = _poll_sources()
     _expire_stale_jobs()
     enqueued = _prefilter_and_enqueue(poll_result["job_ids"])

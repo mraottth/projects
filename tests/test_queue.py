@@ -62,3 +62,18 @@ def test_pending_count():
     queue.enqueue(_insert_job("A"), 50.0, {})
     queue.enqueue(_insert_job("B"), 50.0, {})
     assert queue.pending_count() == 2
+
+
+def test_requeue_stranded_returns_interrupted_jobs_to_pending():
+    # A run killed mid-batch (instance restarted) leaves its batch in_progress, which
+    # select_batch never picks again.
+    job_ids = [_insert_job(f"Job{i}") for i in range(3)]
+    for job_id in job_ids:
+        queue.enqueue(job_id, 10.0, {})
+    batch = queue.select_batch(2)
+    assert queue.pending_count() == 1
+
+    assert queue.requeue_stranded() == 2
+    assert queue.pending_count() == 3
+    assert sorted(queue.select_batch(10)) == sorted(job_ids)
+    assert batch
