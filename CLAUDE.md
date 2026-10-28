@@ -165,39 +165,52 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   docstring), not guessed from documentation.
 - `src/jobhunt/pipeline/daily_run.py` — orchestrates the full daily cycle (poll → upsert → prefilter
   → capped scoring → digest → conditional preference-profile refresh → run summary). Triggered by
-  `POST /internal/run-daily` (Cloud Scheduler in production, a button on the Manage Sources page locally).
+  `POST /internal/run-daily` (Cloud Scheduler, which sends `X-Scheduler-Secret`) or
+  `POST /api/pipeline/run-daily` (`api/pipeline.py`, the UI's "Run now" on Manage Sources and
+  onboarding's last step). The UI can't use `/internal/run-daily`: it requires the secret whenever
+  `SCHEDULER_SECRET` is set -- always, in production -- so the browser got 403 "invalid or missing
+  scheduler secret" there (caught live on onboarding's last step). `/api/pipeline/run-daily` relies
+  on IAP for access control like every other `/api/*` route.
 - `src/jobhunt/core/company_resolver.py` — turns a company name into an actual monitorable source:
   cheap direct probes against the three ATS APIs first (confirmed live that "anthropic"/"figma"
   resolve immediately this way, no LLM needed), falling back to a Claude + web-search call only
-  when none of the slug guesses pan out. Shared by favorites and by approving a discovery suggestion.
-- `src/jobhunt/core/favorites.py` — favorite companies (`favorite_companies` table, intent-level:
-  a favorite can exist with no resolved source yet, or a failed one with a retry option).
-  `is_favorite_company_name()` drives two things: `pipeline/daily_run.py` bypasses pre-filter
-  excludes and the daily cap entirely for a favorite's postings (`core/queue.py`'s `select_batch`
-  always includes all pending favorite jobs, on top of the capped batch for everyone else), and
-  `core/digest.py` flags + force-ranks them first regardless of score.
+  when none of the slug guesses pan out. Used by approving a discovery suggestion (`POST /api/sources/resolve`).
 - `src/jobhunt/core/discovery.py` — `suggest_companies()` suggests single companies to monitor, and
   `suggest_job_boards()` suggests multi-employer boards (niche/sector boards, regional boards,
   aggregators) -- the two are deliberately separate prompts: a board suggestion needs to describe a
   *listing* worth polling repeatedly, not a single employer, and the model is told not to suggest
   a generic board (LinkedIn/Indeed) that adds no reach over what the user can already search. Both
-  return suggestions only; nothing is persisted until the user approves one from the Profile page.
-  Approving a company calls `company_resolver` via `POST /api/sources/resolve` (or `/api/favorites`
-  to also favorite it); approving a board goes straight to `POST /api/sources` with
-  `kind=custom_board` (optionally `is_favorite=true`), since the board's URL is already known from
-  the suggestion. `api/discovery.py` passes already-monitored/favorited company names and board
+  return suggestions only; nothing is persisted until the user clicks Monitor on one (Manage Sources
+  or onboarding). Approving a company calls `company_resolver` via `POST /api/sources/resolve`;
+  approving a board goes straight to `POST /api/sources` with `kind=custom_board`, since the
+  board's URL is already known from the suggestion. `api/discovery.py` passes already-monitored company names and board
   URLs (by hostname, so a path/protocol difference doesn't defeat the match) as an exclude list --
   both in the prompt (so Claude doesn't waste a suggestion slot on them) and as a belt-and-suspenders
   post-filter on the response, since prompt instructions alone aren't guaranteed to be followed.
+  Both share `_run_discovery()`, tuned for speed after a live run took several minutes and
+  "Discover job boards" came back with nothing: `output_config.effort` is `low` (the default, high,
+  reasoned at length between up to five filtered web searches -- "find a handful of real, relevant
+  names" doesn't need that) and `max_uses` is 3. It resumes a `pause_turn` (a long server-tool
+  turn can pause before the final JSON is written; parsing the paused turn finds no JSON), up to
+  `MAX_CONTINUATIONS`, and `_extract_json()` parses the *last* `{"suggestions": ...}` object rather
+  than greedily matching first-`{`-to-last-`}`, so a stray `{...}` quoted in the prose can't break
+  the parse. The frontend (`components/Discovery.tsx`) says a search usually takes 1-2 minutes and
+  shows a "no new suggestions" message on an empty result rather than rendering nothing.
+- **Favorite was removed** (favorite companies and favorite sources, which bypassed the pre-filter
+  and daily cap and always ranked first) at the user's request -- every source is now just a
+  monitored source. `schema.sql` no longer has `sources.is_favorite`, `scoring_queue.is_favorite`,
+  or `favorite_companies`, but a database created before that (the live one) still has all three as
+  unused leftovers; nothing reads them, and a `SELECT *` from `sources` there still returns an
+  `is_favorite` field the frontend ignores. Don't reintroduce a cap/rank bypass without being asked.
 - `src/jobhunt/api/` — one FastAPI route module per resource: `resumes`, `jobs`, `digest`,
-  `applications`, `sources`, `generate`, `settings`, `internal`, `favorites`, `discovery`.
+  `applications`, `sources`, `generate`, `settings`, `internal`, `pipeline`, `discovery`, `onboarding`.
   `api/main.py` wires all routers and serves `frontend/dist` if built.
 - `frontend/` — React 19 + Vite + TS, react-router-dom for navigation, no UI library. Unlike Shelf
   Life's stateless localStorage-only app, this one's source of truth is server-persisted SQLite —
   pages call `api.ts` directly rather than reading/writing a client-side store.
 - `frontend/src/components/Spinner.tsx` — small CSS-animated spinner (`@keyframes spin` in
   `index.css`), used in place of plain "...ing" button text for any action that calls Claude
-  (profile rebuild, company discovery, resume/cover-letter generation, job scoring, favorite
+  (profile rebuild, company discovery, resume/cover-letter generation, job scoring, company
   resolution) or otherwise takes noticeable time (test-fetch, run-daily-now).
 - **Page split**, six pages each with one job (plus the first-run `/onboarding` wizard, below), nav order New & Noteworthy → All Jobs → My Jobs →
   Manage Sources → Profile → Settings: `DigestPage` (route `/`, nav label "New & Noteworthy") is
@@ -206,8 +219,7 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   path templates in order -- a later `/ranked` would 404 as an invalid `job_id`) -- every active
   job from a tracked source (`source_id NOT NULL`), scored or not, ranked best-first, the uncapped
   view the daily cap's 50-job limit would otherwise hide. `ManageSourcesPage` (route `/sources`) is
-  purely source management: Favorite Companies/Favorite Job Boards, company/job-board Discovery
-  (moved here from Profile), "Add a source", the tracked-sources list, run-daily-now -- no job
+  purely source management: company/job-board Discovery (moved here from Profile), "Add a source", the tracked-sources list, run-daily-now -- no job
   listing on this page at all; it used to be a single page with two tabs, split into separate
   pages/routes on request so the management page isn't also a long job feed one click away.
   `MyJobsPage` (route `/tracker`, file `MyJobsPage.tsx`) is the application tracker plus "Add a
@@ -250,10 +262,10 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   Python, rather than reproducing `_get_application()`'s N+1 per-row subquery pattern.
 - `components/JobFilters.tsx` is the one shared filter implementation (state, pure `filterJobs()`,
   and the `<JobFilterBar>` UI) used by both the Digest and All Jobs lists -- interest fit,
-  candidate fit, favorite-only, source (derived from the jobs actually loaded, not a separate
+  candidate fit, source (derived from the jobs actually loaded, not a separate
   API call), minimum salary, posted-within-N-days, a location substring match, and a free-text
   search across title/company/location/summary/full description. All client-side over the already
-  -loaded job list, same approach as the earlier fit/favorite filters -- no new query-param surface
+  -loaded job list, same approach as the earlier fit filters -- no new query-param surface
   on the backend.
 - `components/ScoredJobCard.tsx` always shows salary and posted date now, "N/A" when either is
   missing, rather than omitting the line entirely -- and "posted" means the job description's own
@@ -275,7 +287,7 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   is the one shared implementation both pages use, so this only exists in one place. `JobDetailPage`
   keeps a manual "Track application" button as a fallback for reaching the tracker without going
   through feedback first. Both job-listing pages are filterable client-side by interest fit /
-  candidate fit / favorite, reusing the scores already on each entry. Marking "Not interested" on
+  candidate fit, reusing the scores already on each entry. Marking "Not interested" on
   `DigestPage` additionally removes the card from view immediately (`JobActions` takes an optional
   `onDismissed` callback, wired up only on `DigestPage`) -- `AllJobsPage` doesn't pass it, so the
   same job stays visible there, since "dismissed from New & Noteworthy" and "gone entirely" are
@@ -288,27 +300,8 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   from the current view. Neither exclusion touches `AllJobsPage`'s `GET /api/jobs/ranked`, which
   is explicitly the uncapped, undismissable "everything" view. Default rank order (both
   `add_to_digest()`'s Python sort and `list_ranked_jobs()`'s SQL `ORDER BY`, kept in sync by hand
-  since one sorts in Python and the other in SQL): favorite first (unconditional, same as before),
-  then interest+candidate score, then recency (`posted_at` falling back to `first_seen_at`), then
+  since one sorts in Python and the other in SQL): interest+candidate score, then recency (`posted_at` falling back to `first_seen_at`), then
   salary (`salary_max` falling back to `salary_min`).
-- Favorites (`sources.is_favorite`) now have two independent entry points sharing one mechanism:
-  `core/favorites.py`'s `add_favorite()` (name-only, resolves via `company_resolver` -- used by
-  Discovery's "Monitor & favorite", which only has a company name) and `add_favorite_with_url()`
-  (name + a job-board URL the user already has, kind/config detected client-side -- used by the
-  Manage Sources page's Favorite Companies form, skipping the resolver and its failure modes
-  entirely). Neither path appends "(favorite)" to the source's `name` anymore (it used to) -- the
-  star badge already conveys favorite status everywhere a source/job renders, so the suffix was
-  pure redundant clutter; existing rows with the old suffix were cleaned up directly in the DB
-  (`UPDATE sources SET name = REPLACE(name, ' (favorite)', '') WHERE name LIKE '% (favorite)'`),
-  no migration needed since it was just a display-string bug, not a schema change.
-  "Favorite job boards" (multi-employer, no single company) are added the same way but go straight
-  to `POST /api/sources` with `is_favorite: true` and no `company_name` -- distinguishing the two
-  *lists* in the UI is just `company_name IS NOT NULL` vs `IS NULL` on an already-favorited source,
-  no new table. The cap/exclude-bypass this earns (`pipeline/daily_run.py`'s `_is_favorite_job()`)
-  checks *both* `favorites.is_favorite_company_name()` (by company, for favorite companies) *and*
-  the job's own `source_id`'s `is_favorite` flag (for favorite boards, which have no single
-  company to match on) -- either one is enough. `core/digest.py`'s `IS_FAVORITE_SQL` is the shared
-  SQL fragment backing the same OR, reused by `api/jobs.py`'s ranked endpoint.
 - `api.ts`'s `APPLICATION_STATUS_LABELS` is a display-only relabeling (`saved` → "Drafting" is the
   only real change) -- the underlying `ApplicationStatus` enum and DB `CHECK` constraint are
   unchanged (saved/applied/phone_screen/interview/offer/rejected/withdrawn), so this is purely a
@@ -317,8 +310,8 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   listing page has 20-30 postings' worth of structured fields; Claude's output got cut off
   mid-JSON-string and `messages.parse()` raised a JSON-decode error (caught live against a real
   30-posting board). Raised to 12000 and `MAX_POSTINGS_PER_FETCH` lowered 50→30 for margin.
-- A classic React footgun bit three places: `{x.is_favorite && <span>...</span>}` where
-  `is_favorite` comes back from SQLite as the integer `0`, not `false` -- `0 && <JSX>` evaluates to
+- A classic React footgun bit three places: `{x.is_favorite && <span>...</span>}` (a flag since
+  removed; `is_template`/`is_archived`/`enabled` are the same shape) where the flag comes back from SQLite as the integer `0`, not `false` -- `0 && <JSX>` evaluates to
   `0`, and unlike `false`/`null`/`undefined`, React renders a bare `0` as literal text. Caught live
   as a stray "0" prefixed onto source/resume/job-card names. Fixed by coercing with `!!` everywhere
   a DB-sourced `0 | 1` flag gates JSX with `&&` -- watch for the same pattern on any other
@@ -376,7 +369,7 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   (doesn't delete) any `generated_documents` row still pointing at the application via
   `application_id`, so a resume/cover letter you already generated survives removing the job from
   the tracker; only the tracking row and its status history actually go. No confirmation dialog,
-  matching every other delete/remove action already in this app (SourceCard, FavoritesSection,
+  matching every other delete/remove action already in this app (SourceCard,
   ResumesPage all behave the same way).
 - Resume/cover-letter generation had two bugs with the same root cause: `max_tokens` on the
   structured-output calls (`core/generate.py`) was too low (4000 for `ResumeContent`, 2000 for
@@ -485,7 +478,7 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   accessibility since the visible glyph alone doesn't say what it does) gated by `window.confirm()`
   before calling `DELETE /api/applications/{id}` -- the one `window.confirm` in the app, used
   deliberately here per explicit request even though every other delete/remove action in the app
-  (SourceCard, FavoritesSection, ResumesPage, the rest of My Jobs) stays confirmation-free; don't
+  (SourceCard, ResumesPage, the rest of My Jobs) stays confirmation-free; don't
   assume removing it elsewhere needs the same treatment, and don't add confirmation to those other
   actions without being asked.
 - `core/generate.py`'s `_usable_template_path()` used to check only `resume.source_path`, which is
@@ -531,6 +524,9 @@ with two differences from that project:
 - **A GCS-bucket volume mount for `data/`** (the SQLite file + resume blobs) via Cloud Run's native
   volume-mount support, so it survives restarts — Cloud Run's local disk is ephemeral otherwise.
   `--max-instances 1` avoids SQLite multi-writer issues entirely (single personal user anyway).
+- **`--timeout 3600`** (Cloud Run's max; the default is 300 s). A full daily run -- polling plus up
+  to `daily_llm_cap` serial scoring calls -- and a web-search discovery call can both outlast five
+  minutes, and the UI's "Run now" waits on the whole run in one request.
 
 The image also bundles Playwright + Chromium (for `custom_board`'s JS-rendering fallback), which
 makes it noticeably bigger than Shelf Life's — expect a slower Cloud Build and a slower cold start.
