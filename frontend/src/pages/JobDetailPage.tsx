@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, Application, APPLICATION_STATUS_LABELS, GeneratedDoc, Job } from "../api";
 import { Markdown } from "../components/Markdown";
+import { rationaleClass } from "../components/ScoredJobCard";
 import { Spinner } from "../components/Spinner";
 import { tidyDescription } from "../descriptionText";
 
@@ -107,7 +108,7 @@ export default function JobDetailPage() {
           </div>
           {latestScore.summary_text && <p>{latestScore.summary_text}</p>}
           {latestScore.rationale_text && (
-            <div className="muted small">
+            <div className={`muted small ${rationaleClass(latestScore.interest_fit, latestScore.candidate_fit)}`}>
               <Markdown text={latestScore.rationale_text} />
             </div>
           )}

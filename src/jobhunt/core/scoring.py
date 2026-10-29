@@ -45,10 +45,13 @@ background", "your stated minimum" -- never "the candidate", "they", or their na
 on-site."). The candidate profile you're given is written in the third person; don't carry that \
 voice over.
 
-In the rationale, wrap the 1-3 most decision-critical phrases in ==double equals== (e.g. "==10+ years \
-of Python==" or "==no remote option==") -- the specific skill match, dealbreaker, or standout detail \
-that most explains the rating, not whole sentences. The UI renders these as highlighted text, so use \
-it sparingly and only for words/short phrases that genuinely matter most, not as general emphasis.
+In the rationale, mark the 2-4 most decision-critical phrases -- the specific skill match, \
+dealbreaker, or standout detail that most explains a rating, not whole sentences -- and tag each with \
+the rating it explains: ==i:phrase== when it drives interest_fit (e.g. "==i:mission-driven civic \
+tech==", "==i:no remote option==") and ==f:phrase== when it drives candidate_fit (e.g. "==f:8 years \
+leading analytics teams==", "==f:no Kubernetes experience=="). Give each rating at least one marked \
+phrase when something clearly drives it. The UI highlights each in that rating's color, so use it \
+sparingly and only for words/short phrases that genuinely matter most, not as general emphasis.
 
 Finally, report the pay the posting itself states, if any: salary_min/salary_max as plain numbers \
 (160000, not "160k"; the same number in both for a single figure), salary_currency as a code like \

@@ -45,7 +45,13 @@ export function postedText(job: ScoredJob): string {
   return job.posted_at ? daysAgo(job.posted_at) : "N/A";
 }
 
-function RationaleBlock({ text }: { text: string }) {
+// Classes that color a rationale's ==i:...== / ==f:...== highlights like the Interest / Fit badges.
+export function rationaleClass(interest: string | null, fit: string | null): string {
+  const level = (v: string | null) => (v ? v.toLowerCase() : "none");
+  return `rationale interest-${level(interest)} fit-${level(fit)}`;
+}
+
+function RationaleBlock({ text, className }: { text: string; className: string }) {
   const [expanded, setExpanded] = useState(false);
   const [overflowing, setOverflowing] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -55,7 +61,7 @@ function RationaleBlock({ text }: { text: string }) {
   }, [text]);
 
   return (
-    <div className="muted small">
+    <div className={`muted small ${className}`}>
       <div ref={ref} className={expanded ? undefined : "clamp-2"}>
         <Markdown text={text} />
       </div>
@@ -183,7 +189,9 @@ export function ScoredJobCard({ job, onDismissed }: { job: ScoredJob; onDismisse
         {!job.interest_fit && !job.candidate_fit && <span className="muted small">Not yet scored</span>}
       </div>
 
-      {job.rationale_text && <RationaleBlock text={job.rationale_text} />}
+      {job.rationale_text && (
+        <RationaleBlock text={job.rationale_text} className={rationaleClass(job.interest_fit, job.candidate_fit)} />
+      )}
 
       <JobActions job={job} onDismissed={onDismissed} />
     </div>

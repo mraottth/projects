@@ -273,6 +273,12 @@ tr:last-child td { border-bottom: 0; }
 .md-table { overflow-x: auto; margin: 0 0 10px; }
 .md-table table { font-size: 0.86rem; }
 .md mark { background: var(--warn-bg); color: inherit; padding: 0 2px; border-radius: 3px; }
+/* Rationale highlights tagged with the rating they explain take that rating's badge color. */
+/* A touch stronger than the badge tints, and dark text, so they read against the muted rationale. */
+.rationale mark { color: var(--ink); }
+.rationale.interest-high mark.mark-i, .rationale.fit-high mark.mark-f { background: rgba(29, 122, 60, 0.18); }
+.rationale.interest-med mark.mark-i, .rationale.fit-med mark.mark-f { background: rgba(184, 134, 11, 0.2); }
+.rationale.interest-low mark.mark-i, .rationale.fit-low mark.mark-f { background: rgba(208, 59, 59, 0.16); }
 /* Full job descriptions: section headings a step up from body text, a little more air. */
 .job-description { line-height: 1.55; }
 .job-description .md-h2 { font-size: 1.08rem; margin-top: 20px; }

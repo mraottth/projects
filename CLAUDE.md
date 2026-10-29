@@ -484,11 +484,14 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   into one string. The rationale blurb is clamped to 2 lines via a `.clamp-2` CSS class with a
   measured-overflow "Show more" toggle (only rendered when the text actually overflows, via a
   `scrollHeight`/`clientHeight` comparison in `useLayoutEffect`).
-- `core/scoring.py`'s prompt now asks the model to wrap the 1-3 most decision-critical phrases in
-  its rationale in `==double equals==` (sparingly -- short phrases, not whole sentences);
-  `components/Markdown.tsx` renders `==text==` as `<mark>`, styled with `var(--warn-bg)` (the same
-  soft amber already used for `badge-med`/`pill-interview`) for a subtle, on-brand highlight rather
-  than a jarring bright yellow.
+- `core/scoring.py`'s prompt asks the model to mark the 2-4 most decision-critical phrases in its
+  rationale (short phrases, not whole sentences), tagged with the rating each explains:
+  `==i:...==` for interest, `==f:...==` for fit. `components/Markdown.tsx` renders them as
+  `<mark class="mark-i|mark-f">`, and the wrapper's `rationaleClass(interest, fit)` (in
+  `ScoredJobCard.tsx`, used there and on `JobDetailPage`) colors each like its rating's badge,
+  slightly stronger, with dark text: green High, tan Med, red Low. The user asked for highlights
+  in the color of the assessment they support. An untagged `==text==` (rationales scored before
+  this) keeps the plain soft amber.
 - On both `DigestPage` and `AllJobsPage`, marking a job "Interested" records the feedback *and*
   auto-creates an `applications` row the same way -- `components/ScoredJobCard.tsx` (`JobActions`)
   is the one shared implementation both pages use, so this only exists in one place. `JobDetailPage`

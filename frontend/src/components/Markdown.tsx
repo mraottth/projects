@@ -16,7 +16,15 @@ function inline(text: string): ReactNode[] {
     if ((m = part.match(/^`([^`]+)`$/))) return <code key={i}>{m[1]}</code>;
     if ((m = part.match(/^\*\*([^*]+)\*\*$/))) return <strong key={i}>{inline(m[1])}</strong>;
     if ((m = part.match(/^\*([^*]+)\*$/))) return <em key={i}>{m[1]}</em>;
-    if ((m = part.match(/^==([^=]+)==$/))) return <mark key={i}>{inline(m[1])}</mark>;
+    // "==i:...==" / "==f:...==": a scoring-rationale phrase tagged with the rating it explains
+    // (interest / fit), colored to match that rating by the surrounding .rationale (index.css).
+    if ((m = part.match(/^==(?:([if]):)?([^=]+)==$/))) {
+      return (
+        <mark key={i} className={m[1] ? `mark-${m[1]}` : undefined}>
+          {inline(m[2])}
+        </mark>
+      );
+    }
     if ((m = part.match(/^\[([^\]]+)\]\(([^)\s]+)\)$/))) {
       return /^https?:\/\//.test(m[2]) ? (
         <a key={i} href={m[2]} target="_blank" rel="noreferrer">
