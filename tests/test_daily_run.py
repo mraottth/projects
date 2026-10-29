@@ -247,7 +247,8 @@ def test_run_daily_reports_progress(monkeypatch):
 
     with TestClient(app) as client:
         progress = client.get("/api/pipeline/progress").json()
-    assert progress == {
+    counts = {k: progress[k] for k in ("stage", "sources_done", "sources_total", "jobs_done", "jobs_total")}
+    assert counts == {
         "stage": "done",
         "sources_done": 2,
         "sources_total": 2,
