@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { api, Application, APPLICATION_STATUS_LABELS, GeneratedDoc, Job } from "../api";
 import { Markdown } from "../components/Markdown";
 import { Spinner } from "../components/Spinner";
+import { tidyDescription } from "../descriptionText";
 
 interface JobWithScores extends Job {
   scores: {
@@ -116,7 +117,9 @@ export default function JobDetailPage() {
       <div className="card">
         <h2>Description</h2>
         {job.description_text ? (
-          <Markdown text={job.description_text} />
+          <div className="job-description">
+            <Markdown text={tidyDescription(job.description_text)} />
+          </div>
         ) : (
           <p className="empty-state">(no description available)</p>
         )}

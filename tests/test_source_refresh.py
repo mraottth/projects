@@ -148,3 +148,20 @@ def test_backfill_falls_back_to_the_score_summary():
     with get_db() as conn:
         row = conn.execute("SELECT salary_min, salary_max FROM jobs WHERE id = ?", (job_id,)).fetchone()
     assert tuple(row) == (160000, 210000)
+
+
+def test_reseen_job_gets_the_newly_formatted_description():
+    source = _source("Board")
+    posting = {
+        "title": "Analyst",
+        "company": "Acme",
+        "external_id": "9",
+        "description_text": "Old\nflat text",
+    }
+    job_id = daily_run._upsert_job(source, posting)
+    daily_run._upsert_job(source, {**posting, "description_text": "## Role\n\n- Formatted"})
+    # A source that doesn't provide one (a web-page board) never blanks a stored description.
+    daily_run._upsert_job(source, {**posting, "description_text": None})
+    with get_db() as conn:
+        row = conn.execute("SELECT description_text FROM jobs WHERE id = ?", (job_id,)).fetchone()
+    assert row["description_text"] == "## Role\n\n- Formatted"

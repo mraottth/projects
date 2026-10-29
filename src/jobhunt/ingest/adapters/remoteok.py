@@ -7,7 +7,7 @@ import html
 
 import httpx
 
-from jobhunt.core.html_extract import extract_readable_text
+from jobhunt.core.html_extract import html_to_markdown
 
 URL = "https://remoteok.com/api"
 USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
@@ -38,9 +38,7 @@ def fetch(source: dict) -> list[dict]:
                 "salary_max": row.get("salary_max"),
                 "salary_currency": "USD" if row.get("salary_min") else None,
                 "salary_period": "year" if row.get("salary_min") else None,
-                "description_text": extract_readable_text(html.unescape(description))
-                if description
-                else None,
+                "description_text": html_to_markdown(html.unescape(description or "")) or None,
                 "url": row.get("url") or row.get("apply_url"),
                 "posted_at": row.get("date"),
                 "raw_json": row,

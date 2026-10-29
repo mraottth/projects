@@ -5,6 +5,8 @@ endpoint, not scraping. Verified shape against a real board (Linear) during deve
 
 import httpx
 
+from jobhunt.core.html_extract import html_to_markdown
+
 BASE_URL = "https://api.ashbyhq.com/posting-api/job-board/{board_name}"
 
 
@@ -56,7 +58,10 @@ def fetch(source: dict) -> list[dict]:
                 "salary_currency": None,
                 "salary_period": None,
                 **_salary(job),
-                "description_text": job.get("descriptionPlain"),
+                # descriptionHtml keeps the headings and bullets descriptionPlain drops (per Ashby's
+                # API docs; falls back to the plain text if it's absent).
+                "description_text": html_to_markdown(job.get("descriptionHtml"))
+                or job.get("descriptionPlain"),
                 "url": job.get("jobUrl"),
                 "posted_at": job.get("publishedAt"),
                 "raw_json": job,

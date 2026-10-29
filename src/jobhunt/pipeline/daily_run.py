@@ -17,7 +17,8 @@ from jobhunt.core.digest import add_to_digest
 from jobhunt.core.email_digest import send_new_jobs_email
 from jobhunt.core.generic_postings import is_generic_posting
 from jobhunt.core.llm import LLMError
-from jobhunt.core.page_fetch import PageFetchError, fetch_page_text
+from jobhunt.core.html_extract import html_to_markdown
+from jobhunt.core.page_fetch import PageFetchError, fetch_page
 from jobhunt.core.preference import get_current_preference_profile, rebuild_preference_profile
 from jobhunt.core.profile import get_current_candidate_profile
 from jobhunt.core.salary_extract import extract_salary
@@ -164,6 +165,13 @@ def _upsert_job(source_id: int, posting: dict) -> int:
                 "UPDATE jobs SET last_seen_at = datetime('now'), status = 'active' WHERE id = ?",
                 (existing["id"],),
             )
+            if posting.get("description_text"):
+                # Keeps a re-seen job's description current, which is also how jobs saved before
+                # descriptions kept their formatting (core/html_extract.py) pick it up.
+                conn.execute(
+                    "UPDATE jobs SET description_text = ? WHERE id = ? AND description_text IS NOT ?",
+                    (posting["description_text"], existing["id"], posting["description_text"]),
+                )
             if posting.get("salary_min") or posting.get("salary_max"):
                 # Fill a salary the job was first saved without; never overwrite one it has.
                 conn.execute(
@@ -230,9 +238,13 @@ def _backfill_description(job: dict) -> dict:
     if job.get("description_text") or not job.get("url"):
         return job
     try:
-        text = fetch_page_text(job["url"])
+        page = fetch_page(job["url"])
     except PageFetchError:
         return job
+    # Formatted from the page's HTML; the plain text is the fallback if that comes out (nearly) empty.
+    text = html_to_markdown(page.html, main_content=True)
+    if len(text) < len(page.text) // 4:
+        text = page.text
     with get_db() as conn:
         conn.execute("UPDATE jobs SET description_text = ? WHERE id = ?", (text, job["id"]))
     job["description_text"] = text

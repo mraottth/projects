@@ -7,7 +7,7 @@ import html
 
 import httpx
 
-from jobhunt.core.html_extract import extract_readable_text
+from jobhunt.core.html_extract import html_to_markdown
 
 BASE_URL = "https://boards-api.greenhouse.io/v1/boards/{board_token}/jobs"
 
@@ -17,7 +17,7 @@ def _clean_description(content: str | None) -> str | None:
     # so it must be unescaped before being parsed as HTML.
     if not content:
         return None
-    return extract_readable_text(html.unescape(content))
+    return html_to_markdown(html.unescape(content))
 
 
 def _salary(job: dict) -> dict:

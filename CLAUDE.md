@@ -438,6 +438,26 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   pay, reading the description and then the latest score summary.
   `salaryText()` prints hourly pay as whole dollars ("$45-60/hr"; rounding to thousands showed
   "$0k") and uses the currency's symbol.
+- **Job description formatting.** `core/html_extract.py`'s `html_to_markdown()` turns a
+  description's HTML into the Markdown subset `components/Markdown.tsx` renders: `##`/`###`
+  headings, `- `/`1. ` lists, `**bold**`, `*italic*`, links, and blank-line-separated paragraphs.
+  `extract_readable_text()` flattened it to one line per text node instead, losing headings and
+  bullets and splitting every bolded phrase onto its own line (live descriptions read as
+  run-together blocks). No Claude call, and about a millisecond per job.
+  - Greenhouse and RemoteOK convert their HTML. Lever builds `description` + `lists` (each a
+    heading + items) + `additional`, falling back to `descriptionPlain`. Ashby uses
+    `descriptionHtml`, falling back to `descriptionPlain`. The Lever/Ashby fields come from their
+    docs and haven't been seen live from the sandbox.
+  - A custom-board job's description, fetched before scoring, converts the job page's `<main>`/
+    `<article>` (`main_content=True`), falling back to the page text when that comes out too
+    short.
+  - `_upsert_job` replaces a re-seen job's description with the adapter's current one (never with
+    None), which is how jobs stored before this get reformatted on their next daily check.
+  - For text that's still plain (Adzuna snippets, plain-text fallbacks), `frontend/src/
+    descriptionText.ts`'s `tidyDescription()` (used by `JobDetailPage`, inside `.job-description`)
+    turns bullet-character lines into lists, short colon/ALL-CAPS lines into headings, and rejoins
+    only clear mid-sentence breaks (a lowercase continuation, or a line ending "a"/"the"/...).
+    Anything with blank lines or a `##` heading passes through untouched.
 - `components/ScoredJobCard.tsx` always shows salary and posted date now, "N/A" when either is
   missing, rather than omitting the line entirely -- and "posted" means the job description's own
   `posted_at`, never `first_seen_at` (when our pipeline happened to discover it, which isn't what

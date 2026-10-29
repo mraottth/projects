@@ -272,3 +272,36 @@ def test_ats_without_pay_fields_leaves_salary_empty(monkeypatch):
     )
     p = ashby.fetch({"config": {"board_name": "acme"}})[0]
     assert p["salary_min"] is None and p["salary_max"] is None
+
+
+def test_lever_and_ashby_keep_description_formatting(monkeypatch):
+    monkeypatch.setattr(
+        lever.httpx,
+        "get",
+        lambda *a, **k: FakeResponse(
+            [
+                {
+                    "id": "l1",
+                    "text": "Analyst",
+                    "categories": {},
+                    "description": "<p>Join the <b>data</b> team.</p>",
+                    "descriptionPlain": "Join the data team.",
+                    "lists": [{"text": "Requirements", "content": "<li>SQL</li><li>Python</li>"}],
+                    "additional": "<p>We offer benefits.</p>",
+                }
+            ]
+        ),
+    )
+    p = lever.fetch({"config": {"company_slug": "acme"}})[0]
+    assert p["description_text"] == (
+        "Join the **data** team.\n\n## Requirements\n\n- SQL\n- Python\n\nWe offer benefits."
+    )
+
+    monkeypatch.setattr(
+        ashby.httpx,
+        "get",
+        lambda *a, **k: FakeResponse(
+            {"jobs": [{"id": "a", "title": "x", "descriptionHtml": "<h2>Role</h2><ul><li>One</li></ul>"}]}
+        ),
+    )
+    assert ashby.fetch({"config": {"board_name": "acme"}})[0]["description_text"] == "## Role\n\n- One"
