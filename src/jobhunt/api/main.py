@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -20,6 +21,7 @@ from jobhunt.api import (
     sources,
 )
 from jobhunt.db.connection import init_db
+from jobhunt.pipeline.daily_run import backfill_salaries
 
 FRONTEND_DIST = Path(__file__).resolve().parents[3] / "frontend" / "dist"
 
@@ -27,6 +29,12 @@ FRONTEND_DIST = Path(__file__).resolve().parents[3] / "frontend" / "dist"
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    # Fill in salaries readable from text already stored, so a deploy that improves pay reading
+    # shows on existing job cards right away instead of after the next daily run. Regex only.
+    try:
+        backfill_salaries()
+    except Exception:  # noqa: BLE001 - never let this keep the app from starting
+        logging.getLogger(__name__).exception("salary backfill at startup failed")
     yield
 
 

@@ -411,11 +411,17 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   `pay_input_ranges` (`pay_transparency=true`) fill it. Those shapes come from each API's docs and
   haven't been seen on a live board from this sandbox, which can't reach them. Otherwise
   `core/salary_extract.py` reads it from the description: ranges like "$120K-$150K", "$45-60/hr",
-  "GBP 55,000-65,000", or a single amount only next to a pay word, ignoring figures outside a
-  plausible pay range (funding rounds, signing bonuses). The pipeline applies it when a job is
-  first saved (`_with_salary`), when a job saved without pay is seen again (never overwriting a
-  stored salary), when a custom-board job's description is fetched before scoring, and once per
-  daily run over active jobs still missing pay (`_backfill_salaries`, regex only, so free).
+  "GBP 55,000-65,000", "between $160,000 and $210,000", a pay-labeled range with no currency
+  sign ("Salary: 160,000 - 210,000 USD"), or a single amount only next to a pay word, ignoring
+  figures outside a plausible pay range (funding rounds, signing bonuses). The pipeline applies it
+  when a job is first saved (`_with_salary`), when a job saved without pay is seen again (never
+  overwriting a stored salary), and when a custom-board job's description is fetched before
+  scoring. Scoring also returns the posting's stated pay (`ScoredPosting`, a `JobScore` subclass
+  with nullable salary fields, the same pattern as manual_import's), and `store_score()` fills an
+  empty salary from it: still "N/A" live while Claude's own summary quoted "$160-210k".
+  `backfill_salaries()` (regex only, free) runs at app startup (`api/main.py`'s lifespan, so a
+  deploy shows on existing cards at once) and in every daily run, over active jobs still missing
+  pay, reading the description and then the latest score summary.
   `salaryText()` prints hourly pay as whole dollars ("$45-60/hr"; rounding to thousands showed
   "$0k") and uses the currency's symbol.
 - `components/ScoredJobCard.tsx` always shows salary and posted date now, "N/A" when either is

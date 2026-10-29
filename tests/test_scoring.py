@@ -142,9 +142,37 @@ def test_score_job_runs_at_medium_effort(monkeypatch):
 
     score_job(job, None, None)
     assert captured["output_config"] == {"effort": "medium"}
-    assert captured["output_format"] is JobScore
+    assert captured["output_format"] is scoring.ScoredPosting
 
 
 def test_rationale_is_written_to_the_user_in_second_person():
     # The user reads the rationale directly; it used to come back in the third person.
     assert "second person" in scoring.SYSTEM_PROMPT
+
+
+def test_store_score_fills_salary_from_the_posting_but_never_overwrites():
+    from jobhunt.core.scoring import ScoredPosting
+
+    job_id = _insert_job()
+    base = dict(
+        interest_fit="High",
+        interest_score=80,
+        candidate_fit="Med",
+        candidate_fit_score=50,
+        summary_text="s",
+        rationale_text="r",
+    )
+    store_score(
+        job_id,
+        ScoredPosting(
+            **base, salary_min=160000, salary_max=210000, salary_currency="USD", salary_period="year"
+        ),
+    )
+    store_score(
+        job_id, ScoredPosting(**base, salary_min=1, salary_max=2, salary_currency="USD", salary_period="year")
+    )
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT salary_min, salary_max, salary_period FROM jobs WHERE id = ?", (job_id,)
+        ).fetchone()
+    assert tuple(row) == (160000, 210000, "year")

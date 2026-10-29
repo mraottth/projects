@@ -250,17 +250,24 @@ def _store_salary(job_id: int, salary: dict) -> None:
         )
 
 
-def _backfill_salaries() -> int:
-    """Reads a salary out of the description of every active job still without one -- catches jobs
-    saved before descriptions were read for pay. Regex only, so it's free to run every day."""
+def backfill_salaries() -> int:
+    """Reads a salary for every active job still without one: from its description, or failing
+    that from its score summary, which states the pay when the posting did (the summary is
+    Claude's own reading of the whole posting). Regex only, so it's free; runs at app startup and
+    in every daily run, which catches jobs saved before pay was read."""
     with get_db() as conn:
         rows = conn.execute(
-            "SELECT id, description_text FROM jobs WHERE status = 'active' AND salary_min IS NULL "
-            "AND salary_max IS NULL AND description_text IS NOT NULL"
+            """SELECT j.id, j.description_text, js.summary_text
+               FROM jobs j
+               LEFT JOIN job_scores js ON js.id = (
+                   SELECT id FROM job_scores WHERE job_id = j.id ORDER BY id DESC LIMIT 1
+               )
+               WHERE j.status = 'active' AND j.salary_min IS NULL AND j.salary_max IS NULL
+                 AND (j.description_text IS NOT NULL OR js.summary_text IS NOT NULL)"""
         ).fetchall()
     filled = 0
     for row in rows:
-        if found := extract_salary(row["description_text"]):
+        if found := extract_salary(row["description_text"]) or extract_salary(row["summary_text"]):
             _store_salary(row["id"], found)
             filled += 1
     return filled
@@ -431,7 +438,7 @@ def _run_daily(started_at: str, cap: int | None) -> dict:
     queue.requeue_stranded()
     poll_result = _poll_sources()
     _expire_stale_jobs()
-    _backfill_salaries()
+    backfill_salaries()
     enqueued = _prefilter_and_enqueue(poll_result["job_ids"])
 
     daily_cap = cap if cap is not None else settings_module.get_setting("daily_llm_cap", 50)

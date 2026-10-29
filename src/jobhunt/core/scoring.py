@@ -48,13 +48,19 @@ voice over.
 In the rationale, wrap the 1-3 most decision-critical phrases in ==double equals== (e.g. "==10+ years \
 of Python==" or "==no remote option==") -- the specific skill match, dealbreaker, or standout detail \
 that most explains the rating, not whole sentences. The UI renders these as highlighted text, so use \
-it sparingly and only for words/short phrases that genuinely matter most, not as general emphasis."""
+it sparingly and only for words/short phrases that genuinely matter most, not as general emphasis.
+
+Finally, report the pay the posting itself states, if any: salary_min/salary_max as plain numbers \
+(160000, not "160k"; the same number in both for a single figure), salary_currency as a code like \
+USD, and salary_period "year" or "hour". Use null for all four if the posting doesn't state pay -- \
+never estimate it, and don't use the candidate's own minimum."""
 
 
 # Medium rather than the default high: a High/Med/Low rating plus a short rationale doesn't need
 # the deepest reasoning, and scoring runs up to daily_llm_cap times per run, so per-call latency is
 # most of how long a run (and onboarding's last step) takes. Raise it if ratings start missing nuance.
 SCORING_EFFORT = "medium"
+
 
 class JobScore(BaseModel):
     interest_fit: Literal["High", "Med", "Low"]
@@ -63,6 +69,18 @@ class JobScore(BaseModel):
     candidate_fit_score: float
     summary_text: str
     rationale_text: str
+
+
+class ScoredPosting(JobScore):
+    """What the scoring call returns: the score plus the pay the posting states. Claude reads the
+    whole description here anyway, so this catches pay that core/salary_extract.py's patterns
+    miss, at a few output tokens' cost (salary showed "N/A" while Claude's own summary quoted
+    "$160-210k", caught live). Nullable rather than defaulted, like manual_import's fields."""
+
+    salary_min: float | None
+    salary_max: float | None
+    salary_currency: str | None
+    salary_period: Literal["year", "hour"] | None
 
 
 def _recent_feedback_text(limit: int = 10) -> str:
@@ -121,7 +139,7 @@ def score_job(
             max_tokens=3000,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_content}],
-            output_format=JobScore,
+            output_format=ScoredPosting,
             output_config={"effort": SCORING_EFFORT},
         )
     log_call(
@@ -153,4 +171,21 @@ def store_score(job_id: int, score: JobScore) -> int:
                 json.dumps(score.model_dump()),
             ),
         )
-        return cursor.lastrowid
+        score_id = cursor.lastrowid
+        # The pay Claude read off the posting fills a salary the job doesn't have yet (never
+        # overwriting one from the ATS or the description).
+        salary_min = getattr(score, "salary_min", None)
+        salary_max = getattr(score, "salary_max", None)
+        if salary_min or salary_max:
+            conn.execute(
+                "UPDATE jobs SET salary_min = ?, salary_max = ?, salary_currency = ?, salary_period = ? "
+                "WHERE id = ? AND salary_min IS NULL AND salary_max IS NULL",
+                (
+                    salary_min,
+                    salary_max if salary_max != salary_min else None,
+                    getattr(score, "salary_currency", None) or "USD",
+                    getattr(score, "salary_period", None) or "year",
+                    job_id,
+                ),
+            )
+        return score_id

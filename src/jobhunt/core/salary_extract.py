@@ -23,10 +23,14 @@ _CURRENCY = {
 _AMOUNT = r"(\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)\s*([kK])?"
 _SYMBOL = r"(US\$|CA\$|C\$|\$|£|€)"
 _CODE = r"(USD|CAD|GBP|EUR)"
-_DASH = r"\s*(?:-|–|—|to)\s*"
+_DASH = r"\s*(?:-|–|—|to|and)\s*"  # "and": "between $160,000 and $210,000"
 
 _RANGE = re.compile(
     rf"(?:{_SYMBOL}\s*|{_CODE}\s+){_AMOUNT}{_DASH}(?:{_SYMBOL}\s*|{_CODE}\s+)?{_AMOUNT}(?:\s*{_CODE})?",
+)
+# No currency sign, but labeled as pay: "Salary: 160,000 - 210,000 USD", "Pay: 160k-210k".
+_BARE_RANGE = re.compile(
+    rf"(?:salary|compensation|pay|wage)[^\d\n]{{0,25}}{_AMOUNT}{_DASH}{_AMOUNT}(?:\s*{_CODE})?", re.I
 )
 _SINGLE = re.compile(rf"(?:{_SYMBOL}\s*|{_CODE}\s+){_AMOUNT}")
 _PAY_WORDS = re.compile(r"salary|compensation|pay\b|pay range|base|wage|hourly rate|annual|ote", re.I)
@@ -50,28 +54,43 @@ def _plausible(low: float, high: float) -> str | None:
     return None
 
 
+def _range_result(text: str, match: re.Match, n1, k1, n2, k2, currency_marks) -> dict | None:
+    # "$120-150K": a k on the second figure also applies to a bare first figure under 1000.
+    if k2 and not k1 and float(n1.replace(",", "")) < 1000:
+        k1 = k2
+    low, high = _value(n1, k1), _value(n2, k2)
+    if low > high:
+        return None
+    period = _plausible(low, high)
+    if period is None:
+        return None
+    context = text[max(0, match.start() - 80) : match.end() + 40]
+    if period == "year" and _HOURLY.search(text[match.end() : match.end() + 20]):
+        return None  # an hourly-looking label on a yearly-looking number: too ambiguous
+    if period == "hour" and not _HOURLY.search(context):
+        return None  # "$40 - $60" with no "per hour" is just as likely something else
+    mark = next((m for m in currency_marks if m), "$")
+    return {
+        "salary_min": low,
+        "salary_max": high,
+        "salary_currency": _CURRENCY.get(mark, "USD"),
+        "salary_period": period,
+    }
+
+
 def extract_salary(text: str | None) -> dict | None:
     """{"salary_min", "salary_max", "salary_currency", "salary_period"} or None."""
     if not text:
         return None
     for match in _RANGE.finditer(text):
         sym1, code1, n1, k1, sym2, code2, n2, k2, code3 = match.groups()
-        # "$120-150K": a k on the second figure also applies to a bare first figure under 1000.
-        if k2 and not k1 and float(n1.replace(",", "")) < 1000:
-            k1 = k2
-        low, high = _value(n1, k1), _value(n2, k2)
-        if low > high:
-            continue
-        period = _plausible(low, high)
-        if period is None:
-            continue
-        context = text[max(0, match.start() - 80) : match.end() + 40]
-        if period == "year" and _HOURLY.search(text[match.end() : match.end() + 20]):
-            continue  # an hourly-looking label on a yearly-looking number: too ambiguous
-        if period == "hour" and not _HOURLY.search(context):
-            continue  # "$40 - $60" with no "per hour" is just as likely something else
-        currency = _CURRENCY.get(sym1 or code1 or sym2 or code2 or code3 or "$", "USD")
-        return {"salary_min": low, "salary_max": high, "salary_currency": currency, "salary_period": period}
+        if found := _range_result(text, match, n1, k1, n2, k2, (sym1, code1, sym2, code2, code3)):
+            return found
+
+    for match in _BARE_RANGE.finditer(text):
+        n1, k1, n2, k2, code = match.groups()
+        if found := _range_result(text, match, n1, k1, n2, k2, (code,)):
+            return found
 
     for match in _SINGLE.finditer(text):
         sym, code, n, k = match.groups()

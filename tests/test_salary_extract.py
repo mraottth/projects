@@ -16,6 +16,11 @@ from jobhunt.core.salary_extract import extract_salary
         ("£55,000 - £65,000 per annum", (55000, 65000, "GBP", "year")),
         ("CA$90,000 - CA$110,000", (90000, 110000, "CAD", "year")),
         ("The starting salary for this role is $140,000.", (140000, None, "USD", "year")),
+        ("Remote or NYC, $160-210k.", (160000, 210000, "USD", "year")),
+        ("The salary range is between $160,000 and $210,000.", (160000, 210000, "USD", "year")),
+        ("Salary: 160,000 - 210,000 USD", (160000, 210000, "USD", "year")),
+        ("Pay: 160k-210k", (160000, 210000, "USD", "year")),
+        ("Hourly pay: 25 - 32 per hour", (25, 32, "USD", "hour")),
     ],
 )
 def test_extracts_pay(text, expected):
@@ -33,6 +38,8 @@ def test_extracts_pay(text, expected):
         "Serving 40 - 60 agencies nationwide.",
         "We have $40 - $60 per team for snacks.",
         "Our customers saved $200,000 last year.",
+        "Pay grades 3-4 on the federal scale.",
+        "We grew from 20 and 40 people to 200 to 400.",
     ],
 )
 def test_ignores_non_pay(text):

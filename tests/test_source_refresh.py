@@ -122,9 +122,29 @@ def test_backfill_salaries_reads_existing_descriptions():
             "VALUES ('k', 'Analyst', 'Acme', ?, 'Pay: $40 - $55 per hour')",
             (source,),
         ).lastrowid
-    assert daily_run._backfill_salaries() == 1
+    assert daily_run.backfill_salaries() == 1
     with get_db() as conn:
         row = conn.execute(
             "SELECT salary_min, salary_max, salary_period FROM jobs WHERE id = ?", (job_id,)
         ).fetchone()
     assert tuple(row) == (40, 55, "hour")
+
+
+def test_backfill_falls_back_to_the_score_summary():
+    source = _source("Board")
+    with get_db() as conn:
+        job_id = conn.execute(
+            "INSERT INTO jobs (dedupe_key, title, company, source_id, description_text) "
+            "VALUES ('s', 'Data Scientist', 'Blue Rose', ?, 'About us. Benefits.')",
+            (source,),
+        ).lastrowid
+        conn.execute(
+            "INSERT INTO job_scores (job_id, model, interest_fit, interest_score, candidate_fit, "
+            "candidate_fit_score, summary_text, rationale_text) VALUES (?, 'x', 'High', 80, 'Med', 50, "
+            "'Building LLM tools for campaigns, remote or NYC, $160-210k.', 'r')",
+            (job_id,),
+        )
+    assert daily_run.backfill_salaries() == 1
+    with get_db() as conn:
+        row = conn.execute("SELECT salary_min, salary_max FROM jobs WHERE id = ?", (job_id,)).fetchone()
+    assert tuple(row) == (160000, 210000)
