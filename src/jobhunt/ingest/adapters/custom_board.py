@@ -19,6 +19,10 @@ from jobhunt.core.page_fetch import PageFetchError, fetch_page
 from jobhunt.ingest.adapters import ashby, greenhouse, lever
 
 MAX_POSTINGS_PER_FETCH = 30
+# Low, not the default (high): copying postings off a page is mechanical, and at high effort each
+# board spent a minute or more reasoning first -- "Check every source now" looked stuck on a few
+# boards (caught live). Lower effort is also fewer billed output tokens.
+EXTRACTION_EFFORT = "low"
 PAGE_MAX_CHARS = 40_000
 
 ATS_ADAPTERS = {"ats_greenhouse": greenhouse.fetch, "ats_lever": lever.fetch, "ats_ashby": ashby.fetch}
@@ -111,6 +115,7 @@ def _extract_postings(text: str, source: dict) -> list[dict]:
             system=_system_prompt(),
             messages=[{"role": "user", "content": text}],
             output_format=JobListingsOutput,
+            output_config={"effort": EXTRACTION_EFFORT},
         )
     log_call(
         call_type="parsing",

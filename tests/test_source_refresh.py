@@ -165,3 +165,17 @@ def test_reseen_job_gets_the_newly_formatted_description():
     with get_db() as conn:
         row = conn.execute("SELECT description_text FROM jobs WHERE id = ?", (job_id,)).fetchone()
     assert row["description_text"] == "## Role\n\n- Formatted"
+
+
+def test_progress_lists_sources_still_being_read(monkeypatch):
+    slow = _source("Slow board")
+    seen_while_reading = []
+
+    def adapter(source):
+        seen_while_reading.append(list(daily_run.get_progress()["sources_pending"]))
+        return []
+
+    monkeypatch.setitem(daily_run.ADAPTERS, "custom_board", adapter)
+    daily_run._poll_sources([slow])
+    assert seen_while_reading == [["Slow board"]]
+    assert daily_run.get_progress()["sources_pending"] == []

@@ -229,6 +229,7 @@ export interface RunProgress {
   sources_total: number;
   jobs_done: number;
   jobs_total: number;
+  sources_pending?: string[];
   run_id: number | null;
   finished_run_id: number | null;
   last_summary: RunSummary | null;
@@ -247,9 +248,12 @@ export interface RunSummary {
 export function runProgressText(p: RunProgress | null, doneText = "Done"): string {
   if (!p) return "Starting...";
   if (p.stage === "polling") {
-    return p.sources_total
-      ? `Checked ${p.sources_done} of ${p.sources_total} sources for new postings...`
-      : "Checking your sources for new postings...";
+    if (!p.sources_total) return "Checking your sources for new postings...";
+    const pending = p.sources_pending ?? [];
+    const reading = pending.length
+      ? ` Still reading ${pending.slice(0, 2).join(", ")}${pending.length > 2 ? ` +${pending.length - 2} more` : ""}.`
+      : "";
+    return `Checked ${p.sources_done} of ${p.sources_total} sources for new postings...${reading}`;
   }
   if (p.stage === "scoring") {
     return p.jobs_total ? `Scored ${p.jobs_done} of ${p.jobs_total} jobs...` : "Nothing new to score — wrapping up...";

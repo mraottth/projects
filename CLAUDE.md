@@ -208,7 +208,14 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     `last_error`). `api.ts`'s `runDaily()`, behind `runDailyNow(cap, onProgress)`, falls back to
     polling `/progress` until that run's id finishes if the stream drops.
   - Onboarding's finish step and Manage Sources both show `runProgressText()` ("Scored 12 of 20
-    jobs..."). The plain `POST /api/pipeline/run-daily` remains for scripts and tests.
+    jobs..."), which while polling also names what's still being read (`sources_pending`,
+    maintained by `_fetch_source`): "Still reading Tech Jobs for Good, Climatebase +2 more". The
+    sources counter only moves when one finishes, six at a time, so a run looked stuck on "1 of N"
+    (caught live). The plain `POST /api/pipeline/run-daily` remains for scripts and tests.
+  - `custom_board` extraction (and manual job paste-in) run at `output_config.effort` "low"
+    (`EXTRACTION_EFFORT`). At the default (high), each web-page board spent a minute or more
+    reasoning before copying postings off the page, which is mechanical work, and paid for those
+    reasoning tokens.
   A newly added (or re-enabled) source is checked right away rather than at the next daily run
   (asked for live): `api/sources.py`'s create/resolve/re-enable call
   `schedule_source_refresh()`, which gathers adds made within `REFRESH_GATHER_SECONDS` (3) into

@@ -52,6 +52,7 @@ def parse_job_posting(*, url: str | None = None, raw_text: str | None = None) ->
             system=PARSE_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": source_text}],
             output_format=ParsedJob,
+            output_config={"effort": "low"},  # field extraction, like custom_board's
         )
     log_call(
         call_type="parsing",

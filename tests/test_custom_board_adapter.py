@@ -151,3 +151,21 @@ def test_page_already_rendered_is_not_retried(monkeypatch):
     )
     assert custom_board.fetch({"config": {"url": "https://x.org/jobs/"}}) == []
     assert calls == [False]
+
+
+def test_extraction_runs_at_low_effort(monkeypatch):
+    monkeypatch.setattr(custom_board, "fetch_page", lambda *a, **k: _page("Analyst [https://x.org/1]"))
+    client = FakeAnthropicClient(
+        parse_result=FakeParseResponse(JobListingsOutput(postings=[_listing("Analyst")]))
+    )
+    seen = {}
+    original = client.messages.parse
+
+    def recording_parse(**kwargs):
+        seen.update(kwargs)
+        return original(**kwargs)
+
+    client.messages.parse = recording_parse
+    monkeypatch.setattr(custom_board, "get_client", lambda: client)
+    custom_board.fetch({"config": {"url": "https://x.org/jobs/"}})
+    assert seen["output_config"] == {"effort": "low"}

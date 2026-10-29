@@ -59,6 +59,8 @@ _progress = {
     "sources_total": 0,
     "jobs_done": 0,
     "jobs_total": 0,
+    # Names of sources being read right now, so a slow one is visible ("still reading: ...").
+    "sources_pending": [],
     # Set by start_run_daily()'s background runs, so a page can tell which run finished and how.
     "run_id": None,
     "finished_run_id": None,
@@ -85,6 +87,8 @@ def _bump_progress(key: str) -> None:
 def _fetch_source(source: dict) -> tuple[list[dict] | None, str | None]:
     """Runs one source's adapter (in a worker thread). Returns (postings, error); postings is None
     for a failed fetch or a kind with no adapter."""
+    with _progress_lock:
+        _progress["sources_pending"] = [*_progress["sources_pending"], source["name"]]
     try:
         adapter = ADAPTERS.get(source["kind"])
         if adapter is None:
@@ -99,6 +103,11 @@ def _fetch_source(source: dict) -> tuple[list[dict] | None, str | None]:
                 )
             return None, f"{source['name']}: {exc}"
     finally:
+        with _progress_lock:
+            pending = list(_progress["sources_pending"])
+            if source["name"] in pending:
+                pending.remove(source["name"])
+            _progress["sources_pending"] = pending
         _bump_progress("sources_done")
 
 
@@ -109,7 +118,7 @@ def _poll_sources(source_ids: list[int] | None = None) -> dict:
         sources = [s for s in sources if s["id"] in source_ids]
     for source in sources:
         source["config"] = json.loads(source.pop("config_json") or "{}")
-    _set_progress(stage="polling", sources_done=0, sources_total=len(sources))
+    _set_progress(stage="polling", sources_done=0, sources_total=len(sources), sources_pending=[])
 
     fetched = 0
     upserted = 0
