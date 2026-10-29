@@ -105,6 +105,9 @@ function AddSourceForm({ onAdded }: { onAdded: (source: Source) => void }) {
           onChange={(e) => setName(e.target.value)}
           style={{ width: "100%" }}
         />
+        <p className="muted small field-hint">
+          Your label for this source, shown here and on its jobs' cards.
+        </p>
       </div>
       <div className="fsection">
         <span className="flabel">{field?.label ?? "Value"}</span>
@@ -124,13 +127,18 @@ function AddSourceForm({ onAdded }: { onAdded: (source: Source) => void }) {
         )}
       </div>
       <div className="fsection" style={{ marginBottom: 0 }}>
-        <span className="flabel">Organization display name (optional)</span>
+        <span className="flabel">Employer name (optional)</span>
         <input
-          placeholder="Organization display name"
+          placeholder="e.g. 'Stripe'"
           value={companyName}
           onChange={(e) => setCompanyName(e.target.value)}
           style={{ width: "100%" }}
         />
+        <p className="muted small field-hint">
+          Fill this in for one employer's careers page: it's the company shown on jobs that don't
+          name one, and it files the source under Organizations. Leave it blank for a job board or
+          search that lists many employers.
+        </p>
       </div>
       <div className="form-actions">
         <button className="primary" onClick={submit} disabled={busy}>

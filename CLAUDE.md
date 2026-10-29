@@ -331,7 +331,11 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   = its name so it files under Organizations) and "Discover suggestions" (the Discover cards,
   which no longer sit inline on the page). The dialog stays mounted while closed, so discovery
   results survive closing and reopening. "Add a source manually" stays at the bottom, as the only
-  way to add the Adzuna/RemoteOK keyword aggregators, then run-daily-now. A source is an
+  way to add the Adzuna/RemoteOK keyword aggregators, then run-daily-now. Its fields carry hints
+  (the user asked what Name vs. the organization field meant): "Name" is the source's label, and
+  "Employer name (optional)", formerly "Organization display name", is `company_name`. That's the
+  company shown on postings that don't name one, and it files the source under Organizations;
+  leave it blank for multi-employer boards. A source is an
   organization if it's an `ats_*` kind or has a `company_name` (`isOrganization()`); there's no
   stored type, so this needs no migration. Monitoring a suggestion refreshes the lists (`onAdded`). No job
   listing on this page at all; it used to be a single page with two tabs, split into separate

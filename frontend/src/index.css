@@ -443,6 +443,7 @@ a.jobby-link { white-space: nowrap; }
 /* ---------- add more / discovery */
 .source-section-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
 .source-section-head .muted.small { margin: 0; }
+.field-hint { margin: 4px 0 0; }
 /* Manage Sources: Organizations and Job boards side by side, each a fixed-height scrolling list. */
 .sources-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-bottom: 20px; }
 .source-panel { display: flex; flex-direction: column; height: 560px; margin-bottom: 0; }
