@@ -488,10 +488,10 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   rationale (short phrases, not whole sentences), tagged with the rating each explains:
   `==i:...==` for interest, `==f:...==` for fit. `components/Markdown.tsx` renders them as
   `<mark class="mark-i|mark-f">`, and the wrapper's `rationaleClass(interest, fit)` (in
-  `ScoredJobCard.tsx`, used there and on `JobDetailPage`) colors each like its rating's badge,
-  slightly stronger, with dark text: green High, tan Med, red Low. The user asked for highlights
-  in the color of the assessment they support. An untagged `==text==` (rationales scored before
-  this) keeps the plain soft amber.
+  `ScoredJobCard.tsx`, used there and on `JobDetailPage`) colors each with exactly its rating's
+  chip colors, background and text (`.badge-high/-med/-low`): green High, amber Med, red Low. The
+  user asked for highlights in the color of the assessment they support, matching the chips. An
+  untagged `==text==` (rationales scored before this) looks like the Med chip.
 - On both `DigestPage` and `AllJobsPage`, marking a job "Interested" records the feedback *and*
   auto-creates an `applications` row the same way -- `components/ScoredJobCard.tsx` (`JobActions`)
   is the one shared implementation both pages use, so this only exists in one place. `JobDetailPage`
