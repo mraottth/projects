@@ -65,6 +65,65 @@ function DailyEmail() {
   );
 }
 
+// One-off: older job summaries' highlights are untagged, so they all show amber. This has Claude
+// label each as interest or fit (core/retag.py), after showing how many and roughly what it costs.
+function ColorOlderHighlights() {
+  const [status, setStatus] = useState<{ pending: number; estimated_cost_usd: number } | null>(null);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const load = () => api.getRetagStatus().then(setStatus).catch(() => undefined);
+  useEffect(() => {
+    load();
+  }, []);
+
+  const run = async () => {
+    setBusy(true);
+    setResult(null);
+    setProgress(null);
+    try {
+      const r = await api.retagHighlights((done, total) => setProgress({ done, total }));
+      setResult({
+        ok: true,
+        text:
+          `Colored the highlights in ${r.retagged} summar${r.retagged === 1 ? "y" : "ies"}.` +
+          (r.skipped ? ` ${r.skipped} couldn't be matched up and were left as they were.` : ""),
+      });
+      load();
+    } catch (e) {
+      setResult({ ok: false, text: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!status || (status.pending === 0 && !result)) return null;
+  return (
+    <div className="card">
+      <h2>Color older highlights</h2>
+      <p className="muted small">
+        Job summaries scored before highlights were colored still show every highlight in amber.
+        This asks Claude which rating each highlight explains, interest or fit, and colors it to
+        match, without changing any wording or ratings.
+      </p>
+      {status.pending > 0 && (
+        <button className="ghost" onClick={run} disabled={busy}>
+          {busy ? (
+            <Spinner label={progress?.total ? `Colored ${progress.done} of ${progress.total}...` : "Starting..."} />
+          ) : (
+            `Color ${status.pending} summar${status.pending === 1 ? "y" : "ies"} (about $${Math.max(
+              status.estimated_cost_usd,
+              0.01,
+            ).toFixed(2)})`
+          )}
+        </button>
+      )}
+      {result && <p className={result.ok ? "muted small" : "error-text small"}>{result.text}</p>}
+    </div>
+  );
+}
+
 // Wipes everything and starts over at onboarding. Typing DELETE is the confirmation: it's the one
 // irreversible action in the app, and the backend refuses without it too.
 function DeleteAllData() {
@@ -307,6 +366,7 @@ export default function SettingsPage() {
       </div>
 
       <DailyEmail />
+      <ColorOlderHighlights />
       <PrefilterSettings />
       <UsageLog />
       <DeleteAllData />

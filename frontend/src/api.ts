@@ -518,6 +518,29 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
+  getRetagStatus: () =>
+    request<{ pending: number; estimated_cost_usd: number }>("/api/settings/retag-highlights"),
+
+  // Colors older summaries' highlights; streams {done, total} progress until it finishes.
+  retagHighlights: async (onProgress: (done: number, total: number) => void) => {
+    const res = await fetch("/api/settings/retag-highlights", { method: "POST" });
+    if (!res.ok || !res.body) throw new ApiError(res.status, res.statusText);
+    let result: { retagged: number; skipped: number } | null = null;
+    let failure: string | null = null;
+    await readEvents<
+      | { type: "progress"; done: number; total: number }
+      | { type: "done"; retagged: number; skipped: number }
+      | { type: "error"; message: string }
+    >(res, (event) => {
+      if (event.type === "progress") onProgress(event.done, event.total);
+      else if (event.type === "done") result = { retagged: event.retagged, skipped: event.skipped };
+      else failure = event.message;
+    });
+    if (failure) throw new Error(failure);
+    if (!result) throw new Error(NETWORK_ERROR);
+    return result as { retagged: number; skipped: number };
+  },
+
   getEmailStatus: () => request<{ configured: boolean; to: string | null }>("/api/settings/email-status"),
 
   sendTestEmail: () =>

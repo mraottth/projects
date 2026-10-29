@@ -499,6 +499,14 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   chip colors, background and text (`.badge-high/-med/-low`): green High, amber Med, red Low. The
   user asked for highlights in the color of the assessment they support, matching the chips. An
   untagged `==text==` (rationales scored before this) looks like the Med chip.
+  Settings' "Color older highlights" (`core/retag.py`, `GET`/`POST /api/settings/retag-highlights`)
+  fixes those older ones. A refresh only scores new jobs, so live every card stayed amber. It shows
+  how many latest-score summaries have untagged marks and an estimate. Then, in a background thread
+  streamed as SSE progress like the pipeline run, it asks Claude (low effort, structured
+  `HighlightTags`) only for an `i`/`f` per numbered highlight and splices the tags in, so wording
+  and ratings never change. An answer whose length doesn't match the highlights leaves that
+  summary as it was. It logs as `parsing` with note "retag highlights", and the card hides once
+  nothing's left.
 - On both `DigestPage` and `AllJobsPage`, marking a job "Interested" records the feedback *and*
   auto-creates an `applications` row the same way -- `components/ScoredJobCard.tsx` (`JobActions`)
   is the one shared implementation both pages use, so this only exists in one place. `JobDetailPage`

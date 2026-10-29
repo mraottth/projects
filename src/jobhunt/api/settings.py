@@ -1,5 +1,11 @@
+import json
+import time
+
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+
+from jobhunt.core import retag
 
 from jobhunt.core.llm import LLMError
 from jobhunt.core.email_digest import EmailNotConfigured, email_status, send_test_email
@@ -20,8 +26,45 @@ def delete_all_data_route(payload: DeleteAllRequest):
     """Settings' "Delete all my data". Requires {"confirm": "DELETE"} so a stray request can't
     wipe everything; the UI makes the user type it."""
     if payload.confirm != "DELETE":
-        raise HTTPException(400, 'type DELETE to confirm')
+        raise HTTPException(400, "type DELETE to confirm")
     return delete_all_data()
+
+
+@router.get("/retag-highlights")
+def retag_highlights_status():
+    """How many job summaries still have uncolored (untagged) highlights, and a cost estimate."""
+    return retag.pending_summary()
+
+
+@router.post("/retag-highlights")
+def retag_highlights():
+    """Colors older summaries' highlights (core/retag.py) in a background thread, streaming
+    progress as server-sent events -- {"type": "progress", done, total}, then {"type": "done",
+    retagged, skipped} or {"type": "error", message} -- like the pipeline's run stream, so a long
+    pass isn't a silent request that gets cut. A second request follows the pass in progress."""
+    retag.start()
+
+    def events():
+        while True:
+            state = retag.get_state()
+            if not state["running"]:
+                if state["error"]:
+                    yield _sse({"type": "error", "message": state["error"]})
+                else:
+                    yield _sse({"type": "done", "retagged": state["retagged"], "skipped": state["skipped"]})
+                return
+            yield _sse({"type": "progress", "done": state["done"], "total": state["total"]})
+            time.sleep(1.0)
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+def _sse(event: dict) -> str:
+    return f"data: {json.dumps(event)}\n\n"
 
 
 @router.get("/email-status")
@@ -53,9 +96,7 @@ def put_settings(payload: dict):
 @router.get("/usage-log")
 def usage_log(limit: int = 100):
     with get_db() as conn:
-        rows = conn.execute(
-            "SELECT * FROM llm_calls ORDER BY created_at DESC LIMIT ?", (limit,)
-        ).fetchall()
+        rows = conn.execute("SELECT * FROM llm_calls ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
         totals = conn.execute(
             """SELECT
                    COALESCE(SUM(estimated_cost_usd), 0) AS total_cost,
