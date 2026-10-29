@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from jobhunt.core.llm import LLMError
+from jobhunt.core.email_digest import EmailNotConfigured, email_status, send_test_email
 from jobhunt.core.reset import delete_all_data
 from jobhunt.core.preference import get_current_preference_profile, rebuild_preference_profile
 from jobhunt.core.settings import get_settings, update_settings
@@ -21,6 +22,22 @@ def delete_all_data_route(payload: DeleteAllRequest):
     if payload.confirm != "DELETE":
         raise HTTPException(400, 'type DELETE to confirm')
     return delete_all_data()
+
+
+@router.get("/email-status")
+def get_email_status():
+    """Whether the daily email is set up, and who it goes to. Never includes the password."""
+    return email_status()
+
+
+@router.post("/test-email")
+def post_test_email():
+    try:
+        return send_test_email()
+    except EmailNotConfigured as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001 - a bad app password or Gmail refusal, shown to the user
+        raise HTTPException(502, f"Gmail didn't accept the email: {exc}") from exc
 
 
 @router.get("")

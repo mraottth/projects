@@ -72,7 +72,8 @@ def get_digest(digest_date: str) -> list[dict]:
     with get_db() as conn:
         rows = conn.execute(
             f"""SELECT j.*, js.interest_fit, js.interest_score, js.candidate_fit, js.candidate_fit_score,
-                      js.summary_text, js.rationale_text, de.rank, s.name AS source_name
+                      js.summary_text, js.rationale_text, de.rank, de.emailed_at,
+                      de.digest_date, s.name AS source_name
                FROM digest_entries de
                JOIN jobs j ON j.id = de.job_id
                LEFT JOIN job_scores js ON js.id = (

@@ -23,6 +23,8 @@ MIGRATIONS = [
     # Must run after the content_hash column migration above (order matters: on an existing DB,
     # the column doesn't exist until that ALTER TABLE runs).
     "CREATE INDEX IF NOT EXISTS idx_resumes_content_hash ON resumes(content_hash)",
+    # When a digest entry went out in the daily email (core/email_digest.py), so it's sent once.
+    "ALTER TABLE digest_entries ADD COLUMN emailed_at TEXT",
 ]
 
 

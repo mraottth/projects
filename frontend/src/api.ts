@@ -414,6 +414,11 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
+  getEmailStatus: () => request<{ configured: boolean; to: string | null }>("/api/settings/email-status"),
+
+  sendTestEmail: () =>
+    request<{ sent: boolean; count: number; to: string }>("/api/settings/test-email", { method: "POST" }),
+
   deleteAllData: (confirm: string) =>
     request<{ tables_cleared: number; files_deleted: number }>("/api/settings/delete-all-data", {
       method: "POST",

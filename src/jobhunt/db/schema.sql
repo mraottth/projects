@@ -73,6 +73,7 @@ CREATE TABLE IF NOT EXISTS digest_entries (
     digest_date TEXT NOT NULL,
     job_id INTEGER NOT NULL REFERENCES jobs(id),
     rank INTEGER NOT NULL,
+    emailed_at TEXT,
     UNIQUE(digest_date, job_id)
 );
 CREATE INDEX IF NOT EXISTS idx_digest_entries_date ON digest_entries(digest_date);

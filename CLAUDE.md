@@ -285,6 +285,20 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   `resume_library_path` folder. With no resumes left, the next load goes through onboarding; the
   UI does a full page load to `/onboarding` so `App.tsx` re-checks status. Tables are listed from
   `sqlite_master` with foreign keys off, so the live DB's leftover tables are cleared too.
+- **Daily email** (`core/email_digest.py`): at the end of every `run_daily` (Cloud Scheduler
+  now runs it at 2:00pm America/New_York, `0 14 * * *` with `--time-zone`), `send_new_jobs_email()`
+  emails New & Noteworthy jobs from today's and yesterday's digest with High interest and a High
+  or Med fit (the user's choice), best first, each one once (`digest_entries.emailed_at`, a
+  migration). No new matches means no email. It's sent over Gmail SMTP (`smtp.gmail.com:465`) with an app
+  password, from `EMAIL_ADDRESS` to itself (or `EMAIL_TO`), with posting links and, given
+  `APP_URL`, "Open in the app" links. Without `EMAIL_ADDRESS` + `GMAIL_APP_PASSWORD` nothing is
+  sent, so dev and tests never email. A send failure is logged and lands in the run summary's
+  `email`, never failing the run. `refresh_sources()` doesn't email; its jobs go out with the next
+  daily email. Settings' "Daily email" card shows who it goes to and has "Send a test email"
+  (`POST /api/settings/test-email`: today's top 5 matches, without marking them emailed).
+  Deploy wiring: `make email-secret` stores `GMAIL_APP_PASSWORD` as `gmail-app-password` (and
+  grants the compute service account access); `make deploy EMAIL_ADDRESS=...` (or set it in
+  `.deploy.local.mk`) adds the env vars and mounts the secret; without it deploy leaves email off.
 - **Settings is a gear icon** (`.settings-gear`, right end of the top bar), not a nav tab.
 - **Page split**, seven pages each with one job (plus the first-run `/onboarding` wizard, below), nav order New & Noteworthy → All Jobs → My Jobs →
   Jobby → Manage Sources → Profile → Settings: `DigestPage` (route `/`, nav label "New & Noteworthy") is
@@ -701,6 +715,7 @@ Deployed to the `job-searcher-512814` GCP project, service `jobhunt`, region `us
 The URL isn't recorded in this repo; get it with `gcloud run services describe jobhunt --project
 job-searcher-512814 --region us-central1 --format='value(status.url)'` or from the Cloud Run
 console. One-time setup order (see the Makefile): `apis-setup` → `bucket-setup` → `anthropic-secret`
-/ `scheduler-secret` → `deploy` → `iap-setup` → `scheduler-setup`; after that, `make deploy` alone
-ships every update. Every one of these is real spend/real infrastructure, so don't run them from
+/ `scheduler-secret` (/ `email-secret` for the daily email) → `deploy` → `iap-setup` →
+`scheduler-setup` (the daily run at 2:00pm ET); after that, `make deploy` alone ships every
+update. Every one of these is real spend/real infrastructure, so don't run them from
 here without the user present.

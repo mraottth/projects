@@ -14,6 +14,7 @@ from jobhunt.core import prefilter, queue
 from jobhunt.core import settings as settings_module
 from jobhunt.core.dedupe import compute_dedupe_key
 from jobhunt.core.digest import add_to_digest
+from jobhunt.core.email_digest import send_new_jobs_email
 from jobhunt.core.generic_postings import is_generic_posting
 from jobhunt.core.llm import LLMError
 from jobhunt.core.page_fetch import PageFetchError, fetch_page_text
@@ -447,6 +448,13 @@ def _run_daily(started_at: str, cap: int | None) -> dict:
 
     preference_rebuilt = _maybe_rebuild_preference_profile()
 
+    # The daily email goes out once the digest is built. A mail failure must never fail the run.
+    try:
+        email_result = send_new_jobs_email()
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("daily email failed")
+        email_result = {"sent": False, "reason": f"error: {exc}"}
+
     summary = {
         "started_at": started_at,
         "finished_at": datetime.now(UTC).isoformat(),
@@ -459,6 +467,7 @@ def _run_daily(started_at: str, cap: int | None) -> dict:
         "carried_over_count": queue.pending_count(),
         "errors": poll_result["errors"] + scoring_errors,
         "preference_profile_rebuilt": preference_rebuilt,
+        "email": email_result,
     }
 
     with get_db() as conn:

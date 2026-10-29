@@ -2,7 +2,7 @@ export PYTHONPATH := src
 PY := uv run python -m
 
 .PHONY: serve serve-sandbox reset-sandbox dev frontend test ingest-resumes docker apis-setup bucket-setup deploy iap-setup \
-        anthropic-secret scheduler-secret scheduler-setup
+        anthropic-secret scheduler-secret email-secret scheduler-setup
 
 serve:        ## API (serves frontend/dist if built) on http://localhost:8000
 	uv run uvicorn jobhunt.api.main:app --reload --port 8000
@@ -41,6 +41,15 @@ GCP_REGION  ?= us-central1
 IMAGE        = $(GCP_REGION)-docker.pkg.dev/$(GCP_PROJECT)/jobhunt/app
 BUCKET      ?= $(GCP_PROJECT)-jobhunt-data
 
+# The daily email (core/email_digest.py) is on only when EMAIL_ADDRESS is set (in .deploy.local.mk
+# or on the command line) -- after `make email-secret` has stored the Gmail app password, since
+# deploy then mounts that secret. APP_URL (for "Open in the app" links) is the service's own URL.
+EMAIL_ADDRESS ?=
+comma := ,
+SERVICE_URL = $$(gcloud run services describe jobhunt --project $(GCP_PROJECT) --region $(GCP_REGION) --format 'value(status.url)')
+EMAIL_ENV = $(if $(EMAIL_ADDRESS),$(comma)EMAIL_ADDRESS=$(EMAIL_ADDRESS)$(comma)APP_URL=$(SERVICE_URL))
+EMAIL_SECRET = $(if $(EMAIL_ADDRESS),$(comma)GMAIL_APP_PASSWORD=gmail-app-password:latest)
+
 # One-time setup, in order: apis-setup -> bucket-setup -> anthropic-secret -> scheduler-secret
 # -> deploy -> iap-setup -> scheduler-setup. `deploy` alone is safe to re-run for every later update.
 
@@ -74,8 +83,8 @@ deploy:       ## build the image in Cloud Build and deploy to Cloud Run, locked 
 	  --execution-environment gen2 \
 	  --add-volume name=data,type=cloud-storage,bucket=$(BUCKET) \
 	  --add-volume-mount volume=data,mount-path=/data \
-	  --set-env-vars JOBHUNT_DATA_DIR=/data \
-	  --set-secrets ANTHROPIC_API_KEY=anthropic-key:latest,SCHEDULER_SECRET=scheduler-secret:latest
+	  --set-env-vars JOBHUNT_DATA_DIR=/data$(EMAIL_ENV) \
+	  --set-secrets ANTHROPIC_API_KEY=anthropic-key:latest,SCHEDULER_SECRET=scheduler-secret:latest$(EMAIL_SECRET)
 
 IAP_USER ?= $(error set IAP_USER=you@example.com on the command line)
 
@@ -98,6 +107,15 @@ scheduler-secret:  ## once: store $SCHEDULER_SECRET in Secret Manager (re-run to
 	gcloud secrets describe scheduler-secret --project $(GCP_PROJECT) >/dev/null 2>&1 \
 	  || gcloud secrets create scheduler-secret --project $(GCP_PROJECT) --replication-policy automatic
 	printf %s "$$SCHEDULER_SECRET" | gcloud secrets versions add scheduler-secret --project $(GCP_PROJECT) --data-file=-
+
+email-secret:  ## once: store $GMAIL_APP_PASSWORD (a Google app password) for the daily email
+	@test -n "$$GMAIL_APP_PASSWORD" || (echo "set GMAIL_APP_PASSWORD first" && exit 1)
+	gcloud secrets describe gmail-app-password --project $(GCP_PROJECT) >/dev/null 2>&1 \
+	  || gcloud secrets create gmail-app-password --project $(GCP_PROJECT) --replication-policy automatic
+	printf %s "$$GMAIL_APP_PASSWORD" | gcloud secrets versions add gmail-app-password --project $(GCP_PROJECT) --data-file=-
+	gcloud secrets add-iam-policy-binding gmail-app-password --project $(GCP_PROJECT) \
+	  --member="serviceAccount:$$(gcloud projects describe $(GCP_PROJECT) --format='value(projectNumber)')-compute@developer.gserviceaccount.com" \
+	  --role roles/secretmanager.secretAccessor
 
 SCHEDULER_SA = $(shell gcloud projects describe $(GCP_PROJECT) --format='value(projectNumber)')-compute@developer.gserviceaccount.com
 IAP_CLIENT_ID ?= $(error set IAP_CLIENT_ID on the command line -- the OAuth client id from `gcloud iap settings get`)
@@ -123,8 +141,8 @@ scheduler-setup:  ## create/update the daily Cloud Scheduler job (M6) -- also gr
 	  && gcloud scheduler jobs update http run-daily --project $(GCP_PROJECT) --location $(GCP_REGION) \
 	       --uri "$$(gcloud run services describe jobhunt --project $(GCP_PROJECT) --region $(GCP_REGION) --format 'value(status.url)')/internal/run-daily" \
 	       --http-method POST --update-headers "X-Scheduler-Secret=$$(gcloud secrets versions access latest --secret=scheduler-secret --project $(GCP_PROJECT))" \
-	       --schedule "0 6 * * *" --oidc-service-account-email $(SCHEDULER_SA) --oidc-token-audience $(IAP_CLIENT_ID) \
+	       --schedule "0 14 * * *" --time-zone "America/New_York" --oidc-service-account-email $(SCHEDULER_SA) --oidc-token-audience $(IAP_CLIENT_ID) \
 	  || gcloud scheduler jobs create http run-daily --project $(GCP_PROJECT) --location $(GCP_REGION) \
 	       --uri "$$(gcloud run services describe jobhunt --project $(GCP_PROJECT) --region $(GCP_REGION) --format 'value(status.url)')/internal/run-daily" \
 	       --http-method POST --headers "X-Scheduler-Secret=$$(gcloud secrets versions access latest --secret=scheduler-secret --project $(GCP_PROJECT))" \
-	       --schedule "0 6 * * *" --oidc-service-account-email $(SCHEDULER_SA) --oidc-token-audience $(IAP_CLIENT_ID)
+	       --schedule "0 14 * * *" --time-zone "America/New_York" --oidc-service-account-email $(SCHEDULER_SA) --oidc-token-audience $(IAP_CLIENT_ID)

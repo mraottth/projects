@@ -10,6 +10,61 @@ function toList(s: string): string[] {
     .filter(Boolean);
 }
 
+// The daily email (core/email_digest.py): status, plus a test send that doesn't affect the real one.
+function DailyEmail() {
+  const [status, setStatus] = useState<{ configured: boolean; to: string | null } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
+
+  useEffect(() => {
+    api.getEmailStatus().then(setStatus).catch(() => setStatus({ configured: false, to: null }));
+  }, []);
+
+  const test = async () => {
+    setBusy(true);
+    setResult(null);
+    try {
+      const r = await api.sendTestEmail();
+      setResult({
+        ok: true,
+        text: r.count
+          ? `Sent ${r.count} current match${r.count === 1 ? "" : "es"} to ${r.to}.`
+          : `Sent to ${r.to} (no High-interest matches right now, so it's a short check-in).`,
+      });
+    } catch (e) {
+      setResult({ ok: false, text: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="card">
+      <h2>Daily email</h2>
+      <p className="muted small">
+        After the daily check at 2:00pm ET, new High-interest matches with a High or Med fit are
+        emailed to you, each one once. No new matches, no email.
+      </p>
+      {status === null ? (
+        <Spinner label="Checking..." />
+      ) : status.configured ? (
+        <p className="small">
+          Sending to <strong>{status.to}</strong>
+        </p>
+      ) : (
+        <p className="small">
+          Not set up yet: store a Gmail app password with <code>make email-secret</code>, then
+          redeploy with <code>EMAIL_ADDRESS=you@gmail.com</code> added to <code>make deploy</code>.
+        </p>
+      )}
+      <button className="ghost" onClick={test} disabled={busy || !status?.configured}>
+        {busy ? <Spinner label="Sending..." /> : "Send a test email"}
+      </button>
+      {result && <p className={result.ok ? "muted small" : "error-text small"}>{result.text}</p>}
+    </div>
+  );
+}
+
 // Wipes everything and starts over at onboarding. Typing DELETE is the confirmation: it's the one
 // irreversible action in the app, and the backend refuses without it too.
 function DeleteAllData() {
@@ -251,6 +306,7 @@ export default function SettingsPage() {
         )}
       </div>
 
+      <DailyEmail />
       <PrefilterSettings />
       <UsageLog />
       <DeleteAllData />
