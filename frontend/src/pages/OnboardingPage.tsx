@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, OnboardingStep, ResumeSummary, RunProgress } from "../api";
+import { api, OnboardingStep, ResumeSummary, RunProgress, runProgressText } from "../api";
 import { CandidateProfileCard } from "../components/CandidateProfileCard";
 import { DesiredRoleForm } from "../components/DesiredRoleForm";
 import { DiscoverCompaniesSection, DiscoverJobBoardsSection } from "../components/Discovery";
@@ -282,22 +282,6 @@ function OldDocsStep({ existing, onUploaded }: { existing: ResumeSummary[]; onUp
   );
 }
 
-function progressText(p: RunProgress | null): string {
-  if (!p) return "Starting...";
-  if (p.stage === "polling") {
-    return p.sources_total
-      ? `Checked ${p.sources_done} of ${p.sources_total} sources for new postings...`
-      : "Checking your sources for new postings...";
-  }
-  if (p.stage === "scoring") {
-    return p.jobs_total
-      ? `Scored ${p.jobs_done} of ${p.jobs_total} jobs...`
-      : "Nothing new to score — wrapping up...";
-  }
-  if (p.stage === "done") return "Done — loading your matches...";
-  return "Starting...";
-}
-
 function FinishStep({ onDone }: { onDone: () => void }) {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
@@ -316,17 +300,12 @@ function FinishStep({ onDone }: { onDone: () => void }) {
         setError(errorText(e));
         return;
       }
-      // Poll the run's progress while its (long-lived) request is open.
-      const poll = window.setInterval(() => {
-        api.getRunProgress().then(setProgress).catch(() => undefined);
-      }, 2000);
+      // The run streams its progress back as it goes.
       try {
-        await api.runDailyNow(FIRST_RUN_CAP);
+        await api.runDailyNow(FIRST_RUN_CAP, setProgress);
         navigate("/", { replace: true });
       } catch (e) {
         setError(errorText(e));
-      } finally {
-        window.clearInterval(poll);
       }
     })();
   }, []);
@@ -353,7 +332,7 @@ function FinishStep({ onDone }: { onDone: () => void }) {
             matches against your profile — the rest are scored in tomorrow's daily run. You'll land
             on New &amp; Noteworthy when it's done.
           </p>
-          <Spinner label={progressText(progress)} />
+          <Spinner label={runProgressText(progress, "Done — loading your matches...")} />
         </>
       )}
     </div>

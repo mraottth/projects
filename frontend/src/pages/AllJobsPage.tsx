@@ -39,7 +39,7 @@ export default function AllJobsPage() {
         <div className="card empty-card">
           <p>No jobs yet.</p>
           <p className="muted small">
-            Jobs show up here once your sources are checked — that happens every morning, or right
+            Jobs show up here once your sources are checked — that happens every day at 2:00pm ET, or right
             away with "Run now" on Manage Sources.
           </p>
           <Link className="primary button-link" to="/sources">

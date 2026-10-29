@@ -58,7 +58,7 @@ export default function DigestPage() {
         <div className="card empty-card">
           <p>Nothing new and noteworthy today.</p>
           <p className="muted small">
-            New postings are checked and scored every morning. In the meantime, browse everything
+            New postings are checked and scored every day at 2:00pm ET. In the meantime, browse everything
             your sources have already found, or add more sources to widen the net.
           </p>
           <div className="form-actions">

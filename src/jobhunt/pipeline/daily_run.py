@@ -3,6 +3,7 @@ queue new ones -> score up to the daily cap (highest-priority first) -> build to
 conditionally refresh the preference profile -> record a run summary. Triggered by Cloud Scheduler
 via POST /internal/run-daily (see api/internal.py); safe to run manually/repeatedly."""
 
+import itertools
 import json
 import logging
 import threading
@@ -52,7 +53,18 @@ POLL_CONCURRENCY = 6
 # run-daily request is still open. In-process state is the real state: Cloud Run runs a single
 # instance (--max-instances 1).
 _progress_lock = threading.Lock()
-_progress = {"stage": "idle", "sources_done": 0, "sources_total": 0, "jobs_done": 0, "jobs_total": 0}
+_progress = {
+    "stage": "idle",
+    "sources_done": 0,
+    "sources_total": 0,
+    "jobs_done": 0,
+    "jobs_total": 0,
+    # Set by start_run_daily()'s background runs, so a page can tell which run finished and how.
+    "run_id": None,
+    "finished_run_id": None,
+    "last_summary": None,
+    "last_error": None,
+}
 
 
 def get_progress() -> dict:
@@ -344,6 +356,40 @@ def run_daily(cap: int | None = None) -> dict:
             with _progress_lock:
                 if _progress["stage"] != "done":
                     _progress["stage"] = "failed"
+
+
+# The UI's "Check every source now" and onboarding's last step run the pipeline in a thread of its
+# own, not in the request: a dropped connection (the page's request used to sit silent for the
+# whole multi-minute run and got cut -- "Lost the connection", caught live) must not stop the run,
+# and a second click while one is going just follows the one in progress instead of paying for two.
+_run_ids = itertools.count(1)
+_active_run: dict = {"id": None}
+_active_lock = threading.Lock()
+
+
+def start_run_daily(cap: int | None = None) -> int:
+    """Starts a run in the background, or returns the id of the one already in progress."""
+    with _active_lock:
+        if _active_run["id"] is not None:
+            return _active_run["id"]
+        run_id = next(_run_ids)
+        _active_run["id"] = run_id
+    _set_progress(run_id=run_id, stage="starting", sources_done=0, sources_total=0, jobs_done=0, jobs_total=0)
+    threading.Thread(target=_run_in_background, args=(run_id, cap), daemon=True).start()
+    return run_id
+
+
+def _run_in_background(run_id: int, cap: int | None) -> None:
+    summary, error = None, None
+    try:
+        summary = run_daily(cap=cap)
+    except Exception as exc:  # noqa: BLE001 - reported to the page instead of lost in a thread
+        logger.exception("daily run %s failed", run_id)
+        error = str(exc)
+    finally:
+        with _active_lock:
+            _active_run["id"] = None
+        _set_progress(finished_run_id=run_id, last_summary=summary, last_error=error)
 
 
 def _score_args() -> tuple:

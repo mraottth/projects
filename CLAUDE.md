@@ -196,7 +196,19 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   select-then-insert or re-rank could race. `run_daily(cap=)` / `?cap=N` overrides
   `daily_llm_cap` for one run; onboarding passes 20 (`FIRST_RUN_CAP`), and the rest stay queued.
   `GET /api/pipeline/progress` exposes an in-process progress dict (fine with one Cloud Run
-  instance) that the finish step polls every 2 s to show "Scored 12 of 20 jobs...".
+  instance).
+  The UI never waits on one silent request for a run: "Check every source now" sat silent for the
+  whole multi-minute run and got cut ("Lost the connection to the app", caught live).
+  - `POST /api/pipeline/run-daily/stream` starts the run in its own thread (`start_run_daily()`:
+    a second click while one is going follows that run rather than paying for another). It then
+    streams SSE `started`/`progress` (every 2 s)/`done`|`error` events, so data keeps flowing and
+    Cloud Run keeps CPU allocated while the request is open. A run started purely in the background
+    and only polled would be CPU-throttled between polls under request-based billing.
+  - The run's outcome lands in the progress dict (`run_id`, `finished_run_id`, `last_summary`,
+    `last_error`). `api.ts`'s `runDaily()`, behind `runDailyNow(cap, onProgress)`, falls back to
+    polling `/progress` until that run's id finishes if the stream drops.
+  - Onboarding's finish step and Manage Sources both show `runProgressText()` ("Scored 12 of 20
+    jobs..."). The plain `POST /api/pipeline/run-daily` remains for scripts and tests.
   A newly added (or re-enabled) source is checked right away rather than at the next daily run
   (asked for live): `api/sources.py`'s create/resolve/re-enable call
   `schedule_source_refresh()`, which gathers adds made within `REFRESH_GATHER_SECONDS` (3) into

@@ -229,6 +229,106 @@ export interface RunProgress {
   sources_total: number;
   jobs_done: number;
   jobs_total: number;
+  run_id: number | null;
+  finished_run_id: number | null;
+  last_summary: RunSummary | null;
+  last_error: string | null;
+}
+
+export interface RunSummary {
+  sources_polled?: number;
+  jobs_fetched?: number;
+  llm_scored_count?: number;
+  errors?: string[];
+  [key: string]: unknown;
+}
+
+// "Checked 4 of 12 sources...", "Scored 12 of 20 jobs..." -- the live label for a running check.
+export function runProgressText(p: RunProgress | null, doneText = "Done"): string {
+  if (!p) return "Starting...";
+  if (p.stage === "polling") {
+    return p.sources_total
+      ? `Checked ${p.sources_done} of ${p.sources_total} sources for new postings...`
+      : "Checking your sources for new postings...";
+  }
+  if (p.stage === "scoring") {
+    return p.jobs_total ? `Scored ${p.jobs_done} of ${p.jobs_total} jobs...` : "Nothing new to score — wrapping up...";
+  }
+  if (p.stage === "done") return doneText;
+  return "Starting...";
+}
+
+type RunEvent =
+  | { type: "started"; run_id: number }
+  | ({ type: "progress" } & RunProgress)
+  | { type: "done"; summary: RunSummary }
+  | { type: "error"; message: string };
+
+// Reads a server-sent-event body (POST responses, which EventSource can't make) event by event.
+async function readEvents<T>(res: Response, onEvent: (event: T) => void): Promise<void> {
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let boundary;
+    while ((boundary = buffer.indexOf("\n\n")) !== -1) {
+      const chunk = buffer.slice(0, boundary);
+      buffer = buffer.slice(boundary + 2);
+      for (const line of chunk.split("\n")) {
+        if (line.startsWith("data: ")) onEvent(JSON.parse(line.slice(6)) as T);
+      }
+    }
+  }
+}
+
+const RUN_POLL_MS = 3000;
+
+// A full check of every source takes minutes. The server streams progress the whole time (so the
+// connection isn't dropped as idle); if it drops anyway, the run carries on server-side and this
+// follows it through /progress until it reports that run finished.
+async function runDaily(cap: number | undefined, onProgress?: (p: RunProgress) => void): Promise<RunSummary> {
+  let runId: number | null = null;
+  let result: RunSummary | null = null;
+  let failure: string | null = null;
+  try {
+    const res = await fetch(`/api/pipeline/run-daily/stream${cap ? `?cap=${cap}` : ""}`, { method: "POST" });
+    if (!res.ok || !res.body) {
+      const body = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new ApiError(res.status, typeof body.detail === "string" ? body.detail : res.statusText);
+    }
+    await readEvents<RunEvent>(res, (event) => {
+      if (event.type === "started") runId = event.run_id;
+      else if (event.type === "progress") onProgress?.(event);
+      else if (event.type === "done") result = event.summary;
+      else if (event.type === "error") failure = event.message;
+    });
+  } catch (e) {
+    if (e instanceof ApiError || runId === null) throw e instanceof ApiError ? e : new Error(NETWORK_ERROR);
+  }
+  if (failure) throw new Error(failure);
+  if (result) return result;
+
+  // The stream ended early: keep following the run that's still going on the server.
+  let misses = 0;
+  for (;;) {
+    await new Promise((resolve) => setTimeout(resolve, RUN_POLL_MS));
+    let progress: RunProgress;
+    try {
+      progress = await request<RunProgress>("/api/pipeline/progress");
+      misses = 0;
+    } catch (e) {
+      if (++misses >= 10) throw e;
+      continue;
+    }
+    onProgress?.(progress);
+    if (progress.finished_run_id !== null && runId !== null && progress.finished_run_id >= runId) {
+      if (progress.finished_run_id === runId && progress.last_error) throw new Error(progress.last_error);
+      return progress.finished_run_id === runId && progress.last_summary ? progress.last_summary : {};
+    }
+  }
 }
 
 export interface OnboardingStatus {
@@ -431,11 +531,7 @@ export const api = {
       "/api/settings/usage-log",
     ),
 
-  runDailyNow: (cap?: number) =>
-    request<Record<string, unknown>>(
-      cap ? `/api/pipeline/run-daily?cap=${cap}` : "/api/pipeline/run-daily",
-      { method: "POST" },
-    ),
+  runDailyNow: (cap?: number, onProgress?: (p: RunProgress) => void) => runDaily(cap, onProgress),
 
   getRunProgress: () => request<RunProgress>("/api/pipeline/progress"),
 
@@ -483,22 +579,7 @@ export const api = {
       const detail = typeof body.detail === "string" ? body.detail : res.statusText;
       throw new ApiError(res.status, detail);
     }
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-    for (;;) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      let boundary;
-      while ((boundary = buffer.indexOf("\n\n")) !== -1) {
-        const chunk = buffer.slice(0, boundary);
-        buffer = buffer.slice(boundary + 2);
-        for (const line of chunk.split("\n")) {
-          if (line.startsWith("data: ")) onEvent(JSON.parse(line.slice(6)) as JobbyEvent);
-        }
-      }
-    }
+    await readEvents<JobbyEvent>(res, onEvent);
   },
 
   suggestCompanies: (req: DiscoveryRequest = {}) =>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, Source, SourceKind } from "../api";
+import { api, RunProgress, runProgressText, Source, SourceKind } from "../api";
 import { DiscoverCompaniesSection, DiscoverJobBoardsSection, DiscoverySeed } from "../components/Discovery";
 import { Modal } from "../components/Modal";
 import { detectSourceFromUrl } from "../sourceUrl";
@@ -449,6 +449,7 @@ export default function ManageSourcesPage() {
   const [sources, setSources] = useState<Source[]>([]);
   const [runResult, setRunResult] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
+  const [runProgress, setRunProgress] = useState<RunProgress | null>(null);
   const [orgSeed, setOrgSeed] = useState<DiscoverySeed | null>(null);
   const [boardSeed, setBoardSeed] = useState<DiscoverySeed | null>(null);
   const [dialog, setDialog] = useState<SectionKind | null>(null);
@@ -485,13 +486,9 @@ export default function ManageSourcesPage() {
   const runNow = async () => {
     setRunning(true);
     setRunResult(null);
+    setRunProgress(null);
     try {
-      const r = (await api.runDailyNow()) as {
-        sources_polled?: number;
-        jobs_fetched?: number;
-        llm_scored_count?: number;
-        errors?: string[];
-      };
+      const r = await api.runDailyNow(undefined, setRunProgress);
       const errors = r.errors ?? [];
       setRunResult(
         `Checked ${r.sources_polled ?? 0} sources, found ${r.jobs_fetched ?? 0} postings, scored ` +
@@ -564,11 +561,11 @@ export default function ManageSourcesPage() {
       <div className="card">
         <h2>Check every source now</h2>
         <p className="muted small">
-          This runs automatically every morning: check every source, score the most promising new
+          This runs automatically every day at 2:00pm ET: check every source, score the most promising new
           jobs, and update New &amp; Noteworthy. New sources are checked as soon as you add them.
         </p>
         <button className="ghost" onClick={runNow} disabled={running}>
-          {running ? <Spinner label="Running..." /> : "Run now"}
+          {running ? <Spinner label={runProgressText(runProgress, "Finishing up...")} /> : "Run now"}
         </button>
         {runResult && (
           <p className="small" style={{ whiteSpace: "pre-wrap", marginTop: "10px" }}>
