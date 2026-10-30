@@ -705,7 +705,12 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   document control reads "Tailor my resume"/"Tailor my cover letter" (same wording as
   `JobDetailPage`'s buttons) until one exists, then "Download resume"/"Download cover letter",
   which downloads instead of regenerating -- it's rendered as an `<a>` when a doc id already
-  exists, a `<button>` (the generate action) otherwise;
+  exists, a `<button>` (the generate action) otherwise. The download link wears `.doc-download`
+  (green `--good` tint, "↓" prefix) so a finished document stands apart from the outlined action
+  buttons beside it, at the user's request. `JobDetailPage`'s "Pursuing this one?" card puts
+  Track application, both Tailor buttons and Prep with Jobby in one wrapping row
+  (`.pursue-actions`), all plain `ghost` buttons (the Tailor ones used to be `primary`, and Track
+  sat on its own line); once tracked, the status pill shows above the row;
   `a.ghost` needed `display: inline-block; text-decoration: none` added since `.ghost`'s existing
   rules were written assuming a `<button>`, which doesn't need either reset.
 - `MyJobsPage`'s row-remove control is now a `×` (`.remove-x`, `aria-label`/`title` for

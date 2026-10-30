@@ -128,11 +128,6 @@ export default function JobDetailPage() {
 
       <div className="card">
         <h2>Pursuing this one?</h2>
-        {!application && (
-          <button className="ghost" onClick={track} disabled={busy === "track"}>
-            Track application
-          </button>
-        )}
         {application && (
           <p className="muted">
             Tracked — status:{" "}
@@ -142,11 +137,16 @@ export default function JobDetailPage() {
           </p>
         )}
 
-        <div className="form-actions">
-          <button className="primary" onClick={() => generate("resume")} disabled={busy === "resume"}>
+        <div className="form-actions pursue-actions">
+          {!application && (
+            <button className="ghost" onClick={track} disabled={busy === "track"}>
+              {busy === "track" ? <Spinner label="Tracking..." /> : "Track application"}
+            </button>
+          )}
+          <button className="ghost" onClick={() => generate("resume")} disabled={busy === "resume"}>
             {busy === "resume" ? <Spinner label="Tailoring..." /> : "Tailor my resume"}
           </button>
-          <button className="primary" onClick={() => generate("cover-letter")} disabled={busy === "cover-letter"}>
+          <button className="ghost" onClick={() => generate("cover-letter")} disabled={busy === "cover-letter"}>
             {busy === "cover-letter" ? <Spinner label="Tailoring..." /> : "Tailor my cover letter"}
           </button>
           <Link className="ghost button-link" to={`/jobby?job=${jobId}`}>

@@ -83,6 +83,12 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .form-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 10px; }
 .form-actions { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
 .doc-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+/* A ready-to-download document reads as a finished result, not another action to take. */
+.ghost.doc-download {
+  background: var(--good-bg); color: var(--good); border-color: transparent; font-weight: 600;
+}
+.ghost.doc-download:hover { filter: brightness(0.96); background: var(--good-bg); }
+.pursue-actions { flex-wrap: wrap; }
 
 /* ---------- layout / nav */
 .app-shell { display: flex; flex-direction: column; min-height: 100vh; }

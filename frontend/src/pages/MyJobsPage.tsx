@@ -201,11 +201,11 @@ function DocActions({ app, onChanged }: { app: Application; onChanged: (app: App
     <div className="doc-actions">
       {app.resume_doc_id ? (
         <a
-          className="ghost small"
+          className="ghost small doc-download"
           href={api.generatedDocumentDownloadUrl(app.resume_doc_id)}
           download
         >
-          Download resume
+          <span aria-hidden="true">↓</span> Download resume
         </a>
       ) : (
         <button className="ghost small" onClick={() => generate("resume")} disabled={busy !== null}>
@@ -214,11 +214,11 @@ function DocActions({ app, onChanged }: { app: Application; onChanged: (app: App
       )}
       {app.cover_letter_doc_id ? (
         <a
-          className="ghost small"
+          className="ghost small doc-download"
           href={api.generatedDocumentDownloadUrl(app.cover_letter_doc_id)}
           download
         >
-          Download cover letter
+          <span aria-hidden="true">↓</span> Download cover letter
         </a>
       ) : (
         <button className="ghost small" onClick={() => generate("cover-letter")} disabled={busy !== null}>
