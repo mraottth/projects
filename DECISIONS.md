@@ -4,14 +4,15 @@ The choices that shaped this app, oldest first. Each entry links the prompts whe
 (ids from [`prompts/`](prompts/)) and the commits that carried it out. Where the reasoning wasn't
 recorded, the entry says so rather than inventing it.
 
-This log is a backfill, started 2026-10-30, not a complete retroactive audit — it covers the
-decisions from this machine's own Claude Code session (prompts/2026-10-26_e2f9082b.*) that were
-clear enough to write up accurately. A separate block of work (onboarding wizard, the "Jobby"
-interview-prep chat, email digests, salary extraction, discovery steering) was built in a Claude
-Code on the web session (commits tagged `web_session` on the Timeline) merged straight into main
-on 2026-10-30; its own decisions aren't reflected here yet — importing that session's transcript
-turned out not to be possible (cloud sessions are disabled by this account's org policy; see
-CLAUDE.md → Working conventions), so those commits will stay prompt-less on the Timeline.
+This log is a backfill, started 2026-10-30, not a complete retroactive audit. It covers the
+decisions from two Claude Code sessions that were clear enough to write up accurately:
+- this machine's own session (prompts/2026-10-26_e2f9082b.*), D-001 to D-008;
+- the Claude Code on the web session that built the onboarding wizard, Jobby, the daily email,
+  salary extraction and discovery steering (prompts/2026-10-28_ab602548.*), D-009 onward.
+
+`claude --teleport` couldn't pull the web session's transcript here, because cloud sessions are
+disabled by this account's org policy. So that session exported its own prompt log from inside
+the cloud container with `scripts/export_prompts.py`, and its decisions were added afterwards.
 
 Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 
@@ -111,3 +112,81 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 **Context.** The earlier note's reasoning was that this machinery exists on Shelf Life because its dev history is a *public* product feature, and here it would "just be noise (and a privacy problem)." That reasoning predates this app being locked down behind IAP (D-002) — with the whole app private to one Google account, a Timeline page carries the same exposure as any other page in it, i.e. none.
 
 **Why.** Revisited now that the privacy objection no longer holds, at the user's request, for the same reason it's valuable on Shelf Life: a browsable record of what was built, why, and in what order.
+
+## D-009 · Onboarding: only for users with no documents, skippable, ending in a real first run
+- **Date:** 2026-10-28
+- **Category:** ui
+- **Prompts:** ab602548-003, ab602548-004, ab602548-013, ab602548-014
+- **Commits:** 379f309, bb23a91, f37c72a, 42ded0d
+
+**Decision.** The wizard only appears when there are no uploaded documents and onboarding hasn't been completed, and every step can be skipped. The candidate-profile step allows both a direct edit and "Ask Claude to change it". The last step runs the pipeline instead of dropping the user on an empty digest, but scores only the top 20 jobs (the rest stay queued). Scoring itself moved from high to medium effort.
+
+**Context.** A new user landed on a blank New & Noteworthy page. The first version of the last step took many minutes, since it waited on a full daily run at high effort.
+
+**Alternatives considered.** Required steps; just going to the (empty) digest at the end; scoring the full daily limit on the first run; low or unchanged scoring effort.
+
+**Why.** The user picked the recommended option each time. An existing user with documents, including bulk-imported ones, is never forced through the wizard. Twenty scored jobs gives the digest something to show straight away. Medium effort trades a little care for faster, cheaper scores, and `SCORING_EFFORT` can go back up if ratings start missing nuance.
+
+## D-010 · Jobby: one saved conversation per job, web search on, My Jobs plus a general chat
+- **Date:** 2026-10-28
+- **Category:** ai
+- **Prompts:** ab602548-022, ab602548-023, ab602548-024, ab602548-027
+- **Commits:** f66caea, 22d3315, 699f323, 90edb75
+
+**Decision.** Jobby keeps one saved conversation per job plus one general one. It can search the web (up to three searches a turn), and its picker lists the jobs on My Jobs plus "No specific job". The posting, profile and documents sit in a cached system prompt, and replies stream.
+
+**Alternatives considered.** Conversations that last one visit; offline only; any job in the database.
+
+**Why.** The user chose the recommended options. A mock interview can then be picked up the next day, and the research checklist can use the company's recent news. Caching the large context keeps later turns cheap. The "Questions to ask them" starter was dropped later at the user's request.
+
+## D-011 · Score a mix of sources each run, and read careers pages like a browser would
+- **Date:** 2026-10-28
+- **Category:** pipeline
+- **Prompts:** ab602548-028, ab602548-031, ab602548-033
+- **Commits:** 18cb51d, 18273fe, ba604fc
+
+**Decision.** Each run takes jobs for scoring round-robin across sources rather than a plain top-N. A careers page is checked first for an embedded Greenhouse/Lever/Ashby board, which is then read through that ATS's API with no Claude call. A page where Claude finds nothing is re-rendered in a headless browser and read again. New sources are checked as soon as they're added.
+
+**Context.** All Jobs showed only Civis: its postings all matched the titles, so they took every slot of the 20-job first run, and unscored jobs were hidden by the default filters. "Test fetch" also found nothing on careers pages such as blueroseresearch.org/jobs, whose listings load through JS or an ATS iframe.
+
+**Why.** One big board shouldn't crowd out every other source. And a careers page has enough nav and footer text that the old "too little text, so use the browser" rule never fired.
+
+## D-012 · Daily email over Gmail SMTP: High interest with High or Med fit, nothing on empty days
+- **Date:** 2026-10-29
+- **Category:** pipeline
+- **Prompts:** ab602548-040, ab602548-041
+- **Commits:** a473298
+
+**Decision.** The daily run moved to 2:00pm ET and ends by emailing new New & Noteworthy jobs with High interest and High or Med fit, each one once. The email is sent through Gmail SMTP with an app password stored in Secret Manager, and a day with no matches sends nothing.
+
+**Alternatives considered.** Resend (an email API); High on both ratings; anything High or Med; a short "nothing new" email.
+
+**Why.** The user picked the recommended options. Both senders are free at this volume, and a Gmail app password needs no new account.
+
+## D-013 · Keep run progress flowing over one streamed request instead of polling a background job
+- **Date:** 2026-10-29
+- **Category:** pipeline
+- **Prompts:** ab602548-047, ab602548-053
+- **Commits:** 28f9cd9, 603caa8
+
+**Decision.** "Check every source now" starts the run in a thread and streams progress events every 2 seconds over the same request. If the stream drops, the page falls back to polling. Web-page boards are read at low effort, and the progress line names the sources still being read.
+
+**Context.** The button waited silently on one request for the whole run and got "Lost the connection to the app". Discovery's "Load failed" had the same cause.
+
+**Alternatives considered.** A purely background run that the page polls (what discovery uses).
+
+**Why.** On Cloud Run, CPU is throttled outside an open request, so a run nobody is streaming from would crawl between polls. Keeping the request open keeps the CPU allocated. Low effort removed a minute or more of reasoning per board spent on what is mechanical copying.
+
+## D-014 · Re-tag old rationale highlights with a small Claude pass, not a re-score or a heuristic
+- **Date:** 2026-10-29
+- **Category:** ai
+- **Prompts:** ab602548-051, ab602548-052, ab602548-054, ab602548-055
+- **Commits:** 10af09b, fa6f205, 9d9ec21
+
+**Decision.** New scores tag each highlight as explaining interest or fit, drawn in exactly that rating's chip color. Older rationales are fixed by a Settings button that asks Claude only for an interest/fit tag per highlight and splices the tags in, leaving the wording and ratings unchanged.
+
+**Context.** After deploying, every highlight was still amber, because a refresh only scores new jobs.
+
+**Alternatives considered.** Waiting for new jobs to replace the old ones; guessing the tag from nearby words with no Claude call.
+
+**Why.** The user chose the re-tag ("#2"). It's roughly $1 for a few hundred jobs, runs only when the user clicks, and the guess would sometimes pick the wrong color.

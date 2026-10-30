@@ -56,17 +56,50 @@
  },
  {
   "id": "M06",
-  "date": "2026-10-30",
+  "date": "2026-10-28",
   "icon": "🤖",
   "category": "ai",
-  "title": "Onboarding v2, Jobby interview-prep chat, email digests",
-  "summary": "A substantial block of work from a Claude Code on the web session, merged straight into main: a rebuilt onboarding wizard, \"Jobby\" -- a saved per-job interview-prep chat -- email alerts for new high-interest matches, salary extraction, ATS auto-detection, and steerable discovery (free text or \"find more like this\").",
-  "prompts": ["e2f9082b-072"],
-  "commits": ["379f309", "bb23a91", "95fda6d", "f66caea", "22d3315", "a473298", "4bbc660"],
-  "decisions": ["D-007"]
+  "title": "Onboarding v2 and Jobby, the interview-prep chat",
+  "summary": "A rebuilt seven-step onboarding wizard (resume, what you're looking for, cover letter or \"write one for me\", older documents, an editable candidate profile, discovery, a first run that scores the top 20 with live progress), Favorite removed, and \"Jobby\": a saved per-job interview-prep chat with mock interviews, web search and streamed replies.",
+  "prompts": ["ab602548-003", "ab602548-004", "ab602548-022", "ab602548-023", "ab602548-024"],
+  "commits": ["379f309", "bb23a91", "f37c72a", "95fda6d", "f66caea", "22d3315"],
+  "decisions": ["D-009", "D-010"]
  },
  {
   "id": "M07",
+  "date": "2026-10-28",
+  "icon": "🛰️",
+  "category": "pipeline",
+  "title": "Sources that actually return jobs",
+  "summary": "All Jobs showed only one board and careers pages came back empty. Scoring now takes jobs round-robin across sources, careers pages that embed Greenhouse/Lever/Ashby or load listings with JS are read properly, new sources are checked the moment they're added, and Manage Sources became two side-by-side lists.",
+  "prompts": ["ab602548-028", "ab602548-031", "ab602548-033"],
+  "commits": ["18cb51d", "18273fe", "ba604fc"],
+  "decisions": ["D-011"]
+ },
+ {
+  "id": "M08",
+  "date": "2026-10-29",
+  "icon": "💵",
+  "category": "pipeline",
+  "title": "Salaries, sorting, a daily email and readable descriptions",
+  "summary": "Salary filled in from ATS pay fields, the description text and the scoring call itself; sort by interest, fit, date or salary; generic talent-pool postings hidden; a 2:00pm ET daily run that emails new high-interest matches; job descriptions keep their headings and bullets; and run progress streamed so long runs aren't cut off.",
+  "prompts": ["ab602548-034", "ab602548-035", "ab602548-036", "ab602548-040", "ab602548-045", "ab602548-047"],
+  "commits": ["5ce6b4c", "d7fb18e", "4bbc660", "a473298", "4dce371", "28f9cd9"],
+  "decisions": ["D-012", "D-013"]
+ },
+ {
+  "id": "M09",
+  "date": "2026-10-29",
+  "icon": "🖍️",
+  "category": "ai",
+  "title": "Rationale highlights colored by the rating they explain",
+  "summary": "Each highlighted phrase in a fit rationale is tagged as explaining interest or fit and drawn in exactly that rating's chip color, with a one-time Settings pass that tags older rationales without rewording them.",
+  "prompts": ["ab602548-051", "ab602548-052", "ab602548-054", "ab602548-055"],
+  "commits": ["10af09b", "fa6f205", "9d9ec21"],
+  "decisions": ["D-014"]
+ },
+ {
+  "id": "M10",
   "date": "2026-10-30",
   "icon": "📚",
   "category": "docs",

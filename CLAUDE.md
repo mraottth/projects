@@ -775,8 +775,11 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     message so the transcript saves locally, exit, then run `python3 scripts/export_prompts.py
     ~/.claude/projects/<project>/<new session>.jsonl`. Confirmed live that `--teleport` is blocked
     outright ("Cloud sessions are disabled by your organization's policy") on this account's plan
-    -- not something to keep retrying; the commit-only representation is the real fallback, not a
-    temporary gap to close.
+    -- not something to keep retrying. The other way in: run the export *inside* the web session,
+    where the transcript does exist (`python3 scripts/export_prompts.py
+    ~/.claude/projects/<project>/<session>.jsonl`, then commit `prompts/` and add its omit/category
+    entries). That's how `prompts/2026-10-28_ab602548.*` (onboarding v2, Jobby, the daily email,
+    D-009 to D-014) got here. A web session's commits stay prompt-less only if nobody does that.
   - **Milestones:** `prompts/milestones.json` feeds the visual timeline at the top of the Timeline
     page; add one when a change is significant.
   - **Build:** `scripts/build_changelog.py` writes `frontend/src/changelog.json` (git-ignored, a
