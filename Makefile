@@ -22,7 +22,8 @@ reset-sandbox:  ## wipe SANDBOX_DIR to see onboarding from scratch again
 dev:          ## Vite dev server (proxies /api to :8000); run `make serve` alongside
 	cd frontend && npm run dev
 
-frontend:     ## build frontend/dist
+frontend:     ## Timeline data, then build frontend/dist
+	python3 scripts/build_changelog.py
 	cd frontend && npm install && npm run build
 
 test:
@@ -76,7 +77,8 @@ bucket-setup:  ## once: create the GCS bucket backing persistent SQLite + resume
 # your own account access, or nobody (including you) can reach it. --timeout 3600 (Cloud Run's max,
 # default is 300s) because a full daily run -- polling plus up to daily_llm_cap serial scoring calls
 # -- and a web-search discovery call can both outlast 5 minutes.
-deploy:       ## build the image in Cloud Build and deploy to Cloud Run, locked behind IAP
+deploy:       ## Timeline data, then build the image in Cloud Build and deploy to Cloud Run, locked behind IAP
+	python3 scripts/build_changelog.py
 	gcloud builds submit --project $(GCP_PROJECT) --region $(GCP_REGION) --tag $(IMAGE) .
 	gcloud run deploy jobhunt --project $(GCP_PROJECT) --region $(GCP_REGION) --image $(IMAGE) \
 	  --memory 1Gi --cpu 1 --max-instances 1 --no-allow-unauthenticated --iap --timeout 3600 \

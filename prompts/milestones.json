@@ -1,0 +1,79 @@
+[
+ {
+  "id": "M01",
+  "date": "2026-10-26",
+  "icon": "🏗️",
+  "category": "infra",
+  "title": "Full app scaffolded from one detailed spec",
+  "summary": "One long prompt specified the whole app -- aggregation, LLM fit scoring, resume/cover-letter tailoring, an application tracker, preference learning from feedback -- and Claude built milestones 1 through 6 (scaffold, manual scoring, feedback loop, automated source adapters, tailored generation, deploy artifacts) in one continuous pass.",
+  "prompts": ["e2f9082b-001"],
+  "commits": ["73e50ab", "3189780", "9ac3347", "c3efde3", "9e51572", "9a7ef30"],
+  "decisions": ["D-001"]
+ },
+ {
+  "id": "M02",
+  "date": "2026-10-26",
+  "icon": "🌱",
+  "category": "ui",
+  "title": "Cold-start onboarding and a Shelf-Life-matched UI",
+  "summary": "A guided first-run flow (resumes, desired role, company discovery, favorites) so a brand-new user isn't dropped into an empty digest, plus a UI overhaul matching Shelf Life's own design system and markdown rendering.",
+  "prompts": ["e2f9082b-013", "e2f9082b-015", "e2f9082b-017"],
+  "commits": ["d78c461", "ea0efff", "03fd851"],
+  "decisions": []
+ },
+ {
+  "id": "M03",
+  "date": "2026-10-26",
+  "icon": "🧭",
+  "category": "ui",
+  "title": "Flow redesign: guidance not filters, a real nav structure",
+  "summary": "Titles/salary became scoring guidance rather than strict filters, job-board discovery broadened beyond named companies, and the app split into Digest / All Jobs / My Jobs / Manage Sources / Profile instead of one overloaded page.",
+  "prompts": ["e2f9082b-025", "e2f9082b-030"],
+  "commits": ["76b486e", "9568e70", "c42e6ee", "e0c0640", "b703d48", "80f7d73"],
+  "decisions": []
+ },
+ {
+  "id": "M04",
+  "date": "2026-10-27",
+  "icon": "📝",
+  "category": "ai",
+  "title": "Resumes edited in place as tracked changes, not rebuilt",
+  "summary": "Diagnosed why generated resumes were consistently poorly formatted (the old generator rebuilt the whole document from a handful of cloned paragraphs) and replaced it with context-anchored edits applied as real Word tracked changes to the user's own template.",
+  "prompts": ["e2f9082b-044", "e2f9082b-047", "e2f9082b-048"],
+  "commits": ["f085088", "1d10205", "a99d548"],
+  "decisions": ["D-004"]
+ },
+ {
+  "id": "M05",
+  "date": "2026-10-28",
+  "icon": "☁️",
+  "category": "infra",
+  "title": "Live on Cloud Run, locked to one account via IAP",
+  "summary": "Deployed to a dedicated GCP project with persistent storage for the database and uploaded resumes, Identity-Aware Proxy restricting access to one Google account, and a daily Cloud Scheduler job authenticated through IAP with a real signed identity.",
+  "prompts": ["e2f9082b-055", "e2f9082b-056", "e2f9082b-066"],
+  "commits": ["42b8d92", "0fbe098", "e5ecdfd"],
+  "decisions": ["D-002", "D-005", "D-006"]
+ },
+ {
+  "id": "M06",
+  "date": "2026-10-30",
+  "icon": "🤖",
+  "category": "ai",
+  "title": "Onboarding v2, Jobby interview-prep chat, email digests",
+  "summary": "A substantial block of work from a Claude Code on the web session, merged straight into main: a rebuilt onboarding wizard, \"Jobby\" -- a saved per-job interview-prep chat -- email alerts for new high-interest matches, salary extraction, ATS auto-detection, and steerable discovery (free text or \"find more like this\").",
+  "prompts": ["e2f9082b-072"],
+  "commits": ["379f309", "bb23a91", "95fda6d", "f66caea", "22d3315", "a473298", "4bbc660"],
+  "decisions": ["D-007"]
+ },
+ {
+  "id": "M07",
+  "date": "2026-10-30",
+  "icon": "📚",
+  "category": "docs",
+  "title": "Product Timeline and decision log, ported from Shelf Life",
+  "summary": "Brought over the same system Shelf Life uses to show how it was built -- DECISIONS.md, the prompts/ export pipeline, and this Timeline page -- now that the app is private behind IAP rather than public, the reasoning that originally ruled it out no longer applies.",
+  "prompts": ["e2f9082b-072"],
+  "commits": [],
+  "decisions": ["D-008"]
+ }
+]

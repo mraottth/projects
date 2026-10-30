@@ -744,10 +744,40 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
 ## Working conventions
 
 - Small commits, one concern each.
-- This repo is **not** on the public-portfolio changelog/prompts-log pattern that `projects/01 - Shelf
-  Life` uses — that machinery exists there because Shelf Life's dev history is a public product
-  feature. Here it would just be noise (and a privacy problem), so there's no `DECISIONS.md`,
-  `prompts/`, or Changelog page. Keep commit messages and this file as the record instead.
+- **Product Timeline (D-008):** this repo *is* now on the same changelog/prompts-log pattern as
+  `projects/01 - Shelf Life`, just private rather than public — superseding an earlier version of
+  this note that said otherwise. That earlier reasoning ("Shelf Life's dev history is public, here
+  it would just be noise and a privacy problem") predates this app being IAP-locked (D-002); with
+  the whole app private to one Google account, a Timeline page carries the same exposure as any
+  other page in it. See `DECISIONS.md` for the full reasoning.
+  - **`DECISIONS.md`:** add an entry (next `D-NNN`, same fields as the others) whenever a choice
+    or tradeoff is made. Link prompt ids and commits; quote measured numbers; say so rather than
+    inventing it if the reasoning wasn't stated.
+  - **`prompts/`:** a `Stop` hook (`.claude/settings.json`) runs `scripts/export_prompts.py` after
+    every turn, keeping `prompts/<date>_<session>.md/.json` current. Commit those files with the
+    related work. `prompts/omit.json` ({id: reason}) drops purely operational prompts (commit/
+    deploy requests, local setup, troubleshooting); `prompts/trim.json` ({id: text}) cuts an
+    operational aside out of an otherwise-relevant prompt. `prompts/categories.json` /
+    `commit_categories.json` are hand labels (categories: `ui` · `ai` · `pipeline` · `infra` ·
+    `docs` · `discussion`) — commits are categorized first by `commit_categories.json`, then by
+    which files they touch (`FILE_CATEGORIES` in `scripts/build_changelog.py`), since this repo's
+    commits use conventional-commit types (`feat:`/`fix:`), not Shelf Life's bare `category:`
+    prefix. **This hook only fires for a Claude Code session whose project root is this repo** —
+    one started from inside `projects/` (Shelf Life's root) will trigger *Shelf Life's* hook
+    instead, exporting unrelated conversation into *its* `prompts/` folder (this happened once,
+    caught and cleaned up before anything was committed or deployed — start job-search-assistant
+    sessions rooted directly in this repo, not nested under `projects/`).
+  - **Importing a Claude Code on the web session:** its commits carry a `Claude-Session:` trailer
+    (shown as a "Claude Code on the web" badge on the Timeline) but its prompt-by-prompt transcript
+    isn't local. To import one: `claude --teleport <session id>` from this repo root with a clean
+    working tree, send one message so the transcript saves locally, exit, then run
+    `python3 scripts/export_prompts.py ~/.claude/projects/<project>/<new session>.jsonl`.
+  - **Milestones:** `prompts/milestones.json` feeds the visual timeline at the top of the Timeline
+    page; add one when a change is significant.
+  - **Build:** `scripts/build_changelog.py` writes `frontend/src/changelog.json` (git-ignored, a
+    build artifact) from git, `prompts/`, and `DECISIONS.md`. `make frontend` and `make deploy` run
+    it — `make deploy` runs it locally, before `gcloud builds submit`, since Cloud Build's context
+    has no `.git` to read commit history from.
 - Resumes/cover letters and the job/application DB are real personal data — never relax `.gitignore`
   for `data/` or commit a `.db` file, even for debugging.
 

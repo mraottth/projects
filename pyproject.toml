@@ -42,3 +42,8 @@ line-length = 110
 [tool.ruff.lint]
 select = ["E", "F", "B"]
 ignore = ["B008"]  # FastAPI's File(...)/Form(...)/Depends(...) defaults are the idiom, not a bug
+
+[tool.ruff.lint.per-file-ignores]
+# Timeline/prompt-log tooling ported from Shelf Life as-is (same file, kept in sync on purpose) --
+# not held to this repo's line length so the two copies don't drift from re-wrapping alone.
+"scripts/*.py" = ["E501"]

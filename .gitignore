@@ -18,3 +18,10 @@ frontend/*.tsbuildinfo
 *.db-journal
 *.db-wal
 *.db-shm
+
+# Timeline page build artifact (scripts/build_changelog.py) -- always rebuilt by `make frontend`/
+# `make deploy`, never committed (would lag the very commit that contains it).
+frontend/src/changelog.json
+# Local-only redaction literals (API keys, specifics you don't want in the prompt log) -- see
+# scripts/redact.py.
+.redact.local.json

@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { api } from "./api";
 import { JobbyLogo } from "./components/JobbyLogo";
+import { Spinner } from "./components/Spinner";
 import DigestPage from "./pages/DigestPage";
 import JobDetailPage from "./pages/JobDetailPage";
 import JobbyPage from "./pages/JobbyPage";
@@ -11,6 +12,9 @@ import OnboardingPage from "./pages/OnboardingPage";
 import ManageSourcesPage from "./pages/ManageSourcesPage";
 import ProfilePage from "./pages/ProfilePage";
 import SettingsPage from "./pages/SettingsPage";
+
+// Carries ~220 KB of prompts and commits, so it's only loaded when visited.
+const ChangelogPage = lazy(() => import("./pages/ChangelogPage"));
 
 const NAV_LINKS = [
   { to: "/", label: "New & Noteworthy", end: true },
@@ -32,8 +36,9 @@ function GearIcon() {
 }
 
 // These pages need the extra room (a filter sidebar, a wide table, Jobby's job picker beside
-// the chat, or Manage Sources' two columns) that the default prose-friendly max-width doesn't give them.
-const WIDE_ROUTES = ["/", "/all-jobs", "/tracker", "/jobby", "/sources"];
+// the chat, Manage Sources' two columns, or the Timeline's milestone strip) that the default
+// prose-friendly max-width doesn't give them.
+const WIDE_ROUTES = ["/", "/all-jobs", "/tracker", "/jobby", "/sources", "/changelog"];
 
 function AppMain({
   needsOnboarding,
@@ -59,6 +64,14 @@ function AppMain({
         <Route path="/sources" element={<ManageSourcesPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route
+          path="/changelog"
+          element={
+            <Suspense fallback={<Spinner label="Loading…" />}>
+              <ChangelogPage />
+            </Suspense>
+          }
+        />
       </Routes>
     </main>
   );
