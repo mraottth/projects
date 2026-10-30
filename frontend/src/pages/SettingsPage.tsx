@@ -347,6 +347,17 @@ export default function SettingsPage() {
       </p>
 
       <div className="card">
+        <h2>Product Timeline</h2>
+        <p className="muted small">
+          Every prompt that shaped this app, Claude's replies, the commits they produced, and the
+          decisions along the way — visible only to you, same as everything else here.
+        </p>
+        <Link className="ghost" to="/changelog">
+          View the Timeline
+        </Link>
+      </div>
+
+      <div className="card">
         <h2>Preference profile</h2>
         <p className="muted small">
           Learned from your interested/not-interested marks and application outcomes (application
@@ -370,17 +381,6 @@ export default function SettingsPage() {
       <ColorOlderHighlights />
       <PrefilterSettings />
       <UsageLog />
-
-      <div className="card">
-        <h2>Product Timeline</h2>
-        <p className="muted small">
-          Every prompt that shaped this app, Claude's replies, the commits they produced, and the
-          decisions along the way — visible only to you, same as everything else here.
-        </p>
-        <Link className="ghost" to="/changelog">
-          View the Timeline
-        </Link>
-      </div>
 
       <DeleteAllData />
     </div>
