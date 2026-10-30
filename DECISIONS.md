@@ -10,7 +10,8 @@ clear enough to write up accurately. A separate block of work (onboarding wizard
 interview-prep chat, email digests, salary extraction, discovery steering) was built in a Claude
 Code on the web session (commits tagged `web_session` on the Timeline) merged straight into main
 on 2026-10-30; its own decisions aren't reflected here yet — importing that session's transcript
-needs a one-time manual step (see CLAUDE.md → Working conventions).
+turned out not to be possible (cloud sessions are disabled by this account's org policy; see
+CLAUDE.md → Working conventions), so those commits will stay prompt-less on the Timeline.
 
 Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 

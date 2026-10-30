@@ -769,9 +769,14 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     sessions rooted directly in this repo, not nested under `projects/`).
   - **Importing a Claude Code on the web session:** its commits carry a `Claude-Session:` trailer
     (shown as a "Claude Code on the web" badge on the Timeline) but its prompt-by-prompt transcript
-    isn't local. To import one: `claude --teleport <session id>` from this repo root with a clean
-    working tree, send one message so the transcript saves locally, exit, then run
-    `python3 scripts/export_prompts.py ~/.claude/projects/<project>/<new session>.jsonl`.
+    isn't local. The system handles this fine as-is -- those commits still show up, just without
+    linked prompts, same as any commit whose transcript was never captured. To import one anyway:
+    `claude --teleport <session id>` from this repo root with a clean working tree, send one
+    message so the transcript saves locally, exit, then run `python3 scripts/export_prompts.py
+    ~/.claude/projects/<project>/<new session>.jsonl`. Confirmed live that `--teleport` is blocked
+    outright ("Cloud sessions are disabled by your organization's policy") on this account's plan
+    -- not something to keep retrying; the commit-only representation is the real fallback, not a
+    temporary gap to close.
   - **Milestones:** `prompts/milestones.json` feeds the visual timeline at the top of the Timeline
     page; add one when a change is significant.
   - **Build:** `scripts/build_changelog.py` writes `frontend/src/changelog.json` (git-ignored, a
