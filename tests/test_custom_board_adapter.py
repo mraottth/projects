@@ -169,3 +169,89 @@ def test_extraction_runs_at_low_effort(monkeypatch):
     monkeypatch.setattr(custom_board, "get_client", lambda: client)
     custom_board.fetch({"config": {"url": "https://x.org/jobs/"}})
     assert seen["output_config"] == {"effort": "low"}
+
+
+def test_few_postings_retry_in_the_browser_and_keep_the_bigger_result(monkeypatch):
+    calls = []
+
+    def fake_fetch_page(url, *, force_render=False, **k):
+        calls.append(force_render)
+        if force_render:
+            return _page("A [https://x.org/1] B [https://x.org/2] C [https://x.org/3]", rendered=True)
+        return _page("Featured: A [https://x.org/1]")
+
+    monkeypatch.setattr(custom_board, "fetch_page", fake_fetch_page)
+    replies = iter(
+        [
+            JobListingsOutput(postings=[_listing("A")]),
+            JobListingsOutput(postings=[_listing("A"), _listing("B"), _listing("C")]),
+        ]
+    )
+    monkeypatch.setattr(
+        custom_board, "get_client", lambda: FakeAnthropicClient(parse_result=FakeParseResponse(next(replies)))
+    )
+    postings, steps = custom_board.fetch_with_report({"config": {"url": "https://x.org/jobs/"}})
+    assert calls == [False, True]
+    assert [p["title"] for p in postings] == ["A", "B", "C"]
+    assert steps == ["read the page as plain HTML: 1", "read the page in the browser: 3"]
+
+
+def test_a_posting_or_two_without_new_links_is_not_read_twice(monkeypatch):
+    def fake_fetch_page(url, *, force_render=False, **k):
+        if force_render:
+            return _page("Featured: A [https://x.org/1] Updated today", rendered=True)
+        return _page("Featured: A [https://x.org/1]")
+
+    monkeypatch.setattr(custom_board, "fetch_page", fake_fetch_page)
+    client = FakeAnthropicClient(parse_result=FakeParseResponse(JobListingsOutput(postings=[_listing("A")])))
+    monkeypatch.setattr(custom_board, "get_client", lambda: client)
+    postings, steps = custom_board.fetch_with_report({"config": {"url": "https://x.org/jobs/"}})
+    assert [p["title"] for p in postings] == ["A"]
+    assert steps == ["read the page as plain HTML: 1", "browser showed nothing new"]
+
+
+def test_ats_requested_by_the_rendered_page_is_read_through_its_api(monkeypatch):
+    def fake_fetch_page(url, *, force_render=False, **k):
+        if force_render:
+            html = "<div></div><!-- requests:\nhttps://boards-api.greenhouse.io/v1/boards/cfa/jobs\n-->"
+            return _page("Openings", html=html, rendered=True)
+        return _page("About us. Openings below.")
+
+    monkeypatch.setattr(custom_board, "fetch_page", fake_fetch_page)
+    monkeypatch.setitem(
+        custom_board.ATS_ADAPTERS, "ats_greenhouse", lambda s: [{"title": s["config"]["board_token"]}]
+    )
+    monkeypatch.setattr(
+        custom_board,
+        "get_client",
+        lambda: FakeAnthropicClient(parse_result=FakeParseResponse(JobListingsOutput(postings=[]))),
+    )
+    postings, steps = custom_board.fetch_with_report({"config": {"url": "https://x.org/jobs/"}})
+    assert postings == [{"title": "cfa"}]
+    assert steps[-1] == "read its Greenhouse board 'cfa': 1"
+
+
+def test_linked_hosted_board_is_read_when_the_page_has_too_few(monkeypatch):
+    opened = []
+
+    def fake_fetch_page(url, *, force_render=False, **k):
+        opened.append((url, force_render))
+        if url == "https://apply.workable.com/bsd/":
+            return _page("A [1] B [2] C [3] D [4]")
+        link = '<a href="https://apply.workable.com/bsd/">See all openings</a>'
+        return _page("See all openings [https://apply.workable.com/bsd/]", html=link, rendered=force_render)
+
+    monkeypatch.setattr(custom_board, "fetch_page", fake_fetch_page)
+    replies = iter(
+        [
+            JobListingsOutput(postings=[]),
+            JobListingsOutput(postings=[_listing(t) for t in "ABCD"]),
+        ]
+    )
+    monkeypatch.setattr(
+        custom_board, "get_client", lambda: FakeAnthropicClient(parse_result=FakeParseResponse(next(replies)))
+    )
+    postings, steps = custom_board.fetch_with_report({"config": {"url": "https://bsd.example/careers/"}})
+    assert [p["title"] for p in postings] == list("ABCD")
+    assert opened[-1] == ("https://apply.workable.com/bsd/", False)
+    assert steps[-1] == "read its job board https://apply.workable.com/bsd/: 4"

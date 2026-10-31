@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from jobhunt.core.company_resolver import resolve_company
 from jobhunt.core.llm import LLMError
 from jobhunt.db.connection import get_db
+from jobhunt.ingest.adapters import custom_board
 from jobhunt.pipeline.daily_run import ADAPTERS, schedule_source_refresh
 
 router = APIRouter(prefix="/api/sources", tags=["sources"])
@@ -145,9 +146,12 @@ def delete_source(source_id: int):
 def test_source(source_id: int):
     """Dry-run fetch: calls the adapter and returns a preview without persisting anything."""
     source = get_source(source_id)
-    adapter = ADAPTERS[source["kind"]]
+    steps: list[str] = []
     try:
-        postings = adapter(source)
+        if source["kind"] == "custom_board":
+            postings, steps = custom_board.fetch_with_report(source)
+        else:
+            postings = ADAPTERS[source["kind"]](source)
     except Exception as exc:  # noqa: BLE001 - surface any adapter failure to the UI, not a 500
         raise HTTPException(502, f"test fetch failed: {exc}") from exc
-    return {"count": len(postings), "preview": postings[:5]}
+    return {"count": len(postings), "preview": postings[:5], "steps": steps}

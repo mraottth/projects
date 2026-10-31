@@ -190,3 +190,17 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 **Alternatives considered.** Waiting for new jobs to replace the old ones; guessing the tag from nearby words with no Claude call.
 
 **Why.** The user chose the re-tag ("#2"). It's roughly $1 for a few hundred jobs, runs only when the user clicks, and the guess would sometimes pick the wrong color.
+
+## D-015 · Read a careers page harder when it shows only a posting or two
+- **Date:** 2026-10-31
+- **Category:** pipeline
+- **Prompts:** ab602548-060
+
+**Decision.** A web-page source that yields fewer than three postings is re-rendered in the browser, which also checks for job-board API calls the page's scripts make. If it still yields fewer than three, the one hosted ATS board the page links to (Workable, BambooHR, Workday and others) is read instead. The biggest result wins, and Test fetch lists each step it took.
+
+**Context.** Test fetch found 1 posting on bluestate.co/careers and 0 on codeforamerica.org/jobs, both with many openings. Neither site was reachable from the dev sandbox, so the exact cause couldn't be confirmed. These are the three ways the old flow could miss them: it only re-rendered when zero postings were found, it couldn't see a board named only in a script's network request, and it never followed "See all openings" to an ATS it has no adapter for.
+
+**Alternatives considered.** Writing a dedicated adapter for each extra ATS.
+
+**Why.** The browser step costs time rather than money. A second Claude read happens only when the rendered page has more links than before, so an organization that really has one opening isn't billed twice every day. The step list lets the next live Test fetch show which path worked, or that none did.
+

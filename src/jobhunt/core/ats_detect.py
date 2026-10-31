@@ -53,3 +53,38 @@ def detect_embedded_ats(html: str, *, single_organization: bool) -> tuple[str, d
         return None
     kind, key, slug = found.pop()
     return kind, {key: slug}
+
+
+# Hosted job boards on other ATSes, which have no free API adapter here: (pattern, board URL).
+# A careers page often lists one featured role, or none, and links "See all openings" to one of
+# these, so the board page itself is the thing to read.
+_HOSTED_BOARDS = [
+    (r"apply\.workable\.com/([A-Za-z0-9_-]+)", "https://apply.workable.com/{}/"),
+    (r"([A-Za-z0-9-]+)\.bamboohr\.com/(?:careers|jobs)", "https://{}.bamboohr.com/careers"),
+    (r"([A-Za-z0-9-]+)\.applytojob\.com", "https://{}.applytojob.com/apply"),
+    (r"([A-Za-z0-9-]+)\.breezy\.hr", "https://{}.breezy.hr/"),
+    (r"([A-Za-z0-9-]+)\.recruitee\.com", "https://{}.recruitee.com/"),
+    (r"ats\.rippling\.com/([A-Za-z0-9_-]+)", "https://ats.rippling.com/{}/jobs"),
+    (
+        r"recruiting\.paylocity\.com/Recruiting/Jobs/All/([A-Za-z0-9-]+)",
+        "https://recruiting.paylocity.com/Recruiting/Jobs/All/{}",
+    ),
+    (r"jobs\.jobvite\.com/([A-Za-z0-9_-]+)", "https://jobs.jobvite.com/{}/jobs"),
+    (r"(?:jobs|careers)\.smartrecruiters\.com/([A-Za-z0-9_-]+)", "https://jobs.smartrecruiters.com/{}"),
+    (r"app\.dover\.com/jobs/([A-Za-z0-9_-]+)", "https://app.dover.com/jobs/{}"),
+    (r"([A-Za-z0-9-]+)\.pinpointhq\.com", "https://{}.pinpointhq.com/"),
+    (r"([A-Za-z0-9-]+\.wd\d+\.myworkdayjobs\.com/(?:[a-z]{2}-[A-Z]{2}/)?[A-Za-z0-9_-]+)", "https://{}"),
+]
+_NOT_A_HOSTED_BOARD = {"www", "api", "app", "static", "assets", "cdn", "jobs", "careers", "embed"}
+
+
+def detect_hosted_board(html: str) -> str | None:
+    """The URL of the one hosted job board (Workable, BambooHR, JazzHR, Workday, ...) this page
+    links to or loads, or None when there's none or more than one."""
+    found = set()
+    for pattern, board in _HOSTED_BOARDS:
+        for match in re.finditer(pattern, html, re.IGNORECASE):
+            slug = match.group(1)
+            if slug.split(".")[0].lower() not in _NOT_A_HOSTED_BOARD:
+                found.add(board.format(slug))
+    return found.pop() if len(found) == 1 else None

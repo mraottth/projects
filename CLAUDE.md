@@ -170,6 +170,20 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   when the rendered text is identical. `render_page_html()` appends every child frame's HTML (an
   ATS board is often an iframe, which `page.content()` omits) and keeps whatever rendered when
   `networkidle` times out (analytics/chat widgets can keep the network busy forever).
+  That still left pages with *some* static text: Test fetch found 1 posting on bluestate.co/careers
+  and 0 on codeforamerica.org/jobs, both with many openings (live; neither site is reachable from
+  the dev sandbox, so the exact cause wasn't confirmed). Now `fetch_with_report()`:
+  - re-renders when the static read found fewer than `FEW_POSTINGS` (3), not just zero. It pays
+    for a second read only if the rendered text has more links (or, with zero found, any change),
+    and keeps the bigger result;
+  - `render_page_html()` also records requests the page made to job-board hosts
+    (`ATS_REQUEST_HINTS`) in a trailing HTML comment, so a board only the page's scripts call
+    (e.g. `boards-api.greenhouse.io/v1/boards/<token>`) is still detected and read via its API;
+  - with still too few, reads the one hosted board the page links to on an ATS with no adapter
+    here (`ats_detect.detect_hosted_board()`: Workable, BambooHR, JazzHR, Breezy, Recruitee,
+    Rippling, Paylocity, Jobvite, SmartRecruiters, Dover, Pinpoint, Workday).
+  `POST /api/sources/{id}/test` returns these `steps` ("read the page as plain HTML: 1; read the
+  page in the browser: 12"), and Test fetch shows them after the count.
 - `src/jobhunt/core/dedupe.py` — `compute_dedupe_key` prefers `(source_id, external_id)` when an
   adapter provides one, falling back to a normalized URL, then normalized company+title+location.
   The external_id preference matters: Greenhouse-shaped URLs carry the real job id in the query

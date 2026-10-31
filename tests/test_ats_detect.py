@@ -39,3 +39,26 @@ def test_several_boards_means_a_listing_of_boards():
 
 def test_no_ats():
     assert detect_embedded_ats("<p>Email jobs@example.org</p>", single_organization=True) is None
+
+
+def test_hosted_board_link_is_found():
+    from jobhunt.core.ats_detect import detect_hosted_board
+
+    html = '<a href="https://apply.workable.com/blue-state/">See all openings</a>'
+    assert detect_hosted_board(html) == "https://apply.workable.com/blue-state/"
+    assert detect_hosted_board('<a href="https://acme.bamboohr.com/careers/12">Job</a>') == (
+        "https://acme.bamboohr.com/careers"
+    )
+    workday = "https://acme.wd5.myworkdayjobs.com/en-US/External/job/Analyst_123"
+    assert (
+        detect_hosted_board(f'<a href="{workday}">Job</a>')
+        == "https://acme.wd5.myworkdayjobs.com/en-US/External"
+    )
+
+
+def test_no_or_several_hosted_boards_mean_none():
+    from jobhunt.core.ats_detect import detect_hosted_board
+
+    assert detect_hosted_board("<p>Email jobs@example.org</p>") is None
+    two = '<a href="https://apply.workable.com/a/">A</a><a href="https://b.breezy.hr/">B</a>'
+    assert detect_hosted_board(two) is None

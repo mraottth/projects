@@ -250,9 +250,12 @@ function SourceRow({
     setTestResult(null);
     try {
       const r = await api.testSource(source.id);
-      setTestResult(
-        r.count ? `Found ${r.count} posting(s), e.g. "${r.preview[0]?.title}"` : "Found no postings on this page.",
-      );
+      const found = r.count
+        ? `Found ${r.count} posting(s), e.g. "${r.preview[0]?.title}".`
+        : "Found no postings on this page.";
+      // How a web page was read, step by step ("read the page as plain HTML: 1; ..."), so a short
+      // count says whether the browser and the linked job board were tried too.
+      setTestResult(r.steps?.length ? `${found} How: ${r.steps.join("; ")}.` : found);
     } catch (e) {
       setTestResult(e instanceof Error ? e.message : String(e));
     } finally {

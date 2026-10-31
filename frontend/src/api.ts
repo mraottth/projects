@@ -505,7 +505,7 @@ export const api = {
   deleteSource: (id: number) => request<{ ok: true }>(`/api/sources/${id}`, { method: "DELETE" }),
 
   testSource: (id: number) =>
-    request<{ count: number; preview: Record<string, unknown>[] }>(`/api/sources/${id}/test`, {
+    request<{ count: number; preview: Record<string, unknown>[]; steps: string[] }>(`/api/sources/${id}/test`, {
       method: "POST",
     }),
 
