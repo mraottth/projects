@@ -331,7 +331,9 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   `SourceRow`: name, status ("N jobs · checked 3h ago" from `GET /api/sources`' `job_count`,
   "Checking for jobs..." for five minutes after it's added and before its first check, while the
   page polls every 4 s, or "disabled"), kind and host/board, the last error clamped to two lines,
-  and text-link actions. The two sections are **Organizations** (single-employer sources) and
+  and text-link actions. The name links (new tab) to the page it reads (`sourceLink()`): a web
+  page's own URL, or the public Greenhouse/Lever/Ashby board built from its token/slug. The
+  Adzuna/RemoteOK keyword searches have no single page, so their names stay plain text. The two sections are **Organizations** (single-employer sources) and
   **Job boards** (multi-employer boards and the keyword aggregators), each with a "+ Add more"
   button opening `AddMoreDialog` (`components/Modal.tsx`, a native `<dialog>`). It has two tabs:
   "Add by link" (name + URL through `detectSourceFromUrl()`; an organization gets `company_name`
@@ -402,7 +404,9 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   user-supplied Jobby art: `src/assets/jobby-avatar.png` (a tight head crop, for the nav tab,
   header and message avatars) and `jobby-full.png` (Jobby at a laptop, the empty-conversation
   welcome). The off-white backgrounds were cut out to transparent PNGs with a one-off Pillow
-  flood fill, so Pillow isn't a project dependency. They're imported rather than put in
+  flood fill, so Pillow isn't a project dependency. The art was replaced once (2026-10-31) the same
+  way: flood fill from the edges, a slightly blurred alpha edge, cropped to the figure and padded
+  square (128px avatar, 480px full). They're imported rather than put in
   `public/`: `api/main.py`'s SPA fallback answers every non-`/assets/` path with `index.html`.
 - `CandidateProfileCard`'s "Ask Claude to change it" is `POST /api/resumes/profile/revise`
   (`core/profile.py`'s `revise_candidate_profile()`): one call applying the user's plain-language

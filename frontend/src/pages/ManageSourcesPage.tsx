@@ -181,6 +181,25 @@ function sourceWhere(source: Source): string {
   return Array.isArray(value) ? value.join(", ") : String(value ?? "");
 }
 
+// The page a person would open to see this source's jobs: the web page itself, or the ATS's public
+// board. The keyword aggregators (Adzuna, RemoteOK) are searches, not one page, so they get none.
+function sourceLink(source: Source): string | null {
+  const c = source.config;
+  const token = (key: string) => (typeof c[key] === "string" ? encodeURIComponent(c[key] as string) : null);
+  switch (source.kind) {
+    case "custom_board":
+      return typeof c.url === "string" ? c.url : null;
+    case "ats_greenhouse":
+      return token("board_token") && `https://job-boards.greenhouse.io/${token("board_token")}`;
+    case "ats_lever":
+      return token("company_slug") && `https://jobs.lever.co/${token("company_slug")}`;
+    case "ats_ashby":
+      return token("board_name") && `https://jobs.ashbyhq.com/${token("board_name")}`;
+    default:
+      return null;
+  }
+}
+
 // SQLite's datetime('now') is UTC without a zone marker.
 function parseDbTime(value: string): number {
   return new Date(value.includes("T") ? value : `${value.replace(" ", "T")}Z`).getTime();
@@ -251,10 +270,18 @@ function SourceRow({
     onChanged();
   };
 
+  const link = sourceLink(source);
+
   return (
     <li className={`source-row${source.enabled ? "" : " off"}`}>
       <div className="source-row-top">
-        <span className="source-row-name">{source.name}</span>
+        {link ? (
+          <a className="source-row-name" href={link} target="_blank" rel="noreferrer" title={`Open ${link}`}>
+            {source.name}
+          </a>
+        ) : (
+          <span className="source-row-name">{source.name}</span>
+        )}
         <span className="source-row-status small">
           <SourceStatus source={source} />
         </span>

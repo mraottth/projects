@@ -467,6 +467,8 @@ a.jobby-link { white-space: nowrap; }
 .source-row.off { opacity: 0.6; }
 .source-row-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
 .source-row-name { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+a.source-row-name { color: var(--ink); text-decoration: none; }
+a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; text-underline-offset: 2px; }
 .source-row-status { flex-shrink: 0; }
 .source-row-where { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; }
 .source-row-error { margin: 4px 0 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
