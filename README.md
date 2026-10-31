@@ -1,5 +1,3 @@
-> **Moved.** This project now lives in [mraottth/projects](https://github.com/mraottth/projects/tree/main/01%20-%20Claude%20Code%20Projects/02%20-%20Job%20Search%20Assistant), in `01 - Claude Code Projects/02 - Job Search Assistant/`, with its full history. This repo is archived; make changes there.
-
 # Job Search Assistant
 
 Personal tool: aggregates job postings, scores interest/candidate fit with Claude, tailors
