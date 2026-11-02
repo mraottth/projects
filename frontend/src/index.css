@@ -730,5 +730,5 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 .doc-actions.stacked { flex-direction: column; align-items: flex-start; margin-top: 6px; }
 .jobs-table td.col-nowrap input[type="date"] { width: 128px !important; }
 .jobs-table .doc-actions .ghost { white-space: nowrap; }
-.title-badges { display: flex; gap: 4px; margin-top: 4px; white-space: nowrap; }
+.title-badges { display: flex; gap: 4px; margin-top: 8px; white-space: nowrap; }
 .title-badges .badge { font-size: 0.7rem; padding: 1px 7px; }

@@ -497,7 +497,9 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   deploy shows on existing cards at once) and in every daily run, over active jobs still missing
   pay, reading the description and then the latest score summary.
   `salaryText()` prints hourly pay as whole dollars ("$45-60/hr"; rounding to thousands showed
-  "$0k") and uses the currency's symbol.
+  "$0k") and uses the currency's symbol. Yearly is the assumed default and gets no suffix
+  ("$120k-150k", at the user's ask); any other period keeps one ("/hr", or "/<period>"). The daily
+  email's `_salary_text()` matches.
 - **Job description formatting.** `core/html_extract.py`'s `html_to_markdown()` turns a
   description's HTML into the Markdown subset `components/Markdown.tsx` renders: `##`/`###`
   headings, `- `/`1. ` lists, `**bold**`, `*italic*`, links, and blank-line-separated paragraphs.
@@ -582,7 +584,9 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   - The default order is best match: interest + fit score (the job's latest `job_scores` row, which
     `GET /api/applications` now joins in), then most recently applied. Every column sort breaks ties
     the same way, and "Sort by best match" returns to it.
-  - The Interest and Fit chips (`FitBadge`, exported from `ScoredJobCard.tsx`) sit under the title.
+  - The Interest and Fit chips (`FitBadge`, exported from `ScoredJobCard.tsx`) sit under the title,
+    8px below it. Columns run Title, Organization (the `company` field; renamed and moved after
+    Title at the user's ask), Location, Salary, Applied, Status, Prep.
   - Layout (second pass, same day): "How your applications are going" (left, the taller one) and
     "Add a job" (right; swapped at the user's ask so the short card's white space sits on the right)
     sit side by side (`.myjobs-top`, 3fr/2fr, stacked under 900px) so the table starts above the

@@ -18,9 +18,10 @@ interface SalaryFields {
 }
 
 const CURRENCY_SYMBOLS: Record<string, string> = { USD: "$", CAD: "CA$", GBP: "£", EUR: "€" };
-const PERIOD_LABELS: Record<string, string> = { year: "/yr", hour: "/hr" };
+// Yearly is the assumed default, so it gets no suffix; anything else says its period.
+const PERIOD_LABELS: Record<string, string> = { year: "", hour: "/hr" };
 
-// "$120k-150k/yr", "$45-60/hr". Hourly figures stay whole dollars: rounding them to thousands
+// "$120k-150k", "$45-60/hr". Hourly figures stay whole dollars: rounding them to thousands
 // showed $40/hour as "$0k".
 export function salaryText(job: SalaryFields): string {
   if (!job.salary_min && !job.salary_max) return "N/A";

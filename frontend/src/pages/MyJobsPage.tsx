@@ -663,8 +663,8 @@ export default function MyJobsPage() {
             <table className="jobs-table">
               <thead>
                 <tr>
-                  <SortHeader label="Company" columnKey="company" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                   <SortHeader label="Title" columnKey="title" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                  <SortHeader label="Organization" columnKey="company" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                   <SortHeader label="Location" columnKey="location" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                   <SortHeader label="Salary" columnKey="salary" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                   <SortHeader label="Applied" columnKey="applied_at" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
@@ -676,7 +676,6 @@ export default function MyJobsPage() {
               <tbody>
                 {sorted.map((app) => (
                   <tr key={app.id}>
-                    <td className="col-company">{app.company}</td>
                     <td className="col-title">
                       <Link to={`/jobs/${app.job_id}`}>{app.title}</Link>
                       {(app.interest_fit || app.candidate_fit) && (
@@ -686,6 +685,7 @@ export default function MyJobsPage() {
                         </div>
                       )}
                     </td>
+                    <td className="col-company">{app.company}</td>
                     <td className="col-location">{app.location ?? "N/A"}</td>
                     <td className="col-nowrap">{salaryText(app)}</td>
                     <td className="col-nowrap">

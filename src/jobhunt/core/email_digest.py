@@ -26,7 +26,7 @@ GOOD_FITS = ("High", "Med")
 LOOKBACK_DAYS = 1
 
 _CURRENCY_SYMBOLS = {"USD": "$", "CAD": "CA$", "GBP": "£", "EUR": "€"}
-_PERIODS = {"year": "/yr", "hour": "/hr"}
+_PERIODS = {"year": "", "hour": "/hr"}  # yearly is the assumed default: no suffix
 
 
 class EmailNotConfigured(Exception):
@@ -57,7 +57,7 @@ def email_status() -> dict:
 
 
 def _salary_text(job: dict) -> str | None:
-    """Mirrors the job card's salaryText(): "$120k-150k/yr", "$45-60/hr"."""
+    """Mirrors the job card's salaryText(): "$120k-150k" (yearly), "$45-60/hr"."""
     low, high = job.get("salary_min"), job.get("salary_max")
     if not low and not high:
         return None
@@ -67,7 +67,8 @@ def _salary_text(job: dict) -> str | None:
 
     symbol = _CURRENCY_SYMBOLS.get(job.get("salary_currency") or "USD", f"{job.get('salary_currency')} ")
     amount = f"{fmt(low)}-{fmt(high)}" if low and high and low != high else fmt(low or high)
-    return f"{symbol}{amount}{_PERIODS.get(job.get('salary_period') or '', '')}"
+    period = job.get("salary_period")
+    return f"{symbol}{amount}{_PERIODS.get(period, f'/{period}') if period else ''}"
 
 
 def qualifying_jobs(include_emailed: bool = False) -> list[dict]:

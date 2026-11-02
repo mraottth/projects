@@ -83,7 +83,7 @@ def test_sends_new_high_interest_matches_once(monkeypatch):
     assert message["Subject"] == "2 new job matches: Head of Analytics at Acme, +1 more"
     body = message.get_body(("plain",)).get_content()
     assert body.index("Head of Analytics") < body.index("Data Director")  # best first
-    assert "$160k-210k/yr" in body
+    assert "$160k-210k" in body and "/yr" not in body
     assert f"https://jobhunt.example.run.app/jobs/{best}" in body
     assert "Low Fit Role" not in body and "Med Interest Role" not in body
     assert "View posting" in message.get_body(("html",)).get_content()
