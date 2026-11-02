@@ -9,6 +9,9 @@ a consistent copy even while the app is writing, into `<data dir>/backups/`:
 - `jobhunt-YYYY-MM-DD-HHMMSS-<reason>.db` before "Start over" or a data migration, the newest
   `KEEP_EVENTS` kept.
 `backups/` sits outside `RESUME_STORAGE_DIR`, so "Start over" (core/reset.py) never deletes it.
+In production the live database is on the server's own disk, streamed to Cloud Storage by
+Litestream (D-020), while `backups/` stays on the bucket mount: these snapshots are a second,
+independent layer on top of Litestream's copy.
 A failed snapshot is logged and never stops the run, reset or startup it guards."""
 
 import logging
@@ -32,16 +35,22 @@ def backup_dir() -> Path:
     return connection.DATA_DIR / "backups"
 
 
-def copy_database(target: Path) -> None:
-    """A consistent copy of the live database at `target` (SQLite's online backup API)."""
+def copy_sqlite(source_path: Path, target: Path) -> None:
+    """A consistent copy of the SQLite database at `source_path` (SQLite's online backup API, safe
+    while another connection is writing to it)."""
     target.parent.mkdir(parents=True, exist_ok=True)
-    source = sqlite3.connect(connection.DB_PATH)
+    source = sqlite3.connect(source_path)
     dest = sqlite3.connect(target)
     try:
         source.backup(dest)
     finally:
         dest.close()
         source.close()
+
+
+def copy_database(target: Path) -> None:
+    """A consistent copy of the live database at `target`."""
+    copy_sqlite(connection.DB_PATH, target)
 
 
 def snapshot(reason: str | None = None) -> Path | None:

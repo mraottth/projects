@@ -126,3 +126,24 @@ def test_my_jobs_csv_export():
         ("Data Lead", "Civic", "Rejected - no interview"),
         ("Analyst", "Shop", "Interviewing"),
     }
+
+
+def test_seed_db_copies_the_old_database_once(tmp_path):
+    from jobhunt.cli import seed_db
+
+    _track_job()
+    target = tmp_path / "local" / "jobhunt.db"
+    assert seed_db.main([str(connection.DB_PATH), str(target)]) == 0
+    assert _applications_in(target) == ["Data Lead"]
+    assert seed_db.main([str(connection.DB_PATH), str(target)]) == 1  # never overwrites
+    assert seed_db.main([str(tmp_path / "missing.db"), str(tmp_path / "x.db")]) == 1
+
+
+def test_database_outside_the_data_folder(tmp_path, monkeypatch):
+    # Production keeps the live database on local disk (Litestream, D-020) and backups/ on the bucket.
+    monkeypatch.setattr(connection, "DB_PATH", tmp_path / "local" / "db" / "jobhunt.db")
+    connection.init_db()
+    _track_job()
+    path = backup.snapshot()
+    assert path.parent == connection.DATA_DIR / "backups"
+    assert _applications_in(path) == ["Data Lead"]

@@ -106,6 +106,7 @@ def _migrate_application_statuses(conn: sqlite3.Connection) -> None:
 
 def _connect() -> sqlite3.Connection:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)  # JOBHUNT_DB_PATH can sit outside DATA_DIR
     conn = sqlite3.connect(DB_PATH, isolation_level=None)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")

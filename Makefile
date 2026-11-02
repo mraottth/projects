@@ -51,6 +51,13 @@ SERVICE_URL = $$(gcloud run services describe jobhunt --project $(GCP_PROJECT) -
 EMAIL_ENV = $(if $(EMAIL_ADDRESS),$(comma)EMAIL_ADDRESS=$(EMAIL_ADDRESS)$(comma)APP_URL=$(SERVICE_URL))
 EMAIL_SECRET = $(if $(EMAIL_ADDRESS),$(comma)GMAIL_APP_PASSWORD=gmail-app-password:latest)
 
+# The live database sits on the server's own disk and Litestream streams it to the bucket's
+# litestream/ folder (scripts/start.sh, DECISIONS.md D-020). The first start seeds it from the old
+# /data/jobhunt.db, which is then left alone as a fallback. --no-cpu-throttling keeps the CPU on
+# while the server is up, so streaming never stalls between requests; with --min-instances 0 the
+# server still shuts down (and Litestream flushes) after ~15 idle minutes.
+LITESTREAM_ENV = JOBHUNT_DB_PATH=/tmp/db/jobhunt.db,JOBHUNT_SEED_DB=/data/jobhunt.db,LITESTREAM_REPLICA_URL=gcs://$(BUCKET)/litestream/jobhunt
+
 # One-time setup, in order: apis-setup -> bucket-setup -> anthropic-secret -> scheduler-secret
 # -> deploy -> iap-setup -> scheduler-setup. `deploy` alone is safe to re-run for every later update.
 
@@ -91,11 +98,12 @@ deploy:       ## Timeline data, then build the image in Cloud Build and deploy t
 	python3 scripts/build_changelog.py
 	gcloud builds submit --project $(GCP_PROJECT) --region $(GCP_REGION) --tag $(IMAGE) .
 	gcloud run deploy jobhunt --project $(GCP_PROJECT) --region $(GCP_REGION) --image $(IMAGE) \
-	  --memory 1Gi --cpu 1 --max-instances 1 --no-allow-unauthenticated --iap --timeout 3600 \
+	  --memory 2Gi --cpu 1 --max-instances 1 --min-instances 0 --no-cpu-throttling \
+	  --no-allow-unauthenticated --iap --timeout 3600 \
 	  --execution-environment gen2 \
 	  --add-volume name=data,type=cloud-storage,bucket=$(BUCKET) \
 	  --add-volume-mount volume=data,mount-path=/data \
-	  --set-env-vars JOBHUNT_DATA_DIR=/data$(EMAIL_ENV) \
+	  --set-env-vars JOBHUNT_DATA_DIR=/data,$(LITESTREAM_ENV)$(EMAIL_ENV) \
 	  --set-secrets ANTHROPIC_API_KEY=anthropic-key:latest,SCHEDULER_SECRET=scheduler-secret:latest$(EMAIL_SECRET)
 
 IAP_USER ?= $(error set IAP_USER=you@example.com on the command line)

@@ -342,8 +342,12 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     backup" (`GET /api/settings/backup`, a fresh copy, for one kept off Google Cloud). My Jobs'
     toolbar has "Export CSV" (`GET /api/applications/export.csv`, registered before `/{app_id}`,
     status labels as shown on the page).
-  - Restoring is manual: copy a snapshot over `jobhunt.db` in the bucket while the service is idle,
-    and delete `jobhunt.db-wal`/`-shm` so stale WAL frames aren't replayed onto it.
+  - Restoring a snapshot (production runs on Litestream, D-020, so the bucket's `jobhunt.db` is only
+    the seed): with the service idle (no requests for 15+ minutes, so the server has shut down and
+    flushed; not near the 2pm run), move `gs://<bucket>/litestream/` aside, copy the snapshot over
+    `gs://<bucket>/jobhunt.db`, delete `jobhunt.db-wal`/`-shm` and `litestream-seeded` next to it,
+    then open the app: the new server finds no Litestream copy and no marker, and seeds from it.
+    For a point in time instead, `litestream restore -timestamp ...` from the replica.
   - `make bucket-protect` makes sure the bucket's soft delete (7 days, covering overwrites too) is
     on. Object versioning was left off on purpose: the database is rewritten on every save.
 - **Settings' "Start over"** (`core/reset.py`'s `delete_all_data()`, `POST
@@ -906,9 +910,24 @@ with two differences from that project:
   native IAP integration -- no load balancer). `make iap-setup` grants just `IAP_USER`'s Google
   account access. This app must never be publicly reachable: after any change to the IAP setup,
   confirm from a signed-out/incognito browser that the URL redirects to Google sign-in.
-- **A GCS-bucket volume mount for `data/`** (the SQLite file + resume blobs) via Cloud Run's native
-  volume-mount support, so it survives restarts — Cloud Run's local disk is ephemeral otherwise.
-  `--max-instances 1` avoids SQLite multi-writer issues entirely (single personal user anyway).
+- **A GCS-bucket volume mount for `data/`** (resume blobs, `backups/`, and the pre-Litestream
+  database) via Cloud Run's native volume-mount support, so it survives restarts.
+  `--max-instances 1` avoids SQLite multi-writer issues entirely.
+- **The live database is on local disk, streamed by Litestream** (D-020; `litestream.yml`,
+  `scripts/start.sh`, the Dockerfile's pinned v0.3.13 with its SHA-256). SQLite on a Cloud Storage
+  FUSE mount doesn't get real locking or durable writes, so `JOBHUNT_DB_PATH=/tmp/db/jobhunt.db`
+  and Litestream copies every change to `gs://<bucket>/litestream/jobhunt` within about a second.
+  `start.sh` restores that copy at startup, runs the app under `litestream replicate -exec`
+  (which flushes on SIGTERM), and the very first time seeds from the old `/data/jobhunt.db`
+  (`JOBHUNT_SEED_DB`, via `python -m jobhunt.cli.seed_db`), writing a `/data/litestream-seeded`
+  marker. If the copy is ever missing after that, it refuses to start rather than come up empty
+  (onboarding) or resurrect the stale seed. Without `LITESTREAM_REPLICA_URL` (local Docker) it's
+  plain uvicorn. Deploy flags: `--no-cpu-throttling` (streaming never stalls between requests),
+  `--min-instances 0` (still shuts down when idle), 2 GiB (the database now lives in memory-backed
+  local disk, plus Chromium). Caveat: a deploy briefly overlaps old and new servers, and a write
+  to the old one in those seconds can be lost, so don't use the app mid-deploy. Tested locally
+  with the real binary and a `file://` replica: seed, a write right before SIGTERM, restore onto
+  an empty disk (all rows back), and the refusal; not yet against GCS from here.
 - **`--timeout 3600`** (Cloud Run's max; the default is 300 s). A full daily run -- polling plus up
   to `daily_llm_cap` serial scoring calls -- and a web-search discovery call can both outlast five
   minutes, and the UI's "Run now" waits on the whole run in one request.

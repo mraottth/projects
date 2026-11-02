@@ -241,3 +241,15 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 
 **Why.** Soft delete already keeps overwritten objects for 7 days. The database is rewritten on every save, so versioning would mostly add copies of the same churn. Snapshots taken by the app are consistent copies at known points (before a run, a reset, a migration) and easy to find and restore. The download covers losing the bucket or project, without a second paid bucket.
 
+## D-020 · Litestream: the live database on local disk, streamed to Cloud Storage
+- **Date:** 2026-11-02
+- **Category:** infra
+- **Prompts:** ab602548-076, ab602548-077, ab602548-079, ab602548-081
+
+**Decision.** The live SQLite database moves off the Cloud Storage FUSE mount onto the server's own disk, and Litestream (v0.3.13) streams every change to `gs://<bucket>/litestream/jobhunt` within about a second. It restores from there at startup and flushes on shutdown. The first start seeds from the old `/data/jobhunt.db` and leaves a marker; if the copy is later missing, the server refuses to start rather than come up empty. Cloud Run gets `--no-cpu-throttling`, `--min-instances 0` and 2 GiB. The D-019 snapshots continue, as a second layer.
+
+**Context.** Step 1 of the multi-user plan (up to about 20 occasional users, each approved by the owner), and worth doing even for one user. Google warns that FUSE mounts don't give databases normal locking or durable writes, and the database was the one file everything depends on.
+
+**Alternatives considered.** Cloud SQL Postgres (the cheapest tier costs about $10 a month or more, plus a rewrite of every query, for capacity 20 sparse users don't need); keeping the FUSE mount and relying on the daily snapshots alone (up to a day of changes lost); running more than one server copy (SQLite needs one writer).
+
+**Why.** Litestream is free apart from a little storage, needs no code changes beyond the startup script, and makes every write durable within a second while SQLite keeps local-disk speed. One server copy stays the limit, which suits the expected load. CPU always-on while the server is up costs a little more per active minute, but with min instances 0 it still scales to zero when idle.

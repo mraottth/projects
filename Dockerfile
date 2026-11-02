@@ -11,6 +11,15 @@ RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
+# Litestream streams the live SQLite database to Cloud Storage (DECISIONS.md D-020). Pinned
+# release, checked against its SHA-256.
+FROM debian:bookworm-slim AS litestream
+ARG LITESTREAM_VERSION=v0.3.13
+ARG LITESTREAM_SHA256=eb75a3de5cab03875cdae9f5f539e6aedadd66607003d9b1e7a9077948818ba0
+ADD https://github.com/benbjohnson/litestream/releases/download/${LITESTREAM_VERSION}/litestream-${LITESTREAM_VERSION}-linux-amd64.tar.gz /litestream.tar.gz
+RUN echo "${LITESTREAM_SHA256}  /litestream.tar.gz" | sha256sum -c - \
+    && tar -xzf /litestream.tar.gz -C /usr/local/bin litestream
+
 FROM python:3.12-slim
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 WORKDIR /app
@@ -18,7 +27,11 @@ ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy PYTHONPATH=/app/src PATH="/app/.venv
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-default-groups --no-install-project
 RUN playwright install --with-deps chromium
+COPY --from=litestream /usr/local/bin/litestream /usr/local/bin/litestream
+COPY litestream.yml /etc/litestream.yml
+COPY scripts/start.sh /app/start.sh
 COPY src/ src/
 COPY --from=frontend /frontend/dist frontend/dist
 EXPOSE 8080
-CMD ["sh", "-c", "uvicorn jobhunt.api.main:app --host 0.0.0.0 --port ${PORT:-8080}"]
+# Plain uvicorn unless LITESTREAM_REPLICA_URL is set (production; see scripts/start.sh).
+CMD ["/app/start.sh"]
