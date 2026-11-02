@@ -1,11 +1,15 @@
 import json
+import tempfile
 import time
+from datetime import date
+from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
+from starlette.background import BackgroundTask
 
-from jobhunt.core import retag
+from jobhunt.core import backup, retag
 
 from jobhunt.core.llm import CACHE_READ_MULTIPLIER, CACHE_WRITE_MULTIPLIER, PRICING_PER_MTOK, LLMError
 from jobhunt.core.email_digest import EmailNotConfigured, email_status, send_test_email
@@ -19,6 +23,28 @@ router = APIRouter(prefix="/api/settings", tags=["settings"])
 
 class DeleteAllRequest(BaseModel):
     confirm: str
+
+
+@router.get("/backup")
+def download_backup():
+    """Settings' "Download a backup": a fresh, consistent copy of the whole database (SQLite's
+    online backup API), for a copy kept off Google Cloud. Deleted once sent."""
+    tmp = Path(tempfile.mkdtemp()) / "jobhunt.db"
+    backup.copy_database(tmp)
+    return FileResponse(
+        tmp,
+        media_type="application/vnd.sqlite3",
+        filename=f"jobhunt-backup-{date.today().isoformat()}.db",
+        background=BackgroundTask(lambda: (tmp.unlink(missing_ok=True), tmp.parent.rmdir())),
+    )
+
+
+@router.get("/backups")
+def list_backups():
+    """The snapshots in backups/ (core/backup.py), newest first, for Settings' "Your data" card."""
+    folder = backup.backup_dir()
+    files = sorted(folder.glob("jobhunt-*.db"), reverse=True) if folder.exists() else []
+    return {"backups": [{"name": f.name, "bytes": f.stat().st_size} for f in files]}
 
 
 @router.post("/delete-all-data")

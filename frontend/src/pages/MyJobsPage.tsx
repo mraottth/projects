@@ -644,6 +644,9 @@ export default function MyJobsPage() {
               ))}
             </div>
             <div className="table-tools small">
+              <a className="link small" href={api.applicationsCsvUrl} download>
+                Export CSV
+              </a>
               {sortKey !== "score" && (
                 <button className="link small" onClick={() => applySort("score", "desc")}>
                   Sort by best match

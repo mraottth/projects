@@ -152,7 +152,8 @@ function DeleteAllData() {
       <p className="muted small">
         Permanently deletes your resumes and cover letters, profile, sources, jobs, My Jobs,
         Jobby conversations and settings, then takes you back to onboarding. Your Claude usage
-        log is kept. This can't be undone.
+        log is kept, and a backup of the database is saved first, so it can be restored if you
+        change your mind.
       </p>
       {!open ? (
         <button className="ghost danger" onClick={() => setOpen(true)}>
@@ -254,6 +255,43 @@ function PrefilterSettings() {
 
       {busy && <p className="muted small">Saving...</p>}
       {saved && !busy && <p className="muted small">Saved.</p>}
+    </div>
+  );
+}
+
+/** Where the data lives and how it's backed up (core/backup.py), with a download of the whole
+ * database to keep a copy off Google Cloud. */
+function YourData() {
+  const [backups, setBackups] = useState<{ name: string; bytes: number }[] | null>(null);
+
+  useEffect(() => {
+    api.listBackups().then((r) => setBackups(r.backups)).catch(() => setBackups([]));
+  }, []);
+
+  const latest = backups?.[0];
+  return (
+    <div className="card">
+      <h2>Your data</h2>
+      <p className="muted small">
+        Everything (My Jobs, your documents, sources and settings) lives in your private Google Cloud
+        storage. The app saves a copy of the database before every daily check, keeping 30 days, and
+        before "Start over" or an upgrade that changes your data.
+      </p>
+      {backups && (
+        <p className="small">
+          {latest
+            ? `${backups.length} backup${backups.length === 1 ? "" : "s"} kept; latest: ${latest.name}.`
+            : "No backups yet: the first one is made at the next daily check."}
+        </p>
+      )}
+      <div className="form-actions">
+        <a className="ghost button-link" href={api.backupDownloadUrl} download>
+          Download a backup
+        </a>
+        <a className="link small" href={api.applicationsCsvUrl} download>
+          Export My Jobs as CSV
+        </a>
+      </div>
     </div>
   );
 }
@@ -390,6 +428,7 @@ export default function SettingsPage() {
       <ColorOlderHighlights />
       <PrefilterSettings />
       <UsageLog />
+      <YourData />
 
       <DeleteAllData />
     </div>

@@ -228,3 +228,16 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 
 **Why.** Estimated from the code, not measured: about 15-25% off scoring and 20-40% off each web-search call, roughly 15-30% of the bill overall. 56% is Anthropic's upper bound; output tokens and the varying postings and pages can't be cached. Scoring calls in a run start well under 5 minutes apart, so the default lifetime stays warm on its own, and the 2x write of the 1-hour lifetime would buy nothing. Tailoring and board reading never repeat a prefix within 5 minutes.
 
+## D-019 · Daily database snapshots in the app, plus a downloadable copy
+- **Date:** 2026-11-02
+- **Category:** infra
+- **Prompts:** ab602548-073, ab602548-074
+
+**Decision.** The app snapshots its SQLite database (SQLite's online backup API) into `backups/` in the data bucket: daily before each run (30 kept), and before "Start over" or a data migration. Settings gets "Download a backup" and My Jobs gets "Export CSV" for copies kept off Google Cloud. `make bucket-protect` makes sure the bucket's 7-day soft delete is on.
+
+**Context.** Asked where the data was backed up, the answer was that it wasn't. The one live SQLite file on a Cloud Storage FUSE mount was the only copy. Google warns that such mounts don't give databases normal locking or durable writes. "Start over" and the status migration rewrite data with no copy first.
+
+**Alternatives considered.** Bucket object versioning; a second bucket in another region.
+
+**Why.** Soft delete already keeps overwritten objects for 7 days. The database is rewritten on every save, so versioning would mostly add copies of the same churn. Snapshots taken by the app are consistent copies at known points (before a run, a reset, a migration) and easy to find and restore. The download covers losing the bucket or project, without a second paid bucket.
+

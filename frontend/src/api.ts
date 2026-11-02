@@ -578,8 +578,14 @@ export const api = {
   sendTestEmail: () =>
     request<{ sent: boolean; count: number; to: string }>("/api/settings/test-email", { method: "POST" }),
 
+  // Plain links (the browser downloads them): the whole database, and My Jobs as a spreadsheet.
+  backupDownloadUrl: "/api/settings/backup",
+  applicationsCsvUrl: "/api/applications/export.csv",
+
+  listBackups: () => request<{ backups: { name: string; bytes: number }[] }>("/api/settings/backups"),
+
   deleteAllData: (confirm: string) =>
-    request<{ tables_cleared: number; files_deleted: number }>("/api/settings/delete-all-data", {
+    request<{ tables_cleared: number; files_deleted: number; backup: string | null }>("/api/settings/delete-all-data", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ confirm }),

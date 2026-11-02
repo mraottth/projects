@@ -329,6 +329,23 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   `index.css`), used in place of plain "...ing" button text for any action that calls Claude
   (profile rebuild, company discovery, resume/cover-letter generation, job scoring, company
   resolution) or otherwise takes noticeable time (test-fetch, run-daily-now).
+- **Backups** (D-019; `core/backup.py`). The live database is a single SQLite file on the Cloud
+  Storage volume, and before this nothing copied it. `snapshot()` uses SQLite's online backup API
+  (`copy_database()`, consistent even mid-write) into `<DATA_DIR>/backups/`:
+  - `jobhunt-YYYY-MM-DD.db` at the start of every daily run (`_run_daily()`, before anything
+    writes), one per day, kept `KEEP_DAYS` (30);
+  - `jobhunt-…-HHMMSS-before-reset.db` from "Start over", and `…-before-migration.db` from
+    `init_db()` when `_needs_status_migration()` (the newest `KEEP_EVENTS` (10) are kept).
+  - `backups/` is outside `RESUME_STORAGE_DIR`, so "Start over" never deletes it. A failed snapshot
+    is logged and never blocks the thing it guards.
+  - Settings' "Your data" card lists them (`GET /api/settings/backups`) and offers "Download a
+    backup" (`GET /api/settings/backup`, a fresh copy, for one kept off Google Cloud). My Jobs'
+    toolbar has "Export CSV" (`GET /api/applications/export.csv`, registered before `/{app_id}`,
+    status labels as shown on the page).
+  - Restoring is manual: copy a snapshot over `jobhunt.db` in the bucket while the service is idle,
+    and delete `jobhunt.db-wal`/`-shm` so stale WAL frames aren't replayed onto it.
+  - `make bucket-protect` makes sure the bucket's soft delete (7 days, covering overwrites too) is
+    on. Object versioning was left off on purpose: the database is rewritten on every save.
 - **Settings' "Start over"** (`core/reset.py`'s `delete_all_data()`, `POST
   /api/settings/delete-all-data` with `{"confirm": "DELETE"}`, which the UI makes the user type)
   deletes every row of every table except `llm_calls` (real spend history; its `job_id`s are
@@ -904,6 +921,6 @@ The URL isn't recorded in this repo; get it with `gcloud run services describe j
 job-searcher-512814 --region us-central1 --format='value(status.url)'` or from the Cloud Run
 console. One-time setup order (see the Makefile): `apis-setup` → `bucket-setup` → `anthropic-secret`
 / `scheduler-secret` (/ `email-secret` for the daily email) → `deploy` → `iap-setup` →
-`scheduler-setup` (the daily run at 2:00pm ET); after that, `make deploy` alone ships every
-update. Every one of these is real spend/real infrastructure, so don't run them from
+`scheduler-setup` (the daily run at 2:00pm ET), then `bucket-protect` once; after that, `make
+deploy` alone ships every update. Every one of these is real spend/real infrastructure, so don't run them from
 here without the user present.
