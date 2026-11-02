@@ -53,7 +53,8 @@ function AppMain({
     return <Navigate to="/onboarding" replace />;
   }
   return (
-    <main className={wide ? "app-main wide" : "app-main"}>
+    // My Jobs' table gets a little more room still, so most job titles fit on one line.
+    <main className={`app-main${wide ? " wide" : ""}${location.pathname === "/tracker" ? " extra-wide" : ""}`}>
       <Routes>
         <Route path="/onboarding" element={<OnboardingPage onDone={onOnboardingDone} />} />
         <Route path="/" element={<DigestPage />} />

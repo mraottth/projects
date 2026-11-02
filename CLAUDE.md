@@ -585,8 +585,10 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     `GET /api/applications` now joins in), then most recently applied. Every column sort breaks ties
     the same way, and "Sort by best match" returns to it.
   - The Interest and Fit chips (`FitBadge`, exported from `ScoredJobCard.tsx`) sit under the title,
-    8px below it. Columns run Title, Organization (the `company` field; renamed and moved after
-    Title at the user's ask), Location, Salary, Applied, Status, Prep.
+    12px below it. Columns run Title, Organization (the `company` field; renamed and moved after
+    Title at the user's ask), Location, Salary, Applied, Status, Prep. Title has a 300px minimum (200px
+    under 1240px) and Organization/Location are capped (170/200px), so most titles fit on one line;
+    `/tracker` alone gets `.app-main.extra-wide` (1440px) for the room.
   - Layout (second pass, same day): "How your applications are going" (left, the taller one) and
     "Add a job" (right; swapped at the user's ask so the short card's white space sits on the right)
     sit side by side (`.myjobs-top`, 3fr/2fr, stacked under 900px) so the table starts above the
