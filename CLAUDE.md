@@ -583,14 +583,30 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     `GET /api/applications` now joins in), then most recently applied. Every column sort breaks ties
     the same way, and "Sort by best match" returns to it.
   - The Interest and Fit chips (`FitBadge`, exported from `ScoredJobCard.tsx`) sit under the title.
-  - Status filter chips ("Show", with counts) replace the single status dropdown. All are on by
-    default.
+  - Layout (second pass, same day): "Add a job" and "How your applications are going" sit side by
+    side (`.myjobs-top`, stacked under 900px) so the table starts above the fold. The search box,
+    an Active / Closed / All toggle (`.seg`; Closed = both rejections and withdrawn, default
+    Active) and the sort links form one toolbar inside the table card. That toolbar and the header
+    row are `position: sticky` under the app's sticky top bar. `useStickyOffsets()` measures both
+    with a ResizeObserver into `--sticky-top`/`--thead-top`. The card has no `overflow-x`, which
+    would break sticky.
+  - Column fit: cells use `overflow-wrap: break-word` (`word-break: break-word` split "$183k/yr"
+    mid-word). Salary, Applied and Status don't wrap. The status menu uses `field-sizing: content`,
+    or a native select is as wide as "Rejected - no interview". Documents is wide enough for two
+    buttons per line at full width, and stacks under 1240px rather than scrolling sideways.
   - "How your applications are going" counts applications, waiting, interviews (and rate), offers
     and rejections from the loaded list, plus the interview rate by fit rating, with no API call.
-    "What's working?" (`core/app_insights.py`, `GET`/`POST /api/applications/insights`) asks Claude
-    once, on request, which kinds of jobs are getting interviews and which aren't, and keeps the
-    answer in the `application_insights` setting so a revisit costs nothing. It logs as
-    `profile_rebuild` with note "application insights" (the `llm_calls` CHECK, as with Jobby).
+    "Ask Jobby what's working" (`core/app_insights.py`, `GET`/`POST /api/applications/insights`) is
+    one Claude call in Jobby's voice, on request, about which kinds of jobs are getting interviews
+    and which aren't. The answer is kept in the `application_insights` setting so a revisit costs
+    nothing.
+    - The card shows Jobby's avatar and the opening one-sentence takeaway (the prompt asks for one
+      before the first heading; `takeaway()`). The full read-out opens in a `Modal`, whose `title`
+      now takes any node so it can carry the avatar.
+    - "Talk it over with Jobby" opens the general Jobby chat. `jobby.build_context(None)` includes
+      the latest read-out, so Jobby knows what it said.
+    - Logs as `profile_rebuild` with note "application insights" (the `llm_calls` CHECK, as with
+      Jobby).
 - `src/jobhunt/ingest/adapters/custom_board.py` -- `max_tokens` was 4000, too small once a board
   listing page has 20-30 postings' worth of structured fields; Claude's output got cut off
   mid-JSON-string and `messages.parse()` raised a JSON-decode error (caught live against a real

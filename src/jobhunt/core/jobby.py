@@ -12,7 +12,7 @@ from collections.abc import Iterator
 
 from jobhunt.core.llm import DEFAULT_MODEL, LLMError, cache_tokens, get_client, llm_error_boundary, log_call
 from jobhunt.core.profile import get_current_candidate_profile
-from jobhunt.core.settings import get_settings
+from jobhunt.core.settings import get_setting, get_settings
 from jobhunt.db.connection import get_db
 
 PERSONA = """You are Jobby, a friendly, sharp interview-prep coach inside a personal job-search \
@@ -171,6 +171,15 @@ def build_context(job_id: int | None) -> str:
         + (get_current_candidate_profile() or "(not built yet -- rely on their documents)")
     )
     sections.append("## Their documents\n" + _documents_text(job_id))
+    if job_id is None:
+        # The read-out Jobby gave on My Jobs ("Ask Jobby what's working"), so the general
+        # conversation can pick it up when they want to talk it over.
+        insights = get_setting("application_insights")
+        if insights:
+            sections.append(
+                f"## What you told them about their applications ({insights['generated_at'][:10]})\n"
+                + insights["text"]
+            )
     return "\n\n".join(sections)
 
 

@@ -1,3 +1,4 @@
+import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -9,7 +10,9 @@ import {
   ApplicationStatus,
   Job,
 } from "../api";
+import { JobbyLogo } from "../components/JobbyLogo";
 import { Markdown } from "../components/Markdown";
+import { Modal } from "../components/Modal";
 import { FitBadge, salaryText, salaryValue } from "../components/ScoredJobCard";
 import { Spinner } from "../components/Spinner";
 
@@ -324,16 +327,31 @@ function SortHeader({
 const REJECTED: ApplicationStatus[] = ["rejected_no_interview", "rejected_interviewed"];
 // Reached an interview at some point: what "getting a response" means here.
 const INTERVIEWED: ApplicationStatus[] = ["interviewing", "offer", "rejected_interviewed"];
+// Still in play vs. over, for the table's Active / Closed toggle.
+const CLOSED: ApplicationStatus[] = [...REJECTED, "withdrawn"];
+type StatusView = "active" | "closed" | "all";
+
+function inView(app: Application, view: StatusView): boolean {
+  if (view === "all") return true;
+  return CLOSED.includes(app.status) === (view === "closed");
+}
 
 function pct(part: number, whole: number): string {
   return whole ? `${Math.round((100 * part) / whole)}%` : "–";
 }
 
-/** Counts from the loaded list (no API call), then Claude's read on what's working, on request. */
+/** The analysis's opening sentence (the prompt asks for one before the first heading), or null. */
+function takeaway(text: string): string | null {
+  const intro = text.split(/\n#/)[0].trim();
+  return intro && !intro.startsWith("#") ? intro : null;
+}
+
+/** Counts from the loaded list (no API call), then Jobby's read on what's working, on request. */
 function Insights({ apps }: { apps: Application[] }) {
   const [analysis, setAnalysis] = useState<ApplicationInsights | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     api.getApplicationInsights().then(setAnalysis).catch(() => {});
@@ -349,11 +367,12 @@ function Insights({ apps }: { apps: Application[] }) {
     })
     .filter((g) => g.sent > 0);
 
-  const build = async () => {
+  const ask = async () => {
     setBusy(true);
     setError(null);
     try {
       setAnalysis(await api.buildApplicationInsights());
+      setOpen(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -362,6 +381,8 @@ function Insights({ apps }: { apps: Application[] }) {
   };
 
   const stale = analysis !== null && analysis.applications !== apps.length;
+  const preview = analysis ? takeaway(analysis.text) : null;
+  const askLabel = analysis ? "Ask Jobby again" : "Ask Jobby what's working";
 
   return (
     <div className="card insights">
@@ -369,60 +390,114 @@ function Insights({ apps }: { apps: Application[] }) {
       <div className="insight-stats">
         <div><strong>{sent.length}</strong><span>applied</span></div>
         <div><strong>{count(["waiting"])}</strong><span>waiting</span></div>
-        <div><strong>{interviewed}</strong><span>got an interview ({pct(interviewed, sent.length)})</span></div>
+        <div><strong>{interviewed}</strong><span>interviews ({pct(interviewed, sent.length)})</span></div>
         <div><strong>{count(["offer"])}</strong><span>offers</span></div>
         <div>
           <strong>{count(REJECTED)}</strong>
-          <span>
-            rejected ({count(["rejected_no_interview"])} without an interview)
-          </span>
+          <span>rejected ({count(["rejected_no_interview"])} before interview)</span>
         </div>
       </div>
       {byFit.length > 0 && (
         <p className="small muted insight-fit">
-          Interview rate by fit rating:{" "}
+          Interview rate by fit:{" "}
           {byFit.map((g, i) => (
             <span key={g.fit}>
               {i > 0 && " · "}
-              {g.fit} fit {pct(g.interviewed, g.sent)} ({g.interviewed} of {g.sent})
+              {g.fit} {pct(g.interviewed, g.sent)} ({g.interviewed}/{g.sent})
             </span>
           ))}
         </p>
       )}
-      <div className="insight-analysis">
-        {analysis ? (
+      <div className="jobby-take">
+        <JobbyLogo size={40} />
+        <div className="jobby-take-body">
+          {analysis ? (
+            <>
+              {preview && <p className="jobby-take-preview">{preview}</p>}
+              <div className="jobby-take-actions">
+                <button className="ghost small" onClick={() => setOpen(true)}>
+                  Read Jobby's take
+                </button>
+                <button className="link small" onClick={ask} disabled={busy || sent.length === 0}>
+                  {busy ? <Spinner label="Jobby is reading..." /> : askLabel}
+                </button>
+              </div>
+              {stale && <p className="small muted">Your list has changed since then.</p>}
+            </>
+          ) : (
+            <>
+              <p className="small muted">Jobby can read your applications and tell you what's landing and what isn't.</p>
+              <button className="ghost small" onClick={ask} disabled={busy || sent.length === 0}>
+                {busy ? <Spinner label="Jobby is reading..." /> : askLabel}
+              </button>
+            </>
+          )}
+          {error && <p className="error-text small">{error}</p>}
+        </div>
+      </div>
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        title={
+          <span className="jobby-modal-title">
+            <JobbyLogo size={32} /> Jobby on your applications
+          </span>
+        }
+      >
+        {analysis && (
           <>
             <Markdown text={analysis.text} />
             <p className="small muted">
               Based on {analysis.applications} jobs, {new Date(analysis.generated_at).toLocaleDateString()}.
-              {stale && " You've changed your list since then."}
             </p>
+            <div className="form-actions">
+              <Link className="ghost button-link" to="/jobby">
+                Talk it over with Jobby
+              </Link>
+              <button className="link small" onClick={ask} disabled={busy}>
+                {busy ? <Spinner label="Jobby is reading..." /> : "Ask again with my latest list"}
+              </button>
+            </div>
           </>
-        ) : (
-          <p className="small muted">
-            Ask Claude which kinds of jobs are getting interviews and which aren't, from everything above.
-          </p>
         )}
-        <button className="ghost small" onClick={build} disabled={busy || sent.length === 0}>
-          {busy ? <Spinner label="Reading your applications..." /> : analysis ? "Update the analysis" : "What's working?"}
-        </button>
-        {error && <p className="error-text small">{error}</p>}
-      </div>
+      </Modal>
     </div>
   );
+}
+
+/** Keeps the toolbar and header row stuck under the app's top bar while the table scrolls with the
+ * page: measures the top bar and toolbar and hands their heights to CSS. */
+function useStickyOffsets(toolbar: React.RefObject<HTMLDivElement | null>, card: React.RefObject<HTMLDivElement | null>) {
+  useEffect(() => {
+    const topbar = document.querySelector<HTMLElement>(".topbar");
+    const update = () => {
+      if (!card.current || !toolbar.current) return;
+      const top = topbar?.offsetHeight ?? 0;
+      card.current.style.setProperty("--sticky-top", `${top}px`);
+      card.current.style.setProperty("--thead-top", `${top + toolbar.current.offsetHeight}px`);
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    if (topbar) observer.observe(topbar);
+    if (toolbar.current) observer.observe(toolbar.current);
+    return () => observer.disconnect();
+  });
 }
 
 export default function MyJobsPage() {
   const [apps, setApps] = useState<Application[]>([]);
   const [pending, setPending] = useState<Job[]>([]);
   const [search, setSearch] = useState("");
-  const [shownStatuses, setShownStatuses] = useState<ApplicationStatus[]>(APPLICATION_STATUSES);
+  const [view, setView] = useState<StatusView>("active");
   const [sortKey, setSortKey] = useState<SortKey>("score");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   // The row order is fixed when the list loads or a sort is chosen, not on every edit: re-sorting as
   // soon as an applied date changed moved the row out from under the cursor (and its date picker).
   const [order, setOrder] = useState<number[]>([]);
   const sortRef = useRef({ key: sortKey, dir: sortDir });
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const tableCardRef = useRef<HTMLDivElement>(null);
+  useStickyOffsets(toolbarRef, tableCardRef);
 
   const refresh = () =>
     api.listApplications().then((list) => {
@@ -449,12 +524,9 @@ export default function MyJobsPage() {
     else applySort(key, key === "applied_at" || key === "score" || key === "salary" ? "desc" : "asc");
   };
 
-  const toggleStatus = (status: ApplicationStatus) =>
-    setShownStatuses((prev) => (prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status]));
-
   const query = search.trim().toLowerCase();
   const matches = (app: Application) =>
-    shownStatuses.includes(app.status) &&
+    inView(app, view) &&
     (!query || `${app.company} ${app.title} ${app.location ?? ""}`.toLowerCase().includes(query));
 
   const byId = new Map(apps.map((a) => [a.id, a]));
@@ -464,7 +536,12 @@ export default function MyJobsPage() {
   ];
   const sorted = ordered.filter(matches);
   const outOfOrder = sortedIds(apps, sortKey, sortDir).join() !== ordered.map((a) => a.id).join();
-  const countByStatus = (status: ApplicationStatus) => apps.filter((a) => a.status === status).length;
+  const viewCount = (v: StatusView) => apps.filter((a) => inView(a, v)).length;
+  const VIEWS: { key: StatusView; label: string }[] = [
+    { key: "active", label: "Active" },
+    { key: "closed", label: "Closed" },
+    { key: "all", label: "All" },
+  ];
 
   return (
     <div>
@@ -474,7 +551,10 @@ export default function MyJobsPage() {
         through offer.
       </p>
 
-      <AddJobForm onAdded={(job) => setPending((p) => [...p, job])} />
+      <div className={`myjobs-top${apps.length > 0 ? "" : " single"}`}>
+        <AddJobForm onAdded={(job) => setPending((p) => [...p, job])} />
+        {apps.length > 0 && <Insights apps={apps} />}
+      </div>
 
       {pending.map((job) => (
         <PendingReview
@@ -493,118 +573,99 @@ export default function MyJobsPage() {
         </p>
       )}
 
-      {apps.length > 0 && <Insights apps={apps} />}
-
       {apps.length > 0 && (
-        <div className="card">
-          <div className="field" style={{ marginBottom: "10px" }}>
-            <span>Search</span>
+        <div className="card myjobs-table-card" ref={tableCardRef}>
+          <div className="myjobs-toolbar" ref={toolbarRef}>
             <input
+              className="myjobs-search"
               placeholder="Search company, title, location..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              aria-label="Search"
             />
-          </div>
-          <div className="status-filter">
-            <span className="flabel">Show</span>
-            <div className="chip-toggle-group">
-              {APPLICATION_STATUSES.map((s) => (
+            <div className="seg" role="group" aria-label="Which jobs to show">
+              {VIEWS.map((v) => (
                 <button
-                  key={s}
-                  type="button"
-                  className={`chip-toggle${shownStatuses.includes(s) ? " on" : ""}`}
-                  onClick={() => toggleStatus(s)}
+                  key={v.key}
+                  className={view === v.key ? "on" : ""}
+                  onClick={() => setView(v.key)}
+                  title={
+                    v.key === "active"
+                      ? "Drafting, waiting, interviewing and offers"
+                      : v.key === "closed"
+                        ? "Rejected and withdrawn"
+                        : undefined
+                  }
                 >
-                  {APPLICATION_STATUS_LABELS[s]} <span className="chip-count">{countByStatus(s)}</span>
+                  {v.label} <span className="chip-count">{viewCount(v.key)}</span>
                 </button>
               ))}
             </div>
-            {shownStatuses.length < APPLICATION_STATUSES.length && (
-              <button className="link small" onClick={() => setShownStatuses(APPLICATION_STATUSES)}>
-                Show all
-              </button>
-            )}
+            <div className="table-tools small">
+              {sortKey !== "score" && (
+                <button className="link small" onClick={() => applySort("score", "desc")}>
+                  Sort by best match
+                </button>
+              )}
+              {outOfOrder && (
+                <button className="link small" onClick={() => applySort(sortKey, sortDir)}>
+                  Re-sort with your changes
+                </button>
+              )}
+            </div>
           </div>
-        </div>
-      )}
 
-      {apps.length > 0 && sorted.length === 0 && (
-        <p className="empty-state">No jobs match these filters.</p>
-      )}
-
-      {sorted.length > 0 && (
-        <div className="card" style={{ overflowX: "auto" }}>
-          <div className="table-tools small">
-            {sortKey !== "score" && (
-              <button className="link small" onClick={() => applySort("score", "desc")}>
-                Sort by best match
-              </button>
-            )}
-            {outOfOrder && (
-              <button className="link small" onClick={() => applySort(sortKey, sortDir)}>
-                Re-sort with your changes
-              </button>
-            )}
-          </div>
-          <table className="jobs-table">
-            <thead>
-              <tr>
-                <SortHeader label="Company" columnKey="company" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-                <SortHeader label="Title" columnKey="title" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-                <SortHeader
-                  label="Location"
-                  columnKey="location"
-                  sortKey={sortKey}
-                  sortDir={sortDir}
-                  onSort={onSort}
-                />
-                <SortHeader label="Salary" columnKey="salary" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-                <SortHeader
-                  label="Applied Date"
-                  columnKey="applied_at"
-                  sortKey={sortKey}
-                  sortDir={sortDir}
-                  onSort={onSort}
-                />
-                <SortHeader label="Status" columnKey="status" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-                <th>Documents</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.map((app) => (
-                <tr key={app.id}>
-                  <td>{app.company}</td>
-                  <td>
-                    <Link to={`/jobs/${app.job_id}`}>{app.title}</Link>
-                    {(app.interest_fit || app.candidate_fit) && (
-                      <div className="title-badges">
-                        <FitBadge label="Interest" value={app.interest_fit} />
-                        <FitBadge label="Fit" value={app.candidate_fit} />
-                      </div>
-                    )}
-                  </td>
-                  <td>{app.location ?? "N/A"}</td>
-                  <td>{salaryText(app)}</td>
-                  <td>
-                    <AppliedDateCell app={app} onChanged={updateInPlace} />
-                  </td>
-                  <td>
-                    <StatusSelect app={app} onChanged={updateInPlace} />
-                  </td>
-                  <td>
-                    <DocActions app={app} onChanged={updateInPlace} />
-                  </td>
-                  <td>
-                    <RemoveButton
-                      app={app}
-                      onRemoved={(id) => setApps((prev) => prev.filter((a) => a.id !== id))}
-                    />
-                  </td>
+          {sorted.length === 0 ? (
+            <p className="empty-state">No jobs match.</p>
+          ) : (
+            <table className="jobs-table">
+              <thead>
+                <tr>
+                  <SortHeader label="Company" columnKey="company" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                  <SortHeader label="Title" columnKey="title" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                  <SortHeader label="Location" columnKey="location" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                  <SortHeader label="Salary" columnKey="salary" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                  <SortHeader label="Applied" columnKey="applied_at" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                  <SortHeader label="Status" columnKey="status" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+                  <th>Documents</th>
+                  <th aria-label="Remove"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {sorted.map((app) => (
+                  <tr key={app.id}>
+                    <td className="col-company">{app.company}</td>
+                    <td className="col-title">
+                      <Link to={`/jobs/${app.job_id}`}>{app.title}</Link>
+                      {(app.interest_fit || app.candidate_fit) && (
+                        <div className="title-badges">
+                          <FitBadge label="Interest" value={app.interest_fit} />
+                          <FitBadge label="Fit" value={app.candidate_fit} />
+                        </div>
+                      )}
+                    </td>
+                    <td className="col-location">{app.location ?? "N/A"}</td>
+                    <td className="col-nowrap">{salaryText(app)}</td>
+                    <td className="col-nowrap">
+                      <AppliedDateCell app={app} onChanged={updateInPlace} />
+                    </td>
+                    <td className="col-nowrap">
+                      <StatusSelect app={app} onChanged={updateInPlace} />
+                    </td>
+                    <td className="col-docs">
+                      <DocActions app={app} onChanged={updateInPlace} />
+                    </td>
+                    <td>
+                      <RemoveButton
+                        app={app}
+                        onRemoved={(id) => setApps((prev) => prev.filter((a) => a.id !== id))}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       )}
     </div>

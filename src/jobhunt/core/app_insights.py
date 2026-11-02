@@ -1,7 +1,7 @@
-"""My Jobs' "What's working?": one Claude call that reads every tracked application (the job, its
-fit ratings, salary and how far it got) and says which kinds of jobs are getting responses and
-which aren't. The counts on the page are computed in the browser; this is the part that needs
-judgment. Run only when the user asks, and the last answer is kept in settings
+"""My Jobs' "Ask Jobby what's working": one Claude call, in Jobby's voice, that reads every tracked
+application (the job, its fit ratings, salary and how far it got) and says which kinds of jobs are
+getting responses and which aren't. The counts on the page are computed in the browser; this is
+the part that needs judgment. Run only when the user asks, and the last answer is kept in settings
 (`application_insights`) so revisiting the page costs nothing."""
 
 from datetime import date, datetime, timezone
@@ -22,11 +22,16 @@ STATUS_WORDS = {
     "withdrawn": "withdrew",
 }
 
-SYSTEM_PROMPT = """You help a job seeker learn from their own applications. You get every job \
+# Written as Jobby (core/jobby.py's interview-prep coach), whose face it wears on My Jobs; the
+# general Jobby conversation also gets the latest answer in its context to talk it over.
+SYSTEM_PROMPT = """You are Jobby, a friendly, sharp job-search coach. Help the job seeker learn from \
+their own applications, in your warm but direct voice -- encouraging, never fluffy. You get every job \
 they're tracking: title, employer, location, pay, the app's interest and fit ratings \
 (High/Med/Low), the status it reached, and how long ago they applied.
 
-Write a short, practical read-out in Markdown, addressed to them in the second person:
+Write a short, practical read-out in Markdown, addressed to them in the second person. Open with \
+one plain sentence, before any heading, giving the single most useful takeaway (it's shown on its \
+own as a preview). Then:
 ## What's working
 ## What isn't
 ## Try next

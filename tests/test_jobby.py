@@ -217,3 +217,15 @@ def test_threads_are_per_job_and_clearable(monkeypatch):
         assert len(http.get("/api/jobby/thread").json()["messages"]) == 2  # general untouched
 
         assert http.get("/api/jobby/thread?job_id=9999").status_code == 404
+
+
+def test_general_chat_sees_jobbys_last_read_on_the_applications():
+    from jobhunt.core.settings import update_settings
+
+    assert "What you told them about their applications" not in jobby.build_context(None)
+    insights = {"text": "Civic data roles are landing.", "generated_at": "2026-11-02T15:00:00+00:00",
+                "applications": 3, "applied": 3}
+    update_settings({"application_insights": insights})
+    context = jobby.build_context(None)
+    assert "What you told them about their applications (2026-11-02)" in context
+    assert "Civic data roles are landing." in context
