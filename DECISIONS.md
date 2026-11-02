@@ -304,3 +304,24 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 - One choke point means a new paid feature is covered automatically.
 - Raising an `LLMError` reuses every route's existing error path.
 - A first visit after a lapse fixes everything without the person doing anything.
+
+## D-023 · New & Noteworthy: "Last updated" and a 30-minute Refresh
+- **Date:** 2026-11-02
+- **Category:** ui
+- **Prompts:** ab602548-080, ab602548-081
+
+**Decision.**
+- New & Noteworthy shows when the person's matches were last updated, with a Refresh that runs their own check. Refresh has a 30-minute cooldown per person, and scoring stays within today's cap and the month's budget.
+- Sources anyone read in the last hour aren't read again; their stored jobs are used instead.
+- After a day or more without an update, the line becomes a prominent "Refresh now" card. Once the cap or budget is used, the page says when scoring resumes.
+
+**Context.** Step 5 of the multi-user plan. The owner asked for a last-updated timestamp and a refresh button, alongside the decision to score only people active in the last week (D-022). Someone coming back after a pause otherwise sees stale matches until the next 2pm run.
+
+**Alternatives considered.**
+- Refreshing automatically when the page opens: it costs money on every visit.
+- No cooldown: the daily cap bounds scoring, but every refresh would still re-read every board.
+- Re-reading every source on each refresh: wasteful when someone else just read the same board.
+
+**Why.**
+- The cooldown and the one-hour freshness window keep a refresh cheap, mostly shared reads and only new scoring.
+- Taking a skipped source's jobs from the database means a second person refreshing right after the first still gets their matches scored.

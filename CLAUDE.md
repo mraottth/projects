@@ -109,7 +109,18 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
       person per month (`users.budget_alert_month`/`budget_block_month`, MIGRATIONS ALTERs).
       `/api/me` returns `usage` (spend, budget, over, exempt, scored today, cap), shown as Settings'
       usage line.
-  - Not yet (plan steps 5-6): New & Noteworthy's "Last updated"/Refresh, "Delete my account".
+  - **New & Noteworthy freshness (D-023).** `GET /api/digest/status` gives `last_updated` (the
+    person's latest `runs.finished_at`, daily or refresh), today's scoring against the cap,
+    `over_budget`, and the Refresh cooldown. `POST /api/digest/refresh/stream` is their own check
+    (`start_run_daily(only_user=, fresh_hours=1)`), streamed by the shared `pipeline.stream_run()`,
+    at most every 30 minutes (`last_refresh_at` setting; a 429 says how long is left). With
+    `fresh_hours`, `_poll_sources()` doesn't re-read a source anyone read successfully within the
+    hour; it takes that source's jobs seen in the last day from the database
+    (`_recent_jobs_for_sources`), so they're still queued and scored. The run summary's
+    `cap_reached` drives "Scoring resumes tomorrow (N of N used today)". `DigestPage`'s `Freshness`
+    shows "Last updated 2 hours ago · Refresh", or, a day or more since the last update, a card with
+    "Refresh now". "Check my sources now" on Manage Sources has no cooldown.
+  - Not yet (plan step 6): "Delete my account".
 - `src/jobhunt/db/schema.sql` — full SQLite schema, applied idempotently at startup
   (`db/connection.py`). `CREATE TABLE IF NOT EXISTS` never alters an existing table, so a new column
   on one needs an entry in `connection.py`'s `MIGRATIONS` list (plain `ALTER TABLE ... ADD COLUMN`,
