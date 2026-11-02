@@ -14,6 +14,7 @@ from jobhunt.core.llm import DEFAULT_MODEL, LLMError, cache_tokens, get_client, 
 from jobhunt.core.profile import get_current_candidate_profile
 from jobhunt.core.settings import get_setting, get_settings
 from jobhunt.db.connection import get_db
+from jobhunt.core.users import VISIBLE_JOB_SQL, current_user_id
 
 PERSONA = """You are Jobby, a friendly, sharp interview-prep coach inside a personal job-search \
 app. You're talking with the job seeker directly -- write to them in the second person ("you", \
@@ -61,18 +62,19 @@ def _clip(text: str | None, limit: int) -> str:
 
 
 def get_job(job_id: int) -> dict | None:
-    """The job plus its tracking status and latest fit rationale -- what Jobby needs about it."""
+    """The job plus its tracking status and latest fit rationale -- what Jobby needs about it.
+    None if there's no such job, or it isn't one this person can see."""
     with get_db() as conn:
         row = conn.execute(
-            """SELECT j.*, a.status AS application_status, a.notes AS application_notes,
+            f"""SELECT j.*, a.status AS application_status, a.notes AS application_notes,
                       a.applied_at, js.interest_fit, js.candidate_fit, js.rationale_text
                FROM jobs j
-               LEFT JOIN applications a ON a.job_id = j.id
+               LEFT JOIN applications a ON a.job_id = j.id AND a.user_id = :uid
                LEFT JOIN job_scores js ON js.id = (
-                   SELECT id FROM job_scores WHERE job_id = j.id ORDER BY id DESC LIMIT 1
+                   SELECT id FROM job_scores WHERE user_id = :uid AND job_id = j.id ORDER BY id DESC LIMIT 1
                )
-               WHERE j.id = ?""",
-            (job_id,),
+               WHERE j.id = :job AND {VISIBLE_JOB_SQL}""",
+            {"uid": current_user_id(), "job": job_id},
         ).fetchone()
     return dict(row) if row else None
 
@@ -84,7 +86,8 @@ def _documents_text(job_id: int | None) -> str:
             for r in conn.execute(
                 "SELECT kind, file_name, raw_text, is_template, "
                 "COALESCE(source_modified_at, uploaded_at) AS effective_date FROM resumes "
-                "WHERE raw_text IS NOT NULL ORDER BY is_template DESC, effective_date DESC"
+                "WHERE user_id = ? AND raw_text IS NOT NULL ORDER BY is_template DESC, effective_date DESC",
+                (current_user_id(),),
             )
         ]
         tailored = []
@@ -92,9 +95,9 @@ def _documents_text(job_id: int | None) -> str:
             tailored = [
                 dict(r)
                 for r in conn.execute(
-                    "SELECT kind, content_text FROM generated_documents WHERE job_id = ? "
+                    "SELECT kind, content_text FROM generated_documents WHERE user_id = ? AND job_id = ? "
                     "ORDER BY id DESC",
-                    (job_id,),
+                    (current_user_id(), job_id),
                 )
             ]
 
@@ -190,10 +193,13 @@ def get_thread(job_id: int | None) -> dict | None:
     with get_db() as conn:
         if job_id is None:
             row = conn.execute(
-                "SELECT * FROM jobby_threads WHERE job_id IS NULL ORDER BY id LIMIT 1"
+                "SELECT * FROM jobby_threads WHERE user_id = ? AND job_id IS NULL ORDER BY id LIMIT 1",
+                (current_user_id(),),
             ).fetchone()
         else:
-            row = conn.execute("SELECT * FROM jobby_threads WHERE job_id = ?", (job_id,)).fetchone()
+            row = conn.execute(
+                "SELECT * FROM jobby_threads WHERE user_id = ? AND job_id = ?", (current_user_id(), job_id)
+            ).fetchone()
     return dict(row) if row else None
 
 
@@ -202,7 +208,9 @@ def _get_or_create_thread(job_id: int | None) -> int:
     if thread:
         return thread["id"]
     with get_db() as conn:
-        return conn.execute("INSERT INTO jobby_threads (job_id) VALUES (?)", (job_id,)).lastrowid
+        return conn.execute(
+            "INSERT INTO jobby_threads (user_id, job_id) VALUES (?, ?)", (current_user_id(), job_id)
+        ).lastrowid
 
 
 def list_messages(job_id: int | None) -> list[dict]:

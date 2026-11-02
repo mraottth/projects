@@ -12,8 +12,8 @@ from tests.fakes import FakeAnthropicClient, FakeCreateResponse, FakeParseRespon
 def _insert_job() -> int:
     with get_db() as conn:
         cursor = conn.execute(
-            "INSERT INTO jobs (dedupe_key, title, company, description_text) "
-            "VALUES ('k1', 'Engineer', 'Acme', 'Build things')"
+            "INSERT INTO jobs (user_id, dedupe_key, title, company, description_text) "
+            "VALUES (1, 'k1', 'Engineer', 'Acme', 'Build things')"
         )
         return cursor.lastrowid
 
@@ -21,8 +21,8 @@ def _insert_job() -> int:
 def _insert_resume(text="Experienced engineer. Built many things.") -> int:
     with get_db() as conn:
         cursor = conn.execute(
-            "INSERT INTO resumes (kind, file_name, file_type, stored_path, raw_text) "
-            "VALUES ('resume', 'r.md', 'md', '/tmp/r.md', ?)",
+            "INSERT INTO resumes (user_id, kind, file_name, file_type, stored_path, raw_text) "
+            "VALUES (1, 'resume', 'r.md', 'md', '/tmp/r.md', ?)",
             (text,),
         )
         return cursor.lastrowid
@@ -59,8 +59,8 @@ def _insert_resume_with_docx(tmp_path, kind="resume", is_template=0, make=_make_
     with get_db() as conn:
         cursor = conn.execute(
             """INSERT INTO resumes
-               (kind, file_name, file_type, stored_path, raw_text, source_path, is_template)
-               VALUES (?, ?, 'docx', ?, 'reference text', ?, ?)""",
+               (user_id, kind, file_name, file_type, stored_path, raw_text, source_path, is_template)
+               VALUES (1, ?, ?, 'docx', ?, 'reference text', ?, ?)""",
             (kind, docx_path.name, str(docx_path), str(docx_path), is_template),
         )
         return cursor.lastrowid
@@ -175,8 +175,8 @@ def test_generate_resume_uses_docx_template_from_web_upload_with_no_source_path(
     _make_resume_docx(docx_path)
     with get_db() as conn:
         cursor = conn.execute(
-            """INSERT INTO resumes (kind, file_name, file_type, stored_path, raw_text, is_template)
-               VALUES ('resume', ?, 'docx', ?, 'reference text', 1)""",
+            """INSERT INTO resumes (user_id, kind, file_name, file_type, stored_path, raw_text, is_template)
+               VALUES (1, 'resume', ?, 'docx', ?, 'reference text', 1)""",
             (docx_path.name, str(docx_path)),
         )
         resume_id = cursor.lastrowid
@@ -202,8 +202,8 @@ def test_generate_resume_falls_back_to_plain_text_when_only_pdf_on_file(monkeypa
     job_id = _insert_job()
     with get_db() as conn:
         cursor = conn.execute(
-            "INSERT INTO resumes (kind, file_name, file_type, stored_path, raw_text) "
-            "VALUES ('resume', 'r.pdf', 'pdf', '/tmp/r.pdf', 'pdf resume text')"
+            "INSERT INTO resumes (user_id, kind, file_name, file_type, stored_path, raw_text) "
+            "VALUES (1, 'resume', 'r.pdf', 'pdf', '/tmp/r.pdf', 'pdf resume text')"
         )
         resume_id = cursor.lastrowid
 
@@ -356,8 +356,8 @@ def test_all_generated_documents_lists_across_jobs_with_job_info(monkeypatch):
     job_a = _insert_job()
     with get_db() as conn:
         cursor = conn.execute(
-            "INSERT INTO jobs (dedupe_key, title, company, description_text) "
-            "VALUES ('k2', 'Designer', 'Beta', 'Design things')"
+            "INSERT INTO jobs (user_id, dedupe_key, title, company, description_text) "
+            "VALUES (1, 'k2', 'Designer', 'Beta', 'Design things')"
         )
         job_b = cursor.lastrowid
 

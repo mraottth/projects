@@ -7,8 +7,8 @@ from tests.fakes import FakeAnthropicClient, FakeParseResponse
 def _insert_job() -> int:
     with get_db() as conn:
         cursor = conn.execute(
-            """INSERT INTO jobs (dedupe_key, title, company, location, description_text)
-               VALUES ('k1', 'Engineer', 'Acme', 'NYC', 'Build things')""",
+            """INSERT INTO jobs (user_id, dedupe_key, title, company, location, description_text)
+               VALUES (1, 'k1', 'Engineer', 'Acme', 'NYC', 'Build things')""",
         )
         return cursor.lastrowid
 

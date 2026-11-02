@@ -12,6 +12,7 @@ from jobhunt.core.llm import LLMError
 from jobhunt.core.profile import get_current_candidate_profile
 from jobhunt.core.settings import get_settings
 from jobhunt.db.connection import get_db
+from jobhunt.core.users import carry, current_user_id
 
 router = APIRouter(prefix="/api/discovery", tags=["discovery"])
 
@@ -19,14 +20,20 @@ router = APIRouter(prefix="/api/discovery", tags=["discovery"])
 def _already_monitored_company_names() -> list[str]:
     with get_db() as conn:
         rows = conn.execute(
-            "SELECT DISTINCT company_name FROM sources WHERE company_name IS NOT NULL"
+            "SELECT DISTINCT s.company_name FROM sources s JOIN source_follows f ON f.source_id = s.id "
+            "WHERE f.user_id = ? AND s.company_name IS NOT NULL",
+            (current_user_id(),),
         ).fetchall()
     return sorted(r["company_name"] for r in rows)
 
 
 def _already_monitored_board_urls() -> list[str]:
     with get_db() as conn:
-        rows = conn.execute("SELECT config_json FROM sources WHERE kind = 'custom_board'").fetchall()
+        rows = conn.execute(
+            "SELECT s.config_json FROM sources s JOIN source_follows f ON f.source_id = s.id "
+            "WHERE f.user_id = ? AND s.kind = 'custom_board'",
+            (current_user_id(),),
+        ).fetchall()
     urls = []
     for r in rows:
         config = json.loads(r["config_json"] or "{}")
@@ -108,7 +115,7 @@ def _start_task(handler: Callable[[DiscoveryRequest | None], list], payload: Dis
         cutoff = time.time() - TASK_TTL_SECONDS
         for old in [k for k, t in _tasks.items() if t["started"] < cutoff]:
             del _tasks[old]
-        _tasks[task_id] = {"status": "running", "started": time.time()}
+        _tasks[task_id] = {"status": "running", "started": time.time(), "user_id": current_user_id()}
 
     def work():
         try:
@@ -120,7 +127,7 @@ def _start_task(handler: Callable[[DiscoveryRequest | None], list], payload: Dis
         with _tasks_lock:
             _tasks[task_id].update(update)
 
-    threading.Thread(target=work, daemon=True).start()
+    threading.Thread(target=carry(work), daemon=True).start()
     return task_id
 
 
@@ -140,6 +147,6 @@ def get_task(task_id: str):
     synchronous routes return) or "error" with `error`."""
     with _tasks_lock:
         task = _tasks.get(task_id)
-        if task is None:
+        if task is None or task["user_id"] != current_user_id():
             raise HTTPException(404, "This search was interrupted (the server restarted) — try again.")
-        return {k: v for k, v in task.items() if k != "started"}
+        return {k: v for k, v in task.items() if k not in ("started", "user_id")}

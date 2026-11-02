@@ -2,7 +2,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from jobhunt.api import resumes as resumes_api
+from jobhunt.core import users
 from jobhunt.api.main import app
 from jobhunt.core import reset
 from jobhunt.db.connection import get_db
@@ -15,7 +15,7 @@ def _count(table):
 
 def test_delete_all_data_returns_to_onboarding(tmp_path, monkeypatch):
     storage = tmp_path / "resumes"
-    monkeypatch.setattr(resumes_api, "RESUME_STORAGE_DIR", storage)
+    monkeypatch.setattr(users, "RESUME_STORAGE_DIR", storage)
     monkeypatch.setattr(reset, "RESUME_STORAGE_DIR", storage)
     outside = tmp_path / "my-own-folder" / "Tailored.docx"
     outside.parent.mkdir()
@@ -33,19 +33,19 @@ def test_delete_all_data_returns_to_onboarding(tmp_path, monkeypatch):
         client.put("/api/settings", json={"onboarding_completed": True, "daily_llm_cap": 10})
         with get_db() as conn:
             job_id = conn.execute(
-                "INSERT INTO jobs (dedupe_key, title, company) VALUES ('k', 'Analyst', 'Acme')"
+                "INSERT INTO jobs (user_id, dedupe_key, title, company) VALUES (1, 'k', 'Analyst', 'Acme')"
             ).lastrowid
             conn.execute(
-                "INSERT INTO generated_documents (job_id, kind, content_text, file_path) "
-                "VALUES (?, 'resume', 'x', ?)",
+                "INSERT INTO generated_documents (user_id, job_id, kind, content_text, file_path) "
+                "VALUES (1, ?, 'resume', 'x', ?)",
                 (job_id, str(outside)),
             )
             conn.execute(
-                "INSERT INTO llm_calls (call_type, job_id, model, estimated_cost_usd) "
-                "VALUES ('scoring', ?, 'claude-sonnet-5', 0.03)",
+                "INSERT INTO llm_calls (user_id, call_type, job_id, model, estimated_cost_usd) "
+                "VALUES (1, 'scoring', ?, 'claude-sonnet-5', 0.03)",
                 (job_id,),
             )
-        stored = list(storage.iterdir())
+        stored = [p for p in storage.rglob("*") if p.is_file()]  # under resumes/<user id>/
         assert len(stored) == 1
         assert client.get("/api/onboarding/status").json()["needs_onboarding"] is False
 
@@ -58,11 +58,13 @@ def test_delete_all_data_returns_to_onboarding(tmp_path, monkeypatch):
 
         assert client.get("/api/onboarding/status").json()["needs_onboarding"] is True
         settings = client.get("/api/settings").json()
-        assert settings["daily_llm_cap"] == 50
+        assert settings["daily_llm_cap"] == 10  # a limit on the account (D-021), not data: kept
         assert settings["onboarding_completed"] is False
 
-    for table in ("resumes", "sources", "jobs", "generated_documents"):
+    # Your follows go; the shared source itself stays for anyone else following it.
+    for table in ("resumes", "source_follows", "jobs", "generated_documents"):
         assert _count(table) == 0
+    assert _count("sources") == 1
     assert not Path(stored[0]).exists()
     assert outside.exists()  # outside the app's storage: left alone
     with get_db() as conn:

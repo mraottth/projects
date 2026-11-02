@@ -1,6 +1,7 @@
 from docx import Document
 from fastapi.testclient import TestClient
 
+from jobhunt.core import users
 from jobhunt.api.main import app
 from jobhunt.core import generate, profile
 from jobhunt.core.docx_writer import CoverLetterContent
@@ -12,8 +13,9 @@ from tests.fakes import FakeAnthropicClient, FakeCreateResponse, FakeParseRespon
 def _insert_doc(kind="resume", raw_text="Jane Doe. Analytics lead, 10 years.", is_template=1):
     with get_db() as conn:
         return conn.execute(
-            """INSERT INTO resumes (kind, label, file_name, file_type, stored_path, raw_text, is_template)
-               VALUES (?, 'x', 'x.txt', 'txt', '/tmp/x.txt', ?, ?)""",
+            """INSERT INTO resumes (user_id, kind, label, file_name, file_type, stored_path, raw_text,
+                is_template)
+               VALUES (1, ?, 'x', 'x.txt', 'txt', '/tmp/x.txt', ?, ?)""",
             (kind, raw_text, is_template),
         ).lastrowid
 
@@ -53,7 +55,7 @@ def _fake_cover_letter_client(paragraphs):
 def test_starter_cover_letter_becomes_current_and_demotes_previous(monkeypatch, tmp_path):
     _insert_doc(kind="resume")
     previous = _insert_doc(kind="cover_letter")
-    monkeypatch.setattr(generate, "RESUME_STORAGE_DIR", tmp_path / "resumes")
+    monkeypatch.setattr(users, "RESUME_STORAGE_DIR", tmp_path / "resumes")
     paragraphs = ["Dear Hiring Manager,", "Body one.", "Body two.", "Sincerely,", "Jane Doe"]
     monkeypatch.setattr(generate, "get_client", lambda: _fake_cover_letter_client(paragraphs))
 

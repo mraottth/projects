@@ -2,6 +2,7 @@ from datetime import date
 
 from jobhunt.core.generic_postings import is_generic_posting
 from jobhunt.db.connection import get_db
+from jobhunt.core.users import current_user_id
 
 MAX_AGE_DAYS = 90
 
@@ -9,8 +10,12 @@ MAX_AGE_DAYS = 90
 # it's done surfacing here -- still reachable from All Jobs, just not pushed at the user again)
 # and a posting old enough that it isn't really "new" -- unless we simply don't know its age, in
 # which case we'd rather show it than silently drop it.
+# Both take the user's id as a named parameter, :uid.
 NOT_DISMISSED_SQL = """NOT EXISTS (
-    SELECT 1 FROM feedback f WHERE f.job_id = j.id AND f.interested = 'not_interested'
+    SELECT 1 FROM feedback f WHERE f.user_id = :uid AND f.job_id = j.id AND f.interested = 'not_interested'
+)"""
+LATEST_SCORE_SQL = """js.id = (
+    SELECT id FROM job_scores WHERE user_id = :uid AND job_id = {job} ORDER BY id DESC LIMIT 1
 )"""
 RECENT_OR_UNKNOWN_SQL = f"""(
     j.posted_at IS NULL OR julianday('now') - julianday(j.posted_at) <= {MAX_AGE_DAYS}
@@ -39,6 +44,7 @@ def add_to_digest(job_id: int, digest_date: str | None = None) -> None:
     older than MAX_AGE_DAYS (and not of unknown age) never enters the digest at all -- "new and
     noteworthy" means new."""
     digest_date = digest_date or today_str()
+    uid = current_user_id()
     with get_db() as conn:
         is_recent = conn.execute(
             f"SELECT {RECENT_OR_UNKNOWN_SQL} AS ok, j.title FROM jobs j WHERE j.id = ?", (job_id,)
@@ -47,24 +53,22 @@ def add_to_digest(job_id: int, digest_date: str | None = None) -> None:
             return
 
         conn.execute(
-            "INSERT OR IGNORE INTO digest_entries (digest_date, job_id, rank) VALUES (?, ?, 0)",
-            (digest_date, job_id),
+            "INSERT OR IGNORE INTO digest_entries (user_id, digest_date, job_id, rank) VALUES (?, ?, ?, 0)",
+            (uid, digest_date, job_id),
         )
         rows = conn.execute(
-            """SELECT de.job_id, js.interest_score, js.candidate_fit_score,
+            f"""SELECT de.job_id, js.interest_score, js.candidate_fit_score,
                       j.posted_at, j.first_seen_at, j.salary_max, j.salary_min
                FROM digest_entries de
                JOIN jobs j ON j.id = de.job_id
-               LEFT JOIN job_scores js ON js.id = (
-                   SELECT id FROM job_scores WHERE job_id = de.job_id ORDER BY id DESC LIMIT 1
-               )
-               WHERE de.digest_date = ?""",
-            (digest_date,),
+               LEFT JOIN job_scores js ON {LATEST_SCORE_SQL.format(job="de.job_id")}
+               WHERE de.user_id = :uid AND de.digest_date = :day""",
+            {"uid": uid, "day": digest_date},
         ).fetchall()
         ranked = sorted(rows, key=_rank_key, reverse=True)
         conn.executemany(
-            "UPDATE digest_entries SET rank = ? WHERE digest_date = ? AND job_id = ?",
-            [(i + 1, digest_date, r["job_id"]) for i, r in enumerate(ranked)],
+            "UPDATE digest_entries SET rank = ? WHERE user_id = ? AND digest_date = ? AND job_id = ?",
+            [(i + 1, uid, digest_date, r["job_id"]) for i, r in enumerate(ranked)],
         )
 
 
@@ -76,12 +80,11 @@ def get_digest(digest_date: str) -> list[dict]:
                       de.digest_date, s.name AS source_name
                FROM digest_entries de
                JOIN jobs j ON j.id = de.job_id
-               LEFT JOIN job_scores js ON js.id = (
-                   SELECT id FROM job_scores WHERE job_id = de.job_id ORDER BY id DESC LIMIT 1
-               )
+               LEFT JOIN job_scores js ON {LATEST_SCORE_SQL.format(job="de.job_id")}
                LEFT JOIN sources s ON s.id = j.source_id
-               WHERE de.digest_date = ? AND {NOT_DISMISSED_SQL} AND {RECENT_OR_UNKNOWN_SQL}""",
-            (digest_date,),
+               WHERE de.user_id = :uid AND de.digest_date = :day
+                 AND {NOT_DISMISSED_SQL} AND {RECENT_OR_UNKNOWN_SQL}""",
+            {"uid": current_user_id(), "day": digest_date},
         ).fetchall()
     # Sort live rather than trusting the stored `rank` column -- see _rank_key's docstring. A
     # general-application posting already in an older digest is dropped here too.
@@ -92,6 +95,7 @@ def get_digest(digest_date: str) -> list[dict]:
 def get_digest_dates() -> list[str]:
     with get_db() as conn:
         rows = conn.execute(
-            "SELECT DISTINCT digest_date FROM digest_entries ORDER BY digest_date DESC"
+            "SELECT DISTINCT digest_date FROM digest_entries WHERE user_id = ? ORDER BY digest_date DESC",
+            (current_user_id(),),
         ).fetchall()
     return [row["digest_date"] for row in rows]

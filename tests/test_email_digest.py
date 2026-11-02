@@ -7,6 +7,16 @@ from jobhunt.core import email_digest
 from jobhunt.db.connection import get_db
 from jobhunt.pipeline import daily_run
 
+import pytest as _pytest
+
+from tests.fakes import give_profile
+
+
+@_pytest.fixture(autouse=True)
+def _profile():
+    give_profile()
+
+
 SENT = []
 
 
@@ -38,8 +48,9 @@ def _configure(monkeypatch):
 def _digest_job(title, interest, fit, interest_score=80, fit_score=60, **job):
     with get_db() as conn:
         job_id = conn.execute(
-            "INSERT INTO jobs (dedupe_key, title, company, url, salary_min, salary_max, salary_period) "
-            "VALUES (?, ?, 'Acme', ?, ?, ?, ?)",
+            "INSERT INTO jobs (user_id, dedupe_key, title, company, url, salary_min, salary_max, "
+            "salary_period) "
+            "VALUES (1, ?, ?, 'Acme', ?, ?, ?, ?)",
             (
                 title,
                 title,
@@ -50,12 +61,12 @@ def _digest_job(title, interest, fit, interest_score=80, fit_score=60, **job):
             ),
         ).lastrowid
         conn.execute(
-            "INSERT INTO job_scores (job_id, model, interest_fit, interest_score, candidate_fit, "
-            "candidate_fit_score, summary_text, rationale_text) VALUES (?, 'x', ?, ?, ?, ?, ?, 'r')",
+            "INSERT INTO job_scores (user_id, job_id, model, interest_fit, interest_score, candidate_fit, "
+            "candidate_fit_score, summary_text, rationale_text) VALUES (1, ?, 'x', ?, ?, ?, ?, ?, 'r')",
             (job_id, interest, interest_score, fit, fit_score, f"About {title}."),
         )
         conn.execute(
-            "INSERT INTO digest_entries (digest_date, job_id, rank) VALUES (?, ?, 0)",
+            "INSERT INTO digest_entries (user_id, digest_date, job_id, rank) VALUES (1, ?, ?, 0)",
             (date.today().isoformat(), job_id),
         )
     return job_id

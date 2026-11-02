@@ -7,7 +7,8 @@ from jobhunt.db.connection import get_db
 def _insert_job(title="Engineer", company="Acme", salary_min=None, salary_max=None) -> int:
     with get_db() as conn:
         cursor = conn.execute(
-            "INSERT INTO jobs (dedupe_key, title, company, salary_min, salary_max) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO jobs (user_id, dedupe_key, title, company, salary_min, salary_max) "
+            "VALUES (1, ?, ?, ?, ?, ?)",
             (f"{title}-{company}", title, company, salary_min, salary_max),
         )
         return cursor.lastrowid
@@ -133,8 +134,8 @@ def test_delete_application_preserves_generated_documents_but_detaches_them():
 
     with get_db() as conn:
         cursor = conn.execute(
-            "INSERT INTO generated_documents (job_id, application_id, kind, content_text) "
-            "VALUES (?, ?, 'resume', 'tailored content')",
+            "INSERT INTO generated_documents (user_id, job_id, application_id, kind, content_text) "
+            "VALUES (1, ?, ?, 'resume', 'tailored content')",
             (job_id, app_id),
         )
         doc_id = cursor.lastrowid

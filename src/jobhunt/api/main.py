@@ -7,6 +7,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from jobhunt.api import (
+    access,
+    admin,
     applications,
     digest,
     discovery,
@@ -20,6 +22,7 @@ from jobhunt.api import (
     settings,
     sources,
 )
+from jobhunt.api.auth import AuthMiddleware
 from jobhunt.db.connection import init_db
 from jobhunt.pipeline.daily_run import backfill_salaries
 
@@ -39,7 +42,11 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Job Search Assistant", lifespan=lifespan)
+# Every /api request runs as its verified, approved signed-in person (D-021; api/auth.py).
+app.add_middleware(AuthMiddleware)
 
+app.include_router(access.router)
+app.include_router(admin.router)
 app.include_router(resumes.router)
 app.include_router(jobs.router)
 app.include_router(digest.router)

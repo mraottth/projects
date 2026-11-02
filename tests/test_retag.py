@@ -32,15 +32,16 @@ def _score(job_key, rationale):
     with get_db() as conn:
         job_id = (
             conn.execute(
-                "INSERT OR IGNORE INTO jobs (dedupe_key, title, company) VALUES (?, 'Analyst', 'Acme')",
+                "INSERT OR IGNORE INTO jobs (user_id, dedupe_key, title, company) "
+                "VALUES (1, ?, 'Analyst', 'Acme')",
                 (job_key,),
             ).lastrowid
             or conn.execute("SELECT id FROM jobs WHERE dedupe_key = ?", (job_key,)).fetchone()[0]
         )
         return conn.execute(
-            "INSERT INTO job_scores (job_id, model, interest_fit, interest_score, candidate_fit, "
+            "INSERT INTO job_scores (user_id, job_id, model, interest_fit, interest_score, candidate_fit, "
             "candidate_fit_score, summary_text, rationale_text) "
-            "VALUES (?, 'x', 'High', 80, 'Med', 50, 's', ?)",
+            "VALUES (1, ?, 'x', 'High', 80, 'Med', 50, 's', ?)",
             (job_id, rationale),
         ).lastrowid
 

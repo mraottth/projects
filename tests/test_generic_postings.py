@@ -40,6 +40,7 @@ def test_generic_postings_are_hidden_from_all_jobs_and_not_queued():
         source = conn.execute(
             "INSERT INTO sources (kind, name, config_json) VALUES ('custom_board', 'B', '{}')"
         ).lastrowid
+        conn.execute("INSERT INTO source_follows (user_id, source_id) VALUES (1, ?)", (source,))
         insert = "INSERT INTO jobs (dedupe_key, title, company, source_id) VALUES (?, ?, 'A', ?)"
         real = conn.execute(insert, ("r", "Data Director", source)).lastrowid
         generic = conn.execute(insert, ("g", "General Application", source)).lastrowid

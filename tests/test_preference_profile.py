@@ -14,15 +14,16 @@ def test_rebuild_requires_some_signal():
 def test_rebuild_from_feedback_and_applications(monkeypatch):
     with get_db() as conn:
         cursor = conn.execute(
-            "INSERT INTO jobs (dedupe_key, title, company) VALUES ('k1', 'Engineer', 'Acme')"
+            "INSERT INTO jobs (user_id, dedupe_key, title, company) VALUES (1, 'k1', 'Engineer', 'Acme')"
         )
         job_id = cursor.lastrowid
         conn.execute(
-            "INSERT INTO feedback (job_id, interested, note) VALUES (?, 'interested', 'cool stack')",
+            "INSERT INTO feedback (user_id, job_id, interested, note) "
+            "VALUES (1, ?, 'interested', 'cool stack')",
             (job_id,),
         )
         cursor = conn.execute(
-            "INSERT INTO applications (job_id, status) VALUES (?, 'interviewing')", (job_id,)
+            "INSERT INTO applications (user_id, job_id, status) VALUES (1, ?, 'interviewing')", (job_id,)
         )
         app_id = cursor.lastrowid
         conn.execute(

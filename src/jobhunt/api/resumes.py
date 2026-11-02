@@ -5,7 +5,6 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from jobhunt.config import RESUME_STORAGE_DIR
 from jobhunt.core.llm import LLMError
 from jobhunt.core.profile import (
     get_current_candidate_profile,
@@ -15,8 +14,12 @@ from jobhunt.core.profile import (
 )
 from jobhunt.core.resume_parse import extract_text
 from jobhunt.db.connection import get_db
+from jobhunt.core.users import current_user_id, storage_dir
 
 router = APIRouter(prefix="/api/resumes", tags=["resumes"])
+
+
+MAX_UPLOAD_BYTES = 10_000_000
 
 
 @router.get("")
@@ -24,9 +27,10 @@ def list_resumes():
     with get_db() as conn:
         rows = conn.execute(
             "SELECT id, kind, label, file_name, file_type, uploaded_at, is_archived, is_template, "
-            "length(raw_text) AS text_length FROM resumes "
+            "length(raw_text) AS text_length FROM resumes WHERE user_id = ? "
             "ORDER BY is_template DESC, is_archived ASC, "
-            "COALESCE(source_modified_at, uploaded_at) DESC"
+            "COALESCE(source_modified_at, uploaded_at) DESC",
+            (current_user_id(),),
         ).fetchall()
     return [dict(row) for row in rows]
 
@@ -49,10 +53,13 @@ async def upload_resume(
     if suffix not in (".pdf", ".docx", ".md", ".txt"):
         raise HTTPException(400, f"unsupported file type: {suffix}")
 
-    RESUME_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
-    stored_name = f"{uuid.uuid4().hex}{suffix}"
-    stored_path = RESUME_STORAGE_DIR / stored_name
-    contents = await file.read()
+    contents = await file.read(MAX_UPLOAD_BYTES + 1)
+    if len(contents) > MAX_UPLOAD_BYTES:
+        raise HTTPException(400, f"that file is over {MAX_UPLOAD_BYTES // 1_000_000} MB")
+    user_id = current_user_id()
+    folder = storage_dir()
+    folder.mkdir(parents=True, exist_ok=True)
+    stored_path = folder / f"{uuid.uuid4().hex}{suffix}"
     stored_path.write_bytes(contents)
 
     try:
@@ -64,14 +71,16 @@ async def upload_resume(
     with get_db() as conn:
         if not is_archived:
             conn.execute(
-                "UPDATE resumes SET is_template = 0, is_archived = 1 WHERE kind = ? AND is_template = 1",
-                (kind,),
+                "UPDATE resumes SET is_template = 0, is_archived = 1 "
+                "WHERE user_id = ? AND kind = ? AND is_template = 1",
+                (user_id, kind),
             )
         cursor = conn.execute(
             """INSERT INTO resumes
-               (kind, label, file_name, file_type, stored_path, raw_text, is_archived, is_template)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+               (user_id, kind, label, file_name, file_type, stored_path, raw_text, is_archived, is_template)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
+                user_id,
                 kind,
                 label,
                 file.filename,
@@ -97,16 +106,19 @@ def update_resume(resume_id: int, payload: ResumeUpdateRequest):
     """Moves a document between "current" and "Old". Setting is_template=true promotes it to
     current for its kind (demoting whatever was current before, same as an upload); setting
     is_archived=true archives it into Old (a document can't be both current and archived)."""
+    user_id = current_user_id()
     with get_db() as conn:
-        row = conn.execute("SELECT kind FROM resumes WHERE id = ?", (resume_id,)).fetchone()
+        row = conn.execute(
+            "SELECT kind FROM resumes WHERE id = ? AND user_id = ?", (resume_id, user_id)
+        ).fetchone()
         if row is None:
             raise HTTPException(404, "resume not found")
 
         if payload.is_template:
             conn.execute(
                 "UPDATE resumes SET is_template = 0, is_archived = 1 "
-                "WHERE kind = ? AND id != ? AND is_template = 1",
-                (row["kind"], resume_id),
+                "WHERE user_id = ? AND kind = ? AND id != ? AND is_template = 1",
+                (user_id, row["kind"], resume_id),
             )
             conn.execute(
                 "UPDATE resumes SET is_template = 1, is_archived = 0 WHERE id = ?", (resume_id,)
@@ -128,7 +140,8 @@ def download_resume(resume_id: int):
     (api/generate.py)."""
     with get_db() as conn:
         row = conn.execute(
-            "SELECT file_name, stored_path FROM resumes WHERE id = ?", (resume_id,)
+            "SELECT file_name, stored_path FROM resumes WHERE id = ? AND user_id = ?",
+            (resume_id, current_user_id()),
         ).fetchone()
     if row is None:
         raise HTTPException(404, "document not found")
@@ -141,7 +154,9 @@ def download_resume(resume_id: int):
 @router.delete("/{resume_id}")
 def delete_resume(resume_id: int):
     with get_db() as conn:
-        row = conn.execute("SELECT stored_path FROM resumes WHERE id = ?", (resume_id,)).fetchone()
+        row = conn.execute(
+            "SELECT stored_path FROM resumes WHERE id = ? AND user_id = ?", (resume_id, current_user_id())
+        ).fetchone()
         if row is None:
             raise HTTPException(404, "resume not found")
         conn.execute("DELETE FROM resumes WHERE id = ?", (resume_id,))

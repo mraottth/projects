@@ -3,12 +3,24 @@ from jobhunt.core.settings import update_settings
 from jobhunt.db.connection import get_db
 from jobhunt.pipeline import daily_run
 
+import pytest as _pytest
+
+from tests.fakes import give_profile
+
+
+@_pytest.fixture(autouse=True)
+def _profile():
+    give_profile()
+
+
 
 def _source(name):
     with get_db() as conn:
-        return conn.execute(
+        source_id = conn.execute(
             "INSERT INTO sources (kind, name, config_json) VALUES ('custom_board', ?, '{}')", (name,)
         ).lastrowid
+        conn.execute("INSERT INTO source_follows (user_id, source_id) VALUES (1, ?)", (source_id,))
+        return source_id
 
 
 def test_refresh_polls_only_new_sources_and_scores_into_digest(monkeypatch):
@@ -84,7 +96,7 @@ def test_refresh_is_skipped_during_onboarding(monkeypatch):
     daily_run.schedule_source_refresh(1)
     daily_run.schedule_source_refresh(2)  # gathered into the same pending refresh
     assert len(started) == 1
-    assert daily_run._pending_refresh == {1, 2}
+    assert daily_run._pending_refresh == {1: {1, 2}}  # per person (D-021)
     daily_run._pending_refresh.clear()
 
 
@@ -139,8 +151,8 @@ def test_backfill_falls_back_to_the_score_summary():
             (source,),
         ).lastrowid
         conn.execute(
-            "INSERT INTO job_scores (job_id, model, interest_fit, interest_score, candidate_fit, "
-            "candidate_fit_score, summary_text, rationale_text) VALUES (?, 'x', 'High', 80, 'Med', 50, "
+            "INSERT INTO job_scores (user_id, job_id, model, interest_fit, interest_score, candidate_fit, "
+            "candidate_fit_score, summary_text, rationale_text) VALUES (1, ?, 'x', 'High', 80, 'Med', 50, "
             "'Building LLM tools for campaigns, remote or NYC, $160-210k.', 'r')",
             (job_id,),
         )

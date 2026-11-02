@@ -13,7 +13,6 @@ import uuid
 from datetime import date
 from pathlib import Path
 
-from jobhunt.config import RESUME_STORAGE_DIR
 from docx import Document
 
 from jobhunt.core.docx_writer import (
@@ -33,6 +32,7 @@ from jobhunt.core.docx_writer import (
 from jobhunt.core.llm import DEFAULT_MODEL, get_client, llm_error_boundary, log_call
 from jobhunt.core.settings import get_setting, get_settings
 from jobhunt.db.connection import get_db
+from jobhunt.core.users import current_user_id, storage_dir
 
 logger = logging.getLogger(__name__)
 
@@ -138,13 +138,15 @@ def _pick_resume(kind: str, resume_id: int | None) -> dict | None:
     with get_db() as conn:
         if resume_id is not None:
             row = conn.execute(
-                "SELECT * FROM resumes WHERE id = ? AND kind = ?", (resume_id, kind)
+                "SELECT * FROM resumes WHERE id = ? AND kind = ? AND user_id = ?",
+                (resume_id, kind, current_user_id()),
             ).fetchone()
         else:
             row = conn.execute(
-                "SELECT * FROM resumes WHERE kind = ? ORDER BY is_template DESC, is_archived ASC, "
+                "SELECT * FROM resumes WHERE kind = ? AND user_id = ? "
+                "ORDER BY is_template DESC, is_archived ASC, "
                 "COALESCE(source_modified_at, uploaded_at) DESC LIMIT 1",
-                (kind,),
+                (kind, current_user_id()),
             ).fetchone()
     return dict(row) if row else None
 
@@ -169,7 +171,7 @@ def _output_dir() -> Path:
     library_path = get_setting("resume_library_path")
     if library_path:
         return Path(library_path) / "AI Generated"
-    return RESUME_STORAGE_DIR / "generated"
+    return storage_dir() / "generated"
 
 
 def _safe_filename(*parts: str) -> str:
@@ -434,8 +436,8 @@ def generate_starter_cover_letter() -> dict:
     if not paragraphs:
         raise ValueError("Claude returned an empty cover letter -- try again")
 
-    RESUME_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
-    stored_path = RESUME_STORAGE_DIR / f"{uuid.uuid4().hex}.docx"
+    storage_dir().mkdir(parents=True, exist_ok=True)
+    stored_path = storage_dir() / f"{uuid.uuid4().hex}.docx"
     doc = Document()
     for paragraph in paragraphs:
         doc.add_paragraph(paragraph)
@@ -445,14 +447,15 @@ def generate_starter_cover_letter() -> dict:
     with get_db() as conn:
         conn.execute(
             "UPDATE resumes SET is_template = 0, is_archived = 1 "
-            "WHERE kind = 'cover_letter' AND is_template = 1"
+            "WHERE user_id = ? AND kind = 'cover_letter' AND is_template = 1",
+            (current_user_id(),),
         )
         cursor = conn.execute(
             """INSERT INTO resumes
-               (kind, label, file_name, file_type, stored_path, raw_text, is_archived, is_template)
-               VALUES ('cover_letter', 'AI-generated starter', 'starter_cover_letter.docx', 'docx',
+               (user_id, kind, label, file_name, file_type, stored_path, raw_text, is_archived, is_template)
+               VALUES (?, 'cover_letter', 'AI-generated starter', 'starter_cover_letter.docx', 'docx',
                        ?, ?, 0, 1)""",
-            (str(stored_path), content_text),
+            (current_user_id(), str(stored_path), content_text),
         )
         doc_id = cursor.lastrowid
     return {"id": doc_id, "content_text": content_text}

@@ -10,6 +10,7 @@ def _insert_source() -> int:
             "INSERT INTO sources (kind, name, config_json) VALUES (?, ?, '{}')",
             ("custom_board", "Some Board"),
         )
+        conn.execute("INSERT INTO source_follows (user_id, source_id) VALUES (1, ?)", (cursor.lastrowid,))
         return cursor.lastrowid
 
 
@@ -24,9 +25,9 @@ def _insert_job(dedupe_key: str, title: str, source_id: int | None, score: float
         if score is not None:
             conn.execute(
                 """INSERT INTO job_scores
-                   (job_id, model, interest_fit, interest_score, candidate_fit, candidate_fit_score,
+                   (user_id, job_id, model, interest_fit, interest_score, candidate_fit, candidate_fit_score,
                     summary_text, rationale_text)
-                   VALUES (?, 'x', 'High', ?, 'High', ?, '', '')""",
+                   VALUES (1, ?, 'x', 'High', ?, 'High', ?, '', '')""",
                 (job_id, score, score),
             )
         return job_id

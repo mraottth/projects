@@ -41,8 +41,8 @@ def test_extract_text_rejects_unsupported(tmp_path):
 def test_resume_row_roundtrip():
     with get_db() as conn:
         cursor = conn.execute(
-            """INSERT INTO resumes (kind, label, file_name, file_type, stored_path, raw_text)
-               VALUES (?, ?, ?, ?, ?, ?)""",
+            """INSERT INTO resumes (user_id, kind, label, file_name, file_type, stored_path, raw_text)
+               VALUES (1, ?, ?, ?, ?, ?, ?)""",
             ("resume", "2024 resume", "resume.md", "md", "/tmp/fake.md", "some text"),
         )
         resume_id = cursor.lastrowid

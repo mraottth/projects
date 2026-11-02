@@ -1,8 +1,18 @@
-from jobhunt.core import queue, settings
+from jobhunt.core import queue
 from jobhunt.core.scoring import JobScore
 from jobhunt.db.connection import get_db
 from jobhunt.pipeline import daily_run
 from tests.fakes import FakeAnthropicClient, FakeCreateResponse, FakeParseResponse
+
+import pytest as _pytest
+
+from tests.fakes import give_profile
+
+
+@_pytest.fixture(autouse=True)
+def _profile():
+    give_profile()
+
 
 
 def _make_posting(title: str, company: str = "Acme") -> dict:
@@ -31,6 +41,7 @@ def _add_source(kind="ats_greenhouse", config=None) -> int:
             "INSERT INTO sources (kind, name, config_json) VALUES (?, ?, ?)",
             (kind, "Test Source", json.dumps(config or {})),
         )
+        conn.execute("INSERT INTO source_follows (user_id, source_id) VALUES (1, ?)", (cursor.lastrowid,))
         return cursor.lastrowid
 
 
@@ -87,7 +98,8 @@ def test_run_daily_respects_daily_cap_and_carries_over(monkeypatch):
         {"ats_greenhouse": lambda source: [_make_posting(f"Job {i}") for i in range(5)]},
     )
     monkeypatch.setattr(scoring, "get_client", lambda: _fake_score_client())
-    settings.update_settings({"daily_llm_cap": 2})
+    with get_db() as conn:  # the cap lives on the user (D-021)
+        conn.execute("UPDATE users SET daily_score_cap = 2 WHERE id = 1")
 
     summary = daily_run.run_daily()
 
@@ -150,11 +162,11 @@ def test_run_daily_one_bad_source_does_not_abort_run(monkeypatch):
 def test_run_daily_triggers_preference_rebuild_when_signal_present(monkeypatch):
     with get_db() as conn:
         cursor = conn.execute(
-            "INSERT INTO jobs (dedupe_key, title, company) VALUES ('k1', 'Engineer', 'Acme')"
+            "INSERT INTO jobs (user_id, dedupe_key, title, company) VALUES (1, 'k1', 'Engineer', 'Acme')"
         )
         job_id = cursor.lastrowid
         conn.execute(
-            "INSERT INTO feedback (job_id, interested) VALUES (?, 'interested')", (job_id,)
+            "INSERT INTO feedback (user_id, job_id, interested) VALUES (1, ?, 'interested')", (job_id,)
         )
 
     from jobhunt.core import preference

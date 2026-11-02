@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from jobhunt.core import app_insights
 from jobhunt.core.llm import LLMError
 from jobhunt.db.connection import get_db
+from jobhunt.core.users import current_user_id, job_is_visible
 
 router = APIRouter(prefix="/api/applications", tags=["applications"])
 
@@ -33,13 +34,16 @@ STATUS_LABELS = {
     "withdrawn": "Withdrawn",
 }
 
-# The job's latest score, for My Jobs' fit chips and default order.
+# The job's latest score, for My Jobs' fit chips and default order. Only the signed-in person's
+# applications: bind :uid, and add further conditions with AND.
 _APPLICATION_SELECT = """SELECT a.*, j.title, j.company, j.location, j.url,
        j.salary_min, j.salary_max, j.salary_currency, j.salary_period,
        s.interest_fit, s.interest_score, s.candidate_fit, s.candidate_fit_score
   FROM applications a JOIN jobs j ON j.id = a.job_id
   LEFT JOIN job_scores s ON s.id = (
-      SELECT id FROM job_scores WHERE job_id = j.id ORDER BY scored_at DESC, id DESC LIMIT 1)"""
+      SELECT id FROM job_scores WHERE user_id = :uid AND job_id = j.id
+      ORDER BY scored_at DESC, id DESC LIMIT 1)
+ WHERE a.user_id = :uid"""
 
 
 class CreateApplicationRequest(BaseModel):
@@ -58,8 +62,13 @@ class UpdateApplicationRequest(BaseModel):
 @router.get("")
 def list_applications():
     with get_db() as conn:
-        rows = conn.execute(f"{_APPLICATION_SELECT} ORDER BY a.updated_at DESC").fetchall()
-        history_rows = conn.execute("SELECT * FROM application_status_history ORDER BY changed_at").fetchall()
+        uid = {"uid": current_user_id()}
+        rows = conn.execute(f"{_APPLICATION_SELECT} ORDER BY a.updated_at DESC", uid).fetchall()
+        history_rows = conn.execute(
+            "SELECT h.* FROM application_status_history h JOIN applications a ON a.id = h.application_id "
+            "WHERE a.user_id = :uid ORDER BY h.changed_at",
+            uid,
+        ).fetchall()
 
     history_by_app: dict[int, list[dict]] = {}
     for h in history_rows:
@@ -75,18 +84,20 @@ def list_applications():
 def create_application(payload: CreateApplicationRequest):
     if payload.status not in VALID_STATUSES:
         raise HTTPException(400, f"status must be one of: {sorted(VALID_STATUSES)}")
+    if not job_is_visible(payload.job_id):
+        raise HTTPException(404, "job not found")
+    user_id = current_user_id()
     with get_db() as conn:
-        job = conn.execute("SELECT id FROM jobs WHERE id = ?", (payload.job_id,)).fetchone()
-        if job is None:
-            raise HTTPException(404, "job not found")
-        existing = conn.execute("SELECT id FROM applications WHERE job_id = ?", (payload.job_id,)).fetchone()
+        existing = conn.execute(
+            "SELECT id FROM applications WHERE user_id = ? AND job_id = ?", (user_id, payload.job_id)
+        ).fetchone()
         if existing:
             raise HTTPException(409, f"an application for this job already exists (id={existing['id']})")
 
         applied_at = "datetime('now')" if payload.status != "saved" else "NULL"
         cursor = conn.execute(
-            f"INSERT INTO applications (job_id, status, applied_at) VALUES (?, ?, {applied_at})",
-            (payload.job_id, payload.status),
+            f"INSERT INTO applications (user_id, job_id, status, applied_at) VALUES (?, ?, ?, {applied_at})",
+            (user_id, payload.job_id, payload.status),
         )
         app_id = cursor.lastrowid
         conn.execute(
@@ -98,7 +109,9 @@ def create_application(payload: CreateApplicationRequest):
 
 def _get_application(app_id: int) -> dict:
     with get_db() as conn:
-        row = conn.execute(f"{_APPLICATION_SELECT} WHERE a.id = ?", (app_id,)).fetchone()
+        row = conn.execute(
+            f"{_APPLICATION_SELECT} AND a.id = :app", {"uid": current_user_id(), "app": app_id}
+        ).fetchone()
         if row is None:
             raise HTTPException(404, "application not found")
         history = conn.execute(
@@ -114,7 +127,9 @@ def _get_application(app_id: int) -> dict:
 def export_csv():
     """My Jobs as a spreadsheet: one row per tracked job, newest application first."""
     with get_db() as conn:
-        rows = conn.execute(f"{_APPLICATION_SELECT} ORDER BY a.applied_at DESC, a.id DESC").fetchall()
+        rows = conn.execute(
+            f"{_APPLICATION_SELECT} ORDER BY a.applied_at DESC, a.id DESC", {"uid": current_user_id()}
+        ).fetchall()
     out = io.StringIO()
     writer = csv.writer(out)
     writer.writerow(
@@ -183,7 +198,9 @@ def get_application(app_id: int):
 def update_application(app_id: int, payload: UpdateApplicationRequest):
     updates = {k: v for k, v in payload.model_dump().items() if v is not None}
     with get_db() as conn:
-        row = conn.execute("SELECT * FROM applications WHERE id = ?", (app_id,)).fetchone()
+        row = conn.execute(
+            "SELECT * FROM applications WHERE id = ? AND user_id = ?", (app_id, current_user_id())
+        ).fetchone()
         if row is None:
             raise HTTPException(404, "application not found")
 
@@ -212,7 +229,9 @@ def delete_application(app_id: int):
     (just detached from the application, since it's still a real document the user may want),
     not deleted -- only the tracking row and its status history go."""
     with get_db() as conn:
-        row = conn.execute("SELECT id FROM applications WHERE id = ?", (app_id,)).fetchone()
+        row = conn.execute(
+            "SELECT id FROM applications WHERE id = ? AND user_id = ?", (app_id, current_user_id())
+        ).fetchone()
         if row is None:
             raise HTTPException(404, "application not found")
         conn.execute(

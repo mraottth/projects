@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from jobhunt.core.llm import DEFAULT_MODEL, cache_tokens, get_client, llm_error_boundary, log_call
 from jobhunt.db.connection import get_db
+from jobhunt.core.users import current_user_id
 
 SYSTEM_PROMPT = """You are helping a job seeker triage incoming postings. You will be given: their \
 candidate profile (career history/competencies/interests), their current preference profile (what \
@@ -91,8 +92,9 @@ def _recent_feedback_text(limit: int = 10) -> str:
         rows = conn.execute(
             """SELECT f.interested, f.note, j.title, j.company
                FROM feedback f JOIN jobs j ON j.id = f.job_id
+               WHERE f.user_id = ?
                ORDER BY f.created_at DESC LIMIT ?""",
-            (limit,),
+            (current_user_id(), limit),
         ).fetchall()
     if not rows:
         return "(no feedback recorded yet)"
@@ -167,10 +169,11 @@ def store_score(job_id: int, score: JobScore) -> int:
     with get_db() as conn:
         cursor = conn.execute(
             """INSERT INTO job_scores
-               (job_id, model, interest_fit, interest_score, candidate_fit, candidate_fit_score,
+               (user_id, job_id, model, interest_fit, interest_score, candidate_fit, candidate_fit_score,
                 summary_text, rationale_text, raw_response_json)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
+                current_user_id(),
                 job_id,
                 DEFAULT_MODEL,
                 score.interest_fit,

@@ -10,8 +10,8 @@ def _insert_job(
 ) -> int:
     with get_db() as conn:
         cursor = conn.execute(
-            """INSERT INTO jobs (dedupe_key, title, company, posted_at, salary_max)
-               VALUES (?, ?, ?, ?, ?)""",
+            """INSERT INTO jobs (user_id, dedupe_key, title, company, posted_at, salary_max)
+               VALUES (1, ?, ?, ?, ?, ?)""",
             (title, title, company, posted_at, salary_max),
         )
         return cursor.lastrowid
@@ -21,9 +21,9 @@ def _score_job(job_id: int, interest_score: float, candidate_fit_score: float) -
     with get_db() as conn:
         conn.execute(
             """INSERT INTO job_scores
-               (job_id, model, interest_fit, interest_score, candidate_fit, candidate_fit_score,
+               (user_id, job_id, model, interest_fit, interest_score, candidate_fit, candidate_fit_score,
                 summary_text, rationale_text)
-               VALUES (?, 'x', 'High', ?, 'High', ?, '', '')""",
+               VALUES (1, ?, 'x', 'High', ?, 'High', ?, '', '')""",
             (job_id, interest_score, candidate_fit_score),
         )
 
@@ -31,7 +31,7 @@ def _score_job(job_id: int, interest_score: float, candidate_fit_score: float) -
 def _mark_not_interested(job_id: int) -> None:
     with get_db() as conn:
         conn.execute(
-            "INSERT INTO feedback (job_id, interested) VALUES (?, 'not_interested')", (job_id,)
+            "INSERT INTO feedback (user_id, job_id, interested) VALUES (1, ?, 'not_interested')", (job_id,)
         )
 
 

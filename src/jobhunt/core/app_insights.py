@@ -9,6 +9,7 @@ from datetime import date, datetime, timezone
 from jobhunt.core.llm import DEFAULT_MODEL, get_client, llm_error_boundary, log_call
 from jobhunt.core.settings import get_setting, update_settings
 from jobhunt.db.connection import get_db
+from jobhunt.core.users import current_user_id
 
 SETTING = "application_insights"
 
@@ -56,8 +57,11 @@ def _application_lines() -> tuple[list[str], int]:
                       j.salary_min, j.salary_max, j.salary_period, s.interest_fit, s.candidate_fit
                FROM applications a JOIN jobs j ON j.id = a.job_id
                LEFT JOIN job_scores s ON s.id = (
-                   SELECT id FROM job_scores WHERE job_id = j.id ORDER BY scored_at DESC, id DESC LIMIT 1)
-               ORDER BY a.applied_at DESC"""
+                   SELECT id FROM job_scores WHERE user_id = :uid AND job_id = j.id
+                   ORDER BY scored_at DESC, id DESC LIMIT 1)
+               WHERE a.user_id = :uid
+               ORDER BY a.applied_at DESC""",
+            {"uid": current_user_id()},
         ).fetchall()
     lines, applied = [], 0
     for r in rows:

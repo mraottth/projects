@@ -4,6 +4,7 @@ import time
 from fastapi import APIRouter, Query
 from fastapi.responses import StreamingResponse
 
+from jobhunt.core.users import current_user_id, is_admin
 from jobhunt.pipeline import daily_run
 
 router = APIRouter(prefix="/api/pipeline", tags=["pipeline"])
@@ -17,8 +18,15 @@ def run_daily_now(cap: int | None = Query(default=None, ge=1, le=200)):
     /api/* route, this one relies on IAP for access control instead.
 
     `cap` scores at most that many jobs this run (onboarding passes a small one so the user isn't
-    kept waiting); the rest stay queued for the next run."""
-    return daily_run.run_daily(cap=cap)
+    kept waiting); the rest stay queued for the next run.
+
+    The admin's run checks everyone's sources (like the scheduled one); anyone else's checks just
+    their own sources and scores their own jobs (D-021)."""
+    return daily_run.run_daily(cap=cap, only_user=_only_user())
+
+
+def _only_user() -> int | None:
+    return None if is_admin() else current_user_id()
 
 
 PROGRESS_INTERVAL_SECONDS = 2.0
@@ -32,7 +40,7 @@ def run_daily_stream(cap: int | None = Query(default=None, ge=1, le=200)):
     or {"type": "error", "message"}. Data keeps flowing, so the connection isn't dropped as idle,
     and Cloud Run keeps CPU allocated to the instance while this request is open. If the page loses
     the stream anyway, the run carries on, and the page follows it through GET /progress."""
-    run_id = daily_run.start_run_daily(cap=cap)
+    run_id = daily_run.start_run_daily(cap=cap, only_user=_only_user())
 
     def events():
         yield _sse({"type": "started", "run_id": run_id})

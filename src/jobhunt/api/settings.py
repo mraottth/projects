@@ -17,6 +17,7 @@ from jobhunt.core.reset import delete_all_data
 from jobhunt.core.preference import get_current_preference_profile, rebuild_preference_profile
 from jobhunt.core.settings import get_settings, update_settings
 from jobhunt.db.connection import get_db
+from jobhunt.core.users import current_user, current_user_id, is_admin
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
@@ -28,7 +29,9 @@ class DeleteAllRequest(BaseModel):
 @router.get("/backup")
 def download_backup():
     """Settings' "Download a backup": a fresh, consistent copy of the whole database (SQLite's
-    online backup API), for a copy kept off Google Cloud. Deleted once sent."""
+    online backup API), for a copy kept off Google Cloud. Deleted once sent. Admin only: the
+    database holds everyone's data."""
+    _require_admin()
     tmp = Path(tempfile.mkdtemp()) / "jobhunt.db"
     backup.copy_database(tmp)
     return FileResponse(
@@ -42,6 +45,7 @@ def download_backup():
 @router.get("/backups")
 def list_backups():
     """The snapshots in backups/ (core/backup.py), newest first, for Settings' "Your data" card."""
+    _require_admin()
     folder = backup.backup_dir()
     files = sorted(folder.glob("jobhunt-*.db"), reverse=True) if folder.exists() else []
     return {"backups": [{"name": f.name, "bytes": f.stat().st_size} for f in files]}
@@ -109,32 +113,54 @@ def post_test_email():
         raise HTTPException(502, f"Gmail didn't accept the email: {exc}") from exc
 
 
+def _require_admin() -> None:
+    if not is_admin():
+        raise HTTPException(403, "only the admin can do this")
+
+
+def _with_cap(settings: dict) -> dict:
+    # The daily scoring cap lives on the user (the admin sets everyone's, D-021); shown here as before.
+    return {**settings, "daily_llm_cap": current_user()["daily_score_cap"]}
+
+
 @router.get("")
 def get_all_settings():
-    return get_settings()
+    return _with_cap(get_settings())
 
 
 @router.put("")
 def put_settings(payload: dict):
-    return update_settings(payload)
+    cap = payload.pop("daily_llm_cap", None)
+    if cap is not None and is_admin():
+        with get_db() as conn:
+            conn.execute(
+                "UPDATE users SET daily_score_cap = ? WHERE id = ?", (int(cap), current_user_id())
+            )
+    return _with_cap(update_settings(payload))
 
 
 @router.get("/usage-log")
 def usage_log(limit: int = 100):
     with get_db() as conn:
-        rows = conn.execute("SELECT * FROM llm_calls ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
+        uid = current_user_id()
+        rows = conn.execute(
+            "SELECT * FROM llm_calls WHERE user_id = ? ORDER BY created_at DESC LIMIT ?", (uid, limit)
+        ).fetchall()
         totals = conn.execute(
             """SELECT
                    COALESCE(SUM(estimated_cost_usd), 0) AS total_cost,
                    COALESCE(SUM(CASE WHEN date(created_at) = date('now') THEN estimated_cost_usd END), 0)
                        AS today_cost,
                    COUNT(*) AS total_calls
-               FROM llm_calls"""
+               FROM llm_calls WHERE user_id = ?""",
+            (uid,),
         ).fetchone()
         cache_rows = conn.execute(
             """SELECT model, SUM(input_tokens) AS input, SUM(cache_read_tokens) AS reads,
                       SUM(cache_write_tokens) AS writes
-               FROM llm_calls WHERE created_at >= datetime('now', '-7 days') GROUP BY model"""
+               FROM llm_calls WHERE user_id = ? AND created_at >= datetime('now', '-7 days')
+               GROUP BY model""",
+            (uid,),
         ).fetchall()
     return {"calls": [dict(r) for r in rows], "totals": dict(totals), "cache": _cache_summary(cache_rows)}
 

@@ -2,6 +2,7 @@ import json
 
 from jobhunt.core.llm import DEFAULT_MODEL, get_client, llm_error_boundary, log_call
 from jobhunt.db.connection import get_db
+from jobhunt.core.users import current_user_id
 
 SYSTEM_PROMPT = """You are helping a job seeker understand their own career history so a job-matching \
 system can score new postings against it. You will be given the full text of one or more resumes and \
@@ -44,8 +45,9 @@ def rebuild_candidate_profile() -> str:
         rows = conn.execute(
             "SELECT id, kind, label, raw_text, is_archived, "
             "COALESCE(source_modified_at, uploaded_at) AS effective_date "
-            "FROM resumes WHERE raw_text IS NOT NULL "
-            "ORDER BY effective_date ASC"
+            "FROM resumes WHERE user_id = ? AND raw_text IS NOT NULL "
+            "ORDER BY effective_date ASC",
+            (current_user_id(),),
         ).fetchall()
 
     if not rows:
@@ -76,8 +78,9 @@ def rebuild_candidate_profile() -> str:
 
     with get_db() as conn:
         conn.execute(
-            "INSERT INTO candidate_profile (text, model, source_resume_ids_json) VALUES (?, ?, ?)",
-            (text, DEFAULT_MODEL, json.dumps([row["id"] for row in rows])),
+            "INSERT INTO candidate_profile (user_id, text, model, source_resume_ids_json) "
+            "VALUES (?, ?, ?, ?)",
+            (current_user_id(), text, DEFAULT_MODEL, json.dumps([row["id"] for row in rows])),
         )
 
     return text
@@ -86,7 +89,8 @@ def rebuild_candidate_profile() -> str:
 def get_current_candidate_profile() -> str | None:
     with get_db() as conn:
         row = conn.execute(
-            "SELECT text FROM candidate_profile ORDER BY id DESC LIMIT 1"
+            "SELECT text FROM candidate_profile WHERE user_id = ? ORDER BY id DESC LIMIT 1",
+            (current_user_id(),),
         ).fetchone()
     return row["text"] if row else None
 
@@ -94,8 +98,9 @@ def get_current_candidate_profile() -> str | None:
 def set_candidate_profile(text: str) -> str:
     with get_db() as conn:
         conn.execute(
-            "INSERT INTO candidate_profile (text, model, source_resume_ids_json) VALUES (?, ?, ?)",
-            (text, "manual_edit", json.dumps([])),
+            "INSERT INTO candidate_profile (user_id, text, model, source_resume_ids_json) "
+            "VALUES (?, ?, ?, ?)",
+            (current_user_id(), text, "manual_edit", json.dumps([])),
         )
     return text
 
@@ -135,7 +140,8 @@ def revise_candidate_profile(instructions: str) -> str:
 
     with get_db() as conn:
         conn.execute(
-            "INSERT INTO candidate_profile (text, model, source_resume_ids_json) VALUES (?, ?, ?)",
-            (text, DEFAULT_MODEL, json.dumps([])),
+            "INSERT INTO candidate_profile (user_id, text, model, source_resume_ids_json) "
+            "VALUES (?, ?, ?, ?)",
+            (current_user_id(), text, DEFAULT_MODEL, json.dumps([])),
         )
     return text

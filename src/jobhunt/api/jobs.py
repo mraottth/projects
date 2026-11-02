@@ -10,6 +10,7 @@ from jobhunt.core.settings import get_setting
 from jobhunt.db.connection import get_db
 from jobhunt.ingest.manual_import import ManualImportError, parse_job_posting
 from jobhunt.core.generic_postings import is_generic_posting
+from jobhunt.core.users import VISIBLE_JOB_SQL, current_user_id, job_is_visible
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
 
@@ -42,12 +43,12 @@ def _row_to_dict(row) -> dict:
 
 @router.get("")
 def list_jobs(status: str | None = None):
-    query = "SELECT * FROM jobs"
-    params: tuple = ()
+    query = f"SELECT j.* FROM jobs j WHERE {VISIBLE_JOB_SQL}"
+    params: dict = {"uid": current_user_id()}
     if status:
-        query += " WHERE status = ?"
-        params = (status,)
-    query += " ORDER BY first_seen_at DESC"
+        query += " AND j.status = :status"
+        params["status"] = status
+    query += " ORDER BY j.first_seen_at DESC"
     with get_db() as conn:
         rows = conn.execute(query, params).fetchall()
     return [_row_to_dict(r) for r in rows]
@@ -68,26 +69,30 @@ def list_ranked_jobs(status: str = "active"):
                        js.summary_text, js.rationale_text, s.name AS source_name
                 FROM jobs j
                 LEFT JOIN job_scores js ON js.id = (
-                    SELECT id FROM job_scores WHERE job_id = j.id ORDER BY id DESC LIMIT 1
+                    SELECT id FROM job_scores WHERE user_id = :uid AND job_id = j.id ORDER BY id DESC LIMIT 1
                 )
                 LEFT JOIN sources s ON s.id = j.source_id
-                WHERE j.status = ? AND j.source_id IS NOT NULL
+                WHERE j.status = :status AND j.source_id IS NOT NULL
+                  AND j.source_id IN (SELECT source_id FROM source_follows WHERE user_id = :uid)
                 ORDER BY (COALESCE(js.interest_score, 0) + COALESCE(js.candidate_fit_score, 0)) DESC,
                          COALESCE(j.posted_at, j.first_seen_at) DESC,
                          COALESCE(j.salary_max, j.salary_min, 0) DESC""",
-            (status,),
+            {"status": status, "uid": current_user_id()},
         ).fetchall()
     return [_row_to_dict(r) for r in rows if not is_generic_posting(r["title"])]
 
 
 @router.get("/{job_id}")
 def get_job(job_id: int):
+    params = {"job": job_id, "uid": current_user_id()}
     with get_db() as conn:
-        row = conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
+        row = conn.execute(
+            f"SELECT j.* FROM jobs j WHERE j.id = :job AND {VISIBLE_JOB_SQL}", params
+        ).fetchone()
         if row is None:
             raise HTTPException(404, "job not found")
         scores = conn.execute(
-            "SELECT * FROM job_scores WHERE job_id = ? ORDER BY id DESC", (job_id,)
+            "SELECT * FROM job_scores WHERE job_id = :job AND user_id = :uid ORDER BY id DESC", params
         ).fetchall()
     job = _row_to_dict(row)
     job["scores"] = [_row_to_dict(s) for s in scores]
@@ -105,20 +110,26 @@ def create_manual_job(payload: ManualImportRequest):
     except LLMError as exc:
         raise HTTPException(502, str(exc)) from exc
 
+    # A pasted-in job is private to whoever pasted it, so its key is too: two people pasting the
+    # same posting each get their own copy.
+    user_id = current_user_id()
+    dedupe_key = f"u{user_id}:{parsed['dedupe_key']}"
     with get_db() as conn:
         existing = conn.execute(
-            "SELECT id FROM jobs WHERE dedupe_key = ?", (parsed["dedupe_key"],)
+            "SELECT id FROM jobs WHERE dedupe_key IN (?, ?) AND user_id = ?",
+            (dedupe_key, parsed["dedupe_key"], user_id),
         ).fetchone()
         if existing:
             raise HTTPException(409, f"this job already exists (id={existing['id']})")
 
         cursor = conn.execute(
             """INSERT INTO jobs
-               (dedupe_key, title, company, location, remote_type, salary_min, salary_max,
+               (user_id, dedupe_key, title, company, location, remote_type, salary_min, salary_max,
                 salary_currency, salary_period, description_text, url, posted_at, needs_review)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)""",
             (
-                parsed["dedupe_key"],
+                user_id,
+                dedupe_key,
                 parsed["title"],
                 parsed["company"],
                 parsed["location"],
@@ -143,7 +154,10 @@ def update_job(job_id: int, payload: JobUpdateRequest):
     if not updates:
         return get_job(job_id)
     with get_db() as conn:
-        row = conn.execute("SELECT id FROM jobs WHERE id = ?", (job_id,)).fetchone()
+        # Only a pasted-in job is editable, and only by its owner: a source's job is shared.
+        row = conn.execute(
+            "SELECT id FROM jobs WHERE id = ? AND user_id = ?", (job_id, current_user_id())
+        ).fetchone()
         if row is None:
             raise HTTPException(404, "job not found")
         set_clause = ", ".join(f"{k} = ?" for k in updates)
@@ -154,7 +168,9 @@ def update_job(job_id: int, payload: JobUpdateRequest):
 @router.post("/{job_id}/confirm")
 def confirm_job(job_id: int):
     with get_db() as conn:
-        row = conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
+        row = conn.execute(
+            "SELECT * FROM jobs WHERE id = ? AND user_id = ?", (job_id, current_user_id())
+        ).fetchone()
         if row is None:
             raise HTTPException(404, "job not found")
         job = _row_to_dict(row)
@@ -190,12 +206,11 @@ def confirm_job(job_id: int):
 def submit_feedback(job_id: int, payload: FeedbackRequest):
     if payload.interested not in ("interested", "not_interested", "maybe"):
         raise HTTPException(400, "interested must be one of: interested, not_interested, maybe")
+    if not job_is_visible(job_id):
+        raise HTTPException(404, "job not found")
     with get_db() as conn:
-        row = conn.execute("SELECT id FROM jobs WHERE id = ?", (job_id,)).fetchone()
-        if row is None:
-            raise HTTPException(404, "job not found")
         conn.execute(
-            "INSERT INTO feedback (job_id, interested, note) VALUES (?, ?, ?)",
-            (job_id, payload.interested, payload.note),
+            "INSERT INTO feedback (user_id, job_id, interested, note) VALUES (?, ?, ?, ?)",
+            (current_user_id(), job_id, payload.interested, payload.note),
         )
     return {"ok": True}

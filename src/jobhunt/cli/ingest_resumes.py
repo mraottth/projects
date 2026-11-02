@@ -28,10 +28,10 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-from jobhunt.config import RESUME_STORAGE_DIR
 from jobhunt.core import settings as settings_module
 from jobhunt.core.resume_parse import extract_text
-from jobhunt.db.connection import get_db, init_db
+from jobhunt.db.connection import ADMIN_ID, get_db, init_db
+from jobhunt.core.users import acting_as, current_user_id, storage_dir
 
 SUPPORTED_SUFFIXES = {".pdf", ".docx", ".md", ".txt"}
 GENERATED_FOLDER_NAME = "AI Generated"
@@ -77,13 +77,22 @@ def _prefer_docx_over_pdf(files: list[Path]) -> list[Path]:
 
 def _existing_hashes() -> set[str]:
     with get_db() as conn:
-        rows = conn.execute("SELECT content_hash FROM resumes WHERE content_hash IS NOT NULL").fetchall()
+        rows = conn.execute(
+            "SELECT content_hash FROM resumes WHERE user_id = ? AND content_hash IS NOT NULL",
+            (current_user_id(),),
+        ).fetchall()
     return {row["content_hash"] for row in rows}
 
 
 def ingest_folder(root: Path) -> list[str]:
+    """Imports into the admin's documents (user 1, D-021): this is a local, single-person tool."""
     init_db()
-    RESUME_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+    with acting_as(ADMIN_ID):
+        return _ingest_folder(root)
+
+
+def _ingest_folder(root: Path) -> list[str]:
+    storage_dir().mkdir(parents=True, exist_ok=True)
     settings_module.update_settings({"resume_library_path": str(root.resolve())})
 
     seen_hashes = _existing_hashes()
@@ -113,16 +122,17 @@ def ingest_folder(root: Path) -> list[str]:
         source_modified_at = datetime.fromtimestamp(path.stat().st_mtime).isoformat()
 
         stored_name = f"{uuid.uuid4().hex}{path.suffix.lower()}"
-        stored_path = RESUME_STORAGE_DIR / stored_name
+        stored_path = storage_dir() / stored_name
         shutil.copy2(path, stored_path)
 
         with get_db() as conn:
             conn.execute(
                 """INSERT INTO resumes
-                   (kind, label, file_name, file_type, stored_path, raw_text,
+                   (user_id, kind, label, file_name, file_type, stored_path, raw_text,
                     source_path, source_modified_at, is_archived, is_template, content_hash)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
+                    current_user_id(),
                     kind,
                     path.stem,
                     path.name,

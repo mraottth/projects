@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 
+from jobhunt.core import users
 from jobhunt.api.main import app
 from jobhunt.db.connection import get_db
 
@@ -99,9 +100,8 @@ def test_resume_and_cover_letter_current_flags_are_independent():
 
 
 def test_download_returns_the_uploaded_file_under_its_name(tmp_path, monkeypatch):
-    from jobhunt.api import resumes
 
-    monkeypatch.setattr(resumes, "RESUME_STORAGE_DIR", tmp_path)
+    monkeypatch.setattr(users, "RESUME_STORAGE_DIR", tmp_path)
     with TestClient(app) as client:
         resume_id = _upload(client, filename="My Resume.txt").json()["id"]
         resp = client.get(f"/api/resumes/{resume_id}/download")

@@ -28,7 +28,7 @@ OLD_APPLICATIONS = """CREATE TABLE applications (
 def _insert_job(title, company="Acme") -> int:
     with get_db() as conn:
         return conn.execute(
-            "INSERT INTO jobs (dedupe_key, title, company) VALUES (?, ?, ?)",
+            "INSERT INTO jobs (user_id, dedupe_key, title, company) VALUES (1, ?, ?, ?)",
             (f"{title}-{company}", title, company),
         ).lastrowid
 
@@ -105,13 +105,13 @@ def test_list_includes_the_latest_score():
     job_id = _insert_job("Analyst")
     with get_db() as conn:
         conn.execute(
-            "INSERT INTO job_scores (job_id, interest_fit, interest_score, candidate_fit,"
-            " candidate_fit_score, scored_at) VALUES (?, 'Low', 20, 'Low', 20, '2026-01-01')",
+            "INSERT INTO job_scores (user_id, job_id, interest_fit, interest_score, candidate_fit,"
+            " candidate_fit_score, scored_at) VALUES (1, ?, 'Low', 20, 'Low', 20, '2026-01-01')",
             (job_id,),
         )
         conn.execute(
-            "INSERT INTO job_scores (job_id, interest_fit, interest_score, candidate_fit,"
-            " candidate_fit_score, scored_at) VALUES (?, 'High', 90, 'Med', 60, '2026-02-01')",
+            "INSERT INTO job_scores (user_id, job_id, interest_fit, interest_score, candidate_fit,"
+            " candidate_fit_score, scored_at) VALUES (1, ?, 'High', 90, 'Med', 60, '2026-02-01')",
             (job_id,),
         )
     with TestClient(app) as client:

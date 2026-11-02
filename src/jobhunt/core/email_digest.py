@@ -9,13 +9,15 @@ email-secret), optional EMAIL_TO (defaults to EMAIL_ADDRESS) and APP_URL (adds "
 links). With either required value unset, nothing is sent -- local dev and tests never email."""
 
 import html
+import logging
 import os
 import smtplib
 from datetime import date, timedelta
 from email.message import EmailMessage
 
 from jobhunt.core.digest import get_digest
-from jobhunt.db.connection import get_db
+from jobhunt.db.connection import PLACEHOLDER_ADMIN_EMAIL, get_db
+from jobhunt.core.users import current_user_id, get_user, optional_user_id
 
 SMTP_HOST = "smtp.gmail.com"
 SMTP_PORT = 465
@@ -44,9 +46,51 @@ def _config() -> dict:
     return {
         "sender": sender,
         "password": password,
-        "to": os.environ.get("EMAIL_TO") or sender,
+        "to": _recipient(sender),
         "app_url": (os.environ.get("APP_URL") or "").rstrip("/"),
     }
+
+
+def _recipient(sender: str) -> str:
+    """Each person's email goes to their own sign-in address (D-021). The admin's can be
+    redirected with EMAIL_TO, as before; with nobody signed in (or the admin's address not yet
+    known) it's the sender's own inbox."""
+    user_id = optional_user_id()
+    user = get_user(user_id) if user_id is not None else None
+    if user is None or user["is_admin"]:
+        if os.environ.get("EMAIL_TO"):
+            return os.environ["EMAIL_TO"]
+    if user is None or user["email"] == PLACEHOLDER_ADMIN_EMAIL:
+        return sender
+    return user["email"]
+
+
+def send_plain_email(to: str, subject: str, body: str) -> dict:
+    """A one-off notice (access requests and decisions). Never raises: a failed or unconfigured
+    send is returned, so it can't break what triggered it."""
+    try:
+        config = _config()
+        message = EmailMessage()
+        message["Subject"] = subject
+        message["From"] = f"Job Search Assistant <{config['sender']}>"
+        message["To"] = to
+        message.set_content(body)
+        _send(message, config)
+    except EmailNotConfigured:
+        return {"sent": False, "reason": "not configured"}
+    except Exception as exc:  # noqa: BLE001
+        logging.getLogger(__name__).exception("sending %r to %s failed", subject, to)
+        return {"sent": False, "reason": f"error: {exc}"}
+    return {"sent": True, "to": to}
+
+
+def admin_address() -> str | None:
+    """Where admin notices go: the admin's sign-in address, else the sender's inbox."""
+    with get_db() as conn:
+        row = conn.execute("SELECT email FROM users WHERE is_admin = 1 ORDER BY id LIMIT 1").fetchone()
+    if row and row["email"] != PLACEHOLDER_ADMIN_EMAIL:
+        return row["email"]
+    return os.environ.get("EMAIL_TO") or os.environ.get("EMAIL_ADDRESS")
 
 
 def email_status() -> dict:
@@ -159,8 +203,9 @@ def send_new_jobs_email() -> dict:
     _send(build_message(jobs, config["sender"], config["to"], config["app_url"]), config)
     with get_db() as conn:
         conn.executemany(
-            "UPDATE digest_entries SET emailed_at = datetime('now') WHERE job_id = ? AND digest_date = ?",
-            [(job["id"], job["digest_date"]) for job in jobs],
+            "UPDATE digest_entries SET emailed_at = datetime('now') "
+            "WHERE user_id = ? AND job_id = ? AND digest_date = ?",
+            [(current_user_id(), job["id"], job["digest_date"]) for job in jobs],
         )
     return {"sent": True, "count": len(jobs), "to": config["to"]}
 

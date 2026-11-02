@@ -15,11 +15,11 @@ from jobhunt.db.connection import get_db
 def _track_job(title="Data Lead", company="Civic", status="waiting") -> int:
     with get_db() as conn:
         job_id = conn.execute(
-            "INSERT INTO jobs (dedupe_key, title, company) VALUES (?, ?, ?)",
+            "INSERT INTO jobs (user_id, dedupe_key, title, company) VALUES (1, ?, ?, ?)",
             (f"{title}-{company}", title, company),
         ).lastrowid
         conn.execute(
-            "INSERT INTO applications (job_id, status, applied_at) VALUES (?, ?, '2026-10-01')",
+            "INSERT INTO applications (user_id, job_id, status, applied_at) VALUES (1, ?, ?, '2026-10-01')",
             (job_id, status),
         )
     return job_id

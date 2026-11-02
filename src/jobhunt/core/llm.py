@@ -12,6 +12,7 @@ from contextlib import contextmanager
 import anthropic
 
 from jobhunt.db.connection import get_db
+from jobhunt.core.users import optional_user_id
 
 
 class LLMError(Exception):
@@ -119,10 +120,13 @@ def log_call(
     with get_db() as conn:
         conn.execute(
             """INSERT INTO llm_calls
-               (call_type, job_id, model, input_tokens, output_tokens, estimated_cost_usd, note,
+               (user_id, call_type, job_id, model, input_tokens, output_tokens, estimated_cost_usd, note,
                 cache_read_tokens, cache_write_tokens)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
+                # Whoever the call was for; None for shared work done outside anyone's request
+                # (the daily run reading a web-page board), which no one's budget pays for.
+                optional_user_id(),
                 call_type,
                 job_id,
                 model,

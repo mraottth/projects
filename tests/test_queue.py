@@ -5,7 +5,7 @@ from jobhunt.db.connection import get_db
 def _insert_job(title="Engineer") -> int:
     with get_db() as conn:
         cursor = conn.execute(
-            "INSERT INTO jobs (dedupe_key, title, company) VALUES (?, ?, 'Acme')", (title, title)
+            "INSERT INTO jobs (user_id, dedupe_key, title, company) VALUES (1, ?, ?, 'Acme')", (title, title)
         )
         return cursor.lastrowid
 
@@ -87,6 +87,8 @@ def test_select_batch_spreads_across_sources():
         small = conn.execute(
             "INSERT INTO sources (kind, name, config_json) VALUES ('custom_board', 'Small', '{}')"
         ).lastrowid
+        for source_id in (big, small):
+            conn.execute("INSERT INTO source_follows (user_id, source_id) VALUES (1, ?)", (source_id,))
 
     def job(source_id, n):
         with get_db() as conn:

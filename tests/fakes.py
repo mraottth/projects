@@ -40,3 +40,11 @@ class FakeMessages:
 class FakeAnthropicClient:
     def __init__(self, parse_result=None, create_result=None):
         self.messages = FakeMessages(parse_result=parse_result, create_result=create_result)
+
+
+def give_profile(user_id: int = 1, text: str = "Data leader.") -> None:
+    """A candidate profile for the user: the daily run only scores people who have one."""
+    from jobhunt.db.connection import get_db
+
+    with get_db() as conn:
+        conn.execute("INSERT INTO candidate_profile (user_id, text) VALUES (?, ?)", (user_id, text))

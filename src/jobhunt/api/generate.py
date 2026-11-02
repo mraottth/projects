@@ -10,6 +10,7 @@ from jobhunt.core.generate import generate_cover_letter, generate_resume
 from jobhunt.core.llm import LLMError
 from jobhunt.core.profile import get_current_candidate_profile
 from jobhunt.db.connection import get_db
+from jobhunt.core.users import VISIBLE_JOB_SQL, current_user_id
 
 router = APIRouter(prefix="/api/generate", tags=["generate"])
 
@@ -24,7 +25,10 @@ class GenerateRequest(BaseModel):
 
 def _get_job(job_id: int) -> dict:
     with get_db() as conn:
-        row = conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
+        row = conn.execute(
+            f"SELECT j.* FROM jobs j WHERE j.id = :job AND {VISIBLE_JOB_SQL}",
+            {"job": job_id, "uid": current_user_id()},
+        ).fetchone()
     if row is None:
         raise HTTPException(404, "job not found")
     return dict(row)
@@ -34,7 +38,10 @@ def _link_to_application(application_id: int | None, column: str, doc_id: int) -
     if application_id is None:
         return
     with get_db() as conn:
-        conn.execute(f"UPDATE applications SET {column} = ? WHERE id = ?", (doc_id, application_id))
+        conn.execute(
+            f"UPDATE applications SET {column} = ? WHERE id = ? AND user_id = ?",
+            (doc_id, application_id, current_user_id()),
+        )
 
 
 def _resolve_application_id(application_id: int | None) -> int | None:
@@ -45,7 +52,9 @@ def _resolve_application_id(application_id: int | None) -> int | None:
     if application_id is None:
         return None
     with get_db() as conn:
-        row = conn.execute("SELECT 1 FROM applications WHERE id = ?", (application_id,)).fetchone()
+        row = conn.execute(
+            "SELECT 1 FROM applications WHERE id = ? AND user_id = ?", (application_id, current_user_id())
+        ).fetchone()
     return application_id if row is not None else None
 
 
@@ -56,9 +65,10 @@ def _save_generated_document(kind: str, payload: GenerateRequest, result: dict) 
             if kind == "resume":
                 cursor = conn.execute(
                     """INSERT INTO generated_documents
-                       (job_id, application_id, kind, based_on_resume_id, content_text, file_path)
-                       VALUES (?, ?, 'resume', ?, ?, ?)""",
+                       (user_id, job_id, application_id, kind, based_on_resume_id, content_text, file_path)
+                       VALUES (?, ?, ?, 'resume', ?, ?, ?)""",
                     (
+                        current_user_id(),
                         payload.job_id,
                         application_id,
                         result["based_on_resume_id"],
@@ -68,9 +78,16 @@ def _save_generated_document(kind: str, payload: GenerateRequest, result: dict) 
                 )
             else:
                 cursor = conn.execute(
-                    """INSERT INTO generated_documents (job_id, application_id, kind, content_text, file_path)
-                       VALUES (?, ?, 'cover_letter', ?, ?)""",
-                    (payload.job_id, application_id, result["content_text"], result["file_path"]),
+                    """INSERT INTO generated_documents
+                       (user_id, job_id, application_id, kind, content_text, file_path)
+                       VALUES (?, ?, ?, 'cover_letter', ?, ?)""",
+                    (
+                        current_user_id(),
+                        payload.job_id,
+                        application_id,
+                        result["content_text"],
+                        result["file_path"],
+                    ),
                 )
             doc_id = cursor.lastrowid
     except sqlite3.Error as exc:
@@ -129,7 +146,8 @@ def generate_cover_letter_route(payload: GenerateRequest):
 def generation_history(job_id: int):
     with get_db() as conn:
         rows = conn.execute(
-            "SELECT * FROM generated_documents WHERE job_id = ? ORDER BY created_at DESC", (job_id,)
+            "SELECT * FROM generated_documents WHERE job_id = ? AND user_id = ? ORDER BY created_at DESC",
+            (job_id, current_user_id()),
         ).fetchall()
     return [dict(r) for r in rows]
 
@@ -142,7 +160,9 @@ def all_generated_documents():
         rows = conn.execute(
             """SELECT gd.*, j.title AS job_title, j.company AS job_company
                FROM generated_documents gd JOIN jobs j ON j.id = gd.job_id
-               ORDER BY gd.created_at DESC"""
+               WHERE gd.user_id = ?
+               ORDER BY gd.created_at DESC""",
+            (current_user_id(),),
         ).fetchall()
     return [dict(r) for r in rows]
 
@@ -152,8 +172,9 @@ def download_generated_document(doc_id: int):
     with get_db() as conn:
         row = conn.execute(
             """SELECT gd.*, j.title AS job_title, j.company AS job_company
-               FROM generated_documents gd JOIN jobs j ON j.id = gd.job_id WHERE gd.id = ?""",
-            (doc_id,),
+               FROM generated_documents gd JOIN jobs j ON j.id = gd.job_id
+               WHERE gd.id = ? AND gd.user_id = ?""",
+            (doc_id, current_user_id()),
         ).fetchone()
     if row is None:
         raise HTTPException(404, "document not found")

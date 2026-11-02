@@ -58,7 +58,7 @@ class FakeStreamingClient:
 def _insert_job(title="Analytics Director", company="Nava PBC", description="Lead the data team.") -> int:
     with get_db() as conn:
         return conn.execute(
-            "INSERT INTO jobs (dedupe_key, title, company, description_text) VALUES (?, ?, ?, ?)",
+            "INSERT INTO jobs (user_id, dedupe_key, title, company, description_text) VALUES (1, ?, ?, ?, ?)",
             (f"k-{title}", title, company, description),
         ).lastrowid
 
@@ -66,8 +66,8 @@ def _insert_job(title="Analytics Director", company="Nava PBC", description="Lea
 def _insert_resume(raw_text, kind="resume", is_template=1, file_name="r.docx"):
     with get_db() as conn:
         conn.execute(
-            """INSERT INTO resumes (kind, file_name, file_type, stored_path, raw_text, is_template)
-               VALUES (?, ?, 'docx', '/tmp/x', ?, ?)""",
+            """INSERT INTO resumes (user_id, kind, file_name, file_type, stored_path, raw_text, is_template)
+               VALUES (1, ?, ?, 'docx', '/tmp/x', ?, ?)""",
             (kind, file_name, raw_text, is_template),
         )
 
@@ -82,16 +82,17 @@ def test_context_includes_job_profile_documents_and_tailored_docs():
     _insert_resume("OLD RESUME TEXT", is_template=0, file_name="old.docx")
     with get_db() as conn:
         conn.execute(
-            "INSERT INTO applications (job_id, status, notes) "
-            "VALUES (?, 'interviewing', 'Panel on Friday')",
+            "INSERT INTO applications (user_id, job_id, status, notes) "
+            "VALUES (1, ?, 'interviewing', 'Panel on Friday')",
             (job_id,),
         )
         conn.execute(
-            "INSERT INTO generated_documents (job_id, kind, content_text) "
-            "VALUES (?, 'resume', 'TAILORED TEXT')",
+            "INSERT INTO generated_documents (user_id, job_id, kind, content_text) "
+            "VALUES (1, ?, 'resume', 'TAILORED TEXT')",
             (job_id,),
         )
-        conn.execute("INSERT INTO candidate_profile (text, model) VALUES ('Matt leads data teams.', 'x')")
+        conn.execute("INSERT INTO candidate_profile (user_id, text, model) "
+        "VALUES (1, 'Matt leads data teams.', 'x')")
     update_settings({"looking_for_notes": "Mission-driven work"})
 
     context = jobby.build_context(job_id)

@@ -9,9 +9,9 @@ def _insert_resume(label, raw_text, source_modified_at, is_archived=0):
     with get_db() as conn:
         conn.execute(
             """INSERT INTO resumes
-               (kind, label, file_name, file_type, stored_path, raw_text,
+               (user_id, kind, label, file_name, file_type, stored_path, raw_text,
                 source_modified_at, is_archived)
-               VALUES ('resume', ?, ?, 'docx', '/tmp/x.docx', ?, ?, ?)""",
+               VALUES (1, 'resume', ?, ?, 'docx', '/tmp/x.docx', ?, ?, ?)""",
             (label, f"{label}.docx", raw_text, source_modified_at, is_archived),
         )
 
@@ -87,7 +87,8 @@ def test_set_candidate_profile_overrides_current_without_llm_call():
     _insert_resume("r1", "Some resume content.", "2026-01-01T00:00:00")
     with get_db() as conn:
         conn.execute(
-            "INSERT INTO candidate_profile (text, model, source_resume_ids_json) VALUES (?, 'x', '[]')",
+            "INSERT INTO candidate_profile (user_id, text, model, source_resume_ids_json) "
+            "VALUES (1, ?, 'x', '[]')",
             ("old profile",),
         )
 

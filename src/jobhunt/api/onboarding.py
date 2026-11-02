@@ -6,6 +6,7 @@ from jobhunt.core.llm import LLMError
 from jobhunt.core.profile import get_current_candidate_profile
 from jobhunt.core.settings import get_settings
 from jobhunt.db.connection import get_db
+from jobhunt.core.users import current_user_id
 
 router = APIRouter(prefix="/api/onboarding", tags=["onboarding"])
 
@@ -19,7 +20,10 @@ def onboarding_status():
     with get_db() as conn:
         counts = {
             row["kind"]: row["n"]
-            for row in conn.execute("SELECT kind, COUNT(*) AS n FROM resumes GROUP BY kind").fetchall()
+            for row in conn.execute(
+                "SELECT kind, COUNT(*) AS n FROM resumes WHERE user_id = ? GROUP BY kind",
+                (current_user_id(),),
+            ).fetchall()
         }
     has_any_docs = bool(counts)
     return {

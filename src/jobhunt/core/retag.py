@@ -18,6 +18,7 @@ from pydantic import BaseModel
 
 from jobhunt.core.llm import DEFAULT_MODEL, estimate_cost_usd, get_client, llm_error_boundary, log_call
 from jobhunt.db.connection import get_db
+from jobhunt.core.users import carry, current_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -48,8 +49,10 @@ def _latest_untagged() -> list[dict]:
         rows = conn.execute(
             """SELECT js.id, js.interest_fit, js.candidate_fit, js.rationale_text
                FROM job_scores js
-               WHERE js.id = (SELECT MAX(id) FROM job_scores WHERE job_id = js.job_id)
-                 AND js.rationale_text LIKE '%==%'"""
+               WHERE js.user_id = :uid
+                 AND js.id = (SELECT MAX(id) FROM job_scores WHERE user_id = :uid AND job_id = js.job_id)
+                 AND js.rationale_text LIKE '%==%'""",
+            {"uid": current_user_id()},
         ).fetchall()
     return [dict(r) for r in rows if UNTAGGED.search(r["rationale_text"] or "")]
 
@@ -112,7 +115,8 @@ def start() -> bool:
         if _state["running"]:
             return False
         _state.update(running=True, done=0, total=0, retagged=0, skipped=0, error=None)
-    threading.Thread(target=_run, daemon=True).start()
+    # One pass at a time across everyone; the thread works as the person who started it.
+    threading.Thread(target=carry(_run), daemon=True).start()
     return True
 
 
@@ -124,7 +128,10 @@ def _retag_one(row: dict) -> bool:
         new_text = None
     if new_text:
         with get_db() as conn:
-            conn.execute("UPDATE job_scores SET rationale_text = ? WHERE id = ?", (new_text, row["id"]))
+            conn.execute(
+                "UPDATE job_scores SET rationale_text = ? WHERE id = ? AND user_id = ?",
+                (new_text, row["id"], current_user_id()),
+            )
     with _lock:
         _state["done"] += 1
         _state["retagged" if new_text else "skipped"] += 1
@@ -137,7 +144,7 @@ def _run() -> None:
         with _lock:
             _state["total"] = len(rows)
         with ThreadPoolExecutor(max_workers=CONCURRENCY) as pool:
-            list(pool.map(_retag_one, rows))
+            list(pool.map(carry(_retag_one), rows))
     except Exception as exc:  # noqa: BLE001 - reported to the page
         logger.exception("retag pass failed")
         with _lock:
