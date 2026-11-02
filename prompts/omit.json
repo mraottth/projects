@@ -52,5 +52,6 @@
  "ab602548-084": "brief acknowledgement, no new product content",
  "ab602548-085": "duplicate: the same request, sent again after an interruption (ab602548-086)",
  "ab602548-087": "brief acknowledgement, no new product content",
- "ab602548-088": "operational: deploy confirmation and go-ahead"
+ "ab602548-088": "operational: deploy confirmation and go-ahead",
+ "ab602548-089": "operational: deploy confirmation and go-ahead"
 }
