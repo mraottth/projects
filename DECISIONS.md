@@ -231,7 +231,7 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 ## D-019 · Daily database snapshots in the app, plus a downloadable copy
 - **Date:** 2026-11-02
 - **Category:** infra
-- **Prompts:** ab602548-073, ab602548-074
+- **Prompts:** ab602548-073
 
 **Decision.** The app snapshots its SQLite database (SQLite's online backup API) into `backups/` in the data bucket: daily before each run (30 kept), and before "Start over" or a data migration. Settings gets "Download a backup" and My Jobs gets "Export CSV" for copies kept off Google Cloud. `make bucket-protect` makes sure the bucket's 7-day soft delete is on.
 
