@@ -1,19 +1,29 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from jobhunt.core import app_insights
+from jobhunt.core.llm import LLMError
 from jobhunt.db.connection import get_db
 
 router = APIRouter(prefix="/api/applications", tags=["applications"])
 
 VALID_STATUSES = {
     "saved",
-    "applied",
-    "phone_screen",
-    "interview",
+    "waiting",
+    "interviewing",
     "offer",
-    "rejected",
+    "rejected_no_interview",
+    "rejected_interviewed",
     "withdrawn",
 }
+
+# The job's latest score, for My Jobs' fit chips and default order.
+_APPLICATION_SELECT = """SELECT a.*, j.title, j.company, j.location, j.url,
+       j.salary_min, j.salary_max, j.salary_currency, j.salary_period,
+       s.interest_fit, s.interest_score, s.candidate_fit, s.candidate_fit_score
+  FROM applications a JOIN jobs j ON j.id = a.job_id
+  LEFT JOIN job_scores s ON s.id = (
+      SELECT id FROM job_scores WHERE job_id = j.id ORDER BY scored_at DESC, id DESC LIMIT 1)"""
 
 
 class CreateApplicationRequest(BaseModel):
@@ -32,12 +42,7 @@ class UpdateApplicationRequest(BaseModel):
 @router.get("")
 def list_applications():
     with get_db() as conn:
-        rows = conn.execute(
-            """SELECT a.*, j.title, j.company, j.location, j.url,
-                      j.salary_min, j.salary_max, j.salary_currency, j.salary_period
-               FROM applications a JOIN jobs j ON j.id = a.job_id
-               ORDER BY a.updated_at DESC"""
-        ).fetchall()
+        rows = conn.execute(f"{_APPLICATION_SELECT} ORDER BY a.updated_at DESC").fetchall()
         history_rows = conn.execute(
             "SELECT * FROM application_status_history ORDER BY changed_at"
         ).fetchall()
@@ -81,12 +86,7 @@ def create_application(payload: CreateApplicationRequest):
 
 def _get_application(app_id: int) -> dict:
     with get_db() as conn:
-        row = conn.execute(
-            """SELECT a.*, j.title, j.company, j.location, j.url,
-                      j.salary_min, j.salary_max, j.salary_currency, j.salary_period
-               FROM applications a JOIN jobs j ON j.id = a.job_id WHERE a.id = ?""",
-            (app_id,),
-        ).fetchone()
+        row = conn.execute(f"{_APPLICATION_SELECT} WHERE a.id = ?", (app_id,)).fetchone()
         if row is None:
             raise HTTPException(404, "application not found")
         history = conn.execute(
@@ -96,6 +96,22 @@ def _get_application(app_id: int) -> dict:
     app = dict(row)
     app["history"] = [dict(h) for h in history]
     return app
+
+
+@router.get("/insights")
+def get_insights():
+    """The last "What's working?" analysis, or null."""
+    return app_insights.get_saved()
+
+
+@router.post("/insights")
+def build_insights():
+    try:
+        return app_insights.build()
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except LLMError as exc:
+        raise HTTPException(502, str(exc)) from exc
 
 
 @router.get("/{app_id}")

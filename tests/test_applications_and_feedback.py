@@ -36,16 +36,16 @@ def test_application_lifecycle_and_history():
         dup = client.post("/api/applications", json={"job_id": job_id})
         assert dup.status_code == 409
 
-        resp = client.patch(f"/api/applications/{app_id}", json={"status": "applied"})
+        resp = client.patch(f"/api/applications/{app_id}", json={"status": "waiting"})
         assert resp.status_code == 200
         body = resp.json()
-        assert body["status"] == "applied"
+        assert body["status"] == "waiting"
         assert body["applied_at"] is not None
-        assert [h["status"] for h in body["history"]] == ["saved", "applied"]
+        assert [h["status"] for h in body["history"]] == ["saved", "waiting"]
 
-        resp = client.patch(f"/api/applications/{app_id}", json={"status": "interview"})
+        resp = client.patch(f"/api/applications/{app_id}", json={"status": "interviewing"})
         assert resp.status_code == 200
-        assert [h["status"] for h in resp.json()["history"]] == ["saved", "applied", "interview"]
+        assert [h["status"] for h in resp.json()["history"]] == ["saved", "waiting", "interviewing"]
 
         listing = client.get("/api/applications").json()
         assert len(listing) == 1
@@ -53,7 +53,7 @@ def test_application_lifecycle_and_history():
         # Regression: the list endpoint used to omit history entirely, while the frontend called
         # .map() on it unconditionally -- crashed the My Jobs page the moment a real application
         # with history existed.
-        assert [h["status"] for h in listing[0]["history"]] == ["saved", "applied", "interview"]
+        assert [h["status"] for h in listing[0]["history"]] == ["saved", "waiting", "interviewing"]
 
 
 def test_list_applications_includes_history_for_each_app():
@@ -107,7 +107,7 @@ def test_explicit_applied_at_is_not_overwritten_by_status_change_in_same_request
 
         resp = client.patch(
             f"/api/applications/{app_id}",
-            json={"status": "applied", "applied_at": "2026-02-01"},
+            json={"status": "waiting", "applied_at": "2026-02-01"},
         )
         assert resp.status_code == 200
         assert resp.json()["applied_at"] == "2026-02-01"

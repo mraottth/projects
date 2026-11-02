@@ -22,11 +22,11 @@ def test_rebuild_from_feedback_and_applications(monkeypatch):
             (job_id,),
         )
         cursor = conn.execute(
-            "INSERT INTO applications (job_id, status) VALUES (?, 'interview')", (job_id,)
+            "INSERT INTO applications (job_id, status) VALUES (?, 'interviewing')", (job_id,)
         )
         app_id = cursor.lastrowid
         conn.execute(
-            "INSERT INTO application_status_history (application_id, status) VALUES (?, 'interview')",
+            "INSERT INTO application_status_history (application_id, status) VALUES (?, 'interviewing')",
             (app_id,),
         )
 

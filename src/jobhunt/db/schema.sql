@@ -90,7 +90,7 @@ CREATE INDEX IF NOT EXISTS idx_feedback_job ON feedback(job_id);
 CREATE TABLE IF NOT EXISTS applications (
     id INTEGER PRIMARY KEY,
     job_id INTEGER NOT NULL UNIQUE REFERENCES jobs(id),
-    status TEXT NOT NULL DEFAULT 'saved' CHECK(status IN ('saved', 'applied', 'phone_screen', 'interview', 'offer', 'rejected', 'withdrawn')),
+    status TEXT NOT NULL DEFAULT 'saved' CHECK(status IN ('saved', 'waiting', 'interviewing', 'offer', 'rejected_no_interview', 'rejected_interviewed', 'withdrawn')),
     applied_at TEXT,
     resume_doc_id INTEGER,       -- generated_documents.id, no hard FK (avoids circular FK ordering)
     cover_letter_doc_id INTEGER, -- generated_documents.id

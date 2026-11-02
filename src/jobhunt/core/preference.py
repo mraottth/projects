@@ -4,9 +4,11 @@ from jobhunt.db.connection import get_db
 SYSTEM_PROMPT = """You are maintaining a running preference profile for a job seeker, used to improve \
 future job-fit scoring. You'll be given the previous profile (may be empty), their application history \
 (status progression per job -- this is the strongest signal: a job that reached interview or offer says \
-far more about genuine fit than a bare "interested" mark, and a rejection/withdrawal is informative too, \
-though you should distinguish "wasn't a good candidate fit" from "wasn't actually interested" since a \
-rejection conflates both), and their raw interested/not_interested/maybe marks (weaker, faster signal).
+far more about genuine fit than a bare "interested" mark. Statuses: saved (drafting), waiting (applied, \
+no response yet), interviewing, offer, rejected_no_interview (a weaker match on paper), \
+rejected_interviewed (got through screening, so not a fit problem on paper), withdrawn (they lost \
+interest). Distinguish "wasn't a good candidate fit" from "wasn't actually interested"), and their \
+raw interested/not_interested/maybe marks (weaker, faster signal).
 
 Write an updated profile (200-400 words): what roles/companies/locations/comp ranges they actually \
 respond to, patterns in what they reject even when "on paper" qualified, and anything the application \

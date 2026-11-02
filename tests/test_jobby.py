@@ -83,7 +83,7 @@ def test_context_includes_job_profile_documents_and_tailored_docs():
     with get_db() as conn:
         conn.execute(
             "INSERT INTO applications (job_id, status, notes) "
-            "VALUES (?, 'interview', 'Panel on Friday')",
+            "VALUES (?, 'interviewing', 'Panel on Friday')",
             (job_id,),
         )
         conn.execute(
