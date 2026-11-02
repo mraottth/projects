@@ -318,12 +318,16 @@ const RUN_POLL_MS = 3000;
 // A full check of every source takes minutes. The server streams progress the whole time (so the
 // connection isn't dropped as idle); if it drops anyway, the run carries on server-side and this
 // follows it through /progress until it reports that run finished.
-async function runDaily(cap: number | undefined, onProgress?: (p: RunProgress) => void): Promise<RunSummary> {
+async function runDaily(
+  cap: number | undefined,
+  onProgress?: (p: RunProgress) => void,
+  url = `/api/pipeline/run-daily/stream${cap ? `?cap=${cap}` : ""}`,
+): Promise<RunSummary> {
   let runId: number | null = null;
   let result: RunSummary | null = null;
   let failure: string | null = null;
   try {
-    const res = await fetch(`/api/pipeline/run-daily/stream${cap ? `?cap=${cap}` : ""}`, { method: "POST" });
+    const res = await fetch(url, { method: "POST" });
     if (!res.ok || !res.body) {
       const body = await res.json().catch(() => ({ detail: res.statusText }));
       throw new ApiError(res.status, typeof body.detail === "string" ? body.detail : res.statusText);
@@ -358,6 +362,16 @@ async function runDaily(cap: number | undefined, onProgress?: (p: RunProgress) =
       return progress.finished_run_id === runId && progress.last_summary ? progress.last_summary : {};
     }
   }
+}
+
+/** New & Noteworthy's freshness line and Refresh button (GET /api/digest/status). */
+export interface DigestStatus {
+  last_updated: string | null;
+  can_refresh: boolean;
+  refresh_available_at: string | null;
+  scored_today: number;
+  daily_score_cap: number;
+  over_budget: boolean;
 }
 
 export interface OnboardingStatus {
@@ -658,6 +672,12 @@ export const api = {
     }>("/api/settings/usage-log"),
 
   runDailyNow: (cap?: number, onProgress?: (p: RunProgress) => void) => runDaily(cap, onProgress),
+
+  getDigestStatus: () => request<DigestStatus>("/api/digest/status"),
+
+  // This person's own check, with a 30-minute cooldown (a 429 says how long is left).
+  refreshDigest: (onProgress?: (p: RunProgress) => void) =>
+    runDaily(undefined, onProgress, "/api/digest/refresh/stream"),
 
   getRunProgress: () => request<RunProgress>("/api/pipeline/progress"),
 

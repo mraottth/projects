@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, DigestEntry } from "../api";
+import { api, ApiError, DigestEntry, DigestStatus, RunProgress, runProgressText } from "../api";
+import { Spinner } from "../components/Spinner";
 import {
   DEFAULT_JOB_FILTERS,
   FilteredEmptyState,
@@ -18,11 +19,14 @@ export default function DigestPage() {
   const [hasResume, setHasResume] = useState(true);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const loadEntries = () =>
     api
       .getDigestToday()
       .then((r) => setEntries(r.entries))
       .finally(() => setLoading(false));
+
+  useEffect(() => {
+    loadEntries();
     // Covers anyone who skipped onboarding: nothing gets scored well without a resume.
     api
       .getOnboardingStatus()
@@ -35,10 +39,11 @@ export default function DigestPage() {
   return (
     <div>
       <h1>New &amp; Noteworthy</h1>
-      <p className="muted" style={{ marginBottom: "18px" }}>
+      <p className="muted" style={{ marginBottom: "8px" }}>
         The best of what showed up today, ranked by interest and candidate fit first. For
         everything your tracked sources have turned up, see All Jobs.
       </p>
+      {hasResume && <Freshness onRefreshed={loadEntries} />}
 
       {!hasResume && (
         <div className="card">
@@ -98,3 +103,107 @@ export default function DigestPage() {
     </div>
   );
 }
+
+const STALE_AFTER_MS = 24 * 3600 * 1000;
+
+function ago(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  const minutes = Math.round(ms / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  const days = Math.round(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
+}
+
+function minutesUntil(iso: string): number {
+  return Math.max(1, Math.ceil((new Date(iso).getTime() - Date.now()) / 60000));
+}
+
+/** "Last updated 2 hours ago · Refresh" (step 5 of D-021): this person's own check, at most every
+ * 30 minutes, scoring within today's cap. After a day or more without an update (someone back
+ * from a break), it becomes a prominent card instead. */
+function Freshness({ onRefreshed }: { onRefreshed: () => void }) {
+  const [status, setStatus] = useState<DigestStatus | null>(null);
+  const [running, setRunning] = useState(false);
+  const [progress, setProgress] = useState<RunProgress | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadStatus = () =>
+    api
+      .getDigestStatus()
+      .then(setStatus)
+      .catch(() => undefined);
+
+  useEffect(() => {
+    loadStatus();
+  }, []);
+
+  async function refresh() {
+    setRunning(true);
+    setProgress(null);
+    setError(null);
+    setNote(null);
+    try {
+      const summary = await api.refreshDigest(setProgress);
+      const scored = Number(summary.llm_scored_count ?? 0);
+      setNote(scored ? `Scored ${scored} new job${scored === 1 ? "" : "s"}.` : "Nothing new to score.");
+      onRefreshed();
+    } catch (e) {
+      setError(e instanceof ApiError || e instanceof Error ? e.message : String(e));
+    } finally {
+      setRunning(false);
+      loadStatus();
+    }
+  }
+
+  if (!status) return null;
+  const capUsed = status.scored_today >= status.daily_score_cap;
+  const stale = !status.last_updated || Date.now() - new Date(status.last_updated).getTime() > STALE_AFTER_MS;
+  const waitTitle = status.refresh_available_at
+    ? `You can refresh again in ${minutesUntil(status.refresh_available_at)} minutes`
+    : undefined;
+  const button = (primary: boolean) => (
+    <button
+      className={primary ? "primary" : "link"}
+      onClick={refresh}
+      disabled={running || !status.can_refresh}
+      title={waitTitle}
+    >
+      {primary ? "Refresh now" : "Refresh"}
+    </button>
+  );
+  const limits = status.over_budget
+    ? "This month's budget is used up, so new jobs won't be scored until next month."
+    : capUsed
+      ? `Scoring resumes tomorrow (${status.scored_today} of ${status.daily_score_cap} used today).`
+      : null;
+
+  return (
+    <div className={stale && !running ? "card freshness-card" : "freshness"}>
+      {running ? (
+        <Spinner label={runProgressText(progress, "Finishing up...")} />
+      ) : stale ? (
+        <>
+          <p style={{ margin: 0 }}>
+            {status.last_updated
+              ? `Your matches were last updated ${ago(status.last_updated)}.`
+              : "Your matches haven't been checked yet."}
+          </p>
+          <div className="form-actions">{button(true)}</div>
+        </>
+      ) : (
+        <span className="muted small">
+          Last updated {ago(status.last_updated!)} · {button(false)}
+        </span>
+      )}
+      {!running && waitTitle && !stale && <span className="muted small"> ({waitTitle.toLowerCase()})</span>}
+      {!running && limits && <p className="muted small freshness-note">{limits}</p>}
+      {!running && note && <p className="muted small freshness-note">{note}</p>}
+      {error && <p className="error small">{error}</p>}
+    </div>
+  );
+}
+
