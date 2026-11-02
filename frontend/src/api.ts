@@ -54,22 +54,41 @@ export interface Job {
 
 export type ApplicationStatus =
   | "saved"
-  | "applied"
-  | "phone_screen"
-  | "interview"
+  | "waiting"
+  | "interviewing"
   | "offer"
-  | "rejected"
+  | "rejected_no_interview"
+  | "rejected_interviewed"
   | "withdrawn";
+
+// In pipeline order; My Jobs' status menu and filter chips use this order.
+export const APPLICATION_STATUSES: ApplicationStatus[] = [
+  "saved",
+  "waiting",
+  "interviewing",
+  "offer",
+  "rejected_no_interview",
+  "rejected_interviewed",
+  "withdrawn",
+];
 
 export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
   saved: "Drafting",
-  applied: "Applied",
-  phone_screen: "Phone screen",
-  interview: "Interview",
+  waiting: "Waiting",
+  interviewing: "Interviewing",
   offer: "Offer",
-  rejected: "Rejected",
+  rejected_no_interview: "Rejected - no interview",
+  rejected_interviewed: "Rejected - interviewed",
   withdrawn: "Withdrawn",
 };
+
+// My Jobs' "What's working?" analysis (core/app_insights.py), as last saved.
+export interface ApplicationInsights {
+  text: string;
+  generated_at: string;
+  applications: number;
+  applied: number;
+}
 
 export interface Application {
   id: number;
@@ -90,6 +109,11 @@ export interface Application {
   resume_doc_id: number | null;
   cover_letter_doc_id: number | null;
   history: { status: string; changed_at: string }[];
+  // The job's latest score (null until it's scored).
+  interest_fit: "High" | "Med" | "Low" | null;
+  interest_score: number | null;
+  candidate_fit: "High" | "Med" | "Low" | null;
+  candidate_fit_score: number | null;
 }
 
 export interface ScoredJob extends Job {
@@ -409,6 +433,11 @@ export const api = {
     }),
 
   listApplications: () => request<Application[]>("/api/applications"),
+
+  getApplicationInsights: () => request<ApplicationInsights | null>("/api/applications/insights"),
+
+  buildApplicationInsights: () =>
+    request<ApplicationInsights>("/api/applications/insights", { method: "POST" }),
 
   createApplication: (jobId: number, status: ApplicationStatus = "saved") =>
     request<Application>("/api/applications", {

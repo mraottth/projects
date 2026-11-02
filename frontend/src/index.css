@@ -224,10 +224,10 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
   border: 1px solid var(--ring);
 }
 .pill-saved { background: #f1f0eb; color: var(--ink-2); }
-.pill-applied { background: rgba(42, 120, 214, 0.1); color: var(--accent-ink); }
-.pill-phone_screen, .pill-interview { background: var(--warn-bg); color: var(--warn); }
+.pill-waiting { background: rgba(42, 120, 214, 0.1); color: var(--accent-ink); }
+.pill-interviewing { background: var(--warn-bg); color: var(--warn); }
 .pill-offer { background: var(--good-bg); color: var(--good); }
-.pill-rejected, .pill-withdrawn { background: var(--bad-bg); color: var(--bad); }
+.pill-rejected_no_interview, .pill-rejected_interviewed, .pill-withdrawn { background: var(--bad-bg); color: var(--bad); }
 .tag {
   display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 6px;
   background: #f1f0eb; font-size: 0.78rem; color: var(--ink-2);
@@ -680,3 +680,19 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 .cl-housekeeping.nested { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--ring); }
 .cl-card.cl-standalone:has(> .cl-housekeeping:not([open])) { padding: 9px 18px; box-shadow: none; background: transparent; }
 .discover-bare > .muted.small:first-child { margin-top: 0; }
+
+/* ---------- my jobs: insights, status filter, fit chips under the title */
+.insight-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin: 6px 0 10px; }
+.insight-stats > div { background: var(--page); border-radius: 10px; padding: 10px 12px; }
+.insight-stats strong { display: block; font-size: 1.4rem; line-height: 1.2; }
+.insight-stats span { font-size: 0.8rem; color: var(--ink-2); }
+.insight-fit { margin: 0 0 10px; }
+.insight-analysis { border-top: 1px solid var(--ring); padding-top: 10px; }
+.insight-analysis h2 { font-size: 1rem; margin: 10px 0 4px; }
+.status-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.status-filter .flabel { margin: 0; }
+.chip-count { opacity: 0.6; margin-left: 2px; }
+.table-tools { display: flex; gap: 14px; justify-content: flex-end; min-height: 1.2em; margin-bottom: 4px; }
+.title-badges { display: flex; gap: 4px; margin-top: 4px; white-space: nowrap; }
+.title-badges .badge { font-size: 0.7rem; padding: 1px 7px; }
+

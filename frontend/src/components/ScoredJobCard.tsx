@@ -96,7 +96,7 @@ function CompanyLogo({ company }: { company: string }) {
   );
 }
 
-function FitBadge({ label, value }: { label: string; value: string | null }) {
+export function FitBadge({ label, value }: { label: string; value: string | null }) {
   if (!value) return null;
   const cls = value === "High" ? "badge-high" : value === "Med" ? "badge-med" : "badge-low";
   return (

@@ -33,7 +33,7 @@ const STARTERS: { label: string; blurb: string; text: string }[] = [
 ];
 
 // Applications still in play come first in the picker; closed-out ones last.
-const CLOSED = new Set(["rejected", "withdrawn"]);
+const CLOSED = new Set(["rejected_no_interview", "rejected_interviewed", "withdrawn"]);
 
 function JobPicker({
   apps,

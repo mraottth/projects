@@ -1,18 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, Application, APPLICATION_STATUS_LABELS, ApplicationStatus, Job } from "../api";
-import { salaryText, salaryValue } from "../components/ScoredJobCard";
+import {
+  api,
+  Application,
+  ApplicationInsights,
+  APPLICATION_STATUS_LABELS,
+  APPLICATION_STATUSES,
+  ApplicationStatus,
+  Job,
+} from "../api";
+import { Markdown } from "../components/Markdown";
+import { FitBadge, salaryText, salaryValue } from "../components/ScoredJobCard";
 import { Spinner } from "../components/Spinner";
-
-const STATUSES: ApplicationStatus[] = [
-  "saved",
-  "applied",
-  "phone_screen",
-  "interview",
-  "offer",
-  "rejected",
-  "withdrawn",
-];
 
 function AddJobForm({ onAdded }: { onAdded: (job: Job) => void }) {
   const [mode, setMode] = useState<"url" | "text">("url");
@@ -140,7 +139,7 @@ function StatusSelect({ app, onChanged }: { app: Application; onChanged: (app: A
       disabled={busy}
       onChange={(e) => change(e.target.value as ApplicationStatus)}
     >
-      {STATUSES.map((s) => (
+      {APPLICATION_STATUSES.map((s) => (
         <option key={s} value={s}>
           {APPLICATION_STATUS_LABELS[s]}
         </option>
@@ -260,11 +259,17 @@ function RemoveButton({ app, onRemoved }: { app: Application; onRemoved: (id: nu
   );
 }
 
-type SortKey = "company" | "title" | "location" | "salary" | "applied_at" | "status";
+type SortKey = "score" | "company" | "title" | "location" | "salary" | "applied_at" | "status";
 type SortDir = "asc" | "desc";
+
+function scoreOf(app: Application): number {
+  return (app.interest_score ?? -1) + (app.candidate_fit_score ?? -1);
+}
 
 function sortValue(app: Application, key: SortKey): string | number {
   switch (key) {
+    case "score":
+      return scoreOf(app);
     case "company":
       return app.company.toLowerCase();
     case "title":
@@ -276,8 +281,23 @@ function sortValue(app: Application, key: SortKey): string | number {
     case "applied_at":
       return app.applied_at ?? "";
     case "status":
-      return app.status;
+      return APPLICATION_STATUSES.indexOf(app.status);
   }
+}
+
+// Ids in display order. "Best match" is the default: interest + fit score, then most recently
+// applied; every other column breaks ties the same way.
+function sortedIds(apps: Application[], key: SortKey, dir: SortDir): number[] {
+  const tiebreak = (a: Application, b: Application) =>
+    scoreOf(b) - scoreOf(a) || (b.applied_at ?? "").localeCompare(a.applied_at ?? "");
+  return [...apps]
+    .sort((a, b) => {
+      const av = sortValue(a, key);
+      const bv = sortValue(b, key);
+      const cmp = av < bv ? -1 : av > bv ? 1 : 0;
+      return (dir === "asc" ? cmp : -cmp) || tiebreak(a, b);
+    })
+    .map((a) => a.id);
 }
 
 function SortHeader({
@@ -301,15 +321,114 @@ function SortHeader({
   );
 }
 
+const REJECTED: ApplicationStatus[] = ["rejected_no_interview", "rejected_interviewed"];
+// Reached an interview at some point: what "getting a response" means here.
+const INTERVIEWED: ApplicationStatus[] = ["interviewing", "offer", "rejected_interviewed"];
+
+function pct(part: number, whole: number): string {
+  return whole ? `${Math.round((100 * part) / whole)}%` : "–";
+}
+
+/** Counts from the loaded list (no API call), then Claude's read on what's working, on request. */
+function Insights({ apps }: { apps: Application[] }) {
+  const [analysis, setAnalysis] = useState<ApplicationInsights | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.getApplicationInsights().then(setAnalysis).catch(() => {});
+  }, []);
+
+  const sent = apps.filter((a) => a.status !== "saved");
+  const count = (statuses: ApplicationStatus[]) => sent.filter((a) => statuses.includes(a.status)).length;
+  const interviewed = count(INTERVIEWED);
+  const byFit = (["High", "Med", "Low"] as const)
+    .map((fit) => {
+      const group = sent.filter((a) => a.candidate_fit === fit);
+      return { fit, sent: group.length, interviewed: group.filter((a) => INTERVIEWED.includes(a.status)).length };
+    })
+    .filter((g) => g.sent > 0);
+
+  const build = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      setAnalysis(await api.buildApplicationInsights());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const stale = analysis !== null && analysis.applications !== apps.length;
+
+  return (
+    <div className="card insights">
+      <h2>How your applications are going</h2>
+      <div className="insight-stats">
+        <div><strong>{sent.length}</strong><span>applied</span></div>
+        <div><strong>{count(["waiting"])}</strong><span>waiting</span></div>
+        <div><strong>{interviewed}</strong><span>got an interview ({pct(interviewed, sent.length)})</span></div>
+        <div><strong>{count(["offer"])}</strong><span>offers</span></div>
+        <div>
+          <strong>{count(REJECTED)}</strong>
+          <span>
+            rejected ({count(["rejected_no_interview"])} without an interview)
+          </span>
+        </div>
+      </div>
+      {byFit.length > 0 && (
+        <p className="small muted insight-fit">
+          Interview rate by fit rating:{" "}
+          {byFit.map((g, i) => (
+            <span key={g.fit}>
+              {i > 0 && " · "}
+              {g.fit} fit {pct(g.interviewed, g.sent)} ({g.interviewed} of {g.sent})
+            </span>
+          ))}
+        </p>
+      )}
+      <div className="insight-analysis">
+        {analysis ? (
+          <>
+            <Markdown text={analysis.text} />
+            <p className="small muted">
+              Based on {analysis.applications} jobs, {new Date(analysis.generated_at).toLocaleDateString()}.
+              {stale && " You've changed your list since then."}
+            </p>
+          </>
+        ) : (
+          <p className="small muted">
+            Ask Claude which kinds of jobs are getting interviews and which aren't, from everything above.
+          </p>
+        )}
+        <button className="ghost small" onClick={build} disabled={busy || sent.length === 0}>
+          {busy ? <Spinner label="Reading your applications..." /> : analysis ? "Update the analysis" : "What's working?"}
+        </button>
+        {error && <p className="error-text small">{error}</p>}
+      </div>
+    </div>
+  );
+}
+
 export default function MyJobsPage() {
   const [apps, setApps] = useState<Application[]>([]);
   const [pending, setPending] = useState<Job[]>([]);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<ApplicationStatus | "all">("all");
-  const [sortKey, setSortKey] = useState<SortKey>("applied_at");
+  const [shownStatuses, setShownStatuses] = useState<ApplicationStatus[]>(APPLICATION_STATUSES);
+  const [sortKey, setSortKey] = useState<SortKey>("score");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  // The row order is fixed when the list loads or a sort is chosen, not on every edit: re-sorting as
+  // soon as an applied date changed moved the row out from under the cursor (and its date picker).
+  const [order, setOrder] = useState<number[]>([]);
+  const sortRef = useRef({ key: sortKey, dir: sortDir });
 
-  const refresh = () => api.listApplications().then(setApps);
+  const refresh = () =>
+    api.listApplications().then((list) => {
+      setApps(list);
+      setOrder(sortedIds(list, sortRef.current.key, sortRef.current.dir));
+    });
 
   useEffect(() => {
     refresh();
@@ -318,30 +437,34 @@ export default function MyJobsPage() {
   const updateInPlace = (updated: Application) =>
     setApps((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
 
-  const onSort = (key: SortKey) => {
-    if (sortKey === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortKey(key);
-      setSortDir("asc");
-    }
+  const applySort = (key: SortKey, dir: SortDir) => {
+    setSortKey(key);
+    setSortDir(dir);
+    sortRef.current = { key, dir };
+    setOrder(sortedIds(apps, key, dir));
   };
 
-  const query = search.trim().toLowerCase();
-  const filtered = apps.filter((app) => {
-    if (statusFilter !== "all" && app.status !== statusFilter) return false;
-    if (query && !`${app.company} ${app.title} ${app.location ?? ""}`.toLowerCase().includes(query)) {
-      return false;
-    }
-    return true;
-  });
+  const onSort = (key: SortKey) => {
+    if (sortKey === key) applySort(key, sortDir === "asc" ? "desc" : "asc");
+    else applySort(key, key === "applied_at" || key === "score" || key === "salary" ? "desc" : "asc");
+  };
 
-  const sorted = [...filtered].sort((a, b) => {
-    const av = sortValue(a, sortKey);
-    const bv = sortValue(b, sortKey);
-    const cmp = av < bv ? -1 : av > bv ? 1 : 0;
-    return sortDir === "asc" ? cmp : -cmp;
-  });
+  const toggleStatus = (status: ApplicationStatus) =>
+    setShownStatuses((prev) => (prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status]));
+
+  const query = search.trim().toLowerCase();
+  const matches = (app: Application) =>
+    shownStatuses.includes(app.status) &&
+    (!query || `${app.company} ${app.title} ${app.location ?? ""}`.toLowerCase().includes(query));
+
+  const byId = new Map(apps.map((a) => [a.id, a]));
+  const ordered = [
+    ...order.map((id) => byId.get(id)).filter((a): a is Application => a !== undefined),
+    ...apps.filter((a) => !order.includes(a.id)),
+  ];
+  const sorted = ordered.filter(matches);
+  const outOfOrder = sortedIds(apps, sortKey, sortDir).join() !== ordered.map((a) => a.id).join();
+  const countByStatus = (status: ApplicationStatus) => apps.filter((a) => a.status === status).length;
 
   return (
     <div>
@@ -370,31 +493,37 @@ export default function MyJobsPage() {
         </p>
       )}
 
+      {apps.length > 0 && <Insights apps={apps} />}
+
       {apps.length > 0 && (
         <div className="card">
-          <div className="form-row" style={{ marginBottom: 0 }}>
-            <div className="field" style={{ marginBottom: 0, flex: "1 1 260px" }}>
-              <span>Search</span>
-              <input
-                placeholder="Search company, title, location..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+          <div className="field" style={{ marginBottom: "10px" }}>
+            <span>Search</span>
+            <input
+              placeholder="Search company, title, location..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="status-filter">
+            <span className="flabel">Show</span>
+            <div className="chip-toggle-group">
+              {APPLICATION_STATUSES.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  className={`chip-toggle${shownStatuses.includes(s) ? " on" : ""}`}
+                  onClick={() => toggleStatus(s)}
+                >
+                  {APPLICATION_STATUS_LABELS[s]} <span className="chip-count">{countByStatus(s)}</span>
+                </button>
+              ))}
             </div>
-            <div className="field" style={{ marginBottom: 0 }}>
-              <span>Status</span>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as ApplicationStatus | "all")}
-              >
-                <option value="all">All</option>
-                {STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {APPLICATION_STATUS_LABELS[s]}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {shownStatuses.length < APPLICATION_STATUSES.length && (
+              <button className="link small" onClick={() => setShownStatuses(APPLICATION_STATUSES)}>
+                Show all
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -405,6 +534,18 @@ export default function MyJobsPage() {
 
       {sorted.length > 0 && (
         <div className="card" style={{ overflowX: "auto" }}>
+          <div className="table-tools small">
+            {sortKey !== "score" && (
+              <button className="link small" onClick={() => applySort("score", "desc")}>
+                Sort by best match
+              </button>
+            )}
+            {outOfOrder && (
+              <button className="link small" onClick={() => applySort(sortKey, sortDir)}>
+                Re-sort with your changes
+              </button>
+            )}
+          </div>
           <table className="jobs-table">
             <thead>
               <tr>
@@ -436,6 +577,12 @@ export default function MyJobsPage() {
                   <td>{app.company}</td>
                   <td>
                     <Link to={`/jobs/${app.job_id}`}>{app.title}</Link>
+                    {(app.interest_fit || app.candidate_fit) && (
+                      <div className="title-badges">
+                        <FitBadge label="Interest" value={app.interest_fit} />
+                        <FitBadge label="Fit" value={app.candidate_fit} />
+                      </div>
+                    )}
                   </td>
                   <td>{app.location ?? "N/A"}</td>
                   <td>{salaryText(app)}</td>

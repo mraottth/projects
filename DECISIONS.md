@@ -204,3 +204,14 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 
 **Why.** The browser step costs time rather than money. A second Claude read happens only when the rendered page has more links than before, so an organization that really has one opening isn't billed twice every day. The step list lets the next live Test fetch show which path worked, or that none did.
 
+## D-017 · Application statuses that say how far it got, and a frozen row order on My Jobs
+- **Date:** 2026-11-02
+- **Category:** ui
+- **Prompts:** ab602548-064
+
+**Decision.** The statuses become Drafting, Waiting, Interviewing, Offer, Rejected - no interview, Rejected - interviewed, and Withdrawn. They are renamed in the database too, not just relabeled, through a one-time rebuild of the `applications` table that maps existing rows, including splitting old rejections by whether their history reached an interview. My Jobs rows keep their order until the page reloads or a column is clicked. The default order is best match (interest + fit score), then most recent application. The page gets status filter chips, counts of how applications are going, and an on-demand Claude read-out of what's working.
+
+**Context.** The user asked for all of this together. Splitting "Rejected" needs a value the old CHECK constraint didn't allow, so a label-only change (how "Drafting" was done) couldn't work. Re-sorting on every edit also caused a bug: changing a date moved the row, and the date picker could reopen on another row.
+
+**Why.** "Rejected without an interview" and "rejected after interviewing" are different signals: one says the match looked weak on paper, the other that it got through. That difference is what the insights, and the preference profile built from application history, need. The counts cost nothing, and the Claude read-out runs only on request and is cached, so visiting the page stays free.
+

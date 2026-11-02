@@ -545,10 +545,33 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   `add_to_digest()`'s Python sort and `list_ranked_jobs()`'s SQL `ORDER BY`, kept in sync by hand
   since one sorts in Python and the other in SQL): interest+candidate score, then recency (`posted_at` falling back to `first_seen_at`), then
   salary (`salary_max` falling back to `salary_min`).
-- `api.ts`'s `APPLICATION_STATUS_LABELS` is a display-only relabeling (`saved` → "Drafting" is the
-  only real change) -- the underlying `ApplicationStatus` enum and DB `CHECK` constraint are
-  unchanged (saved/applied/phone_screen/interview/offer/rejected/withdrawn), so this is purely a
-  frontend label fix, not a schema migration.
+- **Application statuses** (D-017) are `saved` ("Drafting"), `waiting`, `interviewing`, `offer`,
+  `rejected_no_interview`, `rejected_interviewed`, `withdrawn`, renamed at the user's ask from
+  applied/phone_screen/interview/rejected. Labels live in `api.ts`'s `APPLICATION_STATUS_LABELS`,
+  order in `APPLICATION_STATUSES`, and the list in `api/applications.py`'s `VALID_STATUSES` and
+  `schema.sql`'s CHECK. Since SQLite can't alter a CHECK, `db/connection.py`'s
+  `_migrate_application_statuses()` rebuilds `applications` once on a database that still has the
+  old names (foreign keys off, `legacy_alter_table` on for the rename): applied → waiting,
+  phone_screen/interview → interviewing, and rejected → `rejected_interviewed` if its history ever
+  reached a screen or interview, else `rejected_no_interview`. Status history rows are renamed the
+  same way.
+- **My Jobs** (`pages/MyJobsPage.tsx`), changes the user asked for on 2026-11-02:
+  - Rows keep the order they had when the list loaded or a column was last clicked (`order`, a list
+    of ids). Editing a row (date, status) no longer re-sorts it. Re-sorting on every edit moved a
+    row out from under the cursor, and its native date picker could reopen on whichever row took
+    its place. A "Re-sort with your changes" link appears when the order is out of date.
+  - The default order is best match: interest + fit score (the job's latest `job_scores` row, which
+    `GET /api/applications` now joins in), then most recently applied. Every column sort breaks ties
+    the same way, and "Sort by best match" returns to it.
+  - The Interest and Fit chips (`FitBadge`, exported from `ScoredJobCard.tsx`) sit under the title.
+  - Status filter chips ("Show", with counts) replace the single status dropdown. All are on by
+    default.
+  - "How your applications are going" counts applications, waiting, interviews (and rate), offers
+    and rejections from the loaded list, plus the interview rate by fit rating, with no API call.
+    "What's working?" (`core/app_insights.py`, `GET`/`POST /api/applications/insights`) asks Claude
+    once, on request, which kinds of jobs are getting interviews and which aren't, and keeps the
+    answer in the `application_insights` setting so a revisit costs nothing. It logs as
+    `profile_rebuild` with note "application insights" (the `llm_calls` CHECK, as with Jobby).
 - `src/jobhunt/ingest/adapters/custom_board.py` -- `max_tokens` was 4000, too small once a board
   listing page has 20-30 postings' worth of structured fields; Claude's output got cut off
   mid-JSON-string and `messages.parse()` raised a JSON-decode error (caught live against a real
