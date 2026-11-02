@@ -158,9 +158,13 @@ _FOLLOWED_SOURCES_SQL = """SELECT s.* FROM sources s WHERE EXISTS (
      WHERE f.source_id = s.id AND f.enabled = 1 AND u.status = 'approved' {who})"""
 
 
-def _poll_sources(source_ids: list[int] | None = None, user_ids: list[int] | None = None) -> dict:
+def _poll_sources(
+    source_ids: list[int] | None = None, user_ids: list[int] | None = None, fresh_hours: float | None = None
+) -> dict:
     """Reads each source once, however many people follow it: the given sources, or else every
-    source followed by `user_ids` (default: anyone approved)."""
+    source followed by `user_ids` (default: anyone approved). With `fresh_hours`, a source read
+    successfully within that many hours (by anyone's run) isn't read again: its recent jobs are
+    taken from what's already stored, so the person still gets them queued and scored."""
     who = ""
     if user_ids is not None:
         who = f"AND f.user_id IN ({','.join(str(int(u)) for u in user_ids) or 'NULL'})"
@@ -175,13 +179,17 @@ def _poll_sources(source_ids: list[int] | None = None, user_ids: list[int] | Non
         sources = [dict(row) for row in rows]
     for source in sources:
         source["config"] = json.loads(source.pop("config_json") or "{}")
+    jobs_by_source: dict[int, list[int]] = {}
+    fresh = [s for s in sources if fresh_hours and _read_within(s, fresh_hours)]
+    if fresh:
+        sources = [s for s in sources if s not in fresh]
+        jobs_by_source.update(_recent_jobs_for_sources([s["id"] for s in fresh]))
     _set_progress(stage="polling", sources_done=0, sources_total=len(sources), sources_pending=[])
 
     fetched = 0
     upserted = 0
     errors = []
     job_ids = []
-    jobs_by_source: dict[int, list[int]] = {}
 
     # Fetches run concurrently; upserts stay sequential here, in source order -- two sources can
     # produce the same URL-based dedupe key, and _upsert_job's select-then-insert would race.
@@ -210,12 +218,39 @@ def _poll_sources(source_ids: list[int] | None = None, user_ids: list[int] | Non
 
     return {
         "sources_polled": len(sources),
+        "sources_fresh": len(fresh),
         "jobs_fetched": fetched,
         "jobs_upserted": upserted,
         "errors": errors,
         "job_ids": job_ids,
         "jobs_by_source": jobs_by_source,
     }
+
+
+def _read_within(source: dict, hours: float) -> bool:
+    if not source.get("last_success_at"):
+        return False
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT julianday('now') - julianday(?) < ? / 24.0 AS fresh", (source["last_success_at"], hours)
+        ).fetchone()
+    return bool(row["fresh"])
+
+
+def _recent_jobs_for_sources(source_ids: list[int]) -> dict[int, list[int]]:
+    """Active jobs of these sources seen in the last day: what a skipped (just-read) source would
+    have returned."""
+    marks = ",".join("?" * len(source_ids))
+    with get_db() as conn:
+        rows = conn.execute(
+            f"SELECT id, source_id FROM jobs WHERE source_id IN ({marks}) AND status = 'active' "
+            "AND julianday('now') - julianday(last_seen_at) <= 1",
+            source_ids,
+        ).fetchall()
+    found: dict[int, list[int]] = {}
+    for row in rows:
+        found.setdefault(row["source_id"], []).append(row["id"])
+    return found
 
 
 SALARY_FIELDS = ("salary_min", "salary_max", "salary_currency", "salary_period")
@@ -574,12 +609,14 @@ def _run_for_person(
             "errors": scoring_errors,
             "preference_profile_rebuilt": preference_rebuilt,
             "email": email_result,
+            # Today's cap is used up: New & Noteworthy says scoring resumes tomorrow.
+            "cap_reached": remaining_cap() == 0,
         }
         _record_run(summary)
         return summary
 
 
-def run_daily(cap: int | None = None, only_user: int | None = None) -> dict:
+def run_daily(cap: int | None = None, only_user: int | None = None, fresh_hours: float | None = None) -> dict:
     """The daily check: every source anyone approved follows is read once, then each person's
     jobs are scored (up to what's left of their daily cap), digested and emailed. With
     `only_user`, just that person's sources and jobs ("Check my sources now", onboarding's last
@@ -592,7 +629,7 @@ def run_daily(cap: int | None = None, only_user: int | None = None) -> dict:
             started_at = datetime.now(UTC).isoformat()
             _set_progress(stage="starting", sources_done=0, sources_total=0, jobs_done=0, jobs_total=0)
             try:
-                return _run_daily(started_at, cap, only_user)
+                return _run_daily(started_at, cap, only_user, fresh_hours)
             finally:
                 progress = _current_progress()
                 with _progress_lock:
@@ -611,7 +648,9 @@ _active_runs: dict[int | None, int] = {}
 _active_lock = threading.Lock()
 
 
-def start_run_daily(cap: int | None = None, only_user: int | None = None) -> int:
+def start_run_daily(
+    cap: int | None = None, only_user: int | None = None, fresh_hours: float | None = None
+) -> int:
     """Starts a run in the background for whoever's signed in (`only_user` limits it to one
     person), or returns the id of their run already in progress."""
     owner = optional_user_id()
@@ -627,17 +666,21 @@ def start_run_daily(cap: int | None = None, only_user: int | None = None) -> int
         )
     context = contextvars.copy_context()
     threading.Thread(
-        target=context.run, args=(_run_in_background, run_id, cap, only_user, owner), daemon=True
+        target=context.run,
+        args=(_run_in_background, run_id, cap, only_user, owner, fresh_hours),
+        daemon=True,
     ).start()
     return run_id
 
 
-def _run_in_background(run_id: int, cap: int | None, only_user: int | None, owner: int | None) -> None:
+def _run_in_background(
+    run_id: int, cap: int | None, only_user: int | None, owner: int | None, fresh_hours: float | None = None
+) -> None:
     progress = _owner_progress(owner)
     _run_progress.set(progress)
     summary, error = None, None
     try:
-        summary = run_daily(cap=cap, only_user=only_user)
+        summary = run_daily(cap=cap, only_user=only_user, fresh_hours=fresh_hours)
     except Exception as exc:  # noqa: BLE001 - reported to the page instead of lost in a thread
         logger.exception("daily run %s failed", run_id)
         error = str(exc)
@@ -725,7 +768,9 @@ def _refresh_sources(source_ids: list[int], cap: int) -> dict:
     }
 
 
-def _run_daily(started_at: str, cap: int | None, only_user: int | None = None) -> dict:
+def _run_daily(
+    started_at: str, cap: int | None, only_user: int | None = None, fresh_hours: float | None = None
+) -> dict:
     everyone = only_user is None
     if everyone:
         # Before the run writes anything, so a run that goes wrong can be rolled back (core/backup.py).
@@ -738,7 +783,7 @@ def _run_daily(started_at: str, cap: int | None, only_user: int | None = None) -
     # Reading the shared sources is nobody's own spend on the scheduled run (llm_calls.user_id NULL);
     # someone's own "check my sources" is theirs.
     with acting_as(only_user) if only_user is not None else _nobody():
-        poll_result = _poll_sources(user_ids=people)
+        poll_result = _poll_sources(user_ids=people, fresh_hours=fresh_hours)
     if everyone:
         _expire_stale_jobs()
         backfill_salaries()
@@ -759,6 +804,8 @@ def _run_daily(started_at: str, cap: int | None, only_user: int | None = None) -
         "preference_profile_rebuilt": any(p["preference_profile_rebuilt"] for p in per_person),
         "email": per_person[0]["email"] if len(per_person) == 1 else [p["email"] for p in per_person],
         "people": len(per_person),
+        "sources_fresh": poll_result["sources_fresh"],
+        "cap_reached": all(p["cap_reached"] for p in per_person) if per_person else False,
         "paused_emails": paused_emails,
     }
     _set_progress(stage="done")

@@ -26,7 +26,7 @@ def test_stream_reports_progress_then_the_summary(monkeypatch):
     monkeypatch.setattr(pipeline_api, "PROGRESS_INTERVAL_SECONDS", 0.01)
     seen_cap = {}
 
-    def fake_run(cap=None, only_user=None):
+    def fake_run(cap=None, only_user=None, fresh_hours=None):
         seen_cap["cap"] = cap
         return {"sources_polled": 3, "jobs_fetched": 40, "llm_scored_count": 12, "errors": []}
 
@@ -49,7 +49,7 @@ def test_stream_reports_progress_then_the_summary(monkeypatch):
 def test_stream_reports_a_failed_run(monkeypatch):
     monkeypatch.setattr(pipeline_api, "PROGRESS_INTERVAL_SECONDS", 0.01)
 
-    def boom(cap=None, only_user=None):
+    def boom(cap=None, only_user=None, fresh_hours=None):
         raise RuntimeError("database is locked")
 
     monkeypatch.setattr(daily_run, "run_daily", boom)
@@ -62,7 +62,7 @@ def test_second_start_follows_the_run_in_progress(monkeypatch):
     release = threading.Event()
     calls = []
 
-    def slow_run(cap=None, only_user=None):
+    def slow_run(cap=None, only_user=None, fresh_hours=None):
         calls.append(cap)
         release.wait(5)
         return {}

@@ -82,7 +82,7 @@ def test_ui_run_daily_needs_no_scheduler_secret(monkeypatch):
 def test_ui_run_daily_passes_cap(monkeypatch):
     captured = {}
 
-    def fake_run_daily(cap=None, only_user=None):
+    def fake_run_daily(cap=None, only_user=None, fresh_hours=None):
         captured["cap"] = cap
         return {"ok": True}
 

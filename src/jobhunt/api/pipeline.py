@@ -40,7 +40,12 @@ def run_daily_stream(cap: int | None = Query(default=None, ge=1, le=200)):
     or {"type": "error", "message"}. Data keeps flowing, so the connection isn't dropped as idle,
     and Cloud Run keeps CPU allocated to the instance while this request is open. If the page loses
     the stream anyway, the run carries on, and the page follows it through GET /progress."""
-    run_id = daily_run.start_run_daily(cap=cap, only_user=_only_user())
+    return stream_run(daily_run.start_run_daily(cap=cap, only_user=_only_user()))
+
+
+def stream_run(run_id: int) -> StreamingResponse:
+    """Server-sent progress for a run started with start_run_daily, until it finishes (shared
+    with New & Noteworthy's Refresh, api/digest.py)."""
 
     def events():
         yield _sse({"type": "started", "run_id": run_id})
