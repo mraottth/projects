@@ -207,7 +207,7 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 ## D-017 · Application statuses that say how far it got, and a frozen row order on My Jobs
 - **Date:** 2026-11-02
 - **Category:** ui
-- **Prompts:** ab602548-064
+- **Prompts:** ab602548-066
 
 **Decision.** The statuses become Drafting, Waiting, Interviewing, Offer, Rejected - no interview, Rejected - interviewed, and Withdrawn. They are renamed in the database too, not just relabeled, through a one-time rebuild of the `applications` table that maps existing rows, including splitting old rejections by whether their history reached an interview. My Jobs rows keep their order until the page reloads or a column is clicked. The default order is best match (interest + fit score), then most recent application. The page gets status filter chips, counts of how applications are going, and an on-demand Claude read-out of what's working.
 

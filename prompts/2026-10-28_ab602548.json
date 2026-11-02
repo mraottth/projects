@@ -1,7 +1,7 @@
 {
  "session": "ab602548-13cf-5dd6-933c-6e698e563853",
  "omitted_api_errors": 0,
- "omitted": 19,
+ "omitted": 21,
  "entries": [
   {
    "time": "2026-10-28T14:37:31.396Z",
@@ -500,6 +500,14 @@
    "text": "\"mraottth/projects is a PUBLIC repo, while job-search-assistant is private and its CLAUDE.md says nothing in it should be published publicly. The code has no secrets, but the prompt log, DECISIONS.md, CLAUDE.md and the 89 commit messages mention your name, the employers you're tracking (Civis, Blue Rose…), your ~/Documents/Resumes path, and the GCP project/bucket names. How should the move handle that?\"=\"Move everything with history\", \"After the move, what should happen to the private mraottth/job-search-assistant repo?\"=\"Keep it, archived (Recommended)\", \"What should the new folder in projects be called? Existing folders are numbered, e.g. \"01 - Shelf Life (Goodreads Recommender v2)\", \"02 - TrashBot\" … \"10 - Earthquake\".\"=\"Create a new folder called \"01 - Claude Code Projects\" and put \"01 - Shelf Life (Goodreads Recommender v2)\" in it. This can be \"02 - Job Search Assistant\" and also go in that folder\".",
    "reply": "The uncommitted changes were the prompt log's automatic update, which added your request to move the repo and your answers. I committed and pushed them to `claude/upbeat-hamilton-y05u73`.\n\nI still haven't started the move itself. It's waiting on your go-ahead to the plan in my last message, because once the full history is public it can't be taken back.",
    "id": "ab602548-062",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-02T15:35:09.247Z",
+   "kind": "prompt",
+   "text": "A couple changes to the My Jobs page: 1) when I enter a date for a job, it immediately reorders based on that date. The reorder should only happen on a page reload, or if I click to reorder. 2) There's a small bug with the calendar modal. Let's say I have 2 job rows. If I put in a date on the bottom row that moves it to the top, sometimes the calendar modal will end up open on the row that's newly on the bottom. 3) Let's add a couple filter buttons to show/hide different application statuses. 4) It'd be helpful to have some insights about my applications (number of applications, number of rejections, and ideally some useful direction about which types of jobs are working and which are not), 5) The 'Applied' status should be replaced with 'Waiting' and 'Rejected' should be replaced with 'Rejected - no interview' and 'Rejected - interviewed'. 'Phone Screen' can be removed and 'Interview' can be replaced with 'Interviewing'. 6) The default sort order should be by the job's score and then application date. 7) the interest & fit chips should be inserted under the job title",
+   "reply": null,
+   "id": "ab602548-066",
    "session": "ab602548"
   }
  ]
