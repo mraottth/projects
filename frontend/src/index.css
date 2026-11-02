@@ -756,3 +756,5 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 .admin-number { width: 64px; }
 .admin-pill { margin-left: 6px; font-size: 0.75em; }
 .admin-link + .settings-gear { margin-left: 0; }
+.usage-line { margin: 4px 0 8px; }
+.usage-line.over { color: var(--bad); font-weight: 600; }

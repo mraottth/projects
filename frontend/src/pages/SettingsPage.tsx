@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, ApiError, LlmCall, Settings } from "../api";
+import { api, ApiError, LlmCall, Me, Settings } from "../api";
 import { Markdown } from "../components/Markdown";
 import { Spinner } from "../components/Spinner";
 import { useIsAdmin } from "../me";
@@ -317,17 +317,29 @@ function UsageLog() {
   );
   const [cache, setCache] = useState<{ hit_rate: number; saved_usd: number } | null>(null);
 
+  const [usage, setUsage] = useState<Me["usage"]>(null);
+
   useEffect(() => {
     api.getUsageLog().then((r) => {
       setCalls(r.calls);
       setTotals(r.totals);
       setCache(r.cache);
     });
+    // Fresh numbers, rather than the ones App loaded when the page first opened.
+    api.getMe().then((me) => setUsage(me.usage ?? null)).catch(() => {});
   }, []);
 
   return (
     <div className="card">
       <h2>Usage log</h2>
+      {usage && (
+        <p className={`small usage-line${usage.over ? " over" : ""}`}>
+          This month: ${usage.spend_this_month.toFixed(2)}
+          {usage.exempt ? " (no limit)" : ` of your $${usage.monthly_budget_usd.toFixed(2)} budget`} · Today:{" "}
+          {usage.scored_today} of {usage.daily_score_cap} jobs scored
+          {usage.over && " · Budget reached: scoring, Jobby, tailoring and discovery pause until next month."}
+        </p>
+      )}
       {totals && (
         <p className="muted small">
           ${totals.today_cost.toFixed(2)} today · ${totals.total_cost.toFixed(2)} total ·{" "}

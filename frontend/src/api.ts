@@ -405,6 +405,16 @@ export interface Me {
   is_admin: boolean;
   name: string | null;
   id?: number | null;
+  /** This month's Claude spend and today's scoring, for Settings (approved people only). */
+  usage?: {
+    spend_this_month: number;
+    monthly_budget_usd: number;
+    remaining: number;
+    over: boolean;
+    exempt: boolean;
+    scored_today: number;
+    daily_score_cap: number;
+  } | null;
 }
 
 export interface AdminUser {

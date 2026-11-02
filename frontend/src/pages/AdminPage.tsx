@@ -145,7 +145,9 @@ export default function AdminPage() {
           </tbody>
         </table>
         <p className="muted small">
-          The monthly budget is shown for reference; stopping paid actions at the budget comes next.
+          Scoring only runs for people who opened the app in the last 7 days. Anyone who reaches their
+          monthly budget has paid features paused until next month; you get an email at 80% and at 100%.
+          Your own account has no limit.
         </p>
       </section>
     </div>
