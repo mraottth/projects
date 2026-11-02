@@ -215,3 +215,16 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 
 **Why.** "Rejected without an interview" and "rejected after interviewing" are different signals: one says the match looked weak on paper, the other that it got through. That difference is what the insights, and the preference profile built from application history, need. The counts cost nothing, and the Claude read-out runs only on request and is cached, so visiting the page stays free.
 
+## D-018 · Cache the per-run candidate context for scoring, and web-search turns
+- **Date:** 2026-11-02
+- **Category:** ai
+- **Prompts:** ab602548-067
+
+**Decision.** Scoring moves the candidate context into a cached system block, with only the posting left in the user message. Discovery, company lookup and Jobby use automatic caching. Cached tokens are logged and priced, and Settings shows the hit rate and the saving.
+
+**Context.** Anthropic emailed that the account's cache hit rate was low, estimating "up to 56%" savings. Only Jobby's system prompt was cached. Every scoring call repeated about 2,000-2,600 tokens of identical context (instructions, profiles and preferences), with only the 800-1,500-token posting varying.
+
+**Alternatives considered.** The 1-hour cache lifetime, and caching tailoring and board-page reading.
+
+**Why.** Estimated from the code, not measured: about 15-25% off scoring and 20-40% off each web-search call, roughly 15-30% of the bill overall. 56% is Anthropic's upper bound; output tokens and the varying postings and pages can't be cached. Scoring calls in a run start well under 5 minutes apart, so the default lifetime stays warm on its own, and the 2x write of the 1-hour lifetime would buy nothing. Tailoring and board reading never repeat a prefix within 5 minutes.
+

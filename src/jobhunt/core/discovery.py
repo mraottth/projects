@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 
 from pydantic import BaseModel
 
-from jobhunt.core.llm import DEFAULT_MODEL, get_client, llm_error_boundary, log_call
+from jobhunt.core.llm import DEFAULT_MODEL, cache_tokens, get_client, llm_error_boundary, log_call
 
 SYSTEM_PROMPT = """You suggest companies a job seeker should consider monitoring for openings, \
 based on their candidate profile and the roles/sectors/locations they're targeting -- desired \
@@ -106,6 +106,10 @@ def run_web_search(system: str, user_content: str, note: str, client=None) -> st
             messages=messages,
             tools=[{"type": "web_search_20260209", "name": "web_search", "max_uses": MAX_WEB_SEARCHES}],
             output_config={"effort": DISCOVERY_EFFORT},
+            # Automatic caching: each search step, and each pause_turn continuation, re-reads the
+            # whole conversation so far, search results included. With caching on, the API also
+            # caches after each search result, so those re-reads are billed as cache reads.
+            cache_control={"type": "ephemeral"},
         )
         texts.extend(b.text for b in response.content if b.type == "text")
         search_uses = sum(1 for b in response.content if b.type == "server_tool_use")
@@ -115,6 +119,7 @@ def run_web_search(system: str, user_content: str, note: str, client=None) -> st
             input_tokens=response.usage.input_tokens,
             output_tokens=response.usage.output_tokens,
             note=f"{note} ({search_uses} web search(es))",
+            **cache_tokens(response.usage),
         )
         if getattr(response, "stop_reason", None) != "pause_turn":
             break

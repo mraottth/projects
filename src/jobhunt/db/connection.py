@@ -25,6 +25,9 @@ MIGRATIONS = [
     "CREATE INDEX IF NOT EXISTS idx_resumes_content_hash ON resumes(content_hash)",
     # When a digest entry went out in the daily email (core/email_digest.py), so it's sent once.
     "ALTER TABLE digest_entries ADD COLUMN emailed_at TEXT",
+    # Prompt-cache reads and writes per Claude call (core/llm.py), priced separately from input.
+    "ALTER TABLE llm_calls ADD COLUMN cache_read_tokens INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE llm_calls ADD COLUMN cache_write_tokens INTEGER NOT NULL DEFAULT 0",
 ]
 
 

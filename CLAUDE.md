@@ -43,6 +43,25 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   `llm_calls` with an estimated cost (`PRICING_PER_MTOK`, update when Anthropic pricing changes). Every
   module that calls Claude should log through this, not call `anthropic` directly — it's what backs the
   Settings-page usage log.
+  - **Prompt caching** (D-018, after Anthropic emailed that the cache hit rate was low).
+    - `core/scoring.py` sends the candidate context (profiles, titles, sectors, salary floor,
+      notes, recent feedback) as a second `system` block with `cache_control`, and only the posting
+      as the user message. That context is identical for every job in a run, so the first call
+      writes it and the rest read it. Keep it free of anything that changes per call.
+    - `core/discovery.py`'s `run_web_search()` (discovery and company lookup) and Jobby's stream use
+      top-level automatic caching (`cache_control={"type": "ephemeral"}`). Web search steps and
+      `pause_turn` continuations re-read the whole conversation, and the API caches after each
+      search result once caching is on. Jobby also keeps its explicit breakpoint on its context.
+    - `messages.parse()` has no top-level `cache_control` parameter in this SDK version (2.3), so
+      scoring uses a block-level marker.
+    - `log_call()` takes `cache_read_tokens`/`cache_write_tokens` (use `**cache_tokens(usage)`),
+      priced at 0.1x / 1.25x input (`CACHE_READ_MULTIPLIER`/`CACHE_WRITE_MULTIPLIER`, the 5-minute
+      TTL), and stored in two `llm_calls` columns (a migration). Before this, cached tokens weren't
+      counted at all, so Jobby read low.
+    - Settings' Usage log shows the last 7 days' cache hit rate and the net saving
+      (`_cache_summary()` in `api/settings.py`).
+    - Not cached on purpose: board-page extraction (every page differs, read once a day), tailoring
+      (calls too far apart for a 5-minute cache), and one-off or sub-1,024-token calls.
   - Model default is `claude-sonnet-5` (`JOBHUNT_LLM_MODEL` env override), not Opus. This is a
     deliberate cost/quality tradeoff for a cost-capped personal tool — mirrors the Haiku/Sonnet tiering
     Shelf Life's `chat.py` uses for its own Assistant. Revisit if scoring quality ever disappoints.

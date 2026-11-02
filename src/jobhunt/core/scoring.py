@@ -3,7 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from jobhunt.core.llm import DEFAULT_MODEL, get_client, llm_error_boundary, log_call
+from jobhunt.core.llm import DEFAULT_MODEL, cache_tokens, get_client, llm_error_boundary, log_call
 from jobhunt.db.connection import get_db
 
 SYSTEM_PROMPT = """You are helping a job seeker triage incoming postings. You will be given: their \
@@ -124,24 +124,31 @@ def score_job(
     salary_text = f"{salary_floor:,.0f}" if salary_floor else "(not specified)"
     notes_text = looking_for_notes or "(not specified)"
 
-    user_content = (
+    # Everything about the candidate is the same for every job in a run, so it goes in the system
+    # prompt behind a cache breakpoint: the first call of a run writes it (1.25x input price) and
+    # the rest read it (0.1x). Only the posting varies. Nothing here may change between calls in a
+    # run (no timestamps, stable ordering), or every call becomes a cache miss.
+    candidate_context = (
         f"## Candidate profile\n{candidate_profile or '(not yet built)'}\n\n"
         f"## Preference profile\n{preference_profile or '(not yet built -- no feedback history)'}\n\n"
         f"## Desired sectors/industries\n{sectors_text}\n\n"
         f"## Desired job titles (guidance, not a required exact match)\n{titles_text}\n\n"
         f"## Minimum salary (guidance, not a hard cutoff)\n{salary_text}\n\n"
         f"## In their own words, what they're looking for\n{notes_text}\n\n"
-        f"## Recent feedback\n{_recent_feedback_text()}\n\n"
-        f"## Job posting to score\n{posting_text}"
+        f"## Recent feedback\n{_recent_feedback_text()}"
     )
+    system = [
+        {"type": "text", "text": SYSTEM_PROMPT},
+        {"type": "text", "text": candidate_context, "cache_control": {"type": "ephemeral"}},
+    ]
 
     client = get_client()
     with llm_error_boundary("scoring the job"):
         response = client.messages.parse(
             model=DEFAULT_MODEL,
             max_tokens=3000,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_content}],
+            system=system,
+            messages=[{"role": "user", "content": f"## Job posting to score\n{posting_text}"}],
             output_format=ScoredPosting,
             output_config={"effort": SCORING_EFFORT},
         )
@@ -151,6 +158,7 @@ def score_job(
         input_tokens=response.usage.input_tokens,
         output_tokens=response.usage.output_tokens,
         job_id=job.get("id"),
+        **cache_tokens(response.usage),
     )
     return response.parsed_output
 

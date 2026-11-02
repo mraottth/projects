@@ -192,7 +192,9 @@ CREATE TABLE IF NOT EXISTS llm_calls (
     output_tokens INTEGER,
     estimated_cost_usd REAL,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    note TEXT
+    note TEXT,
+    cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+    cache_write_tokens INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_llm_calls_created ON llm_calls(created_at);
 

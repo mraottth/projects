@@ -263,11 +263,13 @@ function UsageLog() {
   const [totals, setTotals] = useState<{ total_cost: number; today_cost: number; total_calls: number } | null>(
     null,
   );
+  const [cache, setCache] = useState<{ hit_rate: number; saved_usd: number } | null>(null);
 
   useEffect(() => {
     api.getUsageLog().then((r) => {
       setCalls(r.calls);
       setTotals(r.totals);
+      setCache(r.cache);
     });
   }, []);
 
@@ -278,6 +280,12 @@ function UsageLog() {
         <p className="muted small">
           ${totals.today_cost.toFixed(2)} today · ${totals.total_cost.toFixed(2)} total ·{" "}
           {totals.total_calls} calls
+        </p>
+      )}
+      {cache && cache.hit_rate > 0 && (
+        <p className="muted small">
+          Prompt cache, last 7 days: {Math.round(cache.hit_rate * 100)}% of input read from cache, saving about $
+          {cache.saved_usd.toFixed(2)}.
         </p>
       )}
       <table>
@@ -298,6 +306,7 @@ function UsageLog() {
               <td className="small">{c.model}</td>
               <td className="small">
                 {c.input_tokens}/{c.output_tokens}
+                {c.cache_read_tokens > 0 && <span className="muted"> · {c.cache_read_tokens} cached</span>}
               </td>
               <td className="small">{c.estimated_cost_usd != null ? `$${c.estimated_cost_usd.toFixed(4)}` : "—"}</td>
             </tr>

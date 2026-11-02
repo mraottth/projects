@@ -55,7 +55,9 @@ def test_score_job_includes_desired_sectors_in_prompt(monkeypatch):
     orig_parse = fake_client.messages.parse
 
     def spy_parse(**kwargs):
-        captured["content"] = kwargs["messages"][0]["content"]
+        # The candidate context is a cached system block now, the posting the user message.
+        system_text = "\n".join(block["text"] for block in kwargs["system"])
+        captured["content"] = system_text + "\n" + kwargs["messages"][0]["content"]
         return orig_parse(**kwargs)
 
     fake_client.messages.parse = spy_parse
@@ -83,7 +85,9 @@ def test_score_job_includes_desired_titles_and_salary_floor_in_prompt(monkeypatc
     orig_parse = fake_client.messages.parse
 
     def spy_parse(**kwargs):
-        captured["content"] = kwargs["messages"][0]["content"]
+        # The candidate context is a cached system block now, the posting the user message.
+        system_text = "\n".join(block["text"] for block in kwargs["system"])
+        captured["content"] = system_text + "\n" + kwargs["messages"][0]["content"]
         return orig_parse(**kwargs)
 
     fake_client.messages.parse = spy_parse

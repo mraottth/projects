@@ -10,7 +10,7 @@ search, e.g. for company research; a long server-tool turn that pauses (stop_rea
 
 from collections.abc import Iterator
 
-from jobhunt.core.llm import DEFAULT_MODEL, LLMError, get_client, llm_error_boundary, log_call
+from jobhunt.core.llm import DEFAULT_MODEL, LLMError, cache_tokens, get_client, llm_error_boundary, log_call
 from jobhunt.core.profile import get_current_candidate_profile
 from jobhunt.core.settings import get_settings
 from jobhunt.db.connection import get_db
@@ -285,6 +285,10 @@ def stream_reply(job_id: int | None, content: str) -> Iterator[dict]:
                         {"type": "web_search_20260209", "name": "web_search", "max_uses": MAX_WEB_SEARCHES}
                     ],
                     output_config={"effort": JOBBY_EFFORT},
+                    # Automatic caching for the growing conversation (the system block above has
+                    # its own breakpoint): a reply within 5 minutes, as in a mock interview,
+                    # re-reads the earlier turns from cache instead of at full price.
+                    cache_control={"type": "ephemeral"},
                 ) as stream:
                     for event in stream:
                         if event.type == "content_block_start" and getattr(
@@ -305,6 +309,7 @@ def stream_reply(job_id: int | None, content: str) -> Iterator[dict]:
                 output_tokens=final.usage.output_tokens,
                 job_id=job_id,
                 note=f"jobby chat ({searches} web search(es))",
+                **cache_tokens(final.usage),
             )
             if final.stop_reason != "pause_turn":
                 break

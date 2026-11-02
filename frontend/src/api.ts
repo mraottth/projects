@@ -393,6 +393,8 @@ export interface LlmCall {
   estimated_cost_usd: number | null;
   created_at: string;
   note: string | null;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
 }
 
 export const api = {
@@ -583,9 +585,12 @@ export const api = {
     }),
 
   getUsageLog: () =>
-    request<{ calls: LlmCall[]; totals: { total_cost: number; today_cost: number; total_calls: number } }>(
-      "/api/settings/usage-log",
-    ),
+    request<{
+      calls: LlmCall[];
+      totals: { total_cost: number; today_cost: number; total_calls: number };
+      // Last 7 days: share of input tokens read from the prompt cache, and the net saving.
+      cache: { hit_rate: number; saved_usd: number };
+    }>("/api/settings/usage-log"),
 
   runDailyNow: (cap?: number, onProgress?: (p: RunProgress) => void) => runDaily(cap, onProgress),
 

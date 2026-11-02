@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from jobhunt.core import retag
 
-from jobhunt.core.llm import LLMError
+from jobhunt.core.llm import CACHE_READ_MULTIPLIER, CACHE_WRITE_MULTIPLIER, PRICING_PER_MTOK, LLMError
 from jobhunt.core.email_digest import EmailNotConfigured, email_status, send_test_email
 from jobhunt.core.reset import delete_all_data
 from jobhunt.core.preference import get_current_preference_profile, rebuild_preference_profile
@@ -105,7 +105,29 @@ def usage_log(limit: int = 100):
                    COUNT(*) AS total_calls
                FROM llm_calls"""
         ).fetchone()
-    return {"calls": [dict(r) for r in rows], "totals": dict(totals)}
+        cache_rows = conn.execute(
+            """SELECT model, SUM(input_tokens) AS input, SUM(cache_read_tokens) AS reads,
+                      SUM(cache_write_tokens) AS writes
+               FROM llm_calls WHERE created_at >= datetime('now', '-7 days') GROUP BY model"""
+        ).fetchall()
+    return {"calls": [dict(r) for r in rows], "totals": dict(totals), "cache": _cache_summary(cache_rows)}
+
+
+def _cache_summary(rows) -> dict:
+    """The last 7 days of prompt caching: the share of input tokens read from cache, and what that
+    saved after paying for the cache writes."""
+    total_input = reads = 0
+    saved = 0.0
+    for r in rows:
+        r_input, r_reads, r_writes = r["input"] or 0, r["reads"] or 0, r["writes"] or 0
+        total_input += r_input + r_reads + r_writes
+        reads += r_reads
+        rates = PRICING_PER_MTOK.get(r["model"])
+        if rates:
+            per_token = rates[0] / 1_000_000
+            saved += r_reads * per_token * (1 - CACHE_READ_MULTIPLIER)
+            saved -= r_writes * per_token * (CACHE_WRITE_MULTIPLIER - 1)
+    return {"hit_rate": reads / total_input if total_input else 0.0, "saved_usd": saved}
 
 
 @router.get("/preference-profile")

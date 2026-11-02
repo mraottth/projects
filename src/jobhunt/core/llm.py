@@ -73,12 +73,36 @@ def llm_error_boundary(action: str):
         raise
 
 
-def estimate_cost_usd(model: str, input_tokens: int, output_tokens: int) -> float | None:
+# Prompt-cache pricing, as multiples of the input rate: a read is 0.1x, a write with the default
+# 5-minute lifetime 1.25x (the only lifetime this app uses). Cached tokens aren't part of
+# usage.input_tokens, so they're priced separately here.
+CACHE_READ_MULTIPLIER = 0.1
+CACHE_WRITE_MULTIPLIER = 1.25
+
+
+def estimate_cost_usd(
+    model: str,
+    input_tokens: int,
+    output_tokens: int,
+    cache_read_tokens: int = 0,
+    cache_write_tokens: int = 0,
+) -> float | None:
     rates = PRICING_PER_MTOK.get(model)
     if rates is None:
         return None
     in_rate, out_rate = rates
-    return (input_tokens / 1_000_000) * in_rate + (output_tokens / 1_000_000) * out_rate
+    billed_input = (
+        input_tokens + cache_read_tokens * CACHE_READ_MULTIPLIER + cache_write_tokens * CACHE_WRITE_MULTIPLIER
+    )
+    return (billed_input / 1_000_000) * in_rate + (output_tokens / 1_000_000) * out_rate
+
+
+def cache_tokens(usage) -> dict:
+    """A response's cache reads and writes, as log_call keyword arguments (0 when absent)."""
+    return {
+        "cache_read_tokens": getattr(usage, "cache_read_input_tokens", None) or 0,
+        "cache_write_tokens": getattr(usage, "cache_creation_input_tokens", None) or 0,
+    }
 
 
 def log_call(
@@ -88,12 +112,25 @@ def log_call(
     output_tokens: int,
     job_id: int | None = None,
     note: str | None = None,
+    cache_read_tokens: int = 0,
+    cache_write_tokens: int = 0,
 ) -> None:
-    cost = estimate_cost_usd(model, input_tokens, output_tokens)
+    cost = estimate_cost_usd(model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens)
     with get_db() as conn:
         conn.execute(
             """INSERT INTO llm_calls
-               (call_type, job_id, model, input_tokens, output_tokens, estimated_cost_usd, note)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (call_type, job_id, model, input_tokens, output_tokens, cost, note),
+               (call_type, job_id, model, input_tokens, output_tokens, estimated_cost_usd, note,
+                cache_read_tokens, cache_write_tokens)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                call_type,
+                job_id,
+                model,
+                input_tokens,
+                output_tokens,
+                cost,
+                note,
+                cache_read_tokens,
+                cache_write_tokens,
+            ),
         )
