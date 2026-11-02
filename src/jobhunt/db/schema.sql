@@ -225,7 +225,12 @@ CREATE TABLE IF NOT EXISTS runs (
     llm_scored_count INTEGER,
     cap_used INTEGER,
     carried_over_count INTEGER,
-    errors_json TEXT
+    errors_json TEXT,
+    -- Set on the everyone run's own row (user_id NULL), for the Admin page's "Daily check" card:
+    -- 'running' when it starts, then 'ok' or 'failed' (error), and who started it.
+    status TEXT,
+    started_by TEXT,
+    error TEXT
 );
 
 CREATE TABLE IF NOT EXISTS llm_calls (

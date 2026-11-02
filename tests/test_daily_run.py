@@ -81,7 +81,7 @@ def test_run_daily_full_cycle(monkeypatch):
         jobs = conn.execute("SELECT COUNT(*) AS n FROM jobs").fetchone()["n"]
         scores = conn.execute("SELECT COUNT(*) AS n FROM job_scores").fetchone()["n"]
         digest = conn.execute("SELECT COUNT(*) AS n FROM digest_entries").fetchone()["n"]
-        runs = conn.execute("SELECT COUNT(*) AS n FROM runs").fetchone()["n"]
+        runs = conn.execute("SELECT COUNT(*) AS n FROM runs WHERE user_id IS NOT NULL").fetchone()["n"]
     assert jobs == 2
     assert scores == 2
     assert digest == 2

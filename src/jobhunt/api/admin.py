@@ -1,5 +1,6 @@
 """The admin page's API (D-021): access requests, everyone's status, usage and limits."""
 
+import json
 import os
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -40,7 +41,40 @@ def list_users():
             """SELECT COALESCE(SUM(estimated_cost_usd), 0) AS spend FROM llm_calls
                WHERE user_id IS NULL AND created_at >= date('now', 'start of month')"""
         ).fetchone()
-    return {"users": [dict(r) for r in rows], "shared_spend_this_month": shared["spend"]}
+    return {
+        "users": [dict(r) for r in rows],
+        "shared_spend_this_month": shared["spend"],
+        "daily_run": _daily_run_status(),
+    }
+
+
+# A run still 'running' after this long died without finishing (its server was shut down or
+# crashed), since the request's own limit is an hour (--timeout 3600).
+STUCK_AFTER_MINUTES = 70
+
+
+def _daily_run_status() -> dict:
+    """The latest everyone run (scheduled at 2pm ET, or the admin's "Check every source now") and
+    the last one that finished cleanly, for the Admin page's "Daily check" card."""
+    with get_db() as conn:
+        latest = conn.execute(
+            """SELECT *, (julianday('now') - julianday(started_at)) * 1440 AS minutes_ago
+               FROM runs WHERE user_id IS NULL AND status IS NOT NULL ORDER BY id DESC LIMIT 1"""
+        ).fetchone()
+        last_ok = conn.execute(
+            "SELECT finished_at FROM runs WHERE user_id IS NULL AND status = 'ok' ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+    if latest is None:
+        return {"latest": None, "last_ok_finished_at": None}
+    run = dict(latest)
+    if run["status"] == "running" and run.pop("minutes_ago") > STUCK_AFTER_MINUTES:
+        run["status"] = "unfinished"
+    run.pop("minutes_ago", None)
+    details = json.loads(run.pop("errors_json") or "{}")
+    if isinstance(details, dict):
+        run["source_errors"] = details.get("errors", [])
+        run["people"] = details.get("people")
+    return {"latest": run, "last_ok_finished_at": last_ok["finished_at"] if last_ok else None}
 
 
 class UserUpdate(BaseModel):

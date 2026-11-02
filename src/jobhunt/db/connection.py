@@ -36,6 +36,10 @@ MIGRATIONS = [
     # Monthly budget alerts to the admin, once each per person per month (core/budget.py).
     "ALTER TABLE users ADD COLUMN budget_alert_month TEXT",
     "ALTER TABLE users ADD COLUMN budget_block_month TEXT",
+    # The everyone run's outcome, for the Admin page (pipeline/daily_run.py's _system_run_*).
+    "ALTER TABLE runs ADD COLUMN status TEXT",
+    "ALTER TABLE runs ADD COLUMN started_by TEXT",
+    "ALTER TABLE runs ADD COLUMN error TEXT",
 ]
 
 

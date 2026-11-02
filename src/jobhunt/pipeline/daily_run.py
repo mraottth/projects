@@ -628,8 +628,20 @@ def run_daily(cap: int | None = None, only_user: int | None = None, fresh_hours:
         with _run_lock:
             started_at = datetime.now(UTC).isoformat()
             _set_progress(stage="starting", sources_done=0, sources_total=0, jobs_done=0, jobs_total=0)
+            # The everyone run (scheduled, or the admin's "Check every source now") gets a row of
+            # its own, written as it starts, so a run that crashes, or whose server is shut down
+            # mid-run, still shows on the Admin page (2026-11-02: three days of 500s went unseen).
+            system_run = _system_run_started(started_at) if only_user is None else None
             try:
-                return _run_daily(started_at, cap, only_user, fresh_hours)
+                summary = _run_daily(started_at, cap, only_user, fresh_hours)
+            except Exception as exc:
+                if system_run is not None:
+                    _system_run_finished(system_run, None, f"{type(exc).__name__}: {exc}")
+                raise
+            else:
+                if system_run is not None:
+                    _system_run_finished(system_run, summary, None)
+                return summary
             finally:
                 progress = _current_progress()
                 with _progress_lock:
@@ -838,3 +850,32 @@ def _send_paused_emails() -> int:
             mark_paused_email_sent(user["id"])
             sent += 1
     return sent
+
+
+def _system_run_started(started_at: str) -> int:
+    with get_db() as conn:
+        return conn.execute(
+            "INSERT INTO runs (user_id, run_date, started_at, status, started_by) "
+            "VALUES (NULL, ?, ?, 'running', ?)",
+            (date.today().isoformat(), started_at, "scheduled" if optional_user_id() is None else "admin"),
+        ).lastrowid
+
+
+def _system_run_finished(run_id: int, summary: dict | None, error: str | None) -> None:
+    summary = summary or {}
+    with get_db() as conn:
+        conn.execute(
+            """UPDATE runs SET finished_at = ?, status = ?, error = ?, sources_polled = ?, jobs_fetched = ?,
+                   llm_scored_count = ?, errors_json = ?
+               WHERE id = ?""",
+            (
+                datetime.now(UTC).isoformat(),
+                "failed" if error else "ok",
+                error,
+                summary.get("sources_polled"),
+                summary.get("jobs_fetched"),
+                summary.get("llm_scored_count"),
+                json.dumps({"errors": summary.get("errors", []), "people": summary.get("people")}),
+                run_id,
+            ),
+        )

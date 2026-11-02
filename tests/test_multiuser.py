@@ -229,7 +229,9 @@ def test_daily_run_reads_a_shared_source_once_and_scores_each_person(monkeypatch
         digests = dict(
             conn.execute("SELECT user_id, COUNT(*) FROM digest_entries GROUP BY user_id").fetchall()
         )
-        runs = [r[0] for r in conn.execute("SELECT user_id FROM runs ORDER BY user_id")]
+        runs = [
+            r[0] for r in conn.execute("SELECT user_id FROM runs WHERE user_id IS NOT NULL ORDER BY user_id")
+        ]
     assert scored == {1: 2, b: 1}  # B's cap is 1
     assert digests == {1: 2, b: 1}
     assert runs == [1, b, b + 1]
