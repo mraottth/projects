@@ -280,3 +280,27 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 - Fail-closed identity (no user, no data; NOT NULL `user_id`) means a missed spot errors in tests rather than leaking. It caught every raw insert in the old tests.
 - IAP still does the Google sign-in, so there are no passwords to handle; the app verifies the signed token itself.
 - The daily cap moved onto the user, so only the admin can raise it.
+
+## D-022 · Cost controls: score only active people, enforce each person's monthly budget
+- **Date:** 2026-11-02
+- **Category:** infra
+- **Prompts:** ab602548-079, ab602548-080, ab602548-081
+
+**Decision.**
+- The daily run scores only people who opened the app in the last 7 days. A person who lapses gets one "your matches are paused" email, and their next visit resumes scoring.
+- Each person has a monthly Claude budget ($10 by default, set on /admin). It's enforced where every paid call gets its client. When someone reaches it, their paid features stop with a plain message until next month or until the admin raises it.
+- The admin gets an email at 80% and at 100%. The admin's own account has no limit.
+
+**Context.** Step 4 of the multi-user plan (D-021), which the owner wanted in place before inviting anyone, so costs can't run away. They first chose a 3-day activity window, then went back to 7, keeping the paused email ("scratch the 3day idea. Let's keep it at 7. The paused email still makes sense").
+
+**Alternatives considered.**
+- A 3-day window: the owner's first choice, reversed.
+- Checking the budget in each route: 17 call sites to keep in sync.
+- Hard-stopping on the daily cap alone: it doesn't bound Jobby, tailoring or discovery.
+- Charging shared board reads to followers: unpredictable per-person costs for work done once for everyone.
+
+**Why.**
+- Nobody pays for matches no one reads.
+- One choke point means a new paid feature is covered automatically.
+- Raising an `LLMError` reuses every route's existing error path.
+- A first visit after a lapse fixes everything without the person doing anything.

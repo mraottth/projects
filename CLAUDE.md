@@ -94,8 +94,22 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     core calls as user 1. `tests/test_multiuser.py` covers isolation (a second person on every
     endpoint), shared sources, approval, per-person runs and the migration; `tests/test_auth.py`
     covers token checks with a locally generated ES256 key.
-  - Not yet (plan steps 4-6): scoring only people active in the last 7 days plus the "paused" email,
-    enforcing the monthly budget, New & Noteworthy's "Last updated"/Refresh, "Delete my account".
+  - **Cost controls (D-022).**
+    - *Activity.* The everyone run scores only `users.active_user_ids()`: approved, and
+      `COALESCE(last_seen_at, decided_at, created_at)` within `ACTIVE_DAYS` (7), so a new person
+      counts until their first visit. Sources followed only by inactive people aren't read.
+      `_send_paused_emails()` tells each person who just lapsed, once (`paused_email_sent_at`); a
+      failed or unconfigured send stays unmarked and retries. `touch_last_seen()` clears the flag on
+      the next visit. `only_user` runs ignore the rule, and the admin gets no exemption.
+    - *Budget.* `core/budget.py`: spend is this calendar month's `llm_calls` for that person. It's
+      enforced in `llm.get_client()`, which every paid call site calls first, by raising
+      `BudgetExceeded`, an `LLMError` that routes already turn into a message. Shared work (nobody
+      set) and the admin are never blocked. `_run_for_person()`/`refresh_sources()` skip scoring when
+      over. `log_call()` → `budget.after_call()` emails the admin at 80% and at 100%, once each per
+      person per month (`users.budget_alert_month`/`budget_block_month`, MIGRATIONS ALTERs).
+      `/api/me` returns `usage` (spend, budget, over, exempt, scored today, cap), shown as Settings'
+      usage line.
+  - Not yet (plan steps 5-6): New & Noteworthy's "Last updated"/Refresh, "Delete my account".
 - `src/jobhunt/db/schema.sql` — full SQLite schema, applied idempotently at startup
   (`db/connection.py`). `CREATE TABLE IF NOT EXISTS` never alters an existing table, so a new column
   on one needs an entry in `connection.py`'s `MIGRATIONS` list (plain `ALTER TABLE ... ADD COLUMN`,
