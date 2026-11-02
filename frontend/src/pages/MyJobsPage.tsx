@@ -200,7 +200,7 @@ function DocActions({ app, onChanged }: { app: Application; onChanged: (app: App
   };
 
   return (
-    <div className="doc-actions">
+    <div className="doc-actions stacked">
       {app.resume_doc_id ? (
         <a
           className="ghost small doc-download"
@@ -231,6 +231,26 @@ function DocActions({ app, onChanged }: { app: Application; onChanged: (app: App
         Prep with Jobby
       </Link>
       {error && <span className="error-text small">{error}</span>}
+    </div>
+  );
+}
+
+/** The Prep column: one small toggle that opens the tailoring and Jobby actions, stacked, inside
+ * the cell. Showing all three inline made the column the widest in the table. */
+function PrepCell({ app, onChanged }: { app: Application; onChanged: (app: Application) => void }) {
+  const [open, setOpen] = useState(false);
+  const ready = (app.resume_doc_id ? 1 : 0) + (app.cover_letter_doc_id ? 1 : 0);
+  return (
+    <div className="prep-cell">
+      <button
+        className={`ghost small prep-toggle${ready ? " has-ready" : ""}`}
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        title={ready ? `${ready} tailored document${ready > 1 ? "s" : ""} ready to download` : undefined}
+      >
+        Prep{ready > 0 && ` · ${ready} ready`} {open ? "▴" : "▾"}
+      </button>
+      {open && <DocActions app={app} onChanged={onChanged} />}
     </div>
   );
 }
@@ -336,6 +356,11 @@ function inView(app: Application, view: StatusView): boolean {
   return CLOSED.includes(app.status) === (view === "closed");
 }
 
+// SQLite's datetime('now') is UTC without a zone marker.
+function parseDbTime(value: string): number {
+  return new Date(value.includes("T") ? value : `${value.replace(" ", "T")}Z`).getTime();
+}
+
 function pct(part: number, whole: number): string {
   return whole ? `${Math.round((100 * part) / whole)}%` : "–";
 }
@@ -380,9 +405,13 @@ function Insights({ apps }: { apps: Application[] }) {
     }
   };
 
-  const stale = analysis !== null && analysis.applications !== apps.length;
+  // Out of date once any application changed after Jobby wrote this (a status or date edit, a new
+  // job), or one was removed (the count differs).
+  const generatedAt = analysis ? new Date(analysis.generated_at).getTime() : 0;
+  const stale =
+    analysis !== null &&
+    (analysis.applications !== apps.length || apps.some((a) => parseDbTime(a.updated_at) > generatedAt));
   const preview = analysis ? takeaway(analysis.text) : null;
-  const askLabel = analysis ? "Ask Jobby again" : "Ask Jobby what's working";
 
   return (
     <div className="card insights">
@@ -418,17 +447,13 @@ function Insights({ apps }: { apps: Application[] }) {
                 <button className="ghost small" onClick={() => setOpen(true)}>
                   Read Jobby's take
                 </button>
-                <button className="link small" onClick={ask} disabled={busy || sent.length === 0}>
-                  {busy ? <Spinner label="Jobby is reading..." /> : askLabel}
-                </button>
               </div>
-              {stale && <p className="small muted">Your list has changed since then.</p>}
             </>
           ) : (
             <>
               <p className="small muted">Jobby can read your applications and tell you what's landing and what isn't.</p>
               <button className="ghost small" onClick={ask} disabled={busy || sent.length === 0}>
-                {busy ? <Spinner label="Jobby is reading..." /> : askLabel}
+                {busy ? <Spinner label="Jobby is reading..." /> : "Ask Jobby what's working"}
               </button>
             </>
           )}
@@ -447,16 +472,29 @@ function Insights({ apps }: { apps: Application[] }) {
         {analysis && (
           <>
             <Markdown text={analysis.text} />
-            <p className="small muted">
-              Based on {analysis.applications} jobs, {new Date(analysis.generated_at).toLocaleDateString()}.
-            </p>
+            <div className="jobby-updated small">
+              <span className="muted">
+                Last updated{" "}
+                {new Date(analysis.generated_at).toLocaleString(undefined, {
+                  month: "short",
+                  day: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                })}
+                , from {analysis.applications} jobs.
+                {stale && " Your applications have changed since then."}
+              </span>
+              {stale && (
+                <button className="ghost small" onClick={ask} disabled={busy}>
+                  {busy ? <Spinner label="Jobby is re-reading..." /> : "↻ Refresh"}
+                </button>
+              )}
+            </div>
+            {error && <p className="error-text small">{error}</p>}
             <div className="form-actions">
               <Link className="ghost button-link" to="/jobby">
                 Talk it over with Jobby
               </Link>
-              <button className="link small" onClick={ask} disabled={busy}>
-                {busy ? <Spinner label="Jobby is reading..." /> : "Ask again with my latest list"}
-              </button>
             </div>
           </>
         )}
@@ -552,8 +590,8 @@ export default function MyJobsPage() {
       </p>
 
       <div className={`myjobs-top${apps.length > 0 ? "" : " single"}`}>
-        <AddJobForm onAdded={(job) => setPending((p) => [...p, job])} />
         {apps.length > 0 && <Insights apps={apps} />}
+        <AddJobForm onAdded={(job) => setPending((p) => [...p, job])} />
       </div>
 
       {pending.map((job) => (
@@ -627,7 +665,7 @@ export default function MyJobsPage() {
                   <SortHeader label="Salary" columnKey="salary" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                   <SortHeader label="Applied" columnKey="applied_at" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                   <SortHeader label="Status" columnKey="status" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-                  <th>Documents</th>
+                  <th>Prep</th>
                   <th aria-label="Remove"></th>
                 </tr>
               </thead>
@@ -652,8 +690,8 @@ export default function MyJobsPage() {
                     <td className="col-nowrap">
                       <StatusSelect app={app} onChanged={updateInPlace} />
                     </td>
-                    <td className="col-docs">
-                      <DocActions app={app} onChanged={updateInPlace} />
+                    <td className="col-nowrap">
+                      <PrepCell app={app} onChanged={updateInPlace} />
                     </td>
                     <td>
                       <RemoveButton

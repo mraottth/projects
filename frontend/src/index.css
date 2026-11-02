@@ -682,7 +682,7 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 .discover-bare > .muted.small:first-child { margin-top: 0; }
 
 /* ---------- my jobs: add + insights side by side, sticky toolbar and header, column widths */
-.myjobs-top { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 16px; align-items: start; margin-bottom: 16px; }
+.myjobs-top { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; align-items: start; margin-bottom: 16px; }
 .myjobs-top.single { grid-template-columns: minmax(0, 1fr); }
 .myjobs-top > .card { margin: 0; }
 @media (max-width: 900px) { .myjobs-top { grid-template-columns: minmax(0, 1fr); } }
@@ -700,6 +700,7 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 .jobby-take-preview { font-size: 0.9rem; }
 .jobby-take-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .jobby-modal-title { display: inline-flex; align-items: center; gap: 10px; }
+.jobby-updated { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 10px 0 4px; }
 .modal .md h2 { font-size: 1rem; margin: 14px 0 6px; }
 .myjobs-table-card { padding-top: 0; }
 .myjobs-toolbar {
@@ -718,8 +719,8 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 /* As wide as the chosen status, not the longest option, where the browser supports it. */
 .jobs-table .status-select { field-sizing: content; }
 .jobs-table .col-nowrap { white-space: nowrap; }
-.jobs-table .col-docs { min-width: 296px; }
-@media (max-width: 1240px) { .jobs-table .col-docs { min-width: 0; } }
+.prep-toggle.has-ready { background: var(--good-bg); color: var(--good); border-color: transparent; font-weight: 600; }
+.doc-actions.stacked { flex-direction: column; align-items: flex-start; margin-top: 6px; }
 .jobs-table td.col-nowrap input[type="date"] { width: 128px !important; }
 .jobs-table .doc-actions .ghost { white-space: nowrap; }
 .title-badges { display: flex; gap: 4px; margin-top: 4px; white-space: nowrap; }

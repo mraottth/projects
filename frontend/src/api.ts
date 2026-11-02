@@ -109,6 +109,7 @@ export interface Application {
   resume_doc_id: number | null;
   cover_letter_doc_id: number | null;
   history: { status: string; changed_at: string }[];
+  updated_at: string; // SQLite datetime('now'): UTC without a zone marker
   // The job's latest score (null until it's scored).
   interest_fit: "High" | "Med" | "Low" | null;
   interest_score: number | null;

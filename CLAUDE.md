@@ -583,8 +583,10 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     `GET /api/applications` now joins in), then most recently applied. Every column sort breaks ties
     the same way, and "Sort by best match" returns to it.
   - The Interest and Fit chips (`FitBadge`, exported from `ScoredJobCard.tsx`) sit under the title.
-  - Layout (second pass, same day): "Add a job" and "How your applications are going" sit side by
-    side (`.myjobs-top`, stacked under 900px) so the table starts above the fold. The search box,
+  - Layout (second pass, same day): "How your applications are going" (left, the taller one) and
+    "Add a job" (right; swapped at the user's ask so the short card's white space sits on the right)
+    sit side by side (`.myjobs-top`, 3fr/2fr, stacked under 900px) so the table starts above the
+    fold. The search box,
     an Active / Closed / All toggle (`.seg`; Closed = both rejections and withdrawn, default
     Active) and the sort links form one toolbar inside the table card. That toolbar and the header
     row are `position: sticky` under the app's sticky top bar. `useStickyOffsets()` measures both
@@ -592,8 +594,11 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     would break sticky.
   - Column fit: cells use `overflow-wrap: break-word` (`word-break: break-word` split "$183k/yr"
     mid-word). Salary, Applied and Status don't wrap. The status menu uses `field-sizing: content`,
-    or a native select is as wide as "Rejected - no interview". Documents is wide enough for two
-    buttons per line at full width, and stacks under 1240px rather than scrolling sideways.
+    or a native select is as wide as "Rejected - no interview". The Documents column (three
+    buttons, the widest column) became **Prep**: one small toggle per row (`PrepCell`, "Prep ▾",
+    green "Prep · 1 ready" when a tailored document exists) that opens `DocActions` stacked
+    vertically inside the cell. It expands inline rather than as a floating menu, so nothing gets
+    clipped by the sticky header.
   - "How your applications are going" counts applications, waiting, interviews (and rate), offers
     and rejections from the loaded list, plus the interview rate by fit rating, with no API call.
     "Ask Jobby what's working" (`core/app_insights.py`, `GET`/`POST /api/applications/insights`) is
@@ -601,8 +606,11 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     and which aren't. The answer is kept in the `application_insights` setting so a revisit costs
     nothing.
     - The card shows Jobby's avatar and the opening one-sentence takeaway (the prompt asks for one
-      before the first heading; `takeaway()`). The full read-out opens in a `Modal`, whose `title`
-      now takes any node so it can carry the avatar.
+      before the first heading; `takeaway()`), plus "Read Jobby's take". The full read-out opens
+      in a `Modal`, whose `title` now takes any node so it can carry the avatar.
+    - The pop-up says when it was last updated. Only when it's out of date (any application's
+      `updated_at` is later than `generated_at`, or the job count differs) does it add a Refresh
+      button. An always-there "Ask Jobby again" on the card read as confusing.
     - "Talk it over with Jobby" opens the general Jobby chat. `jobby.build_context(None)` includes
       the latest read-out, so Jobby knows what it said.
     - Logs as `profile_rebuild` with note "application insights" (the `llm_calls` CHECK, as with
