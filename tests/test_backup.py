@@ -147,3 +147,20 @@ def test_database_outside_the_data_folder(tmp_path, monkeypatch):
     path = backup.snapshot()
     assert path.parent == connection.DATA_DIR / "backups"
     assert _applications_in(path) == ["Data Lead"]
+
+
+def test_a_backup_is_built_locally_then_copied_in_one_pass(monkeypatch):
+    # The Cloud Storage mount can't take SQLite writing a database (and its journal) in place, so
+    # nothing but a finished file may be written into backups/ (2026-11-02 mount errors).
+    _track_job()
+    opened = []
+    real_connect = backup.sqlite3.connect
+    monkeypatch.setattr(
+        backup.sqlite3,
+        "connect",
+        lambda path, *a, **k: opened.append(str(path)) or real_connect(path, *a, **k),
+    )
+    path = backup.snapshot()
+    assert not any(p.startswith(str(backup.backup_dir())) for p in opened)
+    assert _applications_in(path) == ["Data Lead"]
+    assert not list(backup.backup_dir().glob("*.part"))

@@ -15,8 +15,11 @@ independent layer on top of Litestream's copy.
 A failed snapshot is logged and never stops the run, reset or startup it guards."""
 
 import logging
+import os
 import re
+import shutil
 import sqlite3
+import tempfile
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -37,15 +40,26 @@ def backup_dir() -> Path:
 
 def copy_sqlite(source_path: Path, target: Path) -> None:
     """A consistent copy of the SQLite database at `source_path` (SQLite's online backup API, safe
-    while another connection is writing to it)."""
+    while another connection is writing to it).
+
+    The copy is built in a local temporary file and then written to `target` in one sequential
+    pass. `target` is usually on the Cloud Storage mount (backups/), which can't take SQLite's
+    random-access writes and journal file: writing the backup there directly failed live with
+    "BufferedWriteHandler.OutOfOrderError" on the journal and the backup itself (2026-11-02 logs,
+    the same mount errors that broke the database before D-020). A plain copy is fine there."""
     target.parent.mkdir(parents=True, exist_ok=True)
-    source = sqlite3.connect(source_path)
-    dest = sqlite3.connect(target)
-    try:
-        source.backup(dest)
-    finally:
-        dest.close()
-        source.close()
+    with tempfile.TemporaryDirectory() as tmp:
+        local = Path(tmp) / "copy.db"
+        source = sqlite3.connect(source_path)
+        dest = sqlite3.connect(local)
+        try:
+            source.backup(dest)
+        finally:
+            dest.close()
+            source.close()
+        partial = target.with_name(target.name + ".part")
+        shutil.copyfile(local, partial)
+        os.replace(partial, target)
 
 
 def copy_database(target: Path) -> None:
