@@ -2,7 +2,7 @@ export PYTHONPATH := src
 PY := uv run python -m
 
 .PHONY: serve serve-sandbox reset-sandbox dev frontend test ingest-resumes docker apis-setup bucket-setup deploy iap-setup \
-        anthropic-secret scheduler-secret email-secret scheduler-setup
+        anthropic-secret scheduler-secret email-secret scheduler-setup bucket-protect
 
 serve:        ## API (serves frontend/dist if built) on http://localhost:8000
 	uv run uvicorn jobhunt.api.main:app --reload --port 8000
@@ -70,6 +70,16 @@ bucket-setup:  ## once: create the GCS bucket backing persistent SQLite + resume
 	gcloud storage buckets add-iam-policy-binding gs://$(BUCKET) \
 	  --member="serviceAccount:$$(gcloud projects describe $(GCP_PROJECT) --format='value(projectNumber)')-compute@developer.gserviceaccount.com" \
 	  --role roles/storage.objectAdmin
+
+# The app snapshots its database into backups/ in this same bucket (core/backup.py); this guards
+# the bucket itself. Soft delete keeps every deleted *or overwritten* object restorable for 7 days
+# (Google's default for new buckets; this makes sure it's on). Object versioning isn't added on
+# top: the database is rewritten on every save, so it would double-store each version for little
+# extra safety. Settings' "Download a backup" is the copy kept off Google Cloud.
+bucket-protect:  ## once: make sure the data bucket keeps deleted/overwritten files for 7 days, and show the result
+	gcloud storage buckets update gs://$(BUCKET) --project $(GCP_PROJECT) --soft-delete-duration=7d
+	gcloud storage buckets describe gs://$(BUCKET) --project $(GCP_PROJECT) --format="yaml(soft_delete_policy)"
+	gcloud storage ls gs://$(BUCKET)/backups/ 2>/dev/null || echo "no backups/ yet (the first is made at the next daily run)"
 
 # The frontend is built inside the Dockerfile's node stage -- no separate local build step needed
 # before `gcloud builds submit`. --iap locks the service down directly (GA Cloud Run + IAP

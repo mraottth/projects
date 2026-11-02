@@ -5,12 +5,15 @@ Deletes every row of every table except `llm_calls` -- the Claude usage log is a
 money already spent, which the user tracks on Settings, so it survives (its job_id links are
 cleared, since those jobs are gone). Also deletes the uploaded and generated document files, but
 only ones inside RESUME_STORAGE_DIR: a generated file can live in the user's own local resume
-folder (`resume_library_path`'s "AI Generated"), which isn't the app's to delete."""
+folder (`resume_library_path`'s "AI Generated"), which isn't the app's to delete. A snapshot of the
+database is taken first (core/backup.py, `backups/` is outside RESUME_STORAGE_DIR), so a mistaken
+reset can still be undone."""
 
 import json
 from pathlib import Path
 
 from jobhunt.config import DEFAULT_SETTINGS, RESUME_STORAGE_DIR
+from jobhunt.core import backup
 from jobhunt.db.connection import get_db
 
 KEPT_TABLES = {"llm_calls"}
@@ -24,6 +27,7 @@ def _inside_storage(path: str | None) -> Path | None:
 
 
 def delete_all_data() -> dict:
+    kept = backup.snapshot("before-reset")
     with get_db() as conn:
         files = [
             row[0]
@@ -63,4 +67,8 @@ def delete_all_data() -> dict:
         if target and target.is_file():
             target.unlink()
             deleted_files += 1
-    return {"tables_cleared": len(tables), "files_deleted": deleted_files}
+    return {
+        "tables_cleared": len(tables),
+        "files_deleted": deleted_files,
+        "backup": kept.name if kept else None,
+    }

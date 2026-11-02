@@ -11,7 +11,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, date, datetime
 
-from jobhunt.core import prefilter, queue
+from jobhunt.core import backup, prefilter, queue
 from jobhunt.core import settings as settings_module
 from jobhunt.core.dedupe import compute_dedupe_key
 from jobhunt.core.digest import add_to_digest
@@ -503,6 +503,8 @@ def refresh_sources(source_ids: list[int], cap: int = NEW_SOURCE_SCORE_CAP) -> d
 
 
 def _run_daily(started_at: str, cap: int | None) -> dict:
+    # Before the run writes anything, so a run that goes wrong can be rolled back (core/backup.py).
+    backup.snapshot()
     queue.requeue_stranded()
     poll_result = _poll_sources()
     _expire_stale_jobs()

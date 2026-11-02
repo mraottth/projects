@@ -64,6 +64,11 @@ def test_old_statuses_are_migrated_once(tmp_path, monkeypatch):
     monkeypatch.setattr(connection, "DB_PATH", db_path)
     connection.init_db()
     connection.init_db()  # a second startup finds nothing left to migrate
+    # One copy of the database as it was, taken just before the rewrite, and only that once.
+    (kept,) = (tmp_path / "backups").glob("jobhunt-*-before-migration.db")
+    old = sqlite3.connect(kept)
+    assert old.execute("SELECT status FROM applications WHERE id = 1").fetchone()[0] == "applied"
+    old.close()
 
     with get_db() as conn:
         statuses = dict(conn.execute("SELECT id, status FROM applications").fetchall())

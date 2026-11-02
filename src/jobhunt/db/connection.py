@@ -69,11 +69,15 @@ _RENAMED = """CASE {col}
     ELSE {col} END"""
 
 
-def _migrate_application_statuses(conn: sqlite3.Connection) -> None:
+def _needs_status_migration(conn: sqlite3.Connection) -> bool:
     row = conn.execute(
         "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'applications'"
     ).fetchone()
-    if row is None or "phone_screen" not in row["sql"]:
+    return row is not None and "phone_screen" in row["sql"]
+
+
+def _migrate_application_statuses(conn: sqlite3.Connection) -> None:
+    if not _needs_status_migration(conn):
         return
     conn.execute("PRAGMA foreign_keys = OFF")
     # Keep other tables' REFERENCES applications(id) pointing at the renamed table as written.
@@ -114,7 +118,12 @@ def init_db() -> None:
     try:
         conn.executescript(SCHEMA_PATH.read_text())
         _apply_migrations(conn)
-        _migrate_application_statuses(conn)
+        if _needs_status_migration(conn):
+            # It rewrites every application, so keep a copy of the database as it was first.
+            from jobhunt.core import backup  # here, not at the top: backup imports this module
+
+            backup.snapshot("before-migration")
+            _migrate_application_statuses(conn)
         for key, value in DEFAULT_SETTINGS.items():
             conn.execute(
                 "INSERT OR IGNORE INTO settings (key, value_json) VALUES (?, ?)",
