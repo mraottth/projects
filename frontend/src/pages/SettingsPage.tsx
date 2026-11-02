@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { api, ApiError, LlmCall, Settings } from "../api";
 import { Markdown } from "../components/Markdown";
 import { Spinner } from "../components/Spinner";
+import { useIsAdmin } from "../me";
 
 function toList(s: string): string[] {
   return s
@@ -150,10 +151,10 @@ function DeleteAllData() {
     <div className="card danger-card">
       <h2>Start over</h2>
       <p className="muted small">
-        Permanently deletes your resumes and cover letters, profile, sources, jobs, My Jobs,
-        Jobby conversations and settings, then takes you back to onboarding. Your Claude usage
+        Permanently deletes your resumes and cover letters, profile, followed sources, scores, My
+        Jobs, Jobby conversations and settings, then takes you back to onboarding. Your Claude usage
         log is kept, and a backup of the database is saved first, so it can be restored if you
-        change your mind.
+        change your mind. Nobody else's data is touched.
       </p>
       {!open ? (
         <button className="ghost danger" onClick={() => setOpen(true)}>
@@ -194,6 +195,7 @@ function DeleteAllData() {
 }
 
 function PrefilterSettings() {
+  const isAdmin = useIsAdmin();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -227,12 +229,18 @@ function PrefilterSettings() {
 
       <div className="fsection">
         <span className="flabel">Daily LLM cap (max jobs fully scored per day)</span>
-        <input
-          type="number"
-          defaultValue={settings.daily_llm_cap}
-          onBlur={(e) => save({ daily_llm_cap: Number(e.target.value) })}
-          style={{ width: "140px" }}
-        />
+        {isAdmin ? (
+          <input
+            type="number"
+            defaultValue={settings.daily_llm_cap}
+            onBlur={(e) => save({ daily_llm_cap: Number(e.target.value) })}
+            style={{ width: "140px" }}
+          />
+        ) : (
+          <p className="small" style={{ margin: 0 }}>
+            {settings.daily_llm_cap} jobs a day, set by the admin.
+          </p>
+        )}
       </div>
 
       <div className="fsection">
@@ -262,22 +270,26 @@ function PrefilterSettings() {
 /** Where the data lives and how it's backed up (core/backup.py), with a download of the whole
  * database to keep a copy off Google Cloud. */
 function YourData() {
+  const isAdmin = useIsAdmin();
   const [backups, setBackups] = useState<{ name: string; bytes: number }[] | null>(null);
 
   useEffect(() => {
+    // The whole database holds everyone's data, so only the admin lists or downloads it.
+    if (!isAdmin) return;
     api.listBackups().then((r) => setBackups(r.backups)).catch(() => setBackups([]));
-  }, []);
+  }, [isAdmin]);
 
   const latest = backups?.[0];
   return (
     <div className="card">
       <h2>Your data</h2>
       <p className="muted small">
-        Everything (My Jobs, your documents, sources and settings) lives in your private Google Cloud
-        storage. The app saves a copy of the database before every daily check, keeping 30 days, and
-        before "Start over" or an upgrade that changes your data.
+        Everything (My Jobs, your documents, sources and settings) is stored in the app's private
+        Google Cloud storage, visible in the app only to you. The app saves a copy of the database
+        before every daily check, keeping 30 days, and before "Start over" or an upgrade that changes
+        your data.
       </p>
-      {backups && (
+      {isAdmin && backups && (
         <p className="small">
           {latest
             ? `${backups.length} backup${backups.length === 1 ? "" : "s"} kept; latest: ${latest.name}.`
@@ -285,9 +297,11 @@ function YourData() {
         </p>
       )}
       <div className="form-actions">
-        <a className="ghost button-link" href={api.backupDownloadUrl} download>
-          Download a backup
-        </a>
+        {isAdmin && (
+          <a className="ghost button-link" href={api.backupDownloadUrl} download>
+            Download a backup
+          </a>
+        )}
         <a className="link small" href={api.applicationsCsvUrl} download>
           Export My Jobs as CSV
         </a>
@@ -357,6 +371,7 @@ function UsageLog() {
 }
 
 export default function SettingsPage() {
+  const isAdmin = useIsAdmin();
   const [profile, setProfile] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -393,16 +408,18 @@ export default function SettingsPage() {
         Scoring tuning, your learned preferences, and what Claude usage is costing you.
       </p>
 
-      <div className="card">
-        <h2>Product Timeline</h2>
-        <p className="muted small">
-          Every prompt that shaped this app, Claude's replies, the commits they produced, and the
-          decisions along the way — visible only to you, same as everything else here.
-        </p>
-        <Link className="ghost" to="/changelog">
-          View the Timeline
-        </Link>
-      </div>
+      {isAdmin && (
+        <div className="card">
+          <h2>Product Timeline</h2>
+          <p className="muted small">
+            Every prompt that shaped this app, Claude's replies, the commits they produced, and the
+            decisions along the way — visible only to you, the admin.
+          </p>
+          <Link className="ghost" to="/changelog">
+            View the Timeline
+          </Link>
+        </div>
+      )}
 
       <div className="card">
         <h2>Preference profile</h2>

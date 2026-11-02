@@ -736,3 +736,23 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 .jobs-table .doc-actions .ghost { white-space: nowrap; }
 .title-badges { display: flex; gap: 4px; margin-top: 12px; white-space: nowrap; }
 .title-badges .badge { font-size: 0.7rem; padding: 1px 7px; }
+
+/* Multi-user (D-021): sign-in gate and admin page. */
+.access-page { max-width: 560px; }
+.access-page textarea, .access-page input { width: 100%; }
+.privacy-note { margin-top: 18px; font-size: 0.9em; color: var(--muted); }
+.privacy-note summary { cursor: pointer; }
+.privacy-note ul { margin: 8px 0 0; padding-left: 20px; }
+.admin-link { margin-left: auto; margin-right: 12px; font-weight: 600; text-decoration: none; color: var(--muted); }
+.admin-link.active, .admin-link:hover { color: var(--ink); }
+.admin-requests { list-style: none; padding: 0; margin: 0; }
+.admin-requests li { display: flex; justify-content: space-between; gap: 16px; padding: 12px 0; border-top: 1px solid var(--grid); }
+.admin-requests li:first-child { border-top: 0; }
+.admin-note { margin: 6px 0 0; font-style: italic; }
+.admin-actions { display: flex; gap: 8px; align-items: flex-start; flex-shrink: 0; }
+.admin-table { width: 100%; border-collapse: collapse; }
+.admin-table th, .admin-table td { text-align: left; padding: 8px 10px; border-top: 1px solid var(--grid); vertical-align: top; }
+.admin-table th { font-size: 0.85em; color: var(--muted); font-weight: 600; border-top: 0; }
+.admin-number { width: 64px; }
+.admin-pill { margin-left: 6px; font-size: 0.75em; }
+.admin-link + .settings-gear { margin-left: 0; }

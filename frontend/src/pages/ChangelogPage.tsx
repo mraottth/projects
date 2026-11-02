@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import data from "../changelog.json";
+import { request } from "../api";
+import { Spinner } from "../components/Spinner";
 import { Markdown } from "../components/Markdown";
 import { MilestoneTimeline, type Milestone } from "../components/MilestoneTimeline";
 
 /**
  * Product Timeline: how this app was built, every prompt given to Claude Code, Claude's replies, the commits
  * they produced and the decisions along the way. Ported from Shelf Life's own Changelog page (D-008) --
- * private here (this whole app is IAP-locked to one account), not public. Data: frontend/src/changelog.json,
- * built by scripts/build_changelog.py from git, prompts/ and DECISIONS.md.
+ * private here, not public. Data: frontend/src/changelog.json, built by scripts/build_changelog.py from git,
+ * prompts/ and DECISIONS.md. It's the admin's own development history, so it isn't bundled into the
+ * frontend (whose files any signed-in Google account can fetch once other people can sign in, D-021):
+ * the page loads it from the admin-only GET /api/admin/changelog.
  */
 
 interface Commit {
@@ -28,14 +31,22 @@ interface Changelog {
   milestones: Milestone[]; omitted_prompts: number;
 }
 
-const CL = data as Changelog;
-const CATS: Record<string, string> = { ...CL.categories, uncategorized: "Uncategorized" };
+// Set once from the API before the page renders (ChangelogPage below); the rest of this file reads it.
+let CL: Changelog;
+let CATS: Record<string, string> = {};
 const KIND: Record<Prompt["kind"], string> = {
   prompt: "Prompt", answer: "Answer to Claude's question", "plan-comment": "Comment on Claude's plan",
   "plan-feedback": "Feedback on Claude's plan",
 };
-const commitByShort = new Map(CL.commits.map((c) => [c.short, c]));
-const promptById = new Map(CL.prompts.map((p) => [p.id, p]));
+let commitByShort = new Map<string, Commit>();
+let promptById = new Map<string, Prompt>();
+
+function load(data: Changelog) {
+  CL = data;
+  CATS = { ...CL.categories, uncategorized: "Uncategorized" };
+  commitByShort = new Map(CL.commits.map((c) => [c.short, c]));
+  promptById = new Map(CL.prompts.map((p) => [p.id, p]));
+}
 const fmtTime = (t: string) => new Date(t).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 const fmtDay = (t: string) => new Date(t).toLocaleDateString(undefined, { weekday: "short", month: "long", day: "numeric", year: "numeric" });
 const dayKey = (t: string) => new Date(t).toDateString();
@@ -183,6 +194,23 @@ function CategoryMenu({ cats, setCats, counts }: { cats: string[]; setCats: (c: 
 }
 
 export default function ChangelogPage() {
+  const [ready, setReady] = useState(!!CL);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (CL) return;
+    request<Changelog>("/api/admin/changelog")
+      .then((data) => {
+        load(data);
+        setReady(true);
+      })
+      .catch((e: Error) => setError(e.message));
+  }, []);
+  if (error) return <p className="error">Couldn't load the Timeline: {error}</p>;
+  if (!ready) return <Spinner label="Loading the Timeline…" />;
+  return <ChangelogView />;
+}
+
+function ChangelogView() {
   const [mode, setMode] = useState<Mode>("timeline");
   const [cats, setCats] = useState<string[]>([]);          // empty = all categories
   const [q, setQ] = useState("");

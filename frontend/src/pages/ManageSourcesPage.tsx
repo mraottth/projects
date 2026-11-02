@@ -4,6 +4,7 @@ import { DiscoverCompaniesSection, DiscoverJobBoardsSection, DiscoverySeed } fro
 import { Modal } from "../components/Modal";
 import { detectSourceFromUrl } from "../sourceUrl";
 import { Spinner } from "../components/Spinner";
+import { useIsAdmin } from "../me";
 
 const KIND_LABELS: Record<SourceKind, string> = {
   ats_greenhouse: "Greenhouse (organization board token)",
@@ -484,6 +485,7 @@ function SourcePanel({
 }
 
 export default function ManageSourcesPage() {
+  const isAdmin = useIsAdmin();
   const [sources, setSources] = useState<Source[]>([]);
   const [runResult, setRunResult] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
@@ -597,10 +599,12 @@ export default function ManageSourcesPage() {
       <AddSourceForm onAdded={() => refresh()} />
 
       <div className="card">
-        <h2>Check every source now</h2>
+        {/* The admin's run is everyone's (like the scheduled one); anyone else's is just their own. */}
+        <h2>{isAdmin ? "Check every source now" : "Check my sources now"}</h2>
         <p className="muted small">
-          This runs automatically every day at 2:00pm ET: check every source, score the most promising new
-          jobs, and update New &amp; Noteworthy. New sources are checked as soon as you add them.
+          This runs automatically every day at 2:00pm ET: check {isAdmin ? "every source" : "your sources"}, score
+          the most promising new jobs{isAdmin ? " for everyone" : ""}, and update New &amp; Noteworthy. New
+          sources are checked as soon as you add them. Scoring stops at your daily limit.
         </p>
         <button className="ghost" onClick={runNow} disabled={running}>
           {running ? <Spinner label={runProgressText(runProgress, "Finishing up...")} /> : "Run now"}

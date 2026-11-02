@@ -6,7 +6,7 @@ export class ApiError extends Error {
 
 const NETWORK_ERROR = "Lost the connection to the app before it answered — check your connection and try again.";
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
     res = await fetch(path, init);
@@ -398,7 +398,55 @@ export interface LlmCall {
   cache_write_tokens: number;
 }
 
+/** Who's signed in (GET /api/me, D-021). status "none" = never asked for access. */
+export interface Me {
+  email: string;
+  status: "approved" | "pending" | "declined" | "blocked" | "none";
+  is_admin: boolean;
+  name: string | null;
+  id?: number | null;
+}
+
+export interface AdminUser {
+  id: number;
+  email: string;
+  name: string | null;
+  note: string | null;
+  status: Me["status"];
+  is_admin: 0 | 1;
+  daily_score_cap: number;
+  monthly_budget_usd: number;
+  last_seen_at: string | null;
+  created_at: string;
+  decided_at: string | null;
+  scored_today: number;
+  spend_this_month: number;
+  sources_followed: number;
+  applications: number;
+}
+
 export const api = {
+  getMe: () => request<Me>("/api/me"),
+
+  requestAccess: (name: string, note: string) =>
+    request<{ status: Me["status"] }>("/api/access/request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, note: note || null }),
+    }),
+
+  listUsers: () => request<{ users: AdminUser[]; shared_spend_this_month: number }>("/api/admin/users"),
+
+  updateUser: (
+    id: number,
+    patch: Partial<Pick<AdminUser, "status" | "daily_score_cap" | "monthly_budget_usd">>,
+  ) =>
+    request<AdminUser>(`/api/admin/users/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    }),
+
   listResumes: () => request<ResumeSummary[]>("/api/resumes"),
 
   getJob: (id: number) => request<Job>(`/api/jobs/${id}`),

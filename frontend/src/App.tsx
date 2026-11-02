@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
-import { api } from "./api";
+import { api, type Me } from "./api";
 import { JobbyLogo } from "./components/JobbyLogo";
 import { Spinner } from "./components/Spinner";
 import DigestPage from "./pages/DigestPage";
@@ -12,6 +12,9 @@ import OnboardingPage from "./pages/OnboardingPage";
 import ManageSourcesPage from "./pages/ManageSourcesPage";
 import ProfilePage from "./pages/ProfilePage";
 import SettingsPage from "./pages/SettingsPage";
+import AccessPage from "./pages/AccessPage";
+import AdminPage from "./pages/AdminPage";
+import { MeContext } from "./me";
 
 // Carries ~220 KB of prompts and commits, so it's only loaded when visited.
 const ChangelogPage = lazy(() => import("./pages/ChangelogPage"));
@@ -38,14 +41,16 @@ function GearIcon() {
 // These pages need the extra room (a filter sidebar, a wide table, Jobby's job picker beside
 // the chat, Manage Sources' two columns, or the Timeline's milestone strip) that the default
 // prose-friendly max-width doesn't give them.
-const WIDE_ROUTES = ["/", "/all-jobs", "/tracker", "/jobby", "/sources", "/changelog"];
+const WIDE_ROUTES = ["/", "/all-jobs", "/tracker", "/jobby", "/sources", "/changelog", "/admin"];
 
 function AppMain({
   needsOnboarding,
   onOnboardingDone,
+  isAdmin,
 }: {
   needsOnboarding: boolean;
   onOnboardingDone: () => void;
+  isAdmin: boolean;
 }) {
   const location = useLocation();
   const wide = WIDE_ROUTES.includes(location.pathname);
@@ -65,14 +70,17 @@ function AppMain({
         <Route path="/sources" element={<ManageSourcesPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/settings" element={<SettingsPage />} />
-        <Route
-          path="/changelog"
-          element={
-            <Suspense fallback={<Spinner label="Loading…" />}>
-              <ChangelogPage />
-            </Suspense>
-          }
-        />
+        {isAdmin && <Route path="/admin" element={<AdminPage />} />}
+        {isAdmin && (
+          <Route
+            path="/changelog"
+            element={
+              <Suspense fallback={<Spinner label="Loading…" />}>
+                <ChangelogPage />
+              </Suspense>
+            }
+          />
+        )}
       </Routes>
     </main>
   );
@@ -80,21 +88,58 @@ function AppMain({
 
 export default function App() {
   const location = useLocation();
+  // Who's signed in comes first (D-021): anyone not yet approved gets the request-access page and
+  // nothing else. null while loading.
+  const [me, setMe] = useState<Me | null>(null);
+  const [meError, setMeError] = useState<string | null>(null);
   // null while loading: hold off rendering any page so a first-run user doesn't see a flash of
   // the empty digest before being redirected. A failed status check just skips onboarding.
   const [needsOnboarding, setNeedsOnboarding] = useState<boolean | null>(null);
+  const approved = me?.status === "approved";
 
   useEffect(() => {
+    api
+      .getMe()
+      .then(setMe)
+      .catch((e: Error) => setMeError(e.message));
+  }, []);
+
+  useEffect(() => {
+    if (!approved) return;
     api
       .getOnboardingStatus()
       .then((s) => setNeedsOnboarding(s.needs_onboarding))
       .catch(() => setNeedsOnboarding(false));
-  }, []);
+  }, [approved]);
+
+  if (meError) {
+    return (
+      <div className="app-shell">
+        <header className="topbar">
+          <span className="brand">Job Search Assistant</span>
+        </header>
+        <main className="app-main">
+          <p className="error">Couldn't sign you in: {meError}</p>
+        </main>
+      </div>
+    );
+  }
+  if (me && !approved) {
+    return (
+      <div className="app-shell">
+        <header className="topbar">
+          <span className="brand">Job Search Assistant</span>
+        </header>
+        <AccessPage me={me} onChange={(status) => setMe({ ...me, status })} />
+      </div>
+    );
+  }
 
   // The wizard hides the nav so it reads as one focused flow; "Skip setup" is the way out.
   const inOnboarding = location.pathname === "/onboarding";
 
   return (
+    <MeContext.Provider value={me}>
     <div className="app-shell">
       <header className="topbar">
         <span className="brand">Job Search Assistant</span>
@@ -113,6 +158,11 @@ export default function App() {
             ))}
           </nav>
         )}
+        {!inOnboarding && me?.is_admin && (
+          <NavLink to="/admin" className={({ isActive }) => `admin-link${isActive ? " active" : ""}`}>
+            Admin
+          </NavLink>
+        )}
         {!inOnboarding && (
           <NavLink
             to="/settings"
@@ -125,8 +175,13 @@ export default function App() {
         )}
       </header>
       {needsOnboarding !== null && (
-        <AppMain needsOnboarding={needsOnboarding} onOnboardingDone={() => setNeedsOnboarding(false)} />
+        <AppMain
+          needsOnboarding={needsOnboarding}
+          onOnboardingDone={() => setNeedsOnboarding(false)}
+          isAdmin={!!me?.is_admin}
+        />
       )}
     </div>
+    </MeContext.Provider>
   );
 }
