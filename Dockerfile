@@ -32,7 +32,7 @@ COPY litestream.yml /etc/litestream.yml
 COPY scripts/start.sh /app/start.sh
 COPY src/ src/
 COPY --from=frontend /frontend/dist frontend/dist
-# The Timeline's data, served only to the admin (api/admin.py), never bundled. package.json is
+# The Timeline's data, served to approved people (api/changelog.py), never bundled. package.json is
 # listed so the COPY still has a match when the Timeline wasn't built.
 COPY frontend/package.json frontend/src/changelog.json* frontend/src/
 EXPOSE 8080

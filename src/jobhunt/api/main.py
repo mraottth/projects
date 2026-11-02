@@ -10,6 +10,7 @@ from jobhunt.api import (
     access,
     admin,
     applications,
+    changelog,
     digest,
     discovery,
     generate,
@@ -47,6 +48,7 @@ app.add_middleware(AuthMiddleware)
 
 app.include_router(access.router)
 app.include_router(admin.router)
+app.include_router(changelog.router)
 app.include_router(resumes.router)
 app.include_router(jobs.router)
 app.include_router(digest.router)

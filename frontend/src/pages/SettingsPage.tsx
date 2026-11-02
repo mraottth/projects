@@ -371,7 +371,6 @@ function UsageLog() {
 }
 
 export default function SettingsPage() {
-  const isAdmin = useIsAdmin();
   const [profile, setProfile] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -408,18 +407,16 @@ export default function SettingsPage() {
         Scoring tuning, your learned preferences, and what Claude usage is costing you.
       </p>
 
-      {isAdmin && (
-        <div className="card">
-          <h2>Product Timeline</h2>
-          <p className="muted small">
-            Every prompt that shaped this app, Claude's replies, the commits they produced, and the
-            decisions along the way — visible only to you, the admin.
-          </p>
-          <Link className="ghost" to="/changelog">
-            View the Timeline
-          </Link>
-        </div>
-      )}
+      <div className="card">
+        <h2>Product Timeline</h2>
+        <p className="muted small">
+          How this app was built: every prompt that shaped it, Claude's replies, the commits they
+          produced, and the decisions along the way.
+        </p>
+        <Link className="ghost" to="/changelog">
+          View the Timeline
+        </Link>
+      </div>
 
       <div className="card">
         <h2>Preference profile</h2>

@@ -71,16 +71,14 @@ function AppMain({
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/settings" element={<SettingsPage />} />
         {isAdmin && <Route path="/admin" element={<AdminPage />} />}
-        {isAdmin && (
-          <Route
-            path="/changelog"
-            element={
-              <Suspense fallback={<Spinner label="Loading…" />}>
-                <ChangelogPage />
-              </Suspense>
-            }
-          />
-        )}
+        <Route
+          path="/changelog"
+          element={
+            <Suspense fallback={<Spinner label="Loading…" />}>
+              <ChangelogPage />
+            </Suspense>
+          }
+        />
       </Routes>
     </main>
   );

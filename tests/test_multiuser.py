@@ -133,6 +133,8 @@ def test_one_person_never_sees_anothers_data():
         assert get("/api/settings/backup").status_code == 403
         assert get("/api/settings/backups").status_code == 403
         assert get("/api/admin/users").status_code == 403
+        # The Timeline is for everyone approved (404 here only because it isn't built in tests).
+        assert get("/api/changelog").status_code in (200, 404)
 
         # And the admin still sees all of it.
         assert len(client.get("/api/applications").json()) == 1
@@ -258,6 +260,7 @@ def test_access_requests_need_the_admins_approval(sent):
         assert client.get("/api/me", headers=AS_B).json()["status"] == "none"
         blocked = client.get("/api/applications", headers=AS_B)
         assert blocked.status_code == 403 and blocked.json()["code"] == "none"
+        assert client.get("/api/changelog", headers=AS_B).status_code == 403  # not before approval
 
         assert client.post(
             "/api/access/request", json={"name": "Bea", "note": "friend of Matt"}, headers=AS_B

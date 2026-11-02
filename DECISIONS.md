@@ -264,7 +264,7 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 - Sources are shared rows that people follow, and each is read once per run.
 - Who's signed in comes only from IAP's verified JWT. A context variable carries the person through each request and the daily run, and it fails closed when nobody is set.
 - Unapproved people see only a request-access page. The admin approves, declines or blocks people and sets each person's daily scoring cap on `/admin`.
-- The Timeline's data moves behind an admin-only API.
+- The Timeline's data moves out of the frontend bundle into an API that only approved people can reach. It was admin-only at first; the owner opened it to everyone approved.
 
 **Context.** The owner asked what it would take to let others use the app, with join requests they approve to keep costs in check. They expect at most 20 users with sparse use. The settled plan: SQLite plus Litestream (D-020), one server copy, shared sources, scoring only for people active in the last 7 days with a one-time "paused" email, and New & Noteworthy freshness controls. This is steps 2 and 3 of that plan; the activity rule, budgets and refresh come next.
 

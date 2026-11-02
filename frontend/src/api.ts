@@ -428,11 +428,11 @@ export interface AdminUser {
 export const api = {
   getMe: () => request<Me>("/api/me"),
 
-  requestAccess: (name: string, note: string) =>
+  requestAccess: (name: string) =>
     request<{ status: Me["status"] }>("/api/access/request", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, note: note || null }),
+      body: JSON.stringify({ name }),
     }),
 
   listUsers: () => request<{ users: AdminUser[]; shared_spend_this_month: number }>("/api/admin/users"),

@@ -8,9 +8,9 @@ import { MilestoneTimeline, type Milestone } from "../components/MilestoneTimeli
  * Product Timeline: how this app was built, every prompt given to Claude Code, Claude's replies, the commits
  * they produced and the decisions along the way. Ported from Shelf Life's own Changelog page (D-008) --
  * private here, not public. Data: frontend/src/changelog.json, built by scripts/build_changelog.py from git,
- * prompts/ and DECISIONS.md. It's the admin's own development history, so it isn't bundled into the
- * frontend (whose files any signed-in Google account can fetch once other people can sign in, D-021):
- * the page loads it from the admin-only GET /api/admin/changelog.
+ * prompts/ and DECISIONS.md. It isn't bundled into the frontend (whose files anyone who gets through IAP's
+ * sign-in can fetch, approved or not, D-021): the page loads it from GET /api/changelog, which, like every
+ * /api route, needs an approved person.
  */
 
 interface Commit {
@@ -198,7 +198,7 @@ export default function ChangelogPage() {
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     if (CL) return;
-    request<Changelog>("/api/admin/changelog")
+    request<Changelog>("/api/changelog")
       .then((data) => {
         load(data);
         setReady(true);

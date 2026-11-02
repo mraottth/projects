@@ -1,10 +1,8 @@
 """The admin page's API (D-021): access requests, everyone's status, usage and limits."""
 
 import os
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from jobhunt.core.email_digest import send_plain_email
@@ -95,14 +93,3 @@ def _tell(user: dict, status: str) -> None:
             "approved this time.\n",
         )
 
-
-# The Timeline page's data (scripts/build_changelog.py): the admin's own development history, so
-# it's served here rather than bundled into the frontend, whose files any signed-in account can fetch.
-CHANGELOG_PATH = Path(__file__).resolve().parents[3] / "frontend" / "src" / "changelog.json"
-
-
-@router.get("/changelog")
-def changelog():
-    if not CHANGELOG_PATH.exists():
-        raise HTTPException(404, "the Timeline hasn't been built (scripts/build_changelog.py)")
-    return FileResponse(CHANGELOG_PATH, media_type="application/json")

@@ -43,7 +43,8 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     `/api` request is a 401. A wrong audience says which audience the token carried.
   - **Approval.** The email maps to `users` (`pending`/`approved`/`declined`/`blocked`). Anyone not
     approved reaches only `/api/me` and `/api/access/request` (`api/access.py`), which back
-    `pages/AccessPage.tsx` (request form with a privacy note, then "Waiting for approval").
+    `pages/AccessPage.tsx` (just a name, plus a privacy note, then "Waiting for approval"; the
+    optional note field was dropped at the user's ask, though the API still accepts one).
     A request emails the admin; approving or declining on `/admin` (`api/admin.py`,
     `pages/AdminPage.tsx`) emails the person (`email_digest.send_plain_email`). The admin can't
     change their own status. User 1 is the admin and owns everything from before multi-user; their
@@ -77,10 +78,12 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     Each person's jobs are one batch, which keeps their scoring context in the prompt cache.
     "Check every source now" is the admin's (everyone); anyone else gets "Check my sources now"
     (`run_daily(only_user=)`). Progress is kept per person who started the run.
-  - **Admin only:** `/admin`, the database backup download/list, and the Product Timeline. The
-    Timeline's `changelog.json` is no longer bundled into the frontend (whose files any signed-in
-    Google account can fetch once `make iap-open` runs). The page loads it from
-    `GET /api/admin/changelog`, and the Dockerfile copies the file next to the app.
+  - **Admin only:** `/admin` and the database backup download/list.
+  - **The Product Timeline** is for everyone approved (the user's call). Its `changelog.json` is no
+    longer bundled into the frontend, whose files anyone who gets through IAP's sign-in can fetch,
+    approved or not, once `make iap-open` runs. The page loads it from `GET /api/changelog`
+    (`api/changelog.py`), which needs an approved person like every `/api` route. The Dockerfile
+    copies the file next to the app.
   - **"Start over"** clears only the signed-in person's rows, follows, pasted jobs and files.
   - **Migration.** On a single-user database, `init_db()` snapshots it, rebuilds each
     `PER_USER_TABLES` table from its current `schema.sql` definition with every row given to user

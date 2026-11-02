@@ -9,7 +9,6 @@ import { Spinner } from "../components/Spinner";
  */
 export default function AccessPage({ me, onChange }: { me: Me; onChange: (status: Me["status"]) => void }) {
   const [name, setName] = useState("");
-  const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,7 +17,7 @@ export default function AccessPage({ me, onChange }: { me: Me; onChange: (status
     setBusy(true);
     setError(null);
     try {
-      const { status } = await api.requestAccess(name.trim(), note.trim());
+      const { status } = await api.requestAccess(name.trim());
       onChange(status);
     } catch (err) {
       setError((err as Error).message);
@@ -42,10 +41,6 @@ export default function AccessPage({ me, onChange }: { me: Me; onChange: (status
               <div className="fsection">
                 <label className="flabel" htmlFor="access-name">Your name</label>
                 <input id="access-name" value={name} onChange={(e) => setName(e.target.value)} required maxLength={100} />
-              </div>
-              <div className="fsection">
-                <label className="flabel" htmlFor="access-note">Anything the admin should know? (optional)</label>
-                <textarea id="access-note" value={note} onChange={(e) => setNote(e.target.value)} rows={3} maxLength={1000} />
               </div>
               <button className="primary" type="submit" disabled={busy || !name.trim()}>
                 {busy ? <Spinner label="Sending…" /> : "Request access"}
