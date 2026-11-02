@@ -325,3 +325,26 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 **Why.**
 - The cooldown and the one-hour freshness window keep a refresh cheap, mostly shared reads and only new scoring.
 - Taking a skipped source's jobs from the database means a second person refreshing right after the first still gets their matches scored.
+
+## D-024 · Deleting an account: everything goes except anonymized spend
+- **Date:** 2026-11-02
+- **Category:** infra
+- **Prompts:** ab602548-079, ab602548-081
+
+**Decision.**
+- People can delete their own account from Settings, and the admin can delete anyone else's from the Admin page. Both require typing DELETE.
+- It removes everything "Start over" does, plus their settings, files folder and account. A snapshot is taken first.
+- Their Claude usage rows stay, unlinked from them, so the month's spend still adds up.
+- The admin's own account can't be deleted.
+- Coming back means requesting access again.
+
+**Context.** Step 6 of the multi-user plan ("Delete my account" and a privacy note), which the owner approved as part of the full plan. The privacy note on the request page says people can delete what they've added.
+
+**Alternatives considered.**
+- Deleting the usage rows too: the admin's spend totals would quietly shrink.
+- Also deleting sources nobody follows any more: their jobs can still be on other people's My Jobs, and an unfollowed source is already never read.
+- A browser confirm dialog: CLAUDE.md keeps `window.confirm` to the one place the owner asked for it.
+
+**Why.**
+- Delete as much as can be deleted without breaking shared rows or the spend record.
+- The snapshot keeps a mistaken deletion recoverable for 30 days of backups.

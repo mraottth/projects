@@ -120,7 +120,21 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     `cap_reached` drives "Scoring resumes tomorrow (N of N used today)". `DigestPage`'s `Freshness`
     shows "Last updated 2 hours ago · Refresh", or, a day or more since the last update, a card with
     "Refresh now". "Check my sources now" on Manage Sources has no cooldown.
-  - Not yet (plan step 6): "Delete my account".
+  - **Deleting an account (D-024).** `core/reset.py`'s `delete_account(user_id)` shares `_wipe()`
+    with Start over (one snapshot, `before-account-delete`). It removes everything Start over does,
+    plus the person's settings, their `RESUME_STORAGE_DIR/<id>/` folder and the `users` row. Their
+    `llm_calls` stay as spend history, unlinked (`user_id` NULL, note "deleted account: ...").
+    Shared sources stay, since their jobs may be on someone else's My Jobs. The admin's account
+    can't be deleted (`AdminAccountError`). Routes:
+    - `POST /api/settings/delete-account` for yourself (Settings' Start over card, hidden for the
+      admin);
+    - `DELETE /api/admin/users/{id}` for the admin, which also emails the person.
+
+    Both need `{"confirm": "DELETE"}` typed in the UI (`TypedDelete` in `SettingsPage.tsx`,
+    `DeleteUser` in `AdminPage.tsx`; no `window.confirm`). Signing in again afterwards shows the
+    request-access page. Settings' "Your data" card also shows the `PrivacyNote` from
+    `AccessPage.tsx`. `_inside_storage()` now checks against `users.RESUME_STORAGE_DIR` (the same
+    folder as config's).
 - `src/jobhunt/db/schema.sql` — full SQLite schema, applied idempotently at startup
   (`db/connection.py`). `CREATE TABLE IF NOT EXISTS` never alters an existing table, so a new column
   on one needs an entry in `connection.py`'s `MIGRATIONS` list (plain `ALTER TABLE ... ADD COLUMN`,
