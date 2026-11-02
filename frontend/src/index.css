@@ -765,3 +765,8 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 .danger-link { color: var(--bad); padding: 0; }
 .admin-delete { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .admin-delete input { width: 110px; }
+.daily-check.bad { border-color: rgba(208, 59, 59, 0.4); }
+.daily-check-pill { font-size: 0.8em; }
+.daily-check-pill.ok { background: var(--good-bg); color: var(--good); }
+.daily-check-pill.running { background: rgba(42, 120, 214, 0.12); color: var(--accent-ink); }
+.daily-check-pill.failed, .daily-check-pill.unfinished { background: var(--bad-bg); color: var(--bad); }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, type AdminUser } from "../api";
+import { api, type AdminUser, type DailyRunStatus } from "../api";
 import { Spinner } from "../components/Spinner";
 
 /**
@@ -9,6 +9,7 @@ import { Spinner } from "../components/Spinner";
 export default function AdminPage() {
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [shared, setShared] = useState(0);
+  const [dailyRun, setDailyRun] = useState<DailyRunStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
 
@@ -17,6 +18,7 @@ export default function AdminPage() {
       const data = await api.listUsers();
       setUsers(data.users);
       setShared(data.shared_spend_this_month);
+      setDailyRun(data.daily_run);
     } catch (e) {
       setError((e as Error).message);
     }
@@ -50,6 +52,8 @@ export default function AdminPage() {
     <div className="admin-page">
       <h1>Admin</h1>
       {error && <p className="error">{error}</p>}
+
+      {dailyRun && <DailyCheck status={dailyRun} />}
 
       <section className="card">
         <h2>Access requests</h2>
@@ -195,6 +199,20 @@ function when(ts: string): string {
   return d.toLocaleDateString();
 }
 
+/** "today at 2:07 PM", "yesterday at …", or "Oct 30 at …": the daily check needs the time too. */
+function at(ts: string): string {
+  const d = new Date(ts);
+  const time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  const day = new Date(d);
+  day.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diff = Math.round((today.getTime() - day.getTime()) / 86_400_000);
+  if (diff === 0) return `today at ${time}`;
+  if (diff === 1) return `yesterday at ${time}`;
+  return `${d.toLocaleDateString([], { month: "short", day: "numeric" })} at ${time}`;
+}
+
 /** "Delete…" then type DELETE: removes the account and everything in it, and emails them. */
 function DeleteUser({ user, onDeleted }: { user: AdminUser; onDeleted: () => void }) {
   const [open, setOpen] = useState(false);
@@ -239,6 +257,74 @@ function DeleteUser({ user, onDeleted }: { user: AdminUser; onDeleted: () => voi
       </button>
       {error && <p className="error small">{error}</p>}
     </div>
+  );
+}
+
+/** How the last 2pm ET check (or "Check every source now") went. A crash, or a server shut down
+ * mid-run, shows here in red instead of only in Google Cloud's logs. */
+function DailyCheck({ status }: { status: DailyRunStatus }) {
+  const run = status.latest;
+  if (!run) {
+    return (
+      <section className="card">
+        <h2>Daily check</h2>
+        <p className="muted small">No daily check has run yet. It runs every day at 2:00pm ET.</p>
+      </section>
+    );
+  }
+  const minutes = (from: string, to: string) =>
+    Math.max(1, Math.round((new Date(to).getTime() - new Date(from).getTime()) / 60000));
+  const who = run.started_by === "scheduled" ? "the 2pm check" : "your check";
+  const bad = run.status === "failed" || run.status === "unfinished";
+  let headline: string;
+  if (run.status === "running") headline = `Running now: ${who} started ${at(run.started_at)}.`;
+  else if (run.status === "ok")
+    headline = `The last check finished ${at(run.finished_at!)}, in ${minutes(run.started_at, run.finished_at!)} minutes.`;
+  else if (run.status === "failed")
+    headline = `The last check failed ${at(run.finished_at ?? run.started_at)}.`;
+  else headline = `The last check started ${at(run.started_at)} and never finished.`;
+
+  return (
+    <section className={`card daily-check${bad ? " bad" : ""}`}>
+      <h2>Daily check</h2>
+      <p style={{ margin: 0 }}>
+        <span className={`pill daily-check-pill ${run.status}`}>
+          {{ ok: "OK", running: "Running", failed: "Failed", unfinished: "Didn't finish" }[run.status]}
+        </span>{" "}
+        {headline}
+      </p>
+      {run.status === "ok" && (
+        <p className="muted small">
+          Read {run.sources_polled ?? 0} sources, found {run.jobs_fetched ?? 0} postings, and scored{" "}
+          {run.llm_scored_count ?? 0} jobs for {run.people ?? 0} {run.people === 1 ? "person" : "people"}.
+          {run.source_errors.length > 0 && ` ${run.source_errors.length} couldn't be read.`}
+        </p>
+      )}
+      {run.error && <p className="error-text small">{run.error}</p>}
+      {run.status === "unfinished" && (
+        <p className="muted small">
+          The server was probably shut down or ran out of memory partway through. Google Cloud's logs for
+          that time will say more.
+        </p>
+      )}
+      {bad && (
+        <p className="muted small">
+          {status.last_ok_finished_at
+            ? `The last check that finished cleanly was ${at(status.last_ok_finished_at)}.`
+            : "No check has finished cleanly yet."}
+        </p>
+      )}
+      {run.source_errors.length > 0 && (
+        <details className="small">
+          <summary>Sources that couldn't be read</summary>
+          <ul>
+            {run.source_errors.map((e) => (
+              <li key={e}>{e}</li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </section>
   );
 }
 

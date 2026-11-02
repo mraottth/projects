@@ -431,6 +431,23 @@ export interface Me {
   } | null;
 }
 
+/** The latest everyone run, for the Admin page's "Daily check" card (api/admin.py). */
+export interface DailyRunStatus {
+  latest: {
+    status: "running" | "ok" | "failed" | "unfinished";
+    started_by: "scheduled" | "admin";
+    started_at: string;
+    finished_at: string | null;
+    error: string | null;
+    sources_polled: number | null;
+    jobs_fetched: number | null;
+    llm_scored_count: number | null;
+    people: number | null;
+    source_errors: string[];
+  } | null;
+  last_ok_finished_at: string | null;
+}
+
 export interface AdminUser {
   id: number;
   email: string;
@@ -459,7 +476,8 @@ export const api = {
       body: JSON.stringify({ name }),
     }),
 
-  listUsers: () => request<{ users: AdminUser[]; shared_spend_this_month: number }>("/api/admin/users"),
+  listUsers: () =>
+    request<{ users: AdminUser[]; shared_spend_this_month: number; daily_run: DailyRunStatus }>("/api/admin/users"),
 
   updateUser: (
     id: number,

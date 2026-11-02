@@ -461,6 +461,14 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     its default attempt deadline is 3 minutes. `scheduler-setup` now sets `--attempt-deadline
     1800s`. To check runs: `gcloud scheduler jobs describe run-daily ...`, and the Cloud Run log
     filtered on `httpRequest.requestUrl:"/internal/run-daily"` for status and latency.
+  - **The Admin page's "Daily check" card.** `run_daily()` gives the everyone run (scheduled, or the
+    admin's "Check every source now", `started_by`) its own `runs` row with `user_id` NULL. The row is
+    written as it starts (`status` 'running'), then set to 'ok' with counts or 'failed' with the
+    `error` (`_system_run_started`/`_finished`; MIGRATIONS add `status`, `started_by`, `error`). A row
+    still 'running' after 70 minutes shows as "Didn't finish": the server was shut down or crashed
+    mid-run. `GET /api/admin/users` returns it as `daily_run` (`_daily_run_status`), with the last
+    clean finish. One person's own check doesn't count. Per-person `runs` rows (`user_id` set) still
+    back "Last updated".
   - `make bucket-protect` makes sure the bucket's soft delete (7 days, covering overwrites too) is
     on. Object versioning was left off on purpose: the database is rewritten on every save.
 - **Settings' "Start over"** (`core/reset.py`'s `delete_all_data()`, `POST
