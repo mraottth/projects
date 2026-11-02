@@ -253,3 +253,30 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 **Alternatives considered.** Cloud SQL Postgres (the cheapest tier costs about $10 a month or more, plus a rewrite of every query, for capacity 20 sparse users don't need); keeping the FUSE mount and relying on the daily snapshots alone (up to a day of changes lost); running more than one server copy (SQLite needs one writer).
 
 **Why.** Litestream is free apart from a little storage, needs no code changes beyond the startup script, and makes every write durable within a second while SQLite keeps local-disk speed. One server copy stays the limit, which suits the expected load. CPU always-on while the server is up costs a little more per active minute, but with min instances 0 it still scales to zero when idle.
+
+## D-021 · Multi-user: per-person data, shared sources, IAP sign-in with admin approval
+- **Date:** 2026-11-02
+- **Category:** infra
+- **Prompts:** ab602548-075, ab602548-076, ab602548-078, ab602548-079, ab602548-081
+
+**Decision.** The app serves up to about 20 people. Nobody gets in until the admin approves their request.
+- Every per-person table gets a `user_id`, and the existing data migrates to the admin as user 1.
+- Sources are shared rows that people follow, and each is read once per run.
+- Who's signed in comes only from IAP's verified JWT. A context variable carries the person through each request and the daily run, and it fails closed when nobody is set.
+- Unapproved people see only a request-access page. The admin approves, declines or blocks people and sets each person's daily scoring cap on `/admin`.
+- The Timeline's data moves behind an admin-only API.
+
+**Context.** The owner asked what it would take to let others use the app, with join requests they approve to keep costs in check. They expect at most 20 users with sparse use. The settled plan: SQLite plus Litestream (D-020), one server copy, shared sources, scoring only for people active in the last 7 days with a one-time "paused" email, and New & Noteworthy freshness controls. This is steps 2 and 3 of that plan; the activity rule, budgets and refresh come next.
+
+**Alternatives considered.**
+- Postgres, for capacity a 20-person sparse load doesn't need.
+- A database or deployment per person: 20 copies of everything, and no shared board reads.
+- Passing a user id through every function signature. The context variable keeps signatures stable, and its fail-closed check stood in for auditing every call path.
+- Trusting IAP's plain email header, which is unsigned.
+- Keeping the Timeline bundled into the frontend: once any Google account can pass IAP, the static files are readable before approval.
+
+**Why.**
+- Shared sources make each board's daily read cost nothing extra per follower, and the round-robin, per-person scoring keeps each person's prompt cache warm.
+- Fail-closed identity (no user, no data; NOT NULL `user_id`) means a missed spot errors in tests rather than leaking. It caught every raw insert in the old tests.
+- IAP still does the Google sign-in, so there are no passwords to handle; the app verifies the signed token itself.
+- The daily cap moved onto the user, so only the admin can raise it.

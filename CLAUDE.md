@@ -1,8 +1,9 @@
 # CLAUDE.md
 
 Personal job-search assistant: aggregates job postings, scores them for interest/candidate fit via
-Claude, tailors resumes/cover letters, and tracks applications. Single user, private repo — holds
-real resume content and application history, so nothing here is published anywhere public. See
+Claude, tailors resumes/cover letters, and tracks applications. Built single-user; now multi-user
+for up to ~20 people the admin approves (D-021, see "Multi-user" below). Private repo — holds real
+resume content and application history, so nothing here is published anywhere public. See
 `/Users/mattroth/.claude/plans/i-want-to-create-typed-cake.md` for the full design plan and milestone
 breakdown this was built from.
 
@@ -33,6 +34,65 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
 
 ## Architecture
 
+- **Multi-user (D-021).** Up to ~20 occasional users, each approved by the admin (the owner).
+  - **Identity.** `api/auth.py`'s `AuthMiddleware` (pure ASGI) runs on every `/api/*` request. In
+    production it verifies IAP's signed `x-goog-iap-jwt-assertion` (ES256 against Google's
+    published keys, issuer, expiry, `IAP_AUDIENCE`) and trusts only that token's email. Locally
+    and in tests `JOBHUNT_DEV_EMAIL` stands in (`X-Dev-User` switches person); both are ignored
+    when `IAP_AUDIENCE` is set and refused on Cloud Run (`K_SERVICE`). With neither, every
+    `/api` request is a 401. A wrong audience says which audience the token carried.
+  - **Approval.** The email maps to `users` (`pending`/`approved`/`declined`/`blocked`). Anyone not
+    approved reaches only `/api/me` and `/api/access/request` (`api/access.py`), which back
+    `pages/AccessPage.tsx` (request form with a privacy note, then "Waiting for approval").
+    A request emails the admin; approving or declining on `/admin` (`api/admin.py`,
+    `pages/AdminPage.tsx`) emails the person (`email_digest.send_plain_email`). The admin can't
+    change their own status. User 1 is the admin and owns everything from before multi-user; their
+    address is `JOBHUNT_ADMIN_EMAIL` (`_ensure_admin()`; `admin@localhost` until set, which is also
+    `make serve`'s default `DEV_EMAIL`).
+  - **Whose data.** `core/users.py` holds the current user in a context variable, set by the
+    middleware and by the daily run per person (`acting_as`). `current_user_id()` raises
+    `NoUserError` when nobody is set, so a missed spot fails closed. Background threads and pools
+    don't inherit it: `carry()` (discovery tasks, retag) or `daily_run._map_in_context()`. Every
+    per-person table (`connection.PER_USER_TABLES`) has `user_id NOT NULL` (nullable only on
+    `llm_calls`, where NULL is shared work like the scheduled run reading a board, and `runs`), and
+    every query on one filters by it; reading another person's row by id is a 404. The UNIQUEs on
+    `applications`, `scoring_queue`, `digest_entries` and `jobby_threads` are per person, and
+    `settings`' key is `(user_id, key)`.
+  - **Shared sources and jobs.** A board is one `sources` row, read once per run whoever follows it;
+    `source_follows (user_id, source_id, enabled)` is who follows it, and `enabled` is per follow.
+    `api/sources.py`'s `_add_or_follow()` matches an existing source by kind + config (URLs compared
+    without case, protocol or trailing slash) and just follows it. Deleting unfollows (the row stays
+    for others). Name/employer/config are editable only by a sole follower or the admin. Jobs from
+    sources are shared; `users.VISIBLE_JOB_SQL` lets each person see those from sources they
+    follow, plus any they've scored or tracked. A pasted-in job has `jobs.user_id` (its owner, the
+    only one who sees or edits it; dedupe key prefixed `u<id>:`).
+  - **Files** go to `RESUME_STORAGE_DIR/<user id>/` (`users.storage_dir()`). Uploads are capped at
+    10 MB.
+  - **Daily run** (`pipeline/daily_run.py`). It reads every source followed by an approved person,
+    once (`_poll_sources(user_ids=)`, with nobody set, so board extraction is shared spend). Then
+    `_run_for_person()` for each: queue that person's new jobs, score up to what's left of their
+    daily cap (`users.daily_score_cap`, default 20, set on `/admin`; `remaining_cap()` counts
+    today's scores, so "check now" and refreshes can't exceed it), digest, preference refresh,
+    email to their own address, and a `runs` row. Someone with no candidate profile isn't scored.
+    Each person's jobs are one batch, which keeps their scoring context in the prompt cache.
+    "Check every source now" is the admin's (everyone); anyone else gets "Check my sources now"
+    (`run_daily(only_user=)`). Progress is kept per person who started the run.
+  - **Admin only:** `/admin`, the database backup download/list, and the Product Timeline. The
+    Timeline's `changelog.json` is no longer bundled into the frontend (whose files any signed-in
+    Google account can fetch once `make iap-open` runs). The page loads it from
+    `GET /api/admin/changelog`, and the Dockerfile copies the file next to the app.
+  - **"Start over"** clears only the signed-in person's rows, follows, pasted jobs and files.
+  - **Migration.** On a single-user database, `init_db()` snapshots it, rebuilds each
+    `PER_USER_TABLES` table from its current `schema.sql` definition with every row given to user
+    1, follows every source for user 1, and gives pasted jobs to user 1. The admin keeps their old
+    `daily_llm_cap` as their `daily_score_cap`; `/api/settings` still reports it as `daily_llm_cap`
+    (only the admin can change it there). Tested against `tests/fixtures/schema_single_user.sql`.
+  - Tests: `conftest.py` signs every request in as the admin (`JOBHUNT_DEV_EMAIL`) and runs direct
+    core calls as user 1. `tests/test_multiuser.py` covers isolation (a second person on every
+    endpoint), shared sources, approval, per-person runs and the migration; `tests/test_auth.py`
+    covers token checks with a locally generated ES256 key.
+  - Not yet (plan steps 4-6): scoring only people active in the last 7 days plus the "paused" email,
+    enforcing the monthly budget, New & Noteworthy's "Last updated"/Refresh, "Delete my account".
 - `src/jobhunt/db/schema.sql` — full SQLite schema, applied idempotently at startup
   (`db/connection.py`). `CREATE TABLE IF NOT EXISTS` never alters an existing table, so a new column
   on one needs an entry in `connection.py`'s `MIGRATIONS` list (plain `ALTER TABLE ... ADD COLUMN`,
@@ -910,6 +970,12 @@ with two differences from that project:
   native IAP integration -- no load balancer). `make iap-setup` grants just `IAP_USER`'s Google
   account access. This app must never be publicly reachable: after any change to the IAP setup,
   confirm from a signed-out/incognito browser that the URL redirects to Google sign-in.
+  Multi-user (D-021): `make iap-open` lets any Google account through IAP's sign-in (and
+  `make iap-close` undoes it). The app still admits only people the admin approves (api/auth.py),
+  so a signed-out browser must still hit Google sign-in, and an unapproved account must see only
+  the request-access page. `make deploy` sets `JOBHUNT_ADMIN_EMAIL` (`ADMIN_EMAIL`, defaulting to
+  `EMAIL_ADDRESS`; deploy stops if it's empty), `IAP_AUDIENCE`
+  (`/projects/<number>/locations/<region>/services/jobhunt`, overridable) and `APP_URL`.
 - **A GCS-bucket volume mount for `data/`** (resume blobs, `backups/`, and the pre-Litestream
   database) via Cloud Run's native volume-mount support, so it survives restarts.
   `--max-instances 1` avoids SQLite multi-writer issues entirely.

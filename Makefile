@@ -2,10 +2,14 @@ export PYTHONPATH := src
 PY := uv run python -m
 
 .PHONY: serve serve-sandbox reset-sandbox dev frontend test ingest-resumes docker apis-setup bucket-setup deploy iap-setup \
-        anthropic-secret scheduler-secret email-secret scheduler-setup bucket-protect
+        anthropic-secret scheduler-secret email-secret scheduler-setup bucket-protect iap-open iap-close
+
+# Locally there's no IAP: JOBHUNT_DEV_EMAIL stands in as the signed-in person (api/auth.py). It
+# defaults to the admin's placeholder address, which owns everything in a local database.
+DEV_EMAIL ?= admin@localhost
 
 serve:        ## API (serves frontend/dist if built) on http://localhost:8000
-	uv run uvicorn jobhunt.api.main:app --reload --port 8000
+	JOBHUNT_DEV_EMAIL=$(DEV_EMAIL) uv run uvicorn jobhunt.api.main:app --reload --port 8000
 
 # A throwaway data dir (its own SQLite DB + uploaded files) -- starts empty, so the first-run
 # onboarding wizard shows up, and nothing touches the real data/jobhunt.db or your resumes. Lives
@@ -14,7 +18,7 @@ serve:        ## API (serves frontend/dist if built) on http://localhost:8000
 SANDBOX_DIR ?= data/sandbox
 
 serve-sandbox:  ## like `serve`, but on :8001 against SANDBOX_DIR (run `make frontend` first)
-	JOBHUNT_DATA_DIR=$(SANDBOX_DIR) uv run uvicorn jobhunt.api.main:app --reload --port 8001
+	JOBHUNT_DEV_EMAIL=$(DEV_EMAIL) JOBHUNT_DATA_DIR=$(SANDBOX_DIR) uv run uvicorn jobhunt.api.main:app --reload --port 8001
 
 reset-sandbox:  ## wipe SANDBOX_DIR to see onboarding from scratch again
 	rm -rf $(SANDBOX_DIR)
@@ -48,7 +52,7 @@ BUCKET      ?= $(GCP_PROJECT)-jobhunt-data
 EMAIL_ADDRESS ?=
 comma := ,
 SERVICE_URL = $$(gcloud run services describe jobhunt --project $(GCP_PROJECT) --region $(GCP_REGION) --format 'value(status.url)')
-EMAIL_ENV = $(if $(EMAIL_ADDRESS),$(comma)EMAIL_ADDRESS=$(EMAIL_ADDRESS)$(comma)APP_URL=$(SERVICE_URL))
+EMAIL_ENV = $(if $(EMAIL_ADDRESS),$(comma)EMAIL_ADDRESS=$(EMAIL_ADDRESS))
 EMAIL_SECRET = $(if $(EMAIL_ADDRESS),$(comma)GMAIL_APP_PASSWORD=gmail-app-password:latest)
 
 # The live database sits on the server's own disk and Litestream streams it to the bucket's
@@ -57,6 +61,15 @@ EMAIL_SECRET = $(if $(EMAIL_ADDRESS),$(comma)GMAIL_APP_PASSWORD=gmail-app-passwo
 # while the server is up, so streaming never stalls between requests; with --min-instances 0 the
 # server still shuts down (and Litestream flushes) after ~15 idle minutes.
 LITESTREAM_ENV = JOBHUNT_DB_PATH=/tmp/db/jobhunt.db,JOBHUNT_SEED_DB=/data/jobhunt.db,LITESTREAM_REPLICA_URL=gcs://$(BUCKET)/litestream/jobhunt
+
+# Multi-user (D-021). ADMIN_EMAIL is the Google account you sign in with: it owns everything from
+# before multi-user and is the admin who approves everyone else. IAP_AUDIENCE is what the app checks
+# IAP's signed sign-in token against (api/auth.py); if it's ever wrong, every page says so, naming
+# the audience the token carried, so it can be fixed with `make deploy IAP_AUDIENCE=...`.
+ADMIN_EMAIL ?= $(EMAIL_ADDRESS)
+PROJECT_NUMBER = $$(gcloud projects describe $(GCP_PROJECT) --format='value(projectNumber)')
+IAP_AUDIENCE ?= /projects/$(PROJECT_NUMBER)/locations/$(GCP_REGION)/services/jobhunt
+AUTH_ENV = JOBHUNT_ADMIN_EMAIL=$(ADMIN_EMAIL),IAP_AUDIENCE=$(IAP_AUDIENCE),APP_URL=$(SERVICE_URL)
 
 # One-time setup, in order: apis-setup -> bucket-setup -> anthropic-secret -> scheduler-secret
 # -> deploy -> iap-setup -> scheduler-setup. `deploy` alone is safe to re-run for every later update.
@@ -95,6 +108,7 @@ bucket-protect:  ## once: make sure the data bucket keeps deleted/overwritten fi
 # default is 300s) because a full daily run -- polling plus up to daily_llm_cap serial scoring calls
 # -- and a web-search discovery call can both outlast 5 minutes.
 deploy:       ## Timeline data, then build the image in Cloud Build and deploy to Cloud Run, locked behind IAP
+	@test -n "$(ADMIN_EMAIL)" || (echo "set ADMIN_EMAIL=you@gmail.com (the Google account you sign in with)" && exit 1)
 	python3 scripts/build_changelog.py
 	gcloud builds submit --project $(GCP_PROJECT) --region $(GCP_REGION) --tag $(IMAGE) .
 	gcloud run deploy jobhunt --project $(GCP_PROJECT) --region $(GCP_REGION) --image $(IMAGE) \
@@ -103,7 +117,7 @@ deploy:       ## Timeline data, then build the image in Cloud Build and deploy t
 	  --execution-environment gen2 \
 	  --add-volume name=data,type=cloud-storage,bucket=$(BUCKET) \
 	  --add-volume-mount volume=data,mount-path=/data \
-	  --set-env-vars JOBHUNT_DATA_DIR=/data,$(LITESTREAM_ENV)$(EMAIL_ENV) \
+	  --set-env-vars JOBHUNT_DATA_DIR=/data,$(LITESTREAM_ENV),$(AUTH_ENV)$(EMAIL_ENV) \
 	  --set-secrets ANTHROPIC_API_KEY=anthropic-key:latest,SCHEDULER_SECRET=scheduler-secret:latest$(EMAIL_SECRET)
 
 IAP_USER ?= $(error set IAP_USER=you@example.com on the command line)
@@ -115,6 +129,19 @@ iap-setup:    ## once (after the first deploy): restrict the service to IAP_USER
 	gcloud iap web add-iam-policy-binding --project $(GCP_PROJECT) --region $(GCP_REGION) \
 	  --resource-type cloud-run --service jobhunt \
 	  --member="user:$(IAP_USER)" --role roles/iap.httpsResourceAccessor
+
+# Lets any Google account reach the app's sign-in. The app itself still admits only people the
+# admin approves on /admin (D-021); everyone else sees a request-access page and nothing more. Run
+# it once you're ready to invite people; `make iap-close` undoes it.
+iap-open:     ## when ready to invite people: any Google account can sign in and request access
+	gcloud iap web add-iam-policy-binding --project $(GCP_PROJECT) --region $(GCP_REGION) \
+	  --resource-type cloud-run --service jobhunt \
+	  --member=allAuthenticatedUsers --role roles/iap.httpsResourceAccessor
+
+iap-close:    ## undo iap-open: back to only the accounts granted with iap-setup
+	gcloud iap web remove-iam-policy-binding --project $(GCP_PROJECT) --region $(GCP_REGION) \
+	  --resource-type cloud-run --service jobhunt \
+	  --member=allAuthenticatedUsers --role roles/iap.httpsResourceAccessor
 
 anthropic-secret:  ## once: store $ANTHROPIC_API_KEY in Secret Manager (re-run to rotate)
 	@test -n "$$ANTHROPIC_API_KEY" || (echo "set ANTHROPIC_API_KEY first" && exit 1)
