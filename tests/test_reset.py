@@ -4,7 +4,6 @@ from fastapi.testclient import TestClient
 
 from jobhunt.core import users
 from jobhunt.api.main import app
-from jobhunt.core import reset
 from jobhunt.db.connection import get_db
 
 
@@ -16,7 +15,6 @@ def _count(table):
 def test_delete_all_data_returns_to_onboarding(tmp_path, monkeypatch):
     storage = tmp_path / "resumes"
     monkeypatch.setattr(users, "RESUME_STORAGE_DIR", storage)
-    monkeypatch.setattr(reset, "RESUME_STORAGE_DIR", storage)
     outside = tmp_path / "my-own-folder" / "Tailored.docx"
     outside.parent.mkdir()
     outside.write_bytes(b"not the app's to delete")

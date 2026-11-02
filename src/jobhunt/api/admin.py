@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from jobhunt.core.email_digest import send_plain_email
+from jobhunt.core.reset import AdminAccountError, delete_account
 from jobhunt.core.users import STATUSES, current_user_id, get_user, insert_default_settings, is_admin
 from jobhunt.db.connection import get_db
 
@@ -92,4 +93,31 @@ def _tell(user: dict, status: str) -> None:
             f"Hi {name},\n\nThanks for your interest. Your request to use Job Search Assistant wasn't "
             "approved this time.\n",
         )
+
+
+class DeleteUserRequest(BaseModel):
+    confirm: str
+
+
+@router.delete("/users/{user_id}")
+def delete_user(user_id: int, payload: DeleteUserRequest):
+    """Deletes someone's account and everything in it (core/reset.py's delete_account), and tells
+    them by email. Requires {"confirm": "DELETE"}; the admin's own account can't be deleted."""
+    if payload.confirm != "DELETE":
+        raise HTTPException(400, "type DELETE to confirm")
+    user = get_user(user_id)
+    if user is None:
+        raise HTTPException(404, "user not found")
+    try:
+        result = delete_account(user_id)
+    except AdminAccountError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    if user["status"] == "approved":
+        send_plain_email(
+            user["email"],
+            "Your Job Search Assistant account was deleted",
+            f"Hi {user['name'] or 'there'},\n\nYour Job Search Assistant account and everything in it "
+            "were deleted by the app's admin.\n",
+        )
+    return result
 

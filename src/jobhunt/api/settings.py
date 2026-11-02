@@ -13,7 +13,7 @@ from jobhunt.core import backup, retag
 
 from jobhunt.core.llm import CACHE_READ_MULTIPLIER, CACHE_WRITE_MULTIPLIER, PRICING_PER_MTOK, LLMError
 from jobhunt.core.email_digest import EmailNotConfigured, email_status, send_test_email
-from jobhunt.core.reset import delete_all_data
+from jobhunt.core.reset import AdminAccountError, delete_account, delete_all_data
 from jobhunt.core.preference import get_current_preference_profile, rebuild_preference_profile
 from jobhunt.core.settings import get_settings, update_settings
 from jobhunt.db.connection import get_db
@@ -58,6 +58,18 @@ def delete_all_data_route(payload: DeleteAllRequest):
     if payload.confirm != "DELETE":
         raise HTTPException(400, "type DELETE to confirm")
     return delete_all_data()
+
+
+@router.post("/delete-account")
+def delete_account_route(payload: DeleteAllRequest):
+    """Settings' "Delete my account": everything goes, including the account. Signing in again
+    means asking for access again. Requires {"confirm": "DELETE"}, like Start over."""
+    if payload.confirm != "DELETE":
+        raise HTTPException(400, "type DELETE to confirm")
+    try:
+        return delete_account(current_user_id())
+    except AdminAccountError as exc:
+        raise HTTPException(400, str(exc)) from exc
 
 
 @router.get("/retag-highlights")

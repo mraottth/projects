@@ -10,10 +10,10 @@ own local resume folder (`resume_library_path`'s "AI Generated"), which isn't th
 A snapshot of the database is taken first (core/backup.py, `backups/` is outside
 RESUME_STORAGE_DIR), so a mistaken reset can still be undone."""
 
+import shutil
 from pathlib import Path
 
-from jobhunt.config import RESUME_STORAGE_DIR
-from jobhunt.core import backup
+from jobhunt.core import backup, users
 from jobhunt.core.users import current_user_id, insert_default_settings
 from jobhunt.db.connection import PER_USER_TABLES, get_db
 
@@ -24,12 +24,35 @@ def _inside_storage(path: str | None) -> Path | None:
     if not path:
         return None
     resolved = Path(path).resolve()
-    return resolved if resolved.is_relative_to(RESUME_STORAGE_DIR.resolve()) else None
+    # users.RESUME_STORAGE_DIR (the same folder as config's; tests point it elsewhere).
+    return resolved if resolved.is_relative_to(users.RESUME_STORAGE_DIR.resolve()) else None
 
 
-def delete_all_data() -> dict:
-    user_id = current_user_id()
-    kept = backup.snapshot("before-reset")
+def delete_all_data(user_id: int | None = None) -> dict:
+    """"Start over": everything of this person's goes, and they're back at onboarding."""
+    return _wipe(user_id if user_id is not None else current_user_id(), close_account=False)
+
+
+class AdminAccountError(ValueError):
+    pass
+
+
+def delete_account(user_id: int) -> dict:
+    """"Delete my account" (step 6 of D-021): everything "Start over" removes, plus their settings,
+    their files folder and the account itself. Their Claude usage stays as spend history, no
+    longer linked to anyone (user_id NULL, note marked). Signing in again means asking for access
+    again. The admin's account can't be deleted."""
+    with get_db() as conn:
+        row = conn.execute("SELECT is_admin FROM users WHERE id = ?", (user_id,)).fetchone()
+    if row is None:
+        raise LookupError("no such account")
+    if row["is_admin"]:
+        raise AdminAccountError("the admin account can't be deleted")
+    return _wipe(user_id, close_account=True)
+
+
+def _wipe(user_id: int, close_account: bool) -> dict:
+    kept = backup.snapshot("before-account-delete" if close_account else "before-reset")
     with get_db() as conn:
         files = [
             row[0]
@@ -63,7 +86,15 @@ def delete_all_data() -> dict:
             # Their pasted-in jobs, now unreferenced (another person's rows never point at them).
             conn.execute(f"UPDATE llm_calls SET job_id = NULL WHERE job_id IN ({own_jobs})", {"uid": user_id})
             conn.execute(f"DELETE FROM jobs WHERE id IN ({own_jobs})", {"uid": user_id})
-            insert_default_settings(conn, user_id)
+            if close_account:
+                conn.execute(
+                    "UPDATE llm_calls SET user_id = NULL, "
+                    "note = 'deleted account' || COALESCE(': ' || note, '') WHERE user_id = :uid",
+                    {"uid": user_id},
+                )
+                conn.execute("DELETE FROM users WHERE id = :uid", {"uid": user_id})
+            else:
+                insert_default_settings(conn, user_id)
             conn.execute("COMMIT")
         except Exception:
             conn.execute("ROLLBACK")
@@ -77,6 +108,10 @@ def delete_all_data() -> dict:
         if target and target.is_file():
             target.unlink()
             deleted_files += 1
+    if close_account:
+        folder = _inside_storage(str(users.RESUME_STORAGE_DIR / str(user_id)))
+        if folder and folder.is_dir():
+            shutil.rmtree(folder)
     return {
         "tables_cleared": len(tables) + 3,
         "files_deleted": deleted_files,
