@@ -595,9 +595,9 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   - Column fit: cells use `overflow-wrap: break-word` (`word-break: break-word` split "$183k/yr"
     mid-word). Salary, Applied and Status don't wrap. The status menu uses `field-sizing: content`,
     or a native select is as wide as "Rejected - no interview". The Documents column (three
-    buttons, the widest column) became **Prep**: one small toggle per row (`PrepCell`, "Prep ▾",
-    green "Prep · 1 ready" when a tailored document exists) that opens `DocActions` stacked
-    vertically inside the cell. It expands inline rather than as a floating menu, so nothing gets
+    buttons, the widest column) became **Prep**: one small round "+"/"−" toggle per row
+    (`PrepCell`, `.prep-toggle`; green when a tailored document exists, and its tooltip says how
+    many) that opens `DocActions` stacked vertically inside the cell. It expands inline rather than as a floating menu, so nothing gets
     clipped by the sticky header.
   - "How your applications are going" counts applications, waiting, interviews (and rate), offers
     and rejections from the loaded list, plus the interview rate by fit rating, with no API call.
@@ -608,7 +608,8 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     - The card shows Jobby's avatar and the opening one-sentence takeaway (the prompt asks for one
       before the first heading; `takeaway()`), plus "Read Jobby's take". The full read-out opens
       in a `Modal`, whose `title` now takes any node so it can carry the avatar.
-    - The pop-up says when it was last updated. Only when it's out of date (any application's
+    - The pop-up says when it was last updated, at the top above the read-out. Only when it's out
+      of date (any application's
       `updated_at` is later than `generated_at`, or the job count differs) does it add a Refresh
       button. An always-there "Ask Jobby again" on the card read as confusing.
     - "Talk it over with Jobby" opens the general Jobby chat. `jobby.build_context(None)` includes

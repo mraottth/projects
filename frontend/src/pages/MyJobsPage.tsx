@@ -243,12 +243,16 @@ function PrepCell({ app, onChanged }: { app: Application; onChanged: (app: Appli
   return (
     <div className="prep-cell">
       <button
-        className={`ghost small prep-toggle${ready ? " has-ready" : ""}`}
+        className={`prep-toggle${ready ? " has-ready" : ""}`}
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        title={ready ? `${ready} tailored document${ready > 1 ? "s" : ""} ready to download` : undefined}
+        aria-label={open ? "Hide prep actions" : "Show prep actions"}
+        title={
+          (open ? "Hide" : "Tailor documents or prep with Jobby") +
+          (ready ? ` (${ready} tailored document${ready > 1 ? "s" : ""} ready)` : "")
+        }
       >
-        Prep{ready > 0 && ` · ${ready} ready`} {open ? "▴" : "▾"}
+        {open ? "−" : "+"}
       </button>
       {open && <DocActions app={app} onChanged={onChanged} />}
     </div>
@@ -471,7 +475,6 @@ function Insights({ apps }: { apps: Application[] }) {
       >
         {analysis && (
           <>
-            <Markdown text={analysis.text} />
             <div className="jobby-updated small">
               <span className="muted">
                 Last updated{" "}
@@ -490,6 +493,7 @@ function Insights({ apps }: { apps: Application[] }) {
                 </button>
               )}
             </div>
+            <Markdown text={analysis.text} />
             {error && <p className="error-text small">{error}</p>}
             <div className="form-actions">
               <Link className="ghost button-link" to="/jobby">

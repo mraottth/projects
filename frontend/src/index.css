@@ -700,7 +700,7 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 .jobby-take-preview { font-size: 0.9rem; }
 .jobby-take-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .jobby-modal-title { display: inline-flex; align-items: center; gap: 10px; }
-.jobby-updated { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 10px 0 4px; }
+.jobby-updated { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 12px; padding-bottom: 10px; border-bottom: 1px solid var(--grid); }
 .modal .md h2 { font-size: 1rem; margin: 14px 0 6px; }
 .myjobs-table-card { padding-top: 0; }
 .myjobs-toolbar {
@@ -719,7 +719,14 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 /* As wide as the chosen status, not the longest option, where the browser supports it. */
 .jobs-table .status-select { field-sizing: content; }
 .jobs-table .col-nowrap { white-space: nowrap; }
-.prep-toggle.has-ready { background: var(--good-bg); color: var(--good); border-color: transparent; font-weight: 600; }
+.prep-toggle {
+  width: 26px; height: 26px; padding: 0; border-radius: 50%; border: 1px solid var(--ring);
+  background: var(--card); color: var(--ink-2); font-size: 1.05rem; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.prep-toggle:hover { background: #efeee9; color: var(--ink); }
+/* A tailored document is ready: green, like the download link it opens to. */
+.prep-toggle.has-ready { background: var(--good-bg); color: var(--good); border-color: transparent; }
 .doc-actions.stacked { flex-direction: column; align-items: flex-start; margin-top: 6px; }
 .jobs-table td.col-nowrap input[type="date"] { width: 128px !important; }
 .jobs-table .doc-actions .ghost { white-space: nowrap; }
