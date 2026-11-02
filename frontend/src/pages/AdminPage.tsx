@@ -94,6 +94,7 @@ export default function AdminPage() {
               <th>Spend this month</th>
               <th>Sources</th>
               <th>Jobs tracked</th>
+              <th aria-label="Actions" />
             </tr>
           </thead>
           <tbody>
@@ -140,6 +141,7 @@ export default function AdminPage() {
                 </td>
                 <td>{u.sources_followed}</td>
                 <td>{u.applications}</td>
+                <td>{!u.is_admin && <DeleteUser user={u} onDeleted={load} />}</td>
               </tr>
             ))}
           </tbody>
@@ -192,3 +194,51 @@ function when(ts: string): string {
   if (days < 30) return `${days} days ago`;
   return d.toLocaleDateString();
 }
+
+/** "Delete…" then type DELETE: removes the account and everything in it, and emails them. */
+function DeleteUser({ user, onDeleted }: { user: AdminUser; onDeleted: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [typed, setTyped] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (!open) {
+    return (
+      <button className="link small danger-link" onClick={() => setOpen(true)}>
+        Delete…
+      </button>
+    );
+  }
+  return (
+    <div className="admin-delete">
+      <input
+        aria-label={`Type DELETE to delete ${user.email}`}
+        placeholder="Type DELETE"
+        value={typed}
+        onChange={(e) => setTyped(e.target.value)}
+        disabled={busy}
+      />
+      <button
+        className="danger-solid"
+        disabled={typed !== "DELETE" || busy}
+        onClick={async () => {
+          setBusy(true);
+          setError(null);
+          try {
+            await api.deleteUser(user.id, typed);
+            onDeleted();
+          } catch (e) {
+            setError((e as Error).message);
+            setBusy(false);
+          }
+        }}
+      >
+        {busy ? <Spinner label="Deleting…" /> : "Delete account"}
+      </button>
+      <button className="link small" onClick={() => setOpen(false)} disabled={busy}>
+        Cancel
+      </button>
+      {error && <p className="error small">{error}</p>}
+    </div>
+  );
+}
+

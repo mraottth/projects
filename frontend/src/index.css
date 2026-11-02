@@ -762,3 +762,6 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 .freshness button.link { padding: 0; font-size: inherit; }
 .freshness-card { margin-bottom: 18px; border-color: rgba(42, 120, 214, 0.35); }
 .freshness-note { margin: 4px 0 0; }
+.danger-link { color: var(--bad); padding: 0; }
+.admin-delete { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.admin-delete input { width: 110px; }

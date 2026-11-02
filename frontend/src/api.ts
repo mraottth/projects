@@ -656,6 +656,20 @@ export const api = {
 
   listBackups: () => request<{ backups: { name: string; bytes: number }[] }>("/api/settings/backups"),
 
+  deleteAccount: (confirm: string) =>
+    request<{ backup: string | null }>("/api/settings/delete-account", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirm }),
+    }),
+
+  deleteUser: (id: number, confirm: string) =>
+    request<{ backup: string | null }>(`/api/admin/users/${id}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirm }),
+    }),
+
   deleteAllData: (confirm: string) =>
     request<{ tables_cleared: number; files_deleted: number; backup: string | null }>("/api/settings/delete-all-data", {
       method: "POST",

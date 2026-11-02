@@ -4,6 +4,7 @@ import { api, ApiError, LlmCall, Me, Settings } from "../api";
 import { Markdown } from "../components/Markdown";
 import { Spinner } from "../components/Spinner";
 import { useIsAdmin } from "../me";
+import { PrivacyNote } from "./AccessPage";
 
 function toList(s: string): string[] {
   return s
@@ -128,7 +129,18 @@ function ColorOlderHighlights() {
 
 // Wipes everything and starts over at onboarding. Typing DELETE is the confirmation: it's the one
 // irreversible action in the app, and the backend refuses without it too.
-function DeleteAllData() {
+/** Type-DELETE confirmation for a destructive action (no window.confirm here; see CLAUDE.md). */
+function TypedDelete({
+  openLabel,
+  confirmLabel,
+  id,
+  onConfirm,
+}: {
+  openLabel: string;
+  confirmLabel: string;
+  id: string;
+  onConfirm: (typed: string) => Promise<void>;
+}) {
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
@@ -138,15 +150,48 @@ function DeleteAllData() {
     setBusy(true);
     setError(null);
     try {
-      await api.deleteAllData(typed);
-      // A full reload, so the app re-checks onboarding status and drops every page's loaded data.
-      window.location.assign("/onboarding");
+      await onConfirm(typed);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setBusy(false);
     }
   };
 
+  if (!open) {
+    return (
+      <button className="ghost danger" onClick={() => setOpen(true)}>
+        {openLabel}
+      </button>
+    );
+  }
+  return (
+    <div className="fsection">
+      <label className="flabel" htmlFor={id}>
+        Type DELETE to confirm
+      </label>
+      <div className="form-actions" style={{ marginTop: 0 }}>
+        <input id={id} value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" disabled={busy} />
+        <button className="danger-solid" onClick={run} disabled={typed !== "DELETE" || busy}>
+          {busy ? <Spinner label="Deleting..." /> : confirmLabel}
+        </button>
+        <button
+          className="link small"
+          onClick={() => {
+            setOpen(false);
+            setTyped("");
+          }}
+          disabled={busy}
+        >
+          Cancel
+        </button>
+      </div>
+      {error && <p className="error-text small">{error}</p>}
+    </div>
+  );
+}
+
+function DeleteAllData() {
+  const isAdmin = useIsAdmin();
   return (
     <div className="card danger-card">
       <h2>Start over</h2>
@@ -156,39 +201,34 @@ function DeleteAllData() {
         log is kept, and a backup of the database is saved first, so it can be restored if you
         change your mind. Nobody else's data is touched.
       </p>
-      {!open ? (
-        <button className="ghost danger" onClick={() => setOpen(true)}>
-          Delete all my data…
-        </button>
-      ) : (
-        <div className="fsection">
-          <label className="flabel" htmlFor="confirm-delete">
-            Type DELETE to confirm
-          </label>
-          <div className="form-actions" style={{ marginTop: 0 }}>
-            <input
-              id="confirm-delete"
-              value={typed}
-              onChange={(e) => setTyped(e.target.value)}
-              autoComplete="off"
-              disabled={busy}
-            />
-            <button className="danger-solid" onClick={run} disabled={typed !== "DELETE" || busy}>
-              {busy ? <Spinner label="Deleting..." /> : "Delete everything"}
-            </button>
-            <button
-              className="link small"
-              onClick={() => {
-                setOpen(false);
-                setTyped("");
-              }}
-              disabled={busy}
-            >
-              Cancel
-            </button>
-          </div>
-          {error && <p className="error-text small">{error}</p>}
-        </div>
+      <TypedDelete
+        id="confirm-delete"
+        openLabel="Delete all my data…"
+        confirmLabel="Delete everything"
+        onConfirm={async (typed) => {
+          await api.deleteAllData(typed);
+          // A full reload, so the app re-checks onboarding status and drops every page's loaded data.
+          window.location.assign("/onboarding");
+        }}
+      />
+      {!isAdmin && (
+        <>
+          <h2 style={{ marginTop: "22px" }}>Delete my account</h2>
+          <p className="muted small">
+            Permanently deletes your account and everything in it, the same as Start over plus the account
+            itself. You'd need to request access again to come back.
+          </p>
+          <TypedDelete
+            id="confirm-delete-account"
+            openLabel="Delete my account…"
+            confirmLabel="Delete my account"
+            onConfirm={async (typed) => {
+              await api.deleteAccount(typed);
+              // A full reload: with no account, the app shows the request-access page.
+              window.location.assign("/");
+            }}
+          />
+        </>
       )}
     </div>
   );
@@ -306,6 +346,7 @@ function YourData() {
           Export My Jobs as CSV
         </a>
       </div>
+      <PrivacyNote />
     </div>
   );
 }

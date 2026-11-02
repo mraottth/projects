@@ -84,8 +84,8 @@ export function PrivacyNote() {
           text, profile and the job posting) to Anthropic's Claude API, which by default doesn't use API data to train its models.
         </li>
         <li>
-          The app's owner runs it and can reach the stored data, including backups. Settings' "Start over"
-          clears everything you've added at any time.
+          The app's owner runs it and can reach the stored data, including backups. In Settings, "Start
+          over" clears everything you've added, and "Delete my account" removes the account too.
         </li>
       </ul>
     </details>
