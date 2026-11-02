@@ -450,6 +450,17 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     `gs://<bucket>/jobhunt.db`, delete `jobhunt.db-wal`/`-shm` and `litestream-seeded` next to it,
     then open the app: the new server finds no Litestream copy and no marker, and seeds from it.
     For a point in time instead, `litestream restore -timestamp ...` from the replica.
+  - `copy_sqlite()` builds every copy in a local temp file, then copies the finished file into
+    `backups/` in one sequential write (`.part`, then rename). Writing it in place on the bucket mount
+    failed live with `BufferedWriteHandler.OutOfOrderError` on the backup and its journal.
+  - **Why the daily run failed Oct 31 – Nov 2 (diagnosed 2026-11-02).** The app returned 500 after
+    6-25 minutes, and the mount logged `OutOfOrderError`, "stale file handle ... clobbered" on
+    `jobhunt.db-shm`, and 429 throttling. That's SQLite's lock file on the FUSE mount, the D-020
+    risk. Litestream (deployed after the last of these runs) moved the live database to local disk.
+    The scheduler's own log showed `DEADLINE_EXCEEDED` every day, even on successful runs, because
+    its default attempt deadline is 3 minutes. `scheduler-setup` now sets `--attempt-deadline
+    1800s`. To check runs: `gcloud scheduler jobs describe run-daily ...`, and the Cloud Run log
+    filtered on `httpRequest.requestUrl:"/internal/run-daily"` for status and latency.
   - `make bucket-protect` makes sure the bucket's soft delete (7 days, covering overwrites too) is
     on. Object versioning was left off on purpose: the database is rewritten on every save.
 - **Settings' "Start over"** (`core/reset.py`'s `delete_all_data()`, `POST
