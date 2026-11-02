@@ -540,8 +540,17 @@
    "time": "2026-11-02T16:24:59.418Z",
    "kind": "prompt",
    "text": "Let's move the timestamp and refresh to the top of the modal. Let's also have the expand button just be a plus button or expand icon.",
-   "reply": null,
+   "reply": "Both changes are done and pushed to `claude/upbeat-hamilton-y05u73`. I checked them in a browser and all 284 tests pass.\n\n- **Prep column:** each row now has a small round **+** button. Clicking it shows the three prep buttons stacked, and it turns into **−** to close them again. If a tailored document is ready, the button is green and its tooltip says how many.\n- **Jobby's pop-up:** the \"Last updated…\" line sits at the top, above Jobby's read-out, with Refresh next to it when your applications have changed since. \"Talk it over with Jobby\" stays at the bottom.\n\nTo deploy:\n\n```bash\ncd ~/job-search-assistant && git checkout main && git pull && git merge origin/claude/upbeat-hamilton-y05u73 && git push && make deploy\n```",
    "id": "ab602548-070",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-02T16:40:57.265Z",
+   "kind": "prompt",
+   "text": "Three more changes on the My Jobs page: 1) let's put a little vertical padding between the job title and the interest/fit chips. 2) we can remove \"/yr\" from the salary listings. Yearly should be the assumed default. If a job is ever something else we can put \"/mo\" or whatever else needs to be there. 3) Let's switch the positions of the Company and Title columns, and rename Company to Organization",
+   "reply": null,
+   "plan": "# My Jobs: chip spacing, no \"/yr\", Title before Organization\n\n## Context\nThree small polish asks on the My Jobs table:\n1. More vertical space between the job title and the Interest/Fit chips.\n2. Treat yearly pay as the default and show no suffix for it; keep a suffix only for other periods.\n3. Swap the Company and Title columns, and rename Company to \"Organization\".\n\n## Changes\n- **Chip spacing.** In `frontend/src/index.css`, change `.title-badges` `margin-top` from 4px to 8px.\n- **No \"/yr\".** `salaryText()` in `frontend/src/components/ScoredJobCard.tsx` is shared by the job cards on New & Noteworthy and All Jobs, so this applies app-wide. That keeps salaries consistent everywhere.\n  - Map `year` to `\"\"` in `PERIOD_LABELS`, and update the comment's examples.\n  - Hourly keeps \"/hr\". Any other stored period, such as \"month\", already falls through to `/${period}`. The schema only stores year/hour today.\n  - The daily email has its own copy (`core/email_digest.py` `_PERIODS` and the `_salary_text` docstring). Make the same change there so the email matches the app, and update `tests/test_email_digest.py:86` to expect `$160k-210k`.\n  - The job cards label the chip \"Salary: $160k-210k\", which stays clear without the suffix.\n- **Columns.** In `frontend/src/pages/MyJobsPage.tsx`, swap the two `SortHeader`s and the two `<td>`s so Title comes first and Organization second. Rename the header label to \"Organization\". The sort key `company` is unchanged.\n- **Docs.** Update `CLAUDE.md`'s My Jobs and salary notes.\n\n## Verification\n- `npx tsc -b && npm run build`, and pytest gated on the exit status.\n- A Playwright screenshot on the stub server checks the column order, the \"Organization\" header, the extra space above the chips, and \"$140k-160k\" / \"$183k\" with no \"/yr\".\n- Then commit, update the prompt log, push, and give the deploy command.",
+   "id": "ab602548-071",
    "session": "ab602548"
   }
  ]
