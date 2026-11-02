@@ -7,17 +7,18 @@ import contextvars
 import itertools
 import json
 import logging
+import os
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from datetime import UTC, date, datetime
 
-from jobhunt.core import backup, prefilter, queue
+from jobhunt.core import backup, budget, prefilter, queue
 from jobhunt.core import settings as settings_module
 from jobhunt.core.dedupe import compute_dedupe_key
 from jobhunt.core.digest import add_to_digest
-from jobhunt.core.email_digest import send_new_jobs_email
+from jobhunt.core.email_digest import send_new_jobs_email, send_plain_email
 from jobhunt.core.generic_postings import is_generic_posting
 from jobhunt.core.llm import LLMError
 from jobhunt.core.html_extract import html_to_markdown
@@ -28,7 +29,9 @@ from jobhunt.core.salary_extract import extract_salary
 from jobhunt.core.scoring import score_job, store_score
 from jobhunt.core.users import (
     acting_as,
-    approved_user_ids,
+    active_user_ids,
+    mark_paused_email_sent,
+    newly_inactive_users,
     current_user_id,
     get_user,
     optional_user_id,
@@ -536,6 +539,10 @@ def _run_for_person(
         if get_current_candidate_profile() is None:
             # Nothing to score against until they've set up a profile (onboarding builds one).
             allowed = 0
+        if allowed and budget.status(user_id)["over"]:
+            # This month's budget is used up: skip the batch rather than fail job by job.
+            allowed = 0
+            scoring_errors.append(budget.exceeded_message(budget.status(user_id)["monthly_budget_usd"]))
         if allowed:
             batch = queue.select_batch(allowed, source_ids=sorted(followed) or [-1])
             scored_count, scoring_errors = _score_and_digest(batch)
@@ -701,7 +708,11 @@ def _refresh_sources(source_ids: list[int], cap: int) -> dict:
         enqueued = _prefilter_and_enqueue(job_ids)
         scored, scoring_errors = 0, []
         allowed = remaining_cap(cap)
-        if allowed and get_current_candidate_profile() is not None:
+        if (
+            allowed
+            and get_current_candidate_profile() is not None
+            and not budget.status(current_user_id())["over"]
+        ):
             batch = queue.select_batch(allowed, source_ids=source_ids)
             scored, scoring_errors = _score_and_digest(batch)
         _set_progress(stage="done")
@@ -720,7 +731,10 @@ def _run_daily(started_at: str, cap: int | None, only_user: int | None = None) -
         # Before the run writes anything, so a run that goes wrong can be rolled back (core/backup.py).
         backup.snapshot()
     queue.requeue_stranded()
-    people = [only_user] if only_user is not None else approved_user_ids()
+    # Everyone's run covers only people active in the last week (users.ACTIVE_DAYS); anyone who just
+    # lapsed is told once that their matches are paused.
+    people = [only_user] if only_user is not None else active_user_ids()
+    paused_emails = _send_paused_emails() if everyone else 0
     # Reading the shared sources is nobody's own spend on the scheduled run (llm_calls.user_id NULL);
     # someone's own "check my sources" is theirs.
     with acting_as(only_user) if only_user is not None else _nobody():
@@ -745,6 +759,7 @@ def _run_daily(started_at: str, cap: int | None, only_user: int | None = None) -
         "preference_profile_rebuilt": any(p["preference_profile_rebuilt"] for p in per_person),
         "email": per_person[0]["email"] if len(per_person) == 1 else [p["email"] for p in per_person],
         "people": len(per_person),
+        "paused_emails": paused_emails,
     }
     _set_progress(stage="done")
     return summary
@@ -757,3 +772,22 @@ def _nobody():
         yield
     finally:
         reset_current_user(token)
+
+
+def _send_paused_emails() -> int:
+    """Tells each person who just passed a week away, once, that their daily matches are paused.
+    A send that fails or isn't configured leaves them unmarked, so the next run tries again."""
+    app_url = (os.environ.get("APP_URL") or "").rstrip("/")
+    sent = 0
+    for user in newly_inactive_users():
+        result = send_plain_email(
+            user["email"],
+            "Your daily job matches are paused",
+            f"Hi {user['name'] or 'there'},\n\nYour daily job matches are paused because you haven't "
+            "opened Job Search Assistant in a week. Open it to pick them back up:\n\n"
+            f"{app_url or '(the app link)'}\n",
+        )
+        if result.get("sent"):
+            mark_paused_email_sent(user["id"])
+            sent += 1
+    return sent

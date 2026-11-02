@@ -7,7 +7,9 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from jobhunt.core.email_digest import admin_address, send_plain_email
+from jobhunt.core import budget
 from jobhunt.core.users import create_user, get_user_by_email
+from jobhunt.db.connection import get_db
 
 router = APIRouter(tags=["access"])
 
@@ -30,6 +32,22 @@ def me(request: Request):
         "is_admin": bool(user["is_admin"]) and user["status"] == "approved",
         "name": user["name"],
         "id": user["id"] if user["status"] == "approved" else None,
+        "usage": _usage(user) if user["status"] == "approved" else None,
+    }
+
+
+def _usage(user: dict) -> dict:
+    """This month's Claude spend against the budget, and today's scoring against the daily cap
+    (step 4 of D-021), for Settings' usage line."""
+    with get_db() as conn:
+        scored_today = conn.execute(
+            "SELECT COUNT(*) FROM job_scores WHERE user_id = ? AND date(scored_at) = date('now')",
+            (user["id"],),
+        ).fetchone()[0]
+    return {
+        **budget.status(user["id"]),
+        "scored_today": scored_today,
+        "daily_score_cap": user["daily_score_cap"],
     }
 
 

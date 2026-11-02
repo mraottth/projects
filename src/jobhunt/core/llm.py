@@ -11,12 +11,17 @@ from contextlib import contextmanager
 
 import anthropic
 
+from jobhunt.core import budget
 from jobhunt.db.connection import get_db
 from jobhunt.core.users import optional_user_id
 
 
 class LLMError(Exception):
     """Raised for any Claude-call failure (missing/invalid credentials, rate limit, API error)."""
+
+
+class BudgetExceeded(LLMError):
+    """The person this call is for has used up this month's budget (core/budget.py)."""
 
 
 DEFAULT_MODEL = os.environ.get("JOBHUNT_LLM_MODEL", "claude-sonnet-5")
@@ -39,7 +44,13 @@ _client: anthropic.Anthropic | None = None
 
 
 def get_client() -> anthropic.Anthropic:
+    """The shared client. Every paid call site gets it right before calling Claude, so this is
+    also where a person's monthly budget is enforced (core/budget.py); shared work, with nobody
+    set, is never blocked."""
     global _client
+    user_id = optional_user_id()
+    if user_id is not None:
+        budget.check(user_id)
     if _client is None:
         _client = anthropic.Anthropic()
     return _client
@@ -138,3 +149,6 @@ def log_call(
                 cache_write_tokens,
             ),
         )
+    user_id = optional_user_id()
+    if user_id is not None:
+        budget.after_call(user_id)

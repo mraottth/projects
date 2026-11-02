@@ -33,6 +33,9 @@ MIGRATIONS = [
     # Multi-user (D-021): a pasted-in job's owner. The per-person tables get their user_id from
     # _migrate_to_multiuser() instead, since most of them also change a UNIQUE constraint.
     "ALTER TABLE jobs ADD COLUMN user_id INTEGER REFERENCES users(id)",
+    # Monthly budget alerts to the admin, once each per person per month (core/budget.py).
+    "ALTER TABLE users ADD COLUMN budget_alert_month TEXT",
+    "ALTER TABLE users ADD COLUMN budget_block_month TEXT",
 ]
 
 

@@ -18,7 +18,9 @@ CREATE TABLE IF NOT EXISTS users (
     last_seen_at TEXT,
     paused_email_sent_at TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    decided_at TEXT
+    decided_at TEXT,
+    budget_alert_month TEXT,   -- 'YYYY-MM' the admin was told this person passed 80% of their budget
+    budget_block_month TEXT    -- 'YYYY-MM' the admin was told they reached it (core/budget.py)
 );
 
 CREATE TABLE IF NOT EXISTS source_follows (

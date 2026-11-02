@@ -120,11 +120,45 @@ def approved_user_ids() -> list[int]:
     return [row["id"] for row in rows]
 
 
+# The daily run only scores people who opened the app in the last ACTIVE_DAYS (step 4 of D-021):
+# nobody pays for matches no one reads. Someone approved but never seen yet counts from their
+# approval, so a new person isn't paused before their first visit.
+ACTIVE_DAYS = 7
+_LAST_ACTIVE = "COALESCE(last_seen_at, decided_at, created_at)"
+
+
+def active_user_ids() -> list[int]:
+    with get_db() as conn:
+        rows = conn.execute(
+            f"SELECT id FROM users WHERE status = 'approved' "
+            f"AND julianday('now') - julianday({_LAST_ACTIVE}) <= ? ORDER BY id",
+            (ACTIVE_DAYS,),
+        ).fetchall()
+    return [row["id"] for row in rows]
+
+
+def newly_inactive_users() -> list[dict]:
+    """Approved people past ACTIVE_DAYS who haven't been told their matches are paused."""
+    with get_db() as conn:
+        rows = conn.execute(
+            f"SELECT * FROM users WHERE status = 'approved' AND paused_email_sent_at IS NULL "
+            f"AND julianday('now') - julianday({_LAST_ACTIVE}) > ? ORDER BY id",
+            (ACTIVE_DAYS,),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def mark_paused_email_sent(user_id: int) -> None:
+    with get_db() as conn:
+        conn.execute("UPDATE users SET paused_email_sent_at = datetime('now') WHERE id = ?", (user_id,))
+
+
 def touch_last_seen(user_id: int) -> None:
-    """Records a visit, at most once an hour (the 7-day activity rule reads it)."""
+    """Records a visit, at most once an hour (the 7-day activity rule reads it). A visit also
+    clears the "matches paused" email flag, so it can go out again after a later lapse."""
     with get_db() as conn:
         conn.execute(
-            "UPDATE users SET last_seen_at = ? WHERE id = ? "
+            "UPDATE users SET last_seen_at = ?, paused_email_sent_at = NULL WHERE id = ? "
             "AND (last_seen_at IS NULL OR julianday('now') - julianday(last_seen_at) > 1.0 / 24)",
             (datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"), user_id),
         )
