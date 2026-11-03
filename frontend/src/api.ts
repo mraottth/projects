@@ -432,6 +432,52 @@ export interface Me {
 }
 
 /** The latest everyone run, for the Admin page's "Daily check" card (api/admin.py). */
+export type ExperimentScore = {
+  interest_fit: string;
+  interest_score: number;
+  candidate_fit: string;
+  candidate_fit_score: number;
+  rationale_text: string;
+  cost_usd: number | null;
+  output_tokens: number;
+};
+
+export type ExperimentArmSummary = {
+  scored: number;
+  failed: number;
+  total_cost_usd: number;
+  cost_per_job_usd: number | null;
+  output_tokens_per_job: number | null;
+  interested_rated_high_or_med: number | null;
+  not_interested_rated_low: number | null;
+  interviewed_fit_high_or_med: number | null;
+};
+
+/** The Admin page's scoring cost experiment (core/scoring_experiment.py). */
+export type ScoringExperimentResult = {
+  ran_at: string;
+  jobs: {
+    job_id: number;
+    title: string;
+    company: string;
+    judgment: "interested" | "not_interested";
+    interviewed: boolean;
+    current: ExperimentScore | null;
+    lean: ExperimentScore | null;
+  }[];
+  summary: {
+    arms: { current: ExperimentArmSummary; lean: ExperimentArmSummary };
+    agreement: {
+      compared: number;
+      interest_same: number | null;
+      fit_same: number | null;
+      interest_score_diff: number | null;
+      fit_score_diff: number | null;
+    };
+    judged: { interested: number; not_interested: number; interviewed: number };
+  };
+};
+
 export interface DailyRunStatus {
   latest: {
     status: "running" | "ok" | "failed" | "unfinished";
@@ -687,6 +733,30 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ confirm }),
     }),
+
+  getScoringExperiment: () =>
+    request<{ sample_size: number; estimate_usd: number; result: ScoringExperimentResult | null; running: boolean }>(
+      "/api/admin/scoring-experiment",
+    ),
+
+  runScoringExperiment: async (onProgress: (done: number, total: number) => void) => {
+    const res = await fetch("/api/admin/scoring-experiment", { method: "POST" });
+    if (!res.ok || !res.body) throw new ApiError(res.status, res.statusText);
+    let result: ScoringExperimentResult | null = null;
+    let failure: string | null = null;
+    await readEvents<
+      | { type: "progress"; done: number; total: number }
+      | { type: "done"; result: ScoringExperimentResult }
+      | { type: "error"; message: string }
+    >(res, (event) => {
+      if (event.type === "progress") onProgress(event.done, event.total);
+      else if (event.type === "done") result = event.result;
+      else failure = event.message;
+    });
+    if (failure) throw new Error(failure);
+    if (!result) throw new Error(NETWORK_ERROR);
+    return result as ScoringExperimentResult;
+  },
 
   deleteAllData: (confirm: string) =>
     request<{ tables_cleared: number; files_deleted: number; backup: string | null }>("/api/settings/delete-all-data", {

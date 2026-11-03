@@ -1,9 +1,17 @@
 import json
+from dataclasses import dataclass
 from typing import Literal
 
 from pydantic import BaseModel
 
-from jobhunt.core.llm import DEFAULT_MODEL, cache_tokens, get_client, llm_error_boundary, log_call
+from jobhunt.core.llm import (
+    DEFAULT_MODEL,
+    cache_tokens,
+    estimate_cost_usd,
+    get_client,
+    llm_error_boundary,
+    log_call,
+)
 from jobhunt.db.connection import get_db
 from jobhunt.core.users import current_user_id
 
@@ -66,6 +74,26 @@ never estimate it, and don't use the candidate's own minimum."""
 SCORING_EFFORT = "medium"
 
 
+@dataclass(frozen=True)
+class ScoringSettings:
+    """How a scoring call is made. CURRENT is what live scoring uses; LEAN is the cheaper candidate
+    being measured against it (core/scoring_experiment.py, asked 2026-11-03): most of a score's
+    cost is output (reasoning plus a free-length rationale), then the whole posting as input."""
+
+    name: str
+    effort: str
+    max_posting_chars: int | None = None
+    short_rationale: bool = False
+
+
+CURRENT = ScoringSettings("current", SCORING_EFFORT)
+LEAN = ScoringSettings("lean", "low", max_posting_chars=6000, short_rationale=True)
+
+SHORT_RATIONALE = """
+
+Keep the rationale to 2-3 sentences. Still mark the 2-4 most decision-critical phrases as above."""
+
+
 class JobScore(BaseModel):
     interest_fit: Literal["High", "Med", "Low"]
     interest_score: float
@@ -114,12 +142,39 @@ def score_job(
     salary_floor: float | None = None,
     looking_for_notes: str | None = None,
 ) -> JobScore:
+    score, _cost, _output = score_job_with(
+        job,
+        candidate_profile,
+        preference_profile,
+        desired_sectors,
+        desired_titles,
+        salary_floor,
+        looking_for_notes,
+    )
+    return score
+
+
+def score_job_with(
+    job: dict,
+    candidate_profile: str | None,
+    preference_profile: str | None,
+    desired_sectors: list[str] | None = None,
+    desired_titles: list[str] | None = None,
+    salary_floor: float | None = None,
+    looking_for_notes: str | None = None,
+    settings: ScoringSettings = CURRENT,
+    note: str | None = None,
+) -> tuple[ScoredPosting, float | None, int]:
+    """Scores one job with the given settings. Returns (score, estimated cost, output tokens)."""
+    description = job.get("description_text") or ""
+    if settings.max_posting_chars and len(description) > settings.max_posting_chars:
+        description = description[: settings.max_posting_chars].rstrip() + "\n\n...(truncated)"
     posting_text = (
         f"Title: {job['title']}\nCompany: {job['company']}\nLocation: {job.get('location') or 'unknown'}\n"
         f"Remote: {job.get('remote_type') or 'unknown'}\n"
         f"Salary: {job.get('salary_min') or '?'}-{job.get('salary_max') or '?'} "
         f"{job.get('salary_currency') or ''} {job.get('salary_period') or ''}\n\n"
-        f"{job.get('description_text') or ''}"
+        f"{description}"
     )
     sectors_text = ", ".join(desired_sectors) if desired_sectors else "(not specified)"
     titles_text = ", ".join(desired_titles) if desired_titles else "(not specified)"
@@ -140,7 +195,7 @@ def score_job(
         f"## Recent feedback\n{_recent_feedback_text()}"
     )
     system = [
-        {"type": "text", "text": SYSTEM_PROMPT},
+        {"type": "text", "text": SYSTEM_PROMPT + (SHORT_RATIONALE if settings.short_rationale else "")},
         {"type": "text", "text": candidate_context, "cache_control": {"type": "ephemeral"}},
     ]
 
@@ -152,17 +207,20 @@ def score_job(
             system=system,
             messages=[{"role": "user", "content": f"## Job posting to score\n{posting_text}"}],
             output_format=ScoredPosting,
-            output_config={"effort": SCORING_EFFORT},
+            output_config={"effort": settings.effort},
         )
+    usage = response.usage
     log_call(
         call_type="scoring",
         model=DEFAULT_MODEL,
-        input_tokens=response.usage.input_tokens,
-        output_tokens=response.usage.output_tokens,
+        input_tokens=usage.input_tokens,
+        output_tokens=usage.output_tokens,
         job_id=job.get("id"),
-        **cache_tokens(response.usage),
+        note=note,
+        **cache_tokens(usage),
     )
-    return response.parsed_output
+    cost = estimate_cost_usd(DEFAULT_MODEL, usage.input_tokens, usage.output_tokens, **cache_tokens(usage))
+    return response.parsed_output, cost, usage.output_tokens
 
 
 def store_score(job_id: int, score: JobScore) -> int:

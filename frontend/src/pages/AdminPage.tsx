@@ -1,5 +1,13 @@
-import { useEffect, useState } from "react";
-import { api, type AdminUser, type DailyRunStatus } from "../api";
+import { Fragment, useEffect, useState } from "react";
+import {
+  api,
+  type AdminUser,
+  type DailyRunStatus,
+  type ExperimentScore,
+  type ScoringExperimentResult,
+} from "../api";
+import { Markdown } from "../components/Markdown";
+import { FitBadge, rationaleClass } from "../components/ScoredJobCard";
 import { Spinner } from "../components/Spinner";
 
 /**
@@ -156,6 +164,8 @@ export default function AdminPage() {
           Your own account has no limit.
         </p>
       </section>
+
+      <ScoringExperiment />
     </div>
   );
 }
@@ -329,3 +339,203 @@ function DailyCheck({ status }: { status: DailyRunStatus }) {
   );
 }
 
+
+const pct = (v: number | null) => (v === null ? "–" : `${Math.round(v * 100)}%`);
+const cents = (v: number | null) => (v === null ? "–" : `${(v * 100).toFixed(1)}¢`);
+
+/**
+ * The scoring cost experiment (asked 2026-11-03): rescores jobs you've already judged under the
+ * current settings and the cheaper "lean" ones, and compares cost and ratings. Nothing it scores
+ * reaches your job lists.
+ */
+function ScoringExperiment() {
+  const [info, setInfo] = useState<{ sample_size: number; estimate_usd: number } | null>(null);
+  const [result, setResult] = useState<ScoringExperimentResult | null>(null);
+  const [progress, setProgress] = useState<[number, number] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api
+      .getScoringExperiment()
+      .then((data) => {
+        setInfo(data);
+        setResult(data.result);
+        if (data.running) run(); // follow a run already going
+      })
+      .catch((e) => setError((e as Error).message));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function run() {
+    setError(null);
+    setProgress([0, 0]);
+    try {
+      setResult(await api.runScoringExperiment((done, total) => setProgress([done, total])));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setProgress(null);
+    }
+  }
+
+  if (!info) return null;
+  return (
+    <section className="card">
+      <h2>Scoring cost experiment</h2>
+      <p className="muted small">
+        Rescores up to 20 jobs you've already judged (marked Interested or Not interested, or tracked) twice: with
+        today's settings, and with cheaper "lean" ones (less reasoning, a 2–3 sentence rationale, long postings
+        cut at 6,000 characters). Then it compares what each cost and how each rated the jobs. Nothing here
+        changes your job lists or live scoring.
+      </p>
+      {progress ? (
+        <Spinner label={progress[1] ? `Scored ${progress[0]} of ${progress[1]}…` : "Starting…"} />
+      ) : info.sample_size === 0 ? (
+        !result && <p className="muted small">No judged jobs yet: mark a few jobs Interested or Not interested first.</p>
+      ) : (
+        <button className={result ? "ghost" : "primary"} onClick={run}>
+          {result ? "Run again" : `Run on ${info.sample_size} jobs`} (about ${info.estimate_usd.toFixed(2)})
+        </button>
+      )}
+      {error && <p className="error-text small">{error}</p>}
+      {result && !progress && <ExperimentResult result={result} />}
+    </section>
+  );
+}
+
+function ExperimentResult({ result }: { result: ScoringExperimentResult }) {
+  const { arms, agreement, judged } = result.summary;
+  const [open, setOpen] = useState<number | null>(null);
+  const saving =
+    arms.current.cost_per_job_usd && arms.lean.cost_per_job_usd
+      ? 1 - arms.lean.cost_per_job_usd / arms.current.cost_per_job_usd
+      : null;
+  return (
+    <>
+      <p className="small">
+        Ran {at(result.ran_at)} on {result.jobs.length} jobs ({judged.interested} you wanted, {judged.not_interested}{" "}
+        you didn't{judged.interviewed ? `, ${judged.interviewed} that reached an interview` : ""}).
+        {saving !== null && (
+          <>
+            {" "}
+            <strong>Lean costs {Math.round(saving * 100)}% less per job.</strong>
+          </>
+        )}
+      </p>
+      <table className="jobs-table experiment-table">
+        <thead>
+          <tr>
+            <th></th>
+            <th>Cost per job</th>
+            <th>Output tokens</th>
+            <th>Wanted → High/Med interest</th>
+            <th>Not wanted → Low interest</th>
+            {judged.interviewed > 0 && <th>Interviewed → High/Med fit</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {(["current", "lean"] as const).map((name) => {
+            const a = arms[name];
+            return (
+              <tr key={name}>
+                <td>
+                  <strong>{name === "current" ? "Current" : "Lean"}</strong>
+                  {a.failed > 0 && <span className="muted small"> ({a.failed} failed)</span>}
+                </td>
+                <td>{cents(a.cost_per_job_usd)}</td>
+                <td>{a.output_tokens_per_job ?? "–"}</td>
+                <td>{pct(a.interested_rated_high_or_med)}</td>
+                <td>{pct(a.not_interested_rated_low)}</td>
+                {judged.interviewed > 0 && <td>{pct(a.interviewed_fit_high_or_med)}</td>}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <p className="muted small">
+        Lean gave the same interest rating as current on {pct(agreement.interest_same)} of jobs and the same fit
+        rating on {pct(agreement.fit_same)}; scores differed by {agreement.interest_score_diff ?? "–"} (interest)
+        and {agreement.fit_score_diff ?? "–"} (fit) points on average, out of 100.
+      </p>
+      <details className="small">
+        <summary>Job by job (click a job to compare the two write-ups)</summary>
+        <table className="jobs-table experiment-table">
+          <thead>
+            <tr>
+              <th>Job</th>
+              <th>You</th>
+              <th>Current</th>
+              <th>Lean</th>
+            </tr>
+          </thead>
+          <tbody>
+            {result.jobs.map((job, i) => {
+              const differs =
+                job.current &&
+                job.lean &&
+                (job.current.interest_fit !== job.lean.interest_fit ||
+                  job.current.candidate_fit !== job.lean.candidate_fit);
+              return (
+                <Fragment key={job.job_id}>
+                  <tr
+                    className={differs ? "experiment-differs" : undefined}
+                    onClick={() => setOpen(open === i ? null : i)}
+                    style={{ cursor: "pointer" }}
+                  >
+                    <td>
+                      {job.title}
+                      <div className="muted small">{job.company}</div>
+                    </td>
+                    <td>
+                      {job.judgment === "interested" ? "Wanted" : "Not wanted"}
+                      {job.interviewed && <div className="muted small">interviewed</div>}
+                    </td>
+                    <td>
+                      <Ratings score={job.current} />
+                    </td>
+                    <td>
+                      <Ratings score={job.lean} />
+                    </td>
+                  </tr>
+                  {open === i && (
+                    <tr>
+                      <td colSpan={4}>
+                        <div className="experiment-rationales">
+                          {(["current", "lean"] as const).map((name) => (
+                            <div key={name}>
+                              <strong>{name === "current" ? "Current" : "Lean"}</strong>
+                              {job[name] ? (
+                                <div
+                                  className={`small ${rationaleClass(job[name]!.interest_fit, job[name]!.candidate_fit)}`}
+                                >
+                                  <Markdown text={job[name]!.rationale_text} />
+                                </div>
+                              ) : (
+                                <p className="muted small">Failed.</p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </details>
+    </>
+  );
+}
+
+function Ratings({ score }: { score: ExperimentScore | null }) {
+  if (!score) return <span className="muted small">failed</span>;
+  return (
+    <div className="experiment-ratings">
+      <FitBadge label="Interest" value={score.interest_fit} />
+      <FitBadge label="Fit" value={score.candidate_fit} />
+      <span className="muted small">{cents(score.cost_usd)}</span>
+    </div>
+  );
+}

@@ -261,6 +261,18 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   *rewards* a literal title match and never penalizes a miss, for the same reason -- the literal
   string check can't tell "equivalent" from "different," so it shouldn't be allowed to sink a good
   job's scoring priority before the LLM (which can) ever sees it.
+- **Scoring cost experiment** (asked 2026-11-03; `core/scoring_experiment.py`, the Admin page's
+  last card, `GET`/`POST /api/admin/scoring-experiment`). A score costs about 2-3 cents, mostly
+  output (reasoning at effort "medium" plus a free-length rationale), then the whole posting.
+  `scoring.ScoringSettings` has two presets: `CURRENT` (live scoring, unchanged) and `LEAN` (effort
+  "low", a 2-3 sentence rationale, the posting cut at 6,000 characters). `score_job()` keeps its
+  signature and uses `CURRENT`; `score_job_with(settings=, note=)` returns the score, its estimated
+  cost and output tokens. The experiment rescores up to 20 jobs the person judged (feedback marks,
+  or a tracked application = wanted), balanced wanted/not wanted, under both presets, and reports
+  cost per job, agreement with their marks and with each other, plus both rationales per job. It
+  writes nothing to `job_scores`/queue/digest; calls log as `scoring` with note "scoring
+  experiment: <arm>", and the result is kept in the `scoring_experiment` setting. Switching live
+  scoring to `LEAN` is a one-line change, pending the user's read of the result.
 - Desired sectors (`settings.prefilter_sectors`, edited on the Profile page's "What are you looking
   for?" card) feed three places: `core/prefilter.py`'s rule-based scorer (boost on a text match,
   penalty on a clear miss -- unlike titles, sector is treated as a harder constraint per the user's

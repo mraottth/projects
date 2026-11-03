@@ -2,10 +2,13 @@
 
 import json
 import os
+import time
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from jobhunt.core import scoring_experiment
 from jobhunt.core.email_digest import send_plain_email
 from jobhunt.core.reset import AdminAccountError, delete_account
 from jobhunt.core.users import STATUSES, current_user_id, get_user, insert_default_settings, is_admin
@@ -155,3 +158,39 @@ def delete_user(user_id: int, payload: DeleteUserRequest):
         )
     return result
 
+
+@router.get("/scoring-experiment")
+def scoring_experiment_status():
+    """The scoring cost experiment (core/scoring_experiment.py): how many judged jobs it would
+    rescore, roughly what that costs, and the last result."""
+    return scoring_experiment.status()
+
+
+@router.post("/scoring-experiment")
+def run_scoring_experiment():
+    """Runs the experiment in a background thread, streaming {"type": "progress", done, total},
+    then {"type": "done", result} or {"type": "error", message}, like Settings' retag pass. A second
+    request follows the run in progress."""
+    scoring_experiment.start()
+
+    def events():
+        while True:
+            state = scoring_experiment.get_state()
+            if not state["running"]:
+                if state["error"]:
+                    yield _sse({"type": "error", "message": state["error"]})
+                else:
+                    yield _sse({"type": "done", "result": scoring_experiment.status()["result"]})
+                return
+            yield _sse({"type": "progress", "done": state["done"], "total": state["total"]})
+            time.sleep(1.0)
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+def _sse(event: dict) -> str:
+    return f"data: {json.dumps(event)}\n\n"

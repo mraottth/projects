@@ -770,3 +770,11 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 .daily-check-pill.ok { background: var(--good-bg); color: var(--good); }
 .daily-check-pill.running { background: rgba(42, 120, 214, 0.12); color: var(--accent-ink); }
 .daily-check-pill.failed, .daily-check-pill.unfinished { background: var(--bad-bg); color: var(--bad); }
+
+/* Admin: scoring cost experiment */
+.experiment-table { margin: 10px 0; }
+.experiment-table td, .experiment-table th { vertical-align: top; }
+.experiment-table tr.experiment-differs > td:first-child { box-shadow: inset 3px 0 0 var(--warn); }
+.experiment-ratings { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.experiment-rationales { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 700px) { .experiment-rationales { grid-template-columns: 1fr; } }
