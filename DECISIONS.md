@@ -352,7 +352,7 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 ## D-025 · Scoring cost: keep the current settings; stop paying to re-read unchanged board pages
 - **Date:** 2026-11-04
 - **Category:** ai
-- **Prompts:** ab602548-095 to ab602548-099
+- **Prompts:** ab602548-095, ab602548-096a, ab602548-098, ab602548-100
 
 **Decision.**
 - Live scoring stays at effort "medium" with the full posting and rationale.

@@ -56,5 +56,6 @@
  "ab602548-089": "operational: deploy confirmation and go-ahead",
  "ab602548-092": "operational: pasted log output for the daily-run diagnosis",
  "ab602548-091": "operational: pasted log output for the daily-run diagnosis",
- "ab602548-096": "operational: a skipped question, answered by the next prompt"
+ "ab602548-096": "operational: a skipped question, answered by the next prompt",
+ "ab602548-099": "operational: a skipped question, answered by the next prompt"
 }
