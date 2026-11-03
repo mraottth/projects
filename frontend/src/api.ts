@@ -478,6 +478,19 @@ export type ScoringExperimentResult = {
   };
 };
 
+export type RescoreScope = "my_jobs" | "all_jobs";
+
+export type RescoreStatus = {
+  scope: RescoreScope;
+  count: number;
+  estimate_usd: number;
+  available_at: string | null;
+  budget_remaining_usd: number | null;
+  running: boolean;
+};
+
+export type RescoreResult = { scored: number; failed: number; stopped: string | null };
+
 export interface DailyRunStatus {
   latest: {
     status: "running" | "ok" | "failed" | "unfinished";
@@ -733,6 +746,35 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ confirm }),
     }),
+
+  getRescoreStatus: (scope: RescoreScope) => request<RescoreStatus>(`/api/rescore/${scope}`),
+
+  rescore: async (scope: RescoreScope, onProgress: (done: number, total: number) => void) => {
+    const res = await fetch(`/api/rescore/${scope}`, { method: "POST" });
+    if (!res.ok || !res.body) {
+      let detail = res.statusText;
+      try {
+        detail = (await res.json()).detail ?? detail;
+      } catch {
+        // not JSON
+      }
+      throw new ApiError(res.status, detail);
+    }
+    let result: RescoreResult | null = null;
+    let failure: string | null = null;
+    await readEvents<
+      | { type: "progress"; done: number; total: number }
+      | ({ type: "done" } & RescoreResult)
+      | { type: "error"; message: string }
+    >(res, (event) => {
+      if (event.type === "progress") onProgress(event.done, event.total);
+      else if (event.type === "done") result = { scored: event.scored, failed: event.failed, stopped: event.stopped };
+      else failure = event.message;
+    });
+    if (failure) throw new Error(failure);
+    if (!result) throw new Error(NETWORK_ERROR);
+    return result as RescoreResult;
+  },
 
   getScoringExperiment: () =>
     request<{ sample_size: number; estimate_usd: number; result: ScoringExperimentResult | null; running: boolean }>(

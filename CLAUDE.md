@@ -273,6 +273,19 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   writes nothing to `job_scores`/queue/digest; calls log as `scoring` with note "scoring
   experiment: <arm>", and the result is kept in the `scoring_experiment` setting. Switching live
   scoring to `LEAN` was measured and declined (D-025: 0.9¢ vs 0.8¢ a job).
+- **Rescore** (asked 2026-11-04; `core/rescore.py`, `api/rescore.py`, `components/RescoreButton.tsx`
+  under the intro on All Jobs and My Jobs). A score is made once, when a job is new, so a changed
+  profile never reached older jobs. `GET /api/rescore/{my_jobs|all_jobs}` gives the job count, an
+  estimate (count x the person's average of their last 50 scoring calls, 1 cent until they have
+  5), when it's next available, and the budget left (null for the admin). `POST` starts it in a
+  background thread (one per person; a second click on the same list follows it) and streams
+  progress like the retag pass. It stores a new `job_scores` row per job (the latest is what every
+  page shows) and marks a queued job scored. It ignores the daily cap (an explicit request whose
+  cost is shown first) but not the budget: `BudgetExceeded` stops the run and the result says why.
+  Anyone but the admin can rescore each list once a day (`last_rescore_<scope>` setting, set at
+  start; 429 with the hours left). My Jobs is every tracked job (pasted ones included); All Jobs
+  is the same set as `GET /api/jobs/ranked`. Generic postings are skipped. The button asks for
+  confirmation, naming the estimate and, when it's more than the budget left, that it will stop.
 - Desired sectors (`settings.prefilter_sectors`, edited on the Profile page's "What are you looking
   for?" card) feed three places: `core/prefilter.py`'s rule-based scorer (boost on a text match,
   penalty on a clear miss -- unlike titles, sector is treated as a harder constraint per the user's

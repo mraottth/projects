@@ -778,3 +778,7 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 .experiment-ratings { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 .experiment-rationales { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 700px) { .experiment-rationales { grid-template-columns: 1fr; } }
+
+/* Rescore My Jobs / All Jobs */
+.rescore { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: -6px 0 18px; }
+.rescore-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }

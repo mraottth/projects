@@ -19,6 +19,7 @@ from jobhunt.api import (
     jobs,
     onboarding,
     pipeline,
+    rescore,
     resumes,
     settings,
     sources,
@@ -61,6 +62,7 @@ app.include_router(discovery.router)
 app.include_router(onboarding.router)
 app.include_router(pipeline.router)
 app.include_router(jobby.router)
+app.include_router(rescore.router)
 
 if FRONTEND_DIST.exists():
     app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")

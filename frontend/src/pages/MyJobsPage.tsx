@@ -14,6 +14,7 @@ import { JobbyLogo } from "../components/JobbyLogo";
 import { Markdown } from "../components/Markdown";
 import { Modal } from "../components/Modal";
 import { FitBadge, salaryText, salaryValue } from "../components/ScoredJobCard";
+import { RescoreButton } from "../components/RescoreButton";
 import { Spinner } from "../components/Spinner";
 
 function AddJobForm({ onAdded }: { onAdded: (job: Job) => void }) {
@@ -592,6 +593,7 @@ export default function MyJobsPage() {
         Every job you've marked interested or added directly — status tracked from drafting
         through offer.
       </p>
+      <RescoreButton scope="my_jobs" onDone={refresh} />
 
       <div className={`myjobs-top${apps.length > 0 ? "" : " single"}`}>
         {apps.length > 0 && <Insights apps={apps} />}
