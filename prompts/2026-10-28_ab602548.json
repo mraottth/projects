@@ -757,8 +757,16 @@
    "time": "2026-11-03T14:47:57.782Z",
    "kind": "prompt",
    "text": "let's also add a rescore button with cost estimates and a cooldown period of 1 day for non-admin users. there should be a separate button for rescoring My Jobs and All Jobs.",
-   "reply": null,
+   "reply": "I added a Rescore button to All Jobs and another to My Jobs, each just under the page's intro text and each with its own once-a-day limit for everyone but you. It's pushed to `claude/upbeat-hamilton-y05u73`; all 361 tests pass, and I checked the button and its confirm step in a browser.\n\n**How it works:**\n- **The button shows the cost up front,** e.g. \"Rescore 42 jobs (about 42¢)\". The estimate is the job count times that person's own average cost from their last 50 scores (1¢ a job until they have 5).\n- **Clicking asks first:** \"Score all 42 jobs on All Jobs with your current profile, for about 42¢?\" with Rescore and Cancel. If the estimate is more than their remaining monthly budget, it says scoring will stop when the budget runs out.\n- **While it runs,** it shows \"Rescoring 12 of 42 jobs…\". When it finishes, the list reloads with the new scores, and older scores stay as history.\n- **Cooldown:** anyone but you can rescore each list once a day. Until then the button is greyed out and says \"Available again in 14 hours\". You have no limit.\n- **Which jobs:**\n  - My Jobs is every job you're tracking, including ones you pasted in.\n  - All Jobs is the same set the page lists.\n  - General \"join our talent pool\" postings are skipped on both.\n- **Limits:**\n  - A rescore isn't held to the 20-a-day scoring cap, since you've seen the cost and asked for it.\n  - The monthly budget still applies, so a rescore that hits it stops there and says why.\n  - A job that was waiting in the daily scoring queue counts as scored, so the 2pm run won't pay for it again.\n\n```bash\ncd ~/job-search-assistant && git checkout main && git pull && git merge origin/claude/upbeat-hamilton-y05u73 && git push && make deploy ADMIN_EMAIL=you@example.com\n```\n\nThis deploy also ships the unchanged-board saving. Since most jobs on your My Jobs list were rated Low interest, rescoring My Jobs after any profile change is a cheap way to see whether the change helped.",
    "id": "ab602548-102",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-03T14:56:56.852Z",
+   "kind": "prompt",
+   "text": "let's put these buttons on the settings page instead",
+   "reply": null,
+   "id": "ab602548-103",
    "session": "ab602548"
   }
  ]
