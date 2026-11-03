@@ -461,6 +461,20 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     its default attempt deadline is 3 minutes. `scheduler-setup` now sets `--attempt-deadline
     1800s`. To check runs: `gcloud scheduler jobs describe run-daily ...`, and the Cloud Run log
     filtered on `httpRequest.requestUrl:"/internal/run-daily"` for status and latency.
+  - **...and the cause still there after Litestream (2026-11-03): `StopIteration`.** Every run (the
+    2pm one, Refresh, "Check every source now") failed with a bare "StopIteration:". Once enough new
+    feedback had built up, the run rebuilt the preference profile, and Claude's reply had no text
+    block: its thinking used up the 1500 `max_tokens`. Six call sites took the first text block with
+    a bare `next(...)`, which raised StopIteration. That isn't an `LLMError`, so it took down the
+    whole run, and the rebuild was retried, and failed, every time.
+    - Now every reply goes through `llm.response_text(response, action)`, which raises `LLMError`
+      on an empty reply.
+    - The preference rebuild has 4000 tokens at effort "low", and the profile build/revise 4000 at
+      "medium".
+    - A failed preference rebuild is just noted in the run's errors.
+    - `_run_for_person_safely()` keeps one person's failure from stopping the others. It writes no
+      `runs` row for them, so "Last updated" doesn't claim a check that didn't happen.
+    - `describe_error()` adds the file, line and function to the Daily check card's error.
   - **The Admin page's "Daily check" card.** `run_daily()` gives the everyone run (scheduled, or the
     admin's "Check every source now", `started_by`) its own `runs` row with `user_id` NULL. The row is
     written as it starts (`status` 'running'), then set to 'ok' with counts or 'failed' with the

@@ -297,7 +297,8 @@ function DailyCheck({ status }: { status: DailyRunStatus }) {
         <p className="muted small">
           Read {run.sources_polled ?? 0} sources, found {run.jobs_fetched ?? 0} postings, and scored{" "}
           {run.llm_scored_count ?? 0} jobs for {run.people ?? 0} {run.people === 1 ? "person" : "people"}.
-          {run.source_errors.length > 0 && ` ${run.source_errors.length} couldn't be read.`}
+          {run.source_errors.length > 0 &&
+            ` ${run.source_errors.length} problem${run.source_errors.length === 1 ? "" : "s"} along the way.`}
         </p>
       )}
       {run.error && <p className="error-text small">{run.error}</p>}
@@ -316,7 +317,7 @@ function DailyCheck({ status }: { status: DailyRunStatus }) {
       )}
       {run.source_errors.length > 0 && (
         <details className="small">
-          <summary>Sources that couldn't be read</summary>
+          <summary>Problems along the way (sources that couldn't be read, steps that failed for someone)</summary>
           <ul>
             {run.source_errors.map((e) => (
               <li key={e}>{e}</li>
