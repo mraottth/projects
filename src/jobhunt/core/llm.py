@@ -109,6 +109,19 @@ def estimate_cost_usd(
     return (billed_input / 1_000_000) * in_rate + (output_tokens / 1_000_000) * out_rate
 
 
+def response_text(response, action: str) -> str:
+    """The text of a Claude reply. A reply can come back with no text block at all, when the
+    model's thinking uses up max_tokens before it writes anything (stop_reason "max_tokens"). Taking
+    the first text block with a bare next() then raised StopIteration, which nothing caught: it
+    killed every daily run once a preference-profile rebuild was due (2026-11-03, Admin page:
+    "StopIteration:"). This raises an LLMError instead, which callers already handle."""
+    text = "".join(b.text for b in response.content if getattr(b, "type", None) == "text")
+    if not text.strip():
+        stop = getattr(response, "stop_reason", None)
+        raise LLMError(f"Claude didn't return any text while {action} (stop reason: {stop}) -- try again")
+    return text
+
+
 def cache_tokens(usage) -> dict:
     """A response's cache reads and writes, as log_call keyword arguments (0 when absent)."""
     return {

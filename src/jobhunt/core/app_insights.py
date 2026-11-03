@@ -6,7 +6,7 @@ the part that needs judgment. Run only when the user asks, and the last answer i
 
 from datetime import date, datetime, timezone
 
-from jobhunt.core.llm import DEFAULT_MODEL, get_client, llm_error_boundary, log_call
+from jobhunt.core.llm import DEFAULT_MODEL, get_client, llm_error_boundary, log_call, response_text
 from jobhunt.core.settings import get_setting, update_settings
 from jobhunt.db.connection import get_db
 from jobhunt.core.users import current_user_id
@@ -100,12 +100,12 @@ def build() -> dict:
     with llm_error_boundary("reading your applications"):
         response = client.messages.create(
             model=DEFAULT_MODEL,
-            max_tokens=1500,
+            max_tokens=3000,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": content}],
             output_config={"effort": "medium"},
         )
-    text = next(b.text for b in response.content if b.type == "text").strip()
+    text = response_text(response, "reading your applications").strip()
     # llm_calls' CHECK constraint can't take a new call_type without a table rebuild (see Jobby).
     log_call(
         call_type="profile_rebuild",

@@ -10,6 +10,7 @@ import logging
 import os
 import threading
 import time
+import traceback
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from datetime import UTC, date, datetime
@@ -583,8 +584,9 @@ def _run_for_person(
             scored_count, scoring_errors = _score_and_digest(batch)
         try:
             preference_rebuilt = _maybe_rebuild_preference_profile()
-        except LLMError as exc:
-            scoring_errors.append(f"preference profile: {exc}")
+        except Exception as exc:  # noqa: BLE001 - an optional step; the run carries on without it
+            logger.exception("preference profile rebuild for user %s failed", user_id)
+            scoring_errors.append(f"preference profile: {describe_error(exc)}")
 
         email_result = None
         if email:
@@ -635,8 +637,9 @@ def run_daily(cap: int | None = None, only_user: int | None = None, fresh_hours:
             try:
                 summary = _run_daily(started_at, cap, only_user, fresh_hours)
             except Exception as exc:
+                logger.exception("daily run failed")
                 if system_run is not None:
-                    _system_run_finished(system_run, None, f"{type(exc).__name__}: {exc}")
+                    _system_run_finished(system_run, None, describe_error(exc))
                 raise
             else:
                 if system_run is not None:
@@ -800,7 +803,7 @@ def _run_daily(
         _expire_stale_jobs()
         backfill_salaries()
 
-    per_person = [_run_for_person(user_id, poll_result, started_at, cap) for user_id in people]
+    per_person = [_run_for_person_safely(user_id, poll_result, started_at, cap) for user_id in people]
 
     summary = {
         "started_at": started_at,
@@ -879,3 +882,43 @@ def _system_run_finished(run_id: int, summary: dict | None, error: str | None) -
                 run_id,
             ),
         )
+
+
+def describe_error(exc: BaseException) -> str:
+    """ "Type: message (file.py:line in function)", from the traceback's last frame, so an error
+    with no message (2026-11-03's bare "StopIteration:") still says where it happened."""
+    text = f"{type(exc).__name__}: {exc}" if str(exc) else type(exc).__name__
+    frames = traceback.extract_tb(exc.__traceback__)
+    if frames:
+        last = frames[-1]
+        text += f" ({os.path.basename(last.filename)}:{last.lineno} in {last.name})"
+    return text
+
+
+def _run_for_person_safely(user_id: int, poll_result: dict, started_at: str, cap: int | None) -> dict:
+    """One person's part of the run. If it fails, the error goes into the run's summary (and so
+    onto the Admin page's Daily check card) and the run moves on to the next person, rather than
+    one person's problem taking down everyone's run. No `runs` row is written for them: their
+    "Last updated" must not claim a check that didn't happen."""
+    try:
+        return _run_for_person(user_id, poll_result, started_at, cap)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("daily run for user %s failed", user_id)
+        error = f"user {user_id}: {describe_error(exc)}"
+        summary = {
+            "user_id": user_id,
+            "started_at": started_at,
+            "finished_at": datetime.now(UTC).isoformat(),
+            "sources_polled": 0,
+            "jobs_fetched": 0,
+            "jobs_upserted": 0,
+            "prefiltered_count": 0,
+            "llm_scored_count": 0,
+            "cap_used": 0,
+            "carried_over_count": 0,
+            "errors": [error],
+            "preference_profile_rebuilt": False,
+            "email": None,
+            "cap_reached": False,
+        }
+        return summary

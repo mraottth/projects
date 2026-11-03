@@ -1,6 +1,6 @@
 import json
 
-from jobhunt.core.llm import DEFAULT_MODEL, get_client, llm_error_boundary, log_call
+from jobhunt.core.llm import DEFAULT_MODEL, get_client, llm_error_boundary, log_call, response_text
 from jobhunt.db.connection import get_db
 from jobhunt.core.users import current_user_id
 
@@ -63,11 +63,12 @@ def rebuild_candidate_profile() -> str:
     with llm_error_boundary("rebuilding the candidate profile"):
         response = client.messages.create(
             model=DEFAULT_MODEL,
-            max_tokens=2000,
+            max_tokens=4000,
+            output_config={"effort": "medium"},
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": documents}],
         )
-    text = next(b.text for b in response.content if b.type == "text")
+    text = response_text(response, "writing your profile")
 
     log_call(
         call_type="career_profile",
@@ -119,7 +120,8 @@ def revise_candidate_profile(instructions: str) -> str:
     with llm_error_boundary("revising the candidate profile"):
         response = client.messages.create(
             model=DEFAULT_MODEL,
-            max_tokens=2000,
+            max_tokens=4000,
+            output_config={"effort": "medium"},
             system=REVISE_SYSTEM_PROMPT,
             messages=[
                 {
@@ -128,7 +130,7 @@ def revise_candidate_profile(instructions: str) -> str:
                 }
             ],
         )
-    text = next(b.text for b in response.content if b.type == "text")
+    text = response_text(response, "writing your profile")
 
     log_call(
         call_type="career_profile",

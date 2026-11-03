@@ -46,7 +46,7 @@ def test_a_crashed_run_shows_the_error(monkeypatch):
     with TestClient(app) as client:
         status = _status(client).json()["daily_run"]
     assert status["latest"]["status"] == "failed"
-    assert status["latest"]["error"] == "OSError: disk I/O error"
+    assert status["latest"]["error"].startswith("OSError: disk I/O error (test_daily_run_status.py:")
     assert status["latest"]["started_by"] == "admin"
     assert status["last_ok_finished_at"] is not None  # the earlier good run
 

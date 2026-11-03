@@ -29,7 +29,7 @@ from jobhunt.core.docx_writer import (
     write_cover_letter_docx,
     write_resume_edits,
 )
-from jobhunt.core.llm import DEFAULT_MODEL, get_client, llm_error_boundary, log_call
+from jobhunt.core.llm import DEFAULT_MODEL, get_client, llm_error_boundary, log_call, response_text
 from jobhunt.core.settings import get_setting, get_settings
 from jobhunt.db.connection import get_db
 from jobhunt.core.users import current_user_id, storage_dir
@@ -310,7 +310,7 @@ def _generate_resume_plain(job: dict, candidate_profile: str | None, base_resume
             system=RESUME_PLAIN_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_content}],
         )
-    text = next(b.text for b in response.content if b.type == "text")
+    text = response_text(response, "writing the document")
     log_call(
         call_type="generation",
         model=DEFAULT_MODEL,
@@ -383,7 +383,7 @@ def _generate_cover_letter_plain(job: dict, candidate_profile: str | None) -> st
             system=COVER_LETTER_PLAIN_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_content}],
         )
-    text = next(b.text for b in response.content if b.type == "text")
+    text = response_text(response, "writing the document")
     log_call(
         call_type="generation",
         model=DEFAULT_MODEL,

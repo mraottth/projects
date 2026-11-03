@@ -1,4 +1,4 @@
-from jobhunt.core.llm import DEFAULT_MODEL, get_client, llm_error_boundary, log_call
+from jobhunt.core.llm import DEFAULT_MODEL, get_client, llm_error_boundary, log_call, response_text
 from jobhunt.db.connection import get_db
 from jobhunt.core.users import current_user_id
 
@@ -77,11 +77,15 @@ def rebuild_preference_profile() -> str:
     with llm_error_boundary("rebuilding the preference profile"):
         response = client.messages.create(
             model=DEFAULT_MODEL,
-            max_tokens=1500,
+            # Room to finish: with thinking, a 1500 cap could be used up before any text was
+            # written (an empty reply crashed every daily run, 2026-11-03). Summarizing marks
+            # needs little reasoning.
+            max_tokens=4000,
+            output_config={"effort": "low"},
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_content}],
         )
-    text = next(b.text for b in response.content if b.type == "text")
+    text = response_text(response, "rebuilding the preference profile")
 
     log_call(
         call_type="profile_rebuild",
