@@ -348,3 +348,32 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 **Why.**
 - Delete as much as can be deleted without breaking shared rows or the spend record.
 - The snapshot keeps a mistaken deletion recoverable for 30 days of backups.
+
+## D-025 · Scoring cost: keep the current settings; stop paying to re-read unchanged board pages
+- **Date:** 2026-11-04
+- **Category:** ai
+- **Prompts:** ab602548-095 to ab602548-099
+
+**Decision.**
+- Live scoring stays at effort "medium" with the full posting and rationale.
+- A web-page board whose text hasn't changed since an earlier read reuses that read's postings, with no Claude call (`page_extractions`, `custom_board._extract_postings`). Relative dates ("3 days ago") are ignored when comparing.
+
+**Context.**
+- The owner asked what rescoring would cost, then how to cut the scoring cost. I estimated 2–3¢ a job.
+- The Admin page's scoring experiment measured 20 of the owner's judged jobs under both settings:
+  - current settings: 0.9¢ a job, 463 output tokens;
+  - lean settings (effort "low", a 2–3 sentence rationale, the posting cut at 6,000 characters): 0.8¢ a job, 309 output tokens;
+  - the two gave the same interest rating on 95% of jobs and the same fit rating on 85%.
+- The owner then asked for savings with no quality risk.
+
+**Alternatives considered.**
+- Switch to lean: 6% cheaper, with some fit ratings changing. Not worth the risk at 0.9¢.
+- The Batch API (50% off): results come back late, and it needs a second step in the daily run. That's real complexity for about $2.50 per person a month.
+- A cheaper model: the most likely to hurt rating quality.
+
+**Why.**
+- At under 1¢ a job, scoring is already cheap.
+- Board pages are read every day whether or not they've changed, and each read pays for up to 40k characters in and up to 30 postings written out. The same text always yields the same postings, so reusing them can't change what anyone sees.
+- How much this saves depends on how often the boards actually change; not yet measured.
+
+**Also seen.** Both settings rated most jobs the owner had added to My Jobs as Low interest (32% High/Med). That points to the interest rating, not the cost, and is still to be looked into.

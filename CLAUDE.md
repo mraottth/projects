@@ -272,7 +272,7 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   cost per job, agreement with their marks and with each other, plus both rationales per job. It
   writes nothing to `job_scores`/queue/digest; calls log as `scoring` with note "scoring
   experiment: <arm>", and the result is kept in the `scoring_experiment` setting. Switching live
-  scoring to `LEAN` is a one-line change, pending the user's read of the result.
+  scoring to `LEAN` was measured and declined (D-025: 0.9¢ vs 0.8¢ a job).
 - Desired sectors (`settings.prefilter_sectors`, edited on the Profile page's "What are you looking
   for?" card) feed three places: `core/prefilter.py`'s rule-based scorer (boost on a text match,
   penalty on a clear miss -- unlike titles, sector is treated as a harder constraint per the user's
@@ -315,6 +315,13 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   - with still too few, reads the one hosted board the page links to on an ATS with no adapter
     here (`ats_detect.detect_hosted_board()`: Workable, BambooHR, JazzHR, Breezy, Recruitee,
     Rippling, Paylocity, Jobvite, SmartRecruiters, Dover, Pinpoint, Workday).
+  **Unchanged pages aren't paid for twice** (D-025): `_extract_postings()` fingerprints the page
+  text (sha256, with relative dates like "3 days ago"/"today" blanked by `RELATIVE_DATE`) and, when
+  the shared `page_extractions` table has that URL + fingerprint, rebuilds the postings from the
+  stored listings with no Claude call (the step reads "...: 12 (unchanged, no Claude call)").
+  Listings are stored, not finished postings, so a changed `company_name` still applies. Only reads
+  that found postings are stored, so an empty or failed read retries; rows older than 30 days are
+  pruned per URL. Not per person, so Start over and account deletion leave it alone.
   `POST /api/sources/{id}/test` returns these `steps` ("read the page as plain HTML: 1; read the
   page in the browser: 12"), and Test fetch shows them after the count.
 - `src/jobhunt/core/dedupe.py` — `compute_dedupe_key` prefers `(source_id, external_id)` when an

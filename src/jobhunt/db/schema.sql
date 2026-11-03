@@ -212,6 +212,16 @@ CREATE TABLE IF NOT EXISTS settings (
     PRIMARY KEY (user_id, key)
 );
 
+-- Shared (not per person): the postings Claude read off a board page, keyed by the page's text
+-- fingerprint, so an unchanged page is never paid for twice (custom_board._extract_postings).
+CREATE TABLE IF NOT EXISTS page_extractions (
+    url TEXT NOT NULL,
+    text_hash TEXT NOT NULL,
+    listings_json TEXT NOT NULL,
+    extracted_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (url, text_hash)
+);
+
 CREATE TABLE IF NOT EXISTS runs (
     id INTEGER PRIMARY KEY,
     user_id INTEGER REFERENCES users(id),  -- whose check this was

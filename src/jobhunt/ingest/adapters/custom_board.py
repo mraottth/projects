@@ -8,6 +8,9 @@ one's page would be expensive). Only lightweight listing-page fields are extract
 pipeline backfills description_text by fetching a job's own URL only for postings selected for
 scoring, keeping cost proportional to what actually gets scored, not what's merely discovered."""
 
+import hashlib
+import json
+import re
 from datetime import date
 from typing import Literal
 
@@ -16,6 +19,7 @@ from pydantic import BaseModel
 from jobhunt.core.ats_detect import detect_embedded_ats, detect_hosted_board
 from jobhunt.core.llm import DEFAULT_MODEL, get_client, llm_error_boundary, log_call
 from jobhunt.core.page_fetch import PageFetchError, fetch_page
+from jobhunt.db.connection import get_db
 from jobhunt.ingest.adapters import ashby, greenhouse, lever
 
 MAX_POSTINGS_PER_FETCH = 30
@@ -93,8 +97,7 @@ def fetch_with_report(source: dict) -> tuple[list[dict], list[str]]:
     embedded = _fetch_embedded_ats(page.html, source, steps)
     if embedded is not None:
         return embedded, steps
-    postings = _extract_postings(page.text, source)
-    steps.append(f"read the page {how}: {len(postings)}")
+    postings = _extract_postings(page.text, source, steps, f"read the page {how}")
     html = page.html
 
     if len(postings) < FEW_POSTINGS and not page.rendered:
@@ -108,8 +111,7 @@ def fetch_with_report(source: dict) -> tuple[list[dict], list[str]]:
             if embedded is not None:
                 return embedded, steps
             if _worth_rereading(page.text, rendered.text, had_postings=bool(postings)):
-                again = _extract_postings(rendered.text, source)
-                steps.append(f"read the page in the browser: {len(again)}")
+                again = _extract_postings(rendered.text, source, steps, "read the page in the browser")
                 postings = max(postings, again, key=len)
             else:
                 steps.append("browser showed nothing new")
@@ -122,8 +124,7 @@ def fetch_with_report(source: dict) -> tuple[list[dict], list[str]]:
             except PageFetchError as exc:
                 steps.append(f"couldn't open its job board {board} ({exc})")
             else:
-                from_board = _extract_postings(board_page.text, source)
-                steps.append(f"read its job board {board}: {len(from_board)}")
+                from_board = _extract_postings(board_page.text, source, steps, f"read its job board {board}")
                 postings = max(postings, from_board, key=len)
     return postings, steps
 
@@ -154,8 +155,56 @@ def _fetch_embedded_ats(html: str, source: dict, steps: list[str]) -> list[dict]
     return postings
 
 
-def _extract_postings(text: str, source: dict) -> list[dict]:
+# Relative dates move every day without the listings changing ("Posted 3 days ago" -> "4 days ago"),
+# so they're blanked before fingerprinting. A new posting still adds its title and link.
+RELATIVE_DATE = re.compile(
+    r"\b(\d+\+?\s*(?:seconds?|secs?|minutes?|mins?|hours?|hrs?|h|days?|d|weeks?|wks?|w|months?|mos?)"
+    r"\s+ago|today|yesterday|just\s+now|(?:an?|one)\s+(?:hour|day|week|month)\s+ago)\b",
+    re.IGNORECASE,
+)
+KEEP_EXTRACTIONS_DAYS = 30
+
+
+def _fingerprint(text: str) -> str:
+    return hashlib.sha256(RELATIVE_DATE.sub("", text).encode()).hexdigest()
+
+
+def _extract_postings(text: str, source: dict, steps: list[str] | None = None, label: str = "") -> list[dict]:
+    """The postings on a page's text. A page whose text (relative dates aside) matches an earlier
+    read of the same URL reuses that read's listings with no Claude call: the same text gives the
+    same postings, so nothing is lost, and most board pages change little from day to day. Only
+    reads that found postings are kept, so an empty or failed read is tried again next time."""
     url = source["config"]["url"]
+    text_hash = _fingerprint(text)
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT listings_json FROM page_extractions WHERE url = ? AND text_hash = ?", (url, text_hash)
+        ).fetchone()
+    if row is not None:
+        listings = [JobListing.model_validate(item) for item in json.loads(row["listings_json"])]
+        postings = _to_postings(listings, source)
+        if steps is not None:
+            steps.append(f"{label}: {len(postings)} (unchanged, no Claude call)")
+        return postings
+
+    listings = _call_claude(text, url)
+    postings = _to_postings(listings, source)
+    if steps is not None:
+        steps.append(f"{label}: {len(postings)}")
+    if listings:
+        with get_db() as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO page_extractions (url, text_hash, listings_json) VALUES (?, ?, ?)",
+                (url, text_hash, json.dumps([item.model_dump() for item in listings])),
+            )
+            conn.execute(
+                "DELETE FROM page_extractions WHERE url = ? AND extracted_at < datetime('now', ?)",
+                (url, f"-{KEEP_EXTRACTIONS_DAYS} days"),
+            )
+    return postings
+
+
+def _call_claude(text: str, url: str) -> list[JobListing]:
     client = get_client()
     with llm_error_boundary(f"extracting postings from {url}"):
         response = client.messages.parse(
@@ -173,10 +222,13 @@ def _extract_postings(text: str, source: dict) -> list[dict]:
         output_tokens=response.usage.output_tokens,
         note=f"custom_board:{url}",
     )
+    return response.parsed_output.postings[:MAX_POSTINGS_PER_FETCH]
 
+
+def _to_postings(listings: list[JobListing], source: dict) -> list[dict]:
     default_company = source.get("company_name")
     postings = []
-    for listing in response.parsed_output.postings[:MAX_POSTINGS_PER_FETCH]:
+    for listing in listings:
         company = listing.company or default_company or "unknown"
         postings.append(
             {
