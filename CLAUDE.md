@@ -273,8 +273,9 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   writes nothing to `job_scores`/queue/digest; calls log as `scoring` with note "scoring
   experiment: <arm>", and the result is kept in the `scoring_experiment` setting. Switching live
   scoring to `LEAN` was measured and declined (D-025: 0.9¢ vs 0.8¢ a job).
-- **Rescore** (asked 2026-11-04; `core/rescore.py`, `api/rescore.py`, `components/RescoreButton.tsx`
-  under the intro on All Jobs and My Jobs). A score is made once, when a job is new, so a changed
+- **Rescore** (asked 2026-11-04; `core/rescore.py`, `api/rescore.py`, `components/RescoreButton.tsx`,
+  one per list in Settings' "Rescore your jobs" card, moved there from under each page's intro at
+  the user's ask). A score is made once, when a job is new, so a changed
   profile never reached older jobs. `GET /api/rescore/{my_jobs|all_jobs}` gives the job count, an
   estimate (count x the person's average of their last 50 scoring calls, 1 cent until they have
   5), when it's next available, and the budget left (null for the admin). `POST` starts it in a

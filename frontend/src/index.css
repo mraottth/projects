@@ -780,5 +780,5 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 @media (max-width: 700px) { .experiment-rationales { grid-template-columns: 1fr; } }
 
 /* Rescore My Jobs / All Jobs */
-.rescore { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: -6px 0 18px; }
+.rescore { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0 0; }
 .rescore-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }

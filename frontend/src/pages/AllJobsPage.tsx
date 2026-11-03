@@ -10,7 +10,6 @@ import {
   NO_JOB_FILTERS,
   filterJobs,
 } from "../components/JobFilters";
-import { RescoreButton } from "../components/RescoreButton";
 import { ScoredJobCard } from "../components/ScoredJobCard";
 
 export default function AllJobsPage() {
@@ -18,14 +17,11 @@ export default function AllJobsPage() {
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<JobFilterState>(DEFAULT_JOB_FILTERS);
 
-  const load = () =>
+  useEffect(() => {
     api
       .getRankedJobs()
       .then(setJobs)
       .finally(() => setLoading(false));
-
-  useEffect(() => {
-    load();
   }, []);
 
   const filtered = filterJobs(jobs, filters);
@@ -37,7 +33,6 @@ export default function AllJobsPage() {
         Every active posting from the companies and job boards you follow, ranked by interest and
         candidate fit first — not just what made today's New &amp; Noteworthy list.
       </p>
-      <RescoreButton scope="all_jobs" onDone={load} />
 
       {loading && <p className="muted">Loading...</p>}
       {!loading && jobs.length === 0 && (

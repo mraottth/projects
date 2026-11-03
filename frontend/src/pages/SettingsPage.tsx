@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, ApiError, LlmCall, Me, Settings } from "../api";
 import { Markdown } from "../components/Markdown";
+import { RescoreButton } from "../components/RescoreButton";
 import { Spinner } from "../components/Spinner";
 import { useIsAdmin } from "../me";
 import { PrivacyNote } from "./AccessPage";
@@ -423,6 +424,22 @@ function UsageLog() {
   );
 }
 
+function RescoreJobs() {
+  const isAdmin = useIsAdmin();
+  return (
+    <div className="card">
+      <h2>Rescore your jobs</h2>
+      <p className="muted small">
+        Each job is scored once, when it first shows up. After changing your profile or what you're looking
+        for, rescore a list to see every job on it in that new light.
+        {!isAdmin && " Each list can be rescored once a day."}
+      </p>
+      <RescoreButton scope="my_jobs" />
+      <RescoreButton scope="all_jobs" />
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const [profile, setProfile] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -490,6 +507,8 @@ export default function SettingsPage() {
           <p className="empty-state">No preference profile yet — mark some jobs or track an application.</p>
         )}
       </div>
+
+      <RescoreJobs />
 
       <DailyEmail />
       <ColorOlderHighlights />

@@ -22,7 +22,7 @@ function waitText(iso: string): string {
  * "Rescore": scores every job on this list again with your current profile, after showing about
  * what it costs (core/rescore.py). Once a day for everyone but the admin.
  */
-export function RescoreButton({ scope, onDone }: { scope: RescoreScope; onDone: () => void }) {
+export function RescoreButton({ scope, onDone }: { scope: RescoreScope; onDone?: () => void }) {
   const [status, setStatus] = useState<RescoreStatus | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [progress, setProgress] = useState<[number, number] | null>(null);
@@ -54,7 +54,7 @@ export function RescoreButton({ scope, onDone }: { scope: RescoreScope; onDone: 
       if (result.failed) parts.push(`${result.failed} couldn't be scored.`);
       if (result.stopped) parts.push(`Stopped early: ${result.stopped}`);
       setMessage(parts.join(" "));
-      onDone();
+      onDone?.();
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -63,7 +63,8 @@ export function RescoreButton({ scope, onDone }: { scope: RescoreScope; onDone: 
     }
   }
 
-  if (!status || status.count === 0) return null;
+  if (!status) return null;
+  if (status.count === 0) return <p className="muted small rescore">No jobs on {LABELS[scope]} yet.</p>;
   const overBudget = status.budget_remaining_usd !== null && status.estimate_usd > status.budget_remaining_usd;
 
   return (
@@ -102,7 +103,7 @@ export function RescoreButton({ scope, onDone }: { scope: RescoreScope; onDone: 
           }
           onClick={() => setConfirming(true)}
         >
-          Rescore {status.count} jobs (about {money(status.estimate_usd)})
+          Rescore {LABELS[scope]}: {status.count} jobs (about {money(status.estimate_usd)})
         </button>
       )}
       {!progress && status.available_at && !confirming && (
