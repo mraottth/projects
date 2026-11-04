@@ -15,6 +15,9 @@ export interface JobFilterState {
   // Jobs the daily cap hasn't scored yet have no fit at all, so the fit filters can't judge them;
   // this alone decides whether they show.
   includeUnscored: boolean;
+  // Jobs your location dealbreaker hides (All Jobs only). A setting, not a filter, so "Clear all"
+  // leaves it off.
+  includeOutsideLocations: boolean;
   sort: SortKey;
 }
 
@@ -38,6 +41,7 @@ export const DEFAULT_JOB_FILTERS: JobFilterState = {
   location: [],
   search: "",
   includeUnscored: true,
+  includeOutsideLocations: false,
   sort: "best",
 };
 
@@ -51,6 +55,7 @@ export const NO_JOB_FILTERS: JobFilterState = {
   location: [],
   search: "",
   includeUnscored: true,
+  includeOutsideLocations: false,
   sort: "best",
 };
 
@@ -138,6 +143,7 @@ export function filterJobs(jobs: ScoredJob[], f: JobFilterState): ScoredJob[] {
   const searchQuery = f.search.trim().toLowerCase();
 
   const filtered = jobs.filter((job) => {
+    if (job.outside_locations && !f.includeOutsideLocations) return false;
     if (!job.interest_fit && !job.candidate_fit) {
       if (!f.includeUnscored) return false;
     } else {
@@ -270,6 +276,7 @@ export function JobFilterBar({
   const sources = Array.from(
     new Set(jobs.map((j) => j.source_name).filter((s): s is string => !!s)),
   ).sort();
+  const outside = jobs.filter((j) => j.outside_locations).length;
   const locations = Array.from(
     new Set(jobs.map((j) => j.location).filter((l): l is string => !!l)),
   ).sort();
@@ -323,6 +330,16 @@ export function JobFilterBar({
           />
           Include jobs not yet scored
         </label>
+        {outside > 0 && (
+          <label className="small" style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "6px" }}>
+            <input
+              type="checkbox"
+              checked={filters.includeOutsideLocations}
+              onChange={(e) => set("includeOutsideLocations", e.target.checked)}
+            />
+            Show {outside} job{outside === 1 ? "" : "s"} outside your locations
+          </label>
+        )}
       </div>
 
       <DropdownMultiSelect

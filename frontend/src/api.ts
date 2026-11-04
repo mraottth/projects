@@ -118,6 +118,8 @@ export interface Application {
 }
 
 export interface ScoredJob extends Job {
+  // All Jobs only: outside your locations with the location dealbreaker on (hidden unless asked).
+  outside_locations?: boolean;
   interest_fit: "High" | "Med" | "Low" | null;
   interest_score: number | null;
   candidate_fit: "High" | "Med" | "Low" | null;
@@ -233,6 +235,7 @@ export interface Settings {
   prefilter_sectors: string[];
   prefilter_locations: string[];
   prefilter_remote_only: boolean;
+  location_dealbreaker?: boolean;
   salary_floor: number | null;
   looking_for_notes: string;
   onboarding_completed: boolean;
@@ -491,6 +494,18 @@ export type RescoreStatus = {
 
 export type RescoreResult = { scored: number; failed: number; stopped: string | null };
 
+/** GET /api/settings/location-check: how desired locations are read, and what they'd hide. */
+export type LocationCheck = {
+  enabled: boolean;
+  entries: { entry: string; recognized: boolean; matches: string[] }[];
+  preview: {
+    total: number;
+    hidden: number;
+    hidden_locations: { location: string; count: number }[];
+    kept: Record<string, number>;
+  };
+};
+
 export interface DailyRunStatus {
   latest: {
     status: "running" | "ok" | "failed" | "unfinished";
@@ -691,6 +706,8 @@ export const api = {
     }),
 
   getSettings: () => request<Settings>("/api/settings"),
+
+  getLocationCheck: () => request<LocationCheck>("/api/settings/location-check"),
 
   putSettings: (payload: Partial<Settings>) =>
     request<Settings>("/api/settings", {

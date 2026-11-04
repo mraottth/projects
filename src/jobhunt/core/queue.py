@@ -4,6 +4,8 @@ indefinitely by a stream of new, higher-scoring jobs -- this *is* the backlog ca
 
 import json
 
+from jobhunt.core import locations
+from jobhunt.core.settings import get_settings
 from jobhunt.db.connection import get_db
 from jobhunt.core.users import current_user_id
 
@@ -50,14 +52,16 @@ def select_batch(cap: int, source_ids: list[int] | None = None) -> list[int]:
     titles/sectors (Civis, live) take every slot of onboarding's 20-job first run, leaving every
     other source unscored."""
     _apply_age_bonus()
+    settings = get_settings()
+    dealbreaker = locations.dealbreaker_on(settings)
     only_sources = ""
     if source_ids:
         # Ints from our own DB, so inlining them is safe; it keeps the LIMIT parameter simple.
         only_sources = f"AND j.source_id IN ({','.join(str(int(i)) for i in source_ids)})"
     with get_db() as conn:
         rows = conn.execute(
-            f"""SELECT id, job_id FROM (
-                   SELECT q.id, q.job_id, q.priority,
+            f"""SELECT id, job_id, location, remote_type FROM (
+                   SELECT q.id, q.job_id, q.priority, j.location, j.remote_type,
                           ROW_NUMBER() OVER (
                               PARTITION BY j.source_id ORDER BY q.priority DESC, q.id
                           ) AS source_rank
@@ -66,8 +70,12 @@ def select_batch(cap: int, source_ids: list[int] | None = None) -> list[int]:
                )
                ORDER BY source_rank, priority DESC, id
                LIMIT ?""",
-            (current_user_id(), cap),
+            # With the location dealbreaker on, read them all: a job outside the person's
+            # locations stays pending (so switching it off brings it back) but never takes a slot.
+            (current_user_id(), -1 if dealbreaker else cap),
         ).fetchall()
+        if dealbreaker:
+            rows = [r for r in rows if not locations.blocks(dict(r), settings)][:cap]
         ids = [row["id"] for row in rows]
         if ids:
             conn.executemany(

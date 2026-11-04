@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 from starlette.background import BackgroundTask
 
-from jobhunt.core import backup, retag
+from jobhunt.core import backup, locations, retag
 
 from jobhunt.core.llm import CACHE_READ_MULTIPLIER, CACHE_WRITE_MULTIPLIER, PRICING_PER_MTOK, LLMError
 from jobhunt.core.email_digest import EmailNotConfigured, email_status, send_test_email
@@ -70,6 +70,38 @@ def delete_account_route(payload: DeleteAllRequest):
         return delete_account(current_user_id())
     except AdminAccountError as exc:
         raise HTTPException(400, str(exc)) from exc
+
+
+@router.get("/location-check")
+def location_check():
+    """For the location dealbreaker on the "What are you looking for?" card: how each desired
+    location is read, and what it would hide among the jobs on All Jobs right now (whether or not
+    it's switched on), grouped by location text, so a wrong reading shows before it hides anything."""
+    from jobhunt.api.jobs import list_ranked_jobs
+
+    current = get_settings()
+    entries = current.get("prefilter_locations") or []
+    preview = {"total": 0, "hidden": 0, "hidden_locations": [], "kept": {}}
+    if entries:
+        hidden: dict[str, int] = {}
+        kept: dict[str, int] = {}
+        for job in list_ranked_jobs():
+            preview["total"] += 1
+            outcome = locations.verdict(job.get("location"), job.get("remote_type"), entries)
+            if outcome == "elsewhere":
+                hidden[job["location"]] = hidden.get(job["location"], 0) + 1
+            else:
+                kept[outcome] = kept.get(outcome, 0) + 1
+        preview["hidden"] = sum(hidden.values())
+        preview["hidden_locations"] = [
+            {"location": loc, "count": n} for loc, n in sorted(hidden.items(), key=lambda kv: (-kv[1], kv[0]))
+        ]
+        preview["kept"] = kept
+    return {
+        "enabled": locations.dealbreaker_on(current),
+        "entries": locations.describe(entries),
+        "preview": preview,
+    }
 
 
 @router.get("/retag-highlights")
@@ -145,9 +177,7 @@ def put_settings(payload: dict):
     cap = payload.pop("daily_llm_cap", None)
     if cap is not None and is_admin():
         with get_db() as conn:
-            conn.execute(
-                "UPDATE users SET daily_score_cap = ? WHERE id = ?", (int(cap), current_user_id())
-            )
+            conn.execute("UPDATE users SET daily_score_cap = ? WHERE id = ?", (int(cap), current_user_id()))
     return _with_cap(update_settings(payload))
 
 

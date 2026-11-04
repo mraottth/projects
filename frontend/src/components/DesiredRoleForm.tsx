@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, Settings } from "../api";
+import { api, type LocationCheck, Settings } from "../api";
 import { TagInput } from "./TagInput";
 
 // The "What are you looking for?" card -- shared by the Profile page and onboarding's second step.
@@ -10,6 +10,7 @@ export function DesiredRoleForm() {
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [checkVersion, setCheckVersion] = useState(0);
 
   useEffect(() => {
     api.getSettings().then(setSettings);
@@ -73,9 +74,31 @@ export function DesiredRoleForm() {
         <span className="flabel">Desired locations</span>
         <TagInput
           value={settings.prefilter_locations}
-          onChange={(tags) => save({ prefilter_locations: tags })}
-          placeholder="e.g. New York, Remote"
+          onChange={(tags) => save({ prefilter_locations: tags }).then(() => setCheckVersion((v) => v + 1))}
+          placeholder="e.g. DC, New York, Remote"
         />
+        {settings.prefilter_locations.length > 0 && (
+          <>
+            <label className="field inline" style={{ margin: "10px 0 0" }}>
+              <input
+                type="checkbox"
+                checked={!!settings.location_dealbreaker}
+                onChange={(e) =>
+                  save({ location_dealbreaker: e.target.checked }).then(() => setCheckVersion((v) => v + 1))
+                }
+              />
+              <span style={{ margin: 0, fontWeight: 400, color: "var(--ink)" }}>
+                Dealbreaker: only show jobs in these locations
+              </span>
+            </label>
+            <p className="muted small" style={{ margin: "4px 0 0" }}>
+              Jobs clearly somewhere else aren't scored or shown (My Jobs is never filtered). Remote
+              jobs, jobs listing several locations, and jobs whose location can't be told always
+              stay.
+            </p>
+            <LocationReadout version={checkVersion} enabled={!!settings.location_dealbreaker} />
+          </>
+        )}
       </div>
 
       <div className="fsection">
@@ -119,6 +142,55 @@ export function DesiredRoleForm() {
       {busy && <p className="muted small">Saving...</p>}
       {saved && !busy && <p className="muted small">Saved.</p>}
       {error && <p className="error-text small">{error}</p>}
+    </div>
+  );
+}
+
+/** How each desired location is read, and what the dealbreaker hides (or would hide) right now. */
+function LocationReadout({ version, enabled }: { version: number; enabled: boolean }) {
+  const [check, setCheck] = useState<LocationCheck | null>(null);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    api
+      .getLocationCheck()
+      .then(setCheck)
+      .catch(() => setCheck(null));
+  }, [version]);
+
+  if (!check) return null;
+  const { preview } = check;
+  const shown = open ? preview.hidden_locations : preview.hidden_locations.slice(0, 6);
+  return (
+    <div className="location-readout small">
+      <ul>
+        {check.entries.map((e) => (
+          <li key={e.entry}>
+            <strong>{e.entry}</strong> → {e.matches.join("; ")}
+            {!e.recognized && (
+              <span className="muted"> (not a place we recognize, so matched as written)</span>
+            )}
+          </li>
+        ))}
+      </ul>
+      {preview.total > 0 && (
+        <p className="muted" style={{ margin: "6px 0 0" }}>
+          {preview.hidden === 0
+            ? `None of your ${preview.total} jobs on All Jobs are outside these locations.`
+            : `${enabled ? "Hiding" : "Would hide"} ${preview.hidden} of your ${preview.total} jobs on All Jobs: `}
+          {shown.map((h, i) => (
+            <span key={h.location}>
+              {i > 0 && " · "}
+              {h.location} ({h.count})
+            </span>
+          ))}
+          {preview.hidden_locations.length > 6 && (
+            <button className="link small" onClick={() => setOpen(!open)}>
+              {open ? " show fewer" : ` +${preview.hidden_locations.length - 6} more`}
+            </button>
+          )}
+        </p>
+      )}
     </div>
   );
 }

@@ -15,6 +15,8 @@ DEFAULT_SETTINGS = {
     "prefilter_sectors": [],
     "prefilter_locations": [],
     "prefilter_remote_only": False,
+    # Hide jobs clearly outside prefilter_locations (core/locations.py); off until switched on.
+    "location_dealbreaker": False,
     "salary_floor": None,
     "looking_for_notes": "",
     # Guided first-run setup (frontend OnboardingPage) -- see api/onboarding.py.

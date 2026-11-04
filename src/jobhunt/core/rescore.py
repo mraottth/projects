@@ -14,11 +14,11 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
-from jobhunt.core import budget, queue
+from jobhunt.core import budget, locations, queue
 from jobhunt.core.generic_postings import is_generic_posting
 from jobhunt.core.llm import BudgetExceeded
 from jobhunt.core.scoring import score_job, store_score
-from jobhunt.core.settings import get_setting, update_settings
+from jobhunt.core.settings import get_setting, get_settings, update_settings
 from jobhunt.core.users import carry, current_user_id, is_admin
 from jobhunt.db.connection import get_db
 
@@ -55,14 +55,21 @@ def job_ids(scope: str) -> list[int]:
             ).fetchall()
         elif scope == "all_jobs":
             rows = conn.execute(
-                """SELECT j.id, j.title FROM jobs j
+                """SELECT j.id, j.title, j.location, j.remote_type FROM jobs j
                    WHERE j.status = 'active' AND j.source_id IS NOT NULL
                      AND j.source_id IN (SELECT source_id FROM source_follows WHERE user_id = ?)""",
                 (uid,),
             ).fetchall()
         else:
             raise ValueError(f"unknown list: {scope}")
-    return [r["id"] for r in rows if not is_generic_posting(r["title"])]
+    # All Jobs hides jobs outside the location dealbreaker by default, so they aren't paid for.
+    # My Jobs is never filtered.
+    settings = get_settings() if scope == "all_jobs" else {}
+    return [
+        r["id"]
+        for r in rows
+        if not is_generic_posting(r["title"]) and not locations.blocks(dict(r), settings)
+    ]
 
 
 def cost_per_job() -> float:

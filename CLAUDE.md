@@ -293,6 +293,28 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   explicit ask, not pure guidance), `core/discovery.py`'s company-suggestion prompt (treated as a
   real constraint, not a tiebreaker — a strong brand outside the sector shouldn't get suggested
   anyway), and `core/scoring.py` above.
+- **Location dealbreaker** (D-026, asked 2026-11-04; `core/locations.py`). "What are you looking
+  for?" has "Dealbreaker: only show jobs in these locations" (`location_dealbreaker` setting, off by
+  default, only effective with `prefilter_locations` set). `locations.verdict()` returns
+  match/remote/unknown/multiple/elsewhere, and only `elsewhere` is hidden. It errs towards keeping:
+  - remote jobs always stay (`remote_type`, or "remote"/"anywhere"/"WFH" in the text); missing or
+    unreadable locations stay, as do "United States" alone, bare "Washington", and any place we
+    don't know; several locations (";", "|", " or ", "+2 more", "3 locations", two states) stay.
+  - "Elsewhere" needs evidence: a state (full name, ", VA" after a comma, Workday "US-VA-..." or a
+    bare "DC"; a bare uppercase pair elsewhere isn't trusted, so "IN OFFICE" isn't Indiana and
+    "Portland, OR" isn't "or"), a metro's core name (implies its home state), or a non-US country or
+    big foreign city. A suburb name alone never proves "elsewhere".
+  - Entries are read generously: "DC"/"D.C."/"District of Columbia"/"DMV"/"Washington, DC" are the
+    DC metro (its cities: Arlington, Bethesda, Tysons...; the user chose metro areas); "Washington"
+    or "NY" match every reading; "Arlington, VA" is its metro; an unknown "City, ST" is that city in
+    that state; anything else is matched as written. ~25 US metros (`METROS`), states, countries.
+  - Applied in `queue.select_batch()` (a hidden job stays pending, takes no slot, and comes back if
+    the setting changes), `get_digest()` (so New & Noteworthy and the email), All Jobs (each job gets
+    `outside_locations`; a "Show N jobs outside your locations" filter toggle, off, and "Clear all"
+    keeps it off) and the All Jobs rescore. My Jobs is never filtered.
+  - `GET /api/settings/location-check` shows how each entry is read and what it hides (or would
+    hide) among All Jobs, by location text, shown under the checkbox, so a wrong reading is visible
+    before it's switched on. Baltimore isn't in the DC metro; the preview shows it if hidden.
 - `src/jobhunt/core/prefilter.py` + `core/queue.py` — the cheap rule-based pass that runs before any
   LLM scoring call, and the priority queue/daily-cap mechanism it feeds (unscored jobs carry over
   with an age bonus so a capped day doesn't starve the backlog). `select_batch()` takes jobs

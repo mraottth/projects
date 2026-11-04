@@ -782,3 +782,7 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 /* Rescore My Jobs / All Jobs */
 .rescore { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0 0; }
 .rescore-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+
+/* "What are you looking for?": how desired locations are read */
+.location-readout { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: var(--page); }
+.location-readout ul { margin: 0; padding-left: 18px; }

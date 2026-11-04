@@ -377,3 +377,28 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 - How much this saves depends on how often the boards actually change; not yet measured.
 
 **Also seen.** Both settings rated most jobs the owner had added to My Jobs as Low interest (32% High/Med). That points to the interest rating, not the cost, and is still to be looked into.
+
+## D-026 · A location dealbreaker that only hides what it's sure about
+- **Date:** 2026-11-04
+- **Category:** pipeline
+- **Prompts:** ab602548-106
+
+**Decision.**
+- "What are you looking for?" gets an opt-in "Dealbreaker: only show jobs in these locations".
+- When on, a job clearly located elsewhere isn't scored, isn't on New & Noteworthy or in the daily email, and is hidden on All Jobs behind a toggle. My Jobs is never filtered.
+- A job is hidden only when its location is determined and clearly elsewhere.
+  - Remote, unknown and multi-location jobs always stay.
+  - A city entry covers its metro area: "DC" includes Arlington, Bethesda, Tysons and so on.
+
+**Context.** The owner wanted the option only if we're confident it won't wrongly filter out good jobs. For example, "DC" must match "Washington DC", "Washington D.C." and "District of Columbia". Jobs whose location can't be determined, or that list several, must stay.
+- The owner chose: metro areas count, remote always passes, and failing jobs are hidden everywhere except My Jobs.
+
+**Alternatives considered.**
+- **Substring matching** (what the prefilter's location boost does): "DC" misses "District of Columbia", "D.C." and every suburb, and "Washington" would match Seattle.
+- **Asking Claude per job:** it costs money, and the result could vary from one read to the next.
+- **A geocoding service:** a new dependency, and it can't tell an ambiguous "Arlington" or "Springfield" apart any better.
+- **Throwing hidden jobs out of the queue:** switching the setting off couldn't bring them back.
+
+**Why.**
+- A local gazetteer of states, about 25 metros with their suburbs, and countries, plus rules that need evidence before hiding, keeps the failure mode on the safe side. A wrong reading shows a job you didn't want rather than hiding one you did.
+- The Settings readout shows how each entry was read and lists every location it hides, so mistakes are visible before the switch is turned on. 71 test cases cover the DC spellings, the suburbs, and the keep rules.
