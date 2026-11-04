@@ -421,5 +421,20 @@
    "244ca46"
   ],
   "decisions": []
+ },
+ {
+  "id": "M20",
+  "date": "2026-11-04",
+  "icon": "📖",
+  "category": "docs",
+  "title": "An About page, and a Timeline that keeps up",
+  "summary": "A new About page explains what the app is, how the daily check works and how to use each page, and holds the Product Timeline's milestones, moved there from Settings. The milestones had stopped at the end of October; they're caught up, and a test now fails whenever a decision isn't part of a milestone, so they can't quietly fall behind again.",
+  "prompts": [
+   "ab602548-113"
+  ],
+  "commits": [
+   "253a53c"
+  ],
+  "decisions": []
  }
 ]
