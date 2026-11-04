@@ -162,6 +162,12 @@ export function JobActions({ job, onDismissed }: { job: ScoredJob; onDismissed?:
 
 export type ChipFilterKey = "location" | "organization";
 
+// "Recidiviz" and "recidiviz " are the same name; punctuation and case don't count.
+function sameName(a: string, b: string): boolean {
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "");
+  return norm(a) === norm(b);
+}
+
 /**
  * A meta chip that, given `onFilter`, applies (or clears) that filter on the list it's in. Shown
  * pressed while its filter is on.
@@ -237,7 +243,10 @@ export function ScoredJobCard({
               )}
               <span className="meta-chip meta-chip-salary">Salary: {salaryText(job)}</span>
               <span className="meta-chip meta-chip-posted">Date Posted: {postedText(job)}</span>
-              {job.source_name && <span className="meta-chip meta-chip-source">{job.source_name}</span>}
+              {/* The source, unless it just repeats the organization (an organization's own board). */}
+              {job.source_name && !sameName(job.source_name, job.company) && (
+                <span className="meta-chip meta-chip-source">{job.source_name}</span>
+              )}
             </div>
           </div>
         </div>

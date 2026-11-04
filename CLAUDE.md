@@ -755,7 +755,9 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   follow at full width.
 - **Job card chips** (2026-11-04): no meta chip uses an Interest/Fit color (green/amber/red), since a
   green salary chip read as "strong fit". Organization is slate (`.meta-chip-org`, new; the
-  title line still reads "Title — Organization", which the user wanted kept), location grey, salary violet, posted blue, source outlined. The
+  title line still reads "Title — Organization", which the user wanted kept), location grey, salary violet, posted blue, source outlined
+  (hidden when it's the same name as the organization, ignoring case and punctuation, so an
+  organization's own board doesn't show its name twice in the chips). The
   organization and location chips are buttons (`FilterChip`) on New & Noteworthy and All Jobs: a
   click adds that value to the Organization (new) or Location filter, or removes it, and the chip
   shows a check while its filter is on (`toggleFilterValue()` in `JobFilters.tsx`).
