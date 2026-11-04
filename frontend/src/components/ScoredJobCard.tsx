@@ -212,7 +212,9 @@ export function ScoredJobCard({
           <CompanyLogo company={job.company} />
           <div>
             <div className="card-title">
-              <Link to={`/jobs/${job.id}`}>{job.title}</Link>
+              <Link to={`/jobs/${job.id}`}>
+                {job.title} — {job.company}
+              </Link>
             </div>
             <div className="meta-chips">
               <FilterChip
