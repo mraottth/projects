@@ -381,7 +381,7 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 ## D-026 · A location dealbreaker that only hides what it's sure about
 - **Date:** 2026-11-04
 - **Category:** pipeline
-- **Prompts:** ab602548-106
+- **Prompts:** ab602548-107, ab602548-108
 
 **Decision.**
 - "What are you looking for?" gets an opt-in "Dealbreaker: only show jobs in these locations".
