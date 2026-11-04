@@ -18,6 +18,7 @@ import { MeContext } from "./me";
 
 // Carries ~220 KB of prompts and commits, so it's only loaded when visited.
 const ChangelogPage = lazy(() => import("./pages/ChangelogPage"));
+const AboutPage = lazy(() => import("./pages/AboutPage"));
 
 const NAV_LINKS = [
   { to: "/", label: "New & Noteworthy", end: true },
@@ -71,6 +72,14 @@ function AppMain({
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/settings" element={<SettingsPage />} />
         {isAdmin && <Route path="/admin" element={<AdminPage />} />}
+        <Route
+          path="/about"
+          element={
+            <Suspense fallback={<Spinner label="Loading…" />}>
+              <AboutPage />
+            </Suspense>
+          }
+        />
         <Route
           path="/changelog"
           element={
@@ -155,6 +164,11 @@ export default function App() {
               </NavLink>
             ))}
           </nav>
+        )}
+        {!inOnboarding && (
+          <NavLink to="/about" className={({ isActive }) => `about-link${isActive ? " active" : ""}`}>
+            About
+          </NavLink>
         )}
         {!inOnboarding && me?.is_admin && (
           <NavLink to="/admin" className={({ isActive }) => `admin-link${isActive ? " active" : ""}`}>

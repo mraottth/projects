@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { api, ApiError, LlmCall, Me, Settings } from "../api";
 import { Markdown } from "../components/Markdown";
 import { RescoreButton } from "../components/RescoreButton";
@@ -476,17 +475,6 @@ export default function SettingsPage() {
       <p className="muted" style={{ marginBottom: "18px" }}>
         Scoring tuning, your learned preferences, and what Claude usage is costing you.
       </p>
-
-      <div className="card">
-        <h2>Product Timeline</h2>
-        <p className="muted small">
-          How this app was built: every prompt that shaped it, Claude's replies, the commits they
-          produced, and the decisions along the way.
-        </p>
-        <Link className="ghost" to="/changelog">
-          View the Timeline
-        </Link>
-      </div>
 
       <div className="card">
         <h2>Preference profile</h2>

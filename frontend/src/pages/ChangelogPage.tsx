@@ -266,6 +266,15 @@ function ChangelogView() {
   const goPrompt = (id: string) => { setCats([]); setQ(""); setMode("timeline"); setFocus(id); };
   const goDecision = (id: string) => { setCats([]); setQ(""); setMode("decisions"); setFocus(id); };
 
+  // Opened from a milestone on the About page: /changelog?prompt=<id> or ?decision=<id>.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const prompt = params.get("prompt");
+    const decision = params.get("decision");
+    if (prompt) goPrompt(prompt);
+    else if (decision) goDecision(decision);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const first = CL.prompts[0]?.time ?? CL.commits[0]?.time;
   let lastDay = "";
 
@@ -278,8 +287,9 @@ function ChangelogView() {
         <strong className="cl-stat">{CL.prompts.length} prompts</strong>, <strong className="cl-stat">{CL.commits.length} commits</strong>{" "}
         and <strong className="cl-stat">{CL.decisions.length} decisions</strong>{first ? ` since ${new Date(first).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}` : ""}.
         {CL.omitted_prompts > 0 && ` ${CL.omitted_prompts} purely operational prompts (commit and deploy requests, running it locally, setup) are left out.`}{" "}
-        This page is only visible to you, same as the rest of the app (it's locked behind{" "}
-        <a href="https://cloud.google.com/iap" target="_blank" rel="noreferrer">Identity-Aware Proxy</a>) -- the same
+        Like the rest of the app, it's only visible to people the owner has approved (behind{" "}
+        <a href="https://cloud.google.com/iap" target="_blank" rel="noreferrer">Identity-Aware Proxy</a> and an
+        approval step). The same
         records are also in the repo as <a href={`${CL.repo}/tree/main/prompts`} target="_blank" rel="noreferrer">prompts/</a>{" "}
         and <a href={`${CL.repo}/blob/main/DECISIONS.md`} target="_blank" rel="noreferrer">DECISIONS.md</a>.
       </p>

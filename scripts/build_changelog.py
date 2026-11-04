@@ -186,6 +186,18 @@ def resolve_milestones(milestones: list[dict], commits: list[dict], prompts: lis
     return out
 
 
+# Decisions that don't belong on the visual timeline (process choices, not product changes). Every
+# other decision must be part of a milestone: tests/test_milestones.py fails otherwise, and the
+# build warns, so prompts/milestones.json can't quietly fall behind DECISIONS.md again (it stopped
+# at M10 / D-014 while decisions reached D-027, noticed 2026-11-04).
+NO_MILESTONE = {"D-007"}
+
+
+def decisions_without_milestone(milestones: list[dict], decisions: list[dict]) -> list[str]:
+    covered = {d for m in milestones for d in m.get("decisions", [])}
+    return [d["id"] for d in decisions if d["id"] not in covered and d["id"] not in NO_MILESTONE]
+
+
 def build() -> dict:
     commits = git_commits()
     overrides = load_json(ROOT / "prompts" / "commit_categories.json", {})
@@ -202,6 +214,10 @@ def build() -> dict:
                   f"{' ...' if len(missing) > 8 else ''}", file=sys.stderr)
     omitted = len(load_json(ROOT / "prompts" / "omit.json", {}))
     milestones = resolve_milestones(load_json(ROOT / "prompts" / "milestones.json", []), commits, prompts, decisions)
+    behind = decisions_without_milestone(milestones, decisions)
+    if behind:
+        print(f"build_changelog: decisions with no milestone (add or extend one in prompts/milestones.json): "
+              f"{', '.join(behind)}", file=sys.stderr)
     return {"repo": GITHUB, "categories": CATEGORIES, "commits": sorted(commits, key=lambda c: c["time"]),
             "prompts": prompts, "decisions": decisions, "milestones": milestones, "omitted_prompts": omitted}
 

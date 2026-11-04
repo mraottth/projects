@@ -578,6 +578,13 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   grants the compute service account access); `make deploy EMAIL_ADDRESS=...` (or set it in
   `.deploy.local.mk`) adds the env vars and mounts the secret; without it deploy leaves email off.
 - **Settings is a gear icon** (`.settings-gear`, right end of the top bar), not a nav tab.
+- **About** (`pages/AboutPage.tsx`, route `/about`, an "About" link at the right of the top bar
+  before Admin and the gear; asked 2026-11-04): what the project is, how the daily pipeline works,
+  a "Getting started" guide linking each page, costs and limits (the person's own daily cap and
+  budget from `/api/me`'s `usage`), the `PrivacyNote`, what it's built with, and the Product
+  Timeline's milestones (`MilestoneTimeline`, loaded from `GET /api/changelog`) with "Open the full
+  Timeline". The Timeline card moved here from Settings. A milestone's prompt or decision opens
+  `/changelog?prompt=<id>` / `?decision=<id>`, which `ChangelogView` scrolls to on load.
 - **Page split**, seven pages each with one job (plus the first-run `/onboarding` wizard, below), nav order New & Noteworthy → All Jobs → My Jobs →
   Jobby → Manage Sources → Profile → Settings: `DigestPage` (route `/`, nav label "New & Noteworthy") is
   today's capped, LLM-scored digest only. `AllJobsPage` (route `/all-jobs`) is
@@ -1112,8 +1119,13 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     ~/.claude/projects/<project>/<session>.jsonl`, then commit `prompts/` and add its omit/category
     entries). That's how `prompts/2026-10-28_ab602548.*` (onboarding v2, Jobby, the daily email,
     D-009 to D-014) got here. A web session's commits stay prompt-less only if nobody does that.
-  - **Milestones:** `prompts/milestones.json` feeds the visual timeline at the top of the Timeline
-    page; add one when a change is significant.
+  - **Milestones:** `prompts/milestones.json` feeds the visual timeline on the About page and the
+    Timeline page. Every decision must belong to a milestone: when you add a `D-NNN`, add a
+    milestone (or extend the latest one) naming it, plus its prompts and commits. A process-only
+    decision goes in `NO_MILESTONE` in `scripts/build_changelog.py` (D-007 is). `tests/test_milestones.py`
+    fails on a decision with no milestone, an unknown prompt/decision/commit, or ids/dates out of
+    order, and the build warns. They had fallen behind once (stopped at M10 while decisions reached
+    D-027), caught 2026-11-04.
   - **Build:** `scripts/build_changelog.py` writes `frontend/src/changelog.json` (git-ignored, a
     build artifact) from git, `prompts/`, and `DECISIONS.md`. `make frontend` and `make deploy` run
     it — `make deploy` runs it locally, before `gcloud builds submit`, since Cloud Build's context

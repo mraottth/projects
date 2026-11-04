@@ -764,6 +764,10 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 .admin-number { width: 64px; }
 .admin-pill { margin-left: 6px; font-size: 0.75em; }
 .admin-link + .settings-gear { margin-left: 0; }
+/* "About" sits first on the right of the top bar, then Admin (for the admin), then the gear. */
+.about-link { margin-left: auto; margin-right: 12px; font-weight: 600; text-decoration: none; color: var(--muted); }
+.about-link.active, .about-link:hover { color: var(--ink); }
+.about-link + .admin-link, .about-link + .settings-gear { margin-left: 0; }
 .usage-line { margin: 4px 0 8px; }
 .usage-line.over { color: var(--bad); font-weight: 600; }
 .freshness { margin-bottom: 18px; }
@@ -814,3 +818,13 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 .doc-slot .current-doc { display: flex; align-items: flex-start; text-align: left; }
 .doc-actions .doc-download { font-size: 0.82rem; }
 .doc-actions select { font-size: 0.85rem; padding: 4px 8px; width: auto; }
+
+/* About page */
+.about-steps, .about-guide { margin: 0; padding-left: 22px; }
+.about-steps li { margin: 6px 0; }
+.about-guide li { margin: 10px 0; }
+.about-guide p { margin: 2px 0 0; }
+.about-list { margin: 0 0 4px; padding-left: 20px; }
+.about-list li { margin: 4px 0; }
+.about-timeline-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.about-timeline-head h2 { margin: 0; }
