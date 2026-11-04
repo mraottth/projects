@@ -16,6 +16,12 @@ MAX_AGE_DAYS = 90
 NOT_DISMISSED_SQL = """NOT EXISTS (
     SELECT 1 FROM feedback f WHERE f.user_id = :uid AND f.job_id = j.id AND f.interested = 'not_interested'
 )"""
+# Nor a job already on the person's My Jobs (asked 2026-11-04): it's no longer a discovery. Checked
+# when read, so it covers every day's list and the daily email; removing the job from My Jobs
+# brings it back.
+NOT_TRACKED_SQL = """NOT EXISTS (
+    SELECT 1 FROM applications a WHERE a.user_id = :uid AND a.job_id = j.id
+)"""
 LATEST_SCORE_SQL = """js.id = (
     SELECT id FROM job_scores WHERE user_id = :uid AND job_id = {job} ORDER BY id DESC LIMIT 1
 )"""
@@ -85,7 +91,7 @@ def get_digest(digest_date: str) -> list[dict]:
                LEFT JOIN job_scores js ON {LATEST_SCORE_SQL.format(job="de.job_id")}
                LEFT JOIN sources s ON s.id = j.source_id
                WHERE de.user_id = :uid AND de.digest_date = :day
-                 AND {NOT_DISMISSED_SQL} AND {RECENT_OR_UNKNOWN_SQL}""",
+                 AND {NOT_DISMISSED_SQL} AND {NOT_TRACKED_SQL} AND {RECENT_OR_UNKNOWN_SQL}""",
             {"uid": current_user_id(), "day": digest_date},
         ).fetchall()
     # Sort live rather than trusting the stored `rank` column -- see _rank_key's docstring. A

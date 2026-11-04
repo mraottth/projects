@@ -809,7 +809,10 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   `posted_at` is simply unknown (missing data shouldn't read as "not new"), and `get_digest()`
   additionally excludes any job with a `not_interested` feedback row (`NOT_DISMISSED_SQL`) --
   once dismissed, a job is done surfacing here on any future read of any date, not just removed
-  from the current view. Neither exclusion touches `AllJobsPage`'s `GET /api/jobs/ranked`, which
+  from the current view. It also excludes any job on the person's My Jobs (`NOT_TRACKED_SQL`, an
+  `applications` row for them; asked 2026-11-04), so a tracked job never shows here or in the daily
+  email, which reads `get_digest()`; removing it from My Jobs brings it back. The card you mark
+  Interested stays, saying "Added to My Jobs", until the page reloads. None of these exclusions touches `AllJobsPage`'s `GET /api/jobs/ranked`, which
   is explicitly the uncapped, undismissable "everything" view. Default rank order (both
   `add_to_digest()`'s Python sort and `list_ranked_jobs()`'s SQL `ORDER BY`, kept in sync by hand
   since one sorts in Python and the other in SQL): interest+candidate score, then recency (`posted_at` falling back to `first_seen_at`), then

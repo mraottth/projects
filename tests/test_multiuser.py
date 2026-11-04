@@ -139,7 +139,11 @@ def test_one_person_never_sees_anothers_data():
         # And the admin still sees all of it.
         assert len(client.get("/api/applications").json()) == 1
         assert client.get(f"/api/jobs/{a['job']}").status_code == 200
-        assert len(client.get("/api/digest/today").json()["entries"]) == 1
+        # The admin's digest row is still there; New & Noteworthy hides it only because the same
+        # job is on their My Jobs.
+        with get_db() as conn:
+            assert conn.execute("SELECT COUNT(*) FROM digest_entries WHERE user_id = 1").fetchone()[0] == 1
+        assert client.get("/api/digest/today").json()["entries"] == []
 
 
 def test_start_over_only_clears_your_own_data():

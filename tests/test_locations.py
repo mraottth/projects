@@ -274,6 +274,15 @@ def test_hidden_from_new_and_noteworthy_and_all_jobs_but_not_my_jobs():
     assert ids["There"] not in rescore.job_ids("all_jobs")
     assert ids["There"] in rescore.job_ids("my_jobs")
     update_settings({"location_dealbreaker": False})
+    # "There" is on My Jobs now (tracked above), which keeps it off New & Noteworthy either way.
+    assert {j["title"] for j in get_digest(today_str())} == {"Here", "Unknown", "Remote"}
+    with get_db() as conn:
+        conn.execute(
+            "DELETE FROM application_status_history WHERE application_id IN "
+            "(SELECT id FROM applications WHERE job_id = ?)",
+            (ids["There"],),
+        )
+        conn.execute("DELETE FROM applications WHERE job_id = ?", (ids["There"],))
     assert {j["title"] for j in get_digest(today_str())} == {"Here", "There", "Unknown", "Remote"}
 
 

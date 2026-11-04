@@ -45,8 +45,9 @@ const GUIDE: { title: string; to: string; link: string; body: string }[] = [
     link: "New & Noteworthy",
     body:
       "Each day's best new jobs, scored for how interested you'd likely be (Interest) and how strong a " +
-      "candidate you'd be (Fit), with the reasons highlighted. Mark one Interested to start tracking it, or Not " +
-      "interested to stop seeing it; your marks teach it what you like. Refresh checks your sources again now.",
+      "candidate you'd be (Fit), with the reasons highlighted. Mark one Interested to move it to My Jobs, or " +
+      "Not interested to stop seeing it; either way it leaves this list, and your marks teach it what you like. " +
+      "Refresh checks your sources again now.",
   },
   {
     title: "Browse everything",
