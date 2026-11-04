@@ -211,13 +211,21 @@ COUNTRIES = {
 
 REMOTE_WORDS = ("remote", "anywhere", "wfh", "work from home", "work from anywhere", "distributed",
                 "telecommute", "telework", "home based", "virtual", "fully remote")  # fmt: skip
-MULTI_PATTERNS = re.compile(
-    r";|\||\n|\s/\s|\s&\s|\+\s*\d+|\b\d+\s+(?:other\s+)?(?:locations|offices|cities)\b"
-    r"|\bmultiple\b|\bvarious\b|\bseveral\b|\blocations\b",
+# Wording that says the list isn't complete, or the job could be almost anywhere. A job with any
+# of it is never hidden for missing your locations.
+VAGUE = re.compile(
+    r"\+\s*\d+|\b\d+\s+(?:other\s+)?(?:locations|offices|cities|sites)\b|\bother\s+locations\b"
+    r"|\ball\s+locations\b|\bmultiple\b|\bvarious\b|\bseveral\b|\b(?:and|&)\s+(?:more|others)\b"
+    r"|\betc\b|\bnationwide\b|\b(?:across|throughout)\s+the\s+(?:us|u\.s\.|united states|country)\b",
     re.IGNORECASE,
 )
-# Lowercase only: "OR" is Oregon ("Portland, OR"), not "either".
-MULTI_WORDS = re.compile(r"\s(?:or|and)\s")
+# Between places in a list. " or "/" and " are lowercase only: "OR" is Oregon ("Portland, OR").
+LIST_SEPARATORS = re.compile(r"\s*(?:;|\||\n|/|\s&\s|\s(?:or|and)\s)\s*")
+# "Locations: Austin, TX" -- a label, not part of the place.
+LABEL = re.compile(r"^\s*(?:job\s+)?locations?\s*:\s*", re.IGNORECASE)
+# A comma part that only names the state/country of the place before it ("VA", "VA 22201",
+# "Virginia", "USA", "France").
+ZIP = re.compile(r"\s*\d{5}(?:-\d{4})?\s*$")
 # A state code counts only where one is written: after a comma ("Austin, TX"), in a Workday-style
 # "US-VA-Arlington", or "DC" on its own. A bare uppercase pair elsewhere ("IN OFFICE") doesn't.
 STATE_ABBR = re.compile(r",\s*([A-Z]{2})\b|\bUSA?-([A-Z]{2})-|\b(DC)\b")
@@ -346,12 +354,19 @@ class JobPlace:
 
 
 def read_job_location(location: str) -> JobPlace:
+    """One place's text (see split_places). A state code written out ("Kansas City, MO") is
+    trusted over state names inside a city's name ("Kansas", "Virginia Beach")."""
     norm = normalize(location)
-    states: set[str] = set()
+    countries = {c for c, names in COUNTRIES.items() if any(_has(norm, n) for n in names)}
+    us = any(_has(norm, n) for n in US_NAMES)
+    explicit: set[str] = set()
     for match in STATE_ABBR.finditer(location):
         code = next(g for g in match.groups() if g)
         if code in STATES:
-            states.add(code)
+            explicit.add(code)
+    if explicit:
+        return JobPlace(norm, explicit, countries, us)
+    states: set[str] = set()
     rest = norm
     for name in sorted(NAME_TO_STATE, key=len, reverse=True):
         if name == "washington":
@@ -364,9 +379,40 @@ def read_job_location(location: str) -> JobPlace:
     for metro in METROS:
         if any(_has(norm, name) for name in metro.core):
             states.add(metro.home)
-    countries = {c for c, names in COUNTRIES.items() if any(_has(norm, n) for n in names)}
-    us = any(_has(norm, n) for n in US_NAMES)
     return JobPlace(norm, states, countries, us)
+
+
+def _only_region(part: str) -> bool:
+    """Whether a comma part names only a state or a country (it belongs to the place before it)."""
+    bare = ZIP.sub("", part).strip()
+    if not bare:
+        return True
+    if bare.upper().replace(".", "") in STATES:
+        return True
+    phrase = normalize(bare).strip()
+    return (
+        phrase in NAME_TO_STATE or phrase in US_NAMES or any(phrase in names for names in COUNTRIES.values())
+    )
+
+
+def split_places(location: str) -> list[str]:
+    """The separate places a location lists: "Austin, TX, Seattle, WA" -> ["Austin, TX",
+    "Seattle, WA"]; "Washington, DC, United States" stays one place."""
+    places = []
+    for chunk in LIST_SEPARATORS.split(LABEL.sub("", location)):
+        current: list[str] = []
+        for part in (p.strip() for p in chunk.split(",")):
+            if not part:
+                continue
+            if current and _only_region(part):
+                current.append(part)
+            else:
+                if current:
+                    places.append(", ".join(current))
+                current = [part]
+        if current:
+            places.append(", ".join(current))
+    return places
 
 
 def _metro_matches(metro: Metro, job: JobPlace) -> bool:
@@ -404,19 +450,19 @@ def verdict(location: str | None, remote_type: str | None, entries: list[str]) -
     places = [p for w in wanted for p in w.places]
     if not places:
         return "unknown"
-    job = read_job_location(location)
-    if any(_place_matches(p, job) for p in places):
-        return "match"
-    if (
-        MULTI_PATTERNS.search(location)
-        or MULTI_WORDS.search(location)
-        or len(job.states) > 1
-        or (job.states and job.countries)
-    ):
-        return "multiple"
-    if job.states or job.countries:
+    outcomes = []
+    for piece in split_places(location) or [location]:
+        job = read_job_location(piece)
+        if any(_place_matches(p, job) for p in places):
+            return "match"
+        outcomes.append("elsewhere" if job.states or job.countries else "unknown")
+    if len(outcomes) == 1 and not VAGUE.search(location):
+        return outcomes[0]
+    # Several places (or wording like "+2 more"): hidden only when every one is clearly elsewhere
+    # and nothing says the list is incomplete.
+    if all(o == "elsewhere" for o in outcomes) and not VAGUE.search(location):
         return "elsewhere"
-    return "unknown"
+    return "multiple"
 
 
 def dealbreaker_on(settings: dict) -> bool:

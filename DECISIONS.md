@@ -402,3 +402,8 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 **Why.**
 - A local gazetteer of states, about 25 metros with their suburbs, and countries, plus rules that need evidence before hiding, keeps the failure mode on the safe side. A wrong reading shows a job you didn't want rather than hiding one you did.
 - The Settings readout shows how each entry was read and lists every location it hides, so mistakes are visible before the switch is turned on. 71 test cases cover the DC spellings, the suburbs, and the keep rules.
+
+**Amended (2026-11-04, prompt ab602548-109).**
+- At the owner's ask, a job listing several places is hidden when every place is clearly elsewhere and nothing marks the list as incomplete. "New York, NY; San Francisco, CA" goes for someone who wants DC.
+- It's still kept if any place matches, if one can't be read, or if the wording is vague ("+2 more", "3 locations", "multiple", "nationwide").
+- A written state code now outranks state names inside a city's name, so "Kansas City, MO" reads as Missouri, not Kansas plus Missouri.

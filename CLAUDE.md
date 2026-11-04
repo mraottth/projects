@@ -299,11 +299,19 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   match/remote/unknown/multiple/elsewhere, and only `elsewhere` is hidden. It errs towards keeping:
   - remote jobs always stay (`remote_type`, or "remote"/"anywhere"/"WFH" in the text); missing or
     unreadable locations stay, as do "United States" alone, bare "Washington", and any place we
-    don't know; several locations (";", "|", " or ", "+2 more", "3 locations", two states) stay.
+    don't know.
+  - Several locations (amended at the user's ask): `split_places()` splits on ";", "|", "/",
+    newline, " & " and lowercase " or "/" and ", then on commas, keeping a part that's only a state,
+    zip, country or "USA" with the place before it ("Austin, TX, Seattle, WA" is two places,
+    "Washington, DC, United States" one). Each place is judged alone. Any match matches. The job is
+    hidden only when every place is clearly elsewhere and nothing in `VAGUE` ("+2 more",
+    "3 locations", "multiple", "various", "and more", "nationwide"...) says the list is incomplete;
+    one unreadable place keeps it.
   - "Elsewhere" needs evidence: a state (full name, ", VA" after a comma, Workday "US-VA-..." or a
     bare "DC"; a bare uppercase pair elsewhere isn't trusted, so "IN OFFICE" isn't Indiana and
     "Portland, OR" isn't "or"), a metro's core name (implies its home state), or a non-US country or
-    big foreign city. A suburb name alone never proves "elsewhere".
+    big foreign city. A written state code wins over state names inside a city's name ("Kansas
+    City, MO" is MO). A suburb name alone never proves "elsewhere".
   - Entries are read generously: "DC"/"D.C."/"District of Columbia"/"DMV"/"Washington, DC" are the
     DC metro (its cities: Arlington, Bethesda, Tysons...; the user chose metro areas); "Washington"
     or "NY" match every reading; "Arlington, VA" is its metro; an unknown "City, ST" is that city in

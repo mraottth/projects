@@ -84,19 +84,68 @@ def test_remote_always_stays(location):
 @pytest.mark.parametrize(
     "location",
     [
-        "New York, NY; San Francisco, CA",
-        "Austin, TX, Seattle, WA",
-        "3 Locations",
-        "Austin or Dallas, TX",
-        "Chicago, IL | Denver, CO",
+        # Vague or incomplete lists
         "Boston, MA +2 more",
+        "Boston, MA + 2",
+        "3 Locations",
         "Multiple locations",
         "Various",
-        "Kansas City, MO",  # names two states: kept rather than guessed
+        "Seattle, WA and more",
+        "Austin, TX & others",
+        "Nationwide",
+        "Austin, TX; Seattle, WA; other locations",
+        # A place in the list that can't be told
+        "Seattle, WA; Headquarters",
+        "Austin, TX; TBD",
+        "Seattle, Bellevue",
     ],
 )
-def test_several_locations_stay(location):
+def test_several_locations_stay_unless_all_clearly_elsewhere(location):
     assert locations.verdict(location, None, DC) == "multiple"
+
+
+@pytest.mark.parametrize(
+    "location",
+    [
+        "New York, NY; San Francisco, CA",
+        "Austin, TX, Seattle, WA",
+        "Austin or Dallas, TX",
+        "Chicago, IL | Denver, CO",
+        "New York, NY / Boston, MA",
+        "New York/San Francisco",
+        "Paris, France, London, UK",
+        "Kansas City, MO",
+        "Virginia Beach, VA",
+    ],
+)
+def test_a_definite_list_without_you_is_hidden(location):
+    assert locations.verdict(location, None, DC) == "elsewhere"
+
+
+@pytest.mark.parametrize(
+    "location",
+    [
+        "New York, NY; Washington, DC",
+        "Austin, TX, Arlington, VA",
+        "Seattle, WA or Bethesda, MD",
+        "Washington, DC, United States",
+        "Arlington, VA 22201",
+        "Locations: Washington, DC",
+        "Boston, MA; DC +3 more",
+    ],
+)
+def test_a_list_with_you_matches(location):
+    assert locations.verdict(location, None, DC) == "match"
+
+
+def test_how_lists_are_split():
+    assert locations.split_places("Austin, TX, Seattle, WA") == ["Austin, TX", "Seattle, WA"]
+    assert locations.split_places("Washington, DC, United States") == ["Washington, DC, United States"]
+    assert locations.split_places("Paris, France, London, UK") == ["Paris, France", "London, UK"]
+    assert locations.split_places("Portland, OR") == ["Portland, OR"]  # Oregon, not "or"
+    assert locations.split_places("Austin or Dallas, TX") == ["Austin", "Dallas, TX"]
+    assert locations.verdict("New York, NY or Remote", None, DC) == "remote"
+    assert locations.verdict("Portland, OR", None, ["Portland"]) == "match"
 
 
 @pytest.mark.parametrize(
