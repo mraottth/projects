@@ -15,9 +15,10 @@ export interface JobFilterState {
   // Jobs the daily cap hasn't scored yet have no fit at all, so the fit filters can't judge them;
   // this alone decides whether they show.
   includeUnscored: boolean;
-  // Jobs your location dealbreaker hides (All Jobs only). A setting, not a filter, so "Clear all"
-  // leaves it off.
-  includeOutsideLocations: boolean;
+  organization: string[];
+  // Jobs your dealbreakers (location, salary) hide on All Jobs. A setting, not a filter, so
+  // "Clear all" leaves it off.
+  includeDealbreakers: boolean;
   sort: SortKey;
 }
 
@@ -41,7 +42,8 @@ export const DEFAULT_JOB_FILTERS: JobFilterState = {
   location: [],
   search: "",
   includeUnscored: true,
-  includeOutsideLocations: false,
+  organization: [],
+  includeDealbreakers: false,
   sort: "best",
 };
 
@@ -55,7 +57,8 @@ export const NO_JOB_FILTERS: JobFilterState = {
   location: [],
   search: "",
   includeUnscored: true,
-  includeOutsideLocations: false,
+  organization: [],
+  includeDealbreakers: false,
   sort: "best",
 };
 
@@ -143,7 +146,7 @@ export function filterJobs(jobs: ScoredJob[], f: JobFilterState): ScoredJob[] {
   const searchQuery = f.search.trim().toLowerCase();
 
   const filtered = jobs.filter((job) => {
-    if (job.outside_locations && !f.includeOutsideLocations) return false;
+    if (job.dealbreakers?.length && !f.includeDealbreakers) return false;
     if (!job.interest_fit && !job.candidate_fit) {
       if (!f.includeUnscored) return false;
     } else {
@@ -152,6 +155,7 @@ export function filterJobs(jobs: ScoredJob[], f: JobFilterState): ScoredJob[] {
     }
     if (f.source.length > 0 && !f.source.includes(job.source_name ?? "Unknown source")) return false;
     if (f.location.length > 0 && !f.location.includes(job.location ?? "Unknown location")) return false;
+    if (f.organization.length > 0 && !f.organization.includes(job.company)) return false;
 
     if (minSalary !== null) {
       const pay = job.salary_max ?? job.salary_min;
@@ -187,6 +191,7 @@ function countActive(f: JobFilterState): number {
   if (f.minSalary.trim()) n++;
   if (f.recency !== "all") n++;
   if (f.location.length) n++;
+  if (f.organization.length) n++;
   if (f.search.trim()) n++;
   if (!f.includeUnscored) n++;
   return n;
@@ -276,7 +281,8 @@ export function JobFilterBar({
   const sources = Array.from(
     new Set(jobs.map((j) => j.source_name).filter((s): s is string => !!s)),
   ).sort();
-  const outside = jobs.filter((j) => j.outside_locations).length;
+  const ruledOut = jobs.filter((j) => j.dealbreakers?.length).length;
+  const organizations = Array.from(new Set(jobs.map((j) => j.company).filter(Boolean))).sort();
   const locations = Array.from(
     new Set(jobs.map((j) => j.location).filter((l): l is string => !!l)),
   ).sort();
@@ -330,17 +336,24 @@ export function JobFilterBar({
           />
           Include jobs not yet scored
         </label>
-        {outside > 0 && (
+        {ruledOut > 0 && (
           <label className="small" style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "6px" }}>
             <input
               type="checkbox"
-              checked={filters.includeOutsideLocations}
-              onChange={(e) => set("includeOutsideLocations", e.target.checked)}
+              checked={filters.includeDealbreakers}
+              onChange={(e) => set("includeDealbreakers", e.target.checked)}
             />
-            Show {outside} job{outside === 1 ? "" : "s"} outside your locations
+            Show {ruledOut} job{ruledOut === 1 ? "" : "s"} your dealbreakers hide
           </label>
         )}
       </div>
+
+      <DropdownMultiSelect
+        label="Organization"
+        options={organizations}
+        selected={filters.organization}
+        onChange={(v) => set("organization", v)}
+      />
 
       <DropdownMultiSelect
         label="Source"
@@ -384,4 +397,14 @@ export function JobFilterBar({
       </div>
     </div>
   );
+}
+
+/** A chip click on a job card: adds that value to the filter, or takes it off if it's already on. */
+export function toggleFilterValue(
+  f: JobFilterState,
+  key: "location" | "organization",
+  value: string,
+): JobFilterState {
+  const current = f[key];
+  return { ...f, [key]: current.includes(value) ? current.filter((v) => v !== value) : [...current, value] };
 }

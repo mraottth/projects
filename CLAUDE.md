@@ -316,13 +316,20 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     DC metro (its cities: Arlington, Bethesda, Tysons...; the user chose metro areas); "Washington"
     or "NY" match every reading; "Arlington, VA" is its metro; an unknown "City, ST" is that city in
     that state; anything else is matched as written. ~25 US metros (`METROS`), states, countries.
-  - Applied in `queue.select_batch()` (a hidden job stays pending, takes no slot, and comes back if
-    the setting changes), `get_digest()` (so New & Noteworthy and the email), All Jobs (each job gets
-    `outside_locations`; a "Show N jobs outside your locations" filter toggle, off, and "Clear all"
-    keeps it off) and the All Jobs rescore. My Jobs is never filtered.
+  - Applied through `core/dealbreakers.py` (with the salary one, below) in `queue.select_batch()` (a
+    hidden job stays pending, takes no slot, and comes back if the setting changes), `get_digest()`
+    (so New & Noteworthy and the email), All Jobs (each job gets `dealbreakers`: `["location"]`,
+    `["salary"]`, both or `[]`; a "Show N jobs your dealbreakers hide" filter toggle, off, and
+    "Clear all" keeps it off) and the All Jobs rescore. My Jobs is never filtered.
   - `GET /api/settings/location-check` shows how each entry is read and what it hides (or would
     hide) among All Jobs, by location text, shown under the checkbox, so a wrong reading is visible
     before it's switched on. Baltimore isn't in the DC metro; the preview shows it if hidden.
+- **Salary dealbreaker** (asked 2026-11-04; `core/dealbreakers.py`, `salary_dealbreaker` setting,
+  shown under Minimum salary once one is set). Hides a job whose posted pay, annualized at the low
+  end (`salary_min`, else the one figure given; hour x2080, day x260, week x52, month x12), is below
+  `salary_floor`. No pay, a non-USD currency, an unknown period, or a figure under 1,000 with no
+  period all stay. `GET /api/settings/salary-check` previews it (how many list pay, how many it
+  hides, a few examples). Same places as the location dealbreaker; `dealbreakers.reasons()` says which.
 - `src/jobhunt/core/prefilter.py` + `core/queue.py` — the cheap rule-based pass that runs before any
   LLM scoring call, and the priority queue/daily-cap mechanism it feeds (unscored jobs carry over
   with an age bonus so a capped day doesn't starve the backlog). `select_batch()` takes jobs
@@ -739,6 +746,19 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     turns bullet-character lines into lists, short colon/ALL-CAPS lines into headings, and rejoins
     only clear mid-sentence breaks (a lowercase continuation, or a line ending "a"/"the"/...).
     Anything with blank lines or a `##` heading passes through untouched.
+- **Profile page layout** (2026-11-04, at the user's ask; `pages/ProfilePage.tsx`, a wide route):
+  "What are you looking for?" (`DesiredRoleForm`) on the left and a narrower, sticky "My documents"
+  card on the right (`.profile-top`, 2fr/1fr, stacked under 900px): current resume, current cover
+  letter (each with Download and a Replace/Upload button that opens the file picker and uploads at
+  once, `UploadButton`, so there's no wide native file input) and "Older documents", collapsed,
+  still a drop target for retiring a current one. The candidate profile and generated documents
+  follow at full width.
+- **Job card chips** (2026-11-04): no meta chip uses an Interest/Fit color (green/amber/red), since a
+  green salary chip read as "strong fit". Organization is slate (`.meta-chip-org`, new: the title
+  line is now just the job title), location grey, salary violet, posted blue, source outlined. The
+  organization and location chips are buttons (`FilterChip`) on New & Noteworthy and All Jobs: a
+  click adds that value to the Organization (new) or Location filter, or removes it, and the chip
+  shows a check while its filter is on (`toggleFilterValue()` in `JobFilters.tsx`).
 - `components/ScoredJobCard.tsx` always shows salary and posted date now, "N/A" when either is
   missing, rather than omitting the line entirely -- and "posted" means the job description's own
   `posted_at`, never `first_seen_at` (when our pipeline happened to discover it, which isn't what

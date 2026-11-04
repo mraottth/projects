@@ -1,6 +1,6 @@
 from datetime import date
 
-from jobhunt.core import locations
+from jobhunt.core import dealbreakers
 from jobhunt.core.generic_postings import is_generic_posting
 from jobhunt.core.settings import get_settings
 from jobhunt.db.connection import get_db
@@ -90,13 +90,13 @@ def get_digest(digest_date: str) -> list[dict]:
         ).fetchall()
     # Sort live rather than trusting the stored `rank` column -- see _rank_key's docstring. A
     # general-application posting already in an older digest is dropped here too.
-    # The location dealbreaker is applied here, when read, so turning it on or off (or changing
+    # The dealbreakers (location, salary) are applied here, when read, so turning it on or off (or changing
     # the locations) takes effect at once, on every day's list and the daily email alike.
     settings = get_settings()
     rows = [
         row
         for row in rows
-        if not is_generic_posting(row["title"]) and not locations.blocks(dict(row), settings)
+        if not is_generic_posting(row["title"]) and not dealbreakers.blocks(dict(row), settings)
     ]
     return [dict(row) for row in sorted(rows, key=_rank_key, reverse=True)]
 

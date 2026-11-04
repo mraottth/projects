@@ -6,7 +6,7 @@ from jobhunt.core.llm import LLMError
 from jobhunt.core.preference import get_current_preference_profile
 from jobhunt.core.profile import get_current_candidate_profile
 from jobhunt.core.scoring import score_job, store_score
-from jobhunt.core import locations
+from jobhunt.core import dealbreakers
 from jobhunt.core.settings import get_setting, get_settings
 from jobhunt.db.connection import get_db
 from jobhunt.ingest.manual_import import ManualImportError, parse_job_posting
@@ -80,12 +80,12 @@ def list_ranked_jobs(status: str = "active"):
                          COALESCE(j.salary_max, j.salary_min, 0) DESC""",
             {"status": status, "uid": current_user_id()},
         ).fetchall()
-    # The page hides jobs outside the person's locations unless asked (a filter toggle), so it can
-    # say how many are hidden; every job carries the flag.
+    # The page hides jobs a dealbreaker rules out unless asked (a filter toggle), so it can say how
+    # many are hidden; every job carries which dealbreakers apply ([] for none).
     settings = get_settings()
     jobs = [_row_to_dict(r) for r in rows if not is_generic_posting(r["title"])]
     for job in jobs:
-        job["outside_locations"] = locations.blocks(job, settings)
+        job["dealbreakers"] = dealbreakers.reasons(job, settings)
     return jobs
 
 

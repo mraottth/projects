@@ -160,7 +160,51 @@ export function JobActions({ job, onDismissed }: { job: ScoredJob; onDismissed?:
   );
 }
 
-export function ScoredJobCard({ job, onDismissed }: { job: ScoredJob; onDismissed?: () => void }) {
+export type ChipFilterKey = "location" | "organization";
+
+/**
+ * A meta chip that, given `onFilter`, applies (or clears) that filter on the list it's in. Shown
+ * pressed while its filter is on.
+ */
+function FilterChip({
+  className,
+  value,
+  filterKey,
+  onFilter,
+  active,
+}: {
+  className: string;
+  value: string;
+  filterKey: ChipFilterKey;
+  onFilter?: (key: ChipFilterKey, value: string) => void;
+  active?: boolean;
+}) {
+  if (!onFilter) return <span className={`meta-chip ${className}`}>{value}</span>;
+  const what = filterKey === "location" ? "location" : "organization";
+  return (
+    <button
+      type="button"
+      className={`meta-chip meta-chip-button ${className}${active ? " on" : ""}`}
+      aria-pressed={!!active}
+      title={active ? `Stop filtering by this ${what}` : `Show only jobs in this ${what}`}
+      onClick={() => onFilter(filterKey, value)}
+    >
+      {value}
+    </button>
+  );
+}
+
+export function ScoredJobCard({
+  job,
+  onDismissed,
+  onFilter,
+  activeFilters,
+}: {
+  job: ScoredJob;
+  onDismissed?: () => void;
+  onFilter?: (key: ChipFilterKey, value: string) => void;
+  activeFilters?: { location: string[]; organization: string[] };
+}) {
   return (
     <div className="card">
       <div className="card-header">
@@ -168,12 +212,27 @@ export function ScoredJobCard({ job, onDismissed }: { job: ScoredJob; onDismisse
           <CompanyLogo company={job.company} />
           <div>
             <div className="card-title">
-              <Link to={`/jobs/${job.id}`}>
-                {job.title} — {job.company}
-              </Link>
+              <Link to={`/jobs/${job.id}`}>{job.title}</Link>
             </div>
             <div className="meta-chips">
-              <span className="meta-chip meta-chip-location">{job.location ?? "N/A"}</span>
+              <FilterChip
+                className="meta-chip-org"
+                value={job.company}
+                filterKey="organization"
+                onFilter={onFilter}
+                active={activeFilters?.organization.includes(job.company)}
+              />
+              {job.location ? (
+                <FilterChip
+                  className="meta-chip-location"
+                  value={job.location}
+                  filterKey="location"
+                  onFilter={onFilter}
+                  active={activeFilters?.location.includes(job.location)}
+                />
+              ) : (
+                <span className="meta-chip meta-chip-location">Location: N/A</span>
+              )}
               <span className="meta-chip meta-chip-salary">Salary: {salaryText(job)}</span>
               <span className="meta-chip meta-chip-posted">Date Posted: {postedText(job)}</span>
               {job.source_name && <span className="meta-chip meta-chip-source">{job.source_name}</span>}

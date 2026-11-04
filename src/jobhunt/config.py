@@ -17,6 +17,8 @@ DEFAULT_SETTINGS = {
     "prefilter_remote_only": False,
     # Hide jobs clearly outside prefilter_locations (core/locations.py); off until switched on.
     "location_dealbreaker": False,
+    # Hide jobs whose annualized pay, at the low end, is below salary_floor (core/dealbreakers.py).
+    "salary_dealbreaker": False,
     "salary_floor": None,
     "looking_for_notes": "",
     # Guided first-run setup (frontend OnboardingPage) -- see api/onboarding.py.

@@ -205,10 +205,18 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
   display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px;
   font-size: 0.78rem; font-weight: 600; border: 1px solid transparent;
 }
+/* None of these may use the Interest/Fit colors (green, amber, red: .badge-high/-med/-low), or a
+   chip reads as a rating: salary used to be green and looked like "strong fit". */
+.meta-chip-org { background: #e7ecf2; color: #2f4256; }
 .meta-chip-location { background: #f1f0eb; color: var(--ink-2); }
-.meta-chip-salary { background: var(--good-bg); color: var(--good); }
+.meta-chip-salary { background: #efe9fb; color: #5b3fa3; }
 .meta-chip-posted { background: rgba(42, 120, 214, 0.1); color: var(--accent-ink); }
 .meta-chip-source { background: transparent; color: var(--muted); border-color: var(--ring); font-weight: 500; }
+/* Organization and location chips filter the list they're in. */
+.meta-chip-button { font: inherit; font-size: 0.78rem; font-weight: 600; cursor: pointer; }
+.meta-chip-button:hover { border-color: currentColor; }
+.meta-chip-button.on { border-color: currentColor; box-shadow: inset 0 0 0 1px currentColor; }
+.meta-chip-button.on::before { content: "✓"; }
 
 /* ---------- badges / pills */
 .badge-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 8px 0; }
@@ -786,3 +794,23 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 /* "What are you looking for?": how desired locations are read */
 .location-readout { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: var(--page); }
 .location-readout ul { margin: 0; padding-left: 18px; }
+
+/* Profile: "What are you looking for?" left, a narrower "My documents" right */
+.profile-top { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: 16px; align-items: start; margin-bottom: 16px; }
+.profile-top > .card { margin: 0; }
+@media (max-width: 900px) { .profile-top { grid-template-columns: minmax(0, 1fr); } }
+.my-documents { position: sticky; top: 76px; }
+@media (max-width: 900px) { .my-documents { position: static; } }
+.doc-slot { padding: 12px 0; border-top: 1px solid var(--grid); }
+.doc-slot:first-of-type { border-top: none; padding-top: 4px; }
+.doc-slot h3 { font-size: 0.9rem; margin: 0 0 6px; }
+.doc-slot .current-doc { display: flex; flex-direction: column; gap: 2px; cursor: grab; }
+.doc-name { font-weight: 600; overflow-wrap: anywhere; }
+.doc-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+.older-docs.drop-target { outline: 2px dashed var(--accent); outline-offset: 4px; border-radius: 6px; }
+.older-doc-list { list-style: none; margin: 8px 0 0; padding: 0; max-height: 320px; overflow-y: auto; }
+.older-doc-list li { padding: 6px 0; border-top: 1px solid var(--grid); }
+.older-doc-list li:first-child { border-top: none; }
+.doc-slot .current-doc { display: flex; align-items: flex-start; text-align: left; }
+.doc-actions .doc-download { font-size: 0.82rem; }
+.doc-actions select { font-size: 0.85rem; padding: 4px 8px; width: auto; }

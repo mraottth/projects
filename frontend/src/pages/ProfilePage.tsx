@@ -5,7 +5,43 @@ import { CandidateProfileCard } from "../components/CandidateProfileCard";
 import { DesiredRoleForm } from "../components/DesiredRoleForm";
 import { Spinner } from "../components/Spinner";
 
-function CurrentDocCard({
+// Layout (2026-11-04, at the user's ask): "What are you looking for?" first, on the left, since it's
+// the part that needs your input; a narrower "My documents" card on the right holds the current
+// resume and cover letter, with older documents collapsed underneath. The candidate profile and
+// generated documents follow at full width.
+
+/** Picks a file and uploads it at once, so a narrow card has no wide native file input. */
+function UploadButton({
+  label,
+  onFile,
+  busy,
+}: {
+  label: string;
+  onFile: (file: File) => Promise<void>;
+  busy: boolean;
+}) {
+  const input = useRef<HTMLInputElement>(null);
+  return (
+    <>
+      <input
+        ref={input}
+        type="file"
+        accept=".pdf,.docx,.md,.txt"
+        hidden
+        onChange={async (e) => {
+          const file = e.target.files?.[0];
+          if (file) await onFile(file);
+          if (input.current) input.current.value = "";
+        }}
+      />
+      <button className="ghost small" onClick={() => input.current?.click()} disabled={busy}>
+        {busy ? <Spinner label="Uploading..." /> : label}
+      </button>
+    </>
+  );
+}
+
+function CurrentDoc({
   kind,
   doc,
   onChanged,
@@ -16,16 +52,12 @@ function CurrentDocCard({
   onChanged: () => void;
   onError: (msg: string) => void;
 }) {
-  const fileInput = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
 
-  const upload = async () => {
-    const file = fileInput.current?.files?.[0];
-    if (!file) return;
+  const upload = async (file: File) => {
     setBusy(true);
     try {
       await api.uploadResume(file, kind);
-      if (fileInput.current) fileInput.current.value = "";
       onChanged();
     } catch (e) {
       onError(e instanceof Error ? e.message : String(e));
@@ -35,39 +67,36 @@ function CurrentDocCard({
   };
 
   return (
-    <div className="card">
-      <h2>{kind === "resume" ? "Current resume" : "Current cover letter"}</h2>
+    <div className="doc-slot">
+      <h3>{kind === "resume" ? "Current resume" : "Current cover letter"}</h3>
       {doc ? (
         <div
           className="current-doc"
           draggable
+          title='Drag to "Older documents" to retire it'
           onDragStart={(e) => e.dataTransfer.setData("text/plain", String(doc.id))}
         >
-          <span className="tag">{doc.file_name}</span>
-          <span className="muted small"> — {doc.text_length.toLocaleString()} chars</span>
+          <span className="doc-name">{doc.file_name}</span>
+          <span className="muted small">{doc.text_length.toLocaleString()} chars</span>
+        </div>
+      ) : (
+        <p className="empty-state small" style={{ margin: "2px 0" }}>
+          None yet.
+        </p>
+      )}
+      <div className="doc-actions">
+        {doc && (
           <a className="link small doc-download" href={api.resumeDownloadUrl(doc.id)} download>
             Download
           </a>
-        </div>
-      ) : (
-        <p className="empty-state">None yet — upload one below.</p>
-      )}
-      {doc && (
-        <p className="muted small" style={{ marginTop: "6px" }}>
-          Drag to "Old resumes and cover letters" below to replace it, or just upload a new one.
-        </p>
-      )}
-      <div className="form-row" style={{ marginTop: "10px", marginBottom: 0 }}>
-        <input ref={fileInput} type="file" accept=".pdf,.docx,.md,.txt" />
-        <button className="ghost" onClick={upload} disabled={busy}>
-          {busy ? <Spinner label="Uploading..." /> : doc ? "Replace" : "Upload"}
-        </button>
+        )}
+        <UploadButton label={doc ? "Replace" : "Upload"} onFile={upload} busy={busy} />
       </div>
     </div>
   );
 }
 
-function OldDocsSection({
+function OlderDocs({
   docs,
   onChanged,
   onError,
@@ -80,7 +109,6 @@ function OldDocsSection({
   const [dragOver, setDragOver] = useState(false);
   const [kind, setKind] = useState<"resume" | "cover_letter">("resume");
   const [busy, setBusy] = useState(false);
-  const fileInput = useRef<HTMLInputElement>(null);
 
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
@@ -95,22 +123,19 @@ function OldDocsSection({
     }
   };
 
-  const promote = async (id: number) => {
+  const act = async (action: () => Promise<unknown>) => {
     try {
-      await api.updateResume(id, { is_template: true });
+      await action();
       onChanged();
     } catch (e) {
       onError(e instanceof Error ? e.message : String(e));
     }
   };
 
-  const uploadToOld = async () => {
-    const file = fileInput.current?.files?.[0];
-    if (!file) return;
+  const upload = async (file: File) => {
     setBusy(true);
     try {
       await api.uploadResume(file, kind, { isArchived: true });
-      if (fileInput.current) fileInput.current.value = "";
       onChanged();
     } catch (e) {
       onError(e instanceof Error ? e.message : String(e));
@@ -121,7 +146,7 @@ function OldDocsSection({
 
   return (
     <div
-      className={`card${dragOver ? " drop-target" : ""}`}
+      className={`doc-slot older-docs${dragOver ? " drop-target" : ""}`}
       onDragOver={(e) => {
         e.preventDefault();
         setDragOver(true);
@@ -129,44 +154,44 @@ function OldDocsSection({
       onDragLeave={() => setDragOver(false)}
       onDrop={handleDrop}
     >
-      <button className="link collapsible-toggle" onClick={() => setExpanded((s) => !s)}>
-        {expanded ? "Hide" : "Show"} old resumes and cover letters ({docs.length})
+      <button className="link collapsible-toggle" onClick={() => setExpanded((s) => !s)} aria-expanded={expanded}>
+        {expanded ? "▾" : "▸"} Older documents ({docs.length})
       </button>
       {!expanded && (
-        <p className="muted small" style={{ marginTop: "6px" }}>
-          Drag a current file here to move it here instead.
+        <p className="muted small" style={{ margin: "4px 0 0" }}>
+          Past resumes and cover letters help build your profile. Drag a current one here to retire it.
         </p>
       )}
       {expanded && (
         <>
-          <ul>
+          <ul className="older-doc-list">
             {docs.map((d) => (
               <li key={d.id}>
-                <span className="tag">{d.kind === "resume" ? "resume" : "cover letter"}</span>{" "}
-                {d.file_name}{" "}
-                <span className="muted small">— {d.text_length.toLocaleString()} chars</span> —{" "}
-                <a className="link small" href={api.resumeDownloadUrl(d.id)} download>
-                  download
-                </a>{" "}
-                <button className="link small" onClick={() => promote(d.id)}>
-                  make current
-                </button>{" "}
-                <button className="link small" onClick={() => api.deleteResume(d.id).then(onChanged)}>
-                  delete
-                </button>
+                <div className="doc-name">{d.file_name}</div>
+                <div className="small">
+                  <span className="tag">{d.kind === "resume" ? "resume" : "cover letter"}</span>{" "}
+                  <a className="link small" href={api.resumeDownloadUrl(d.id)} download>
+                    download
+                  </a>{" "}
+                  ·{" "}
+                  <button className="link small" onClick={() => act(() => api.updateResume(d.id, { is_template: true }))}>
+                    make current
+                  </button>{" "}
+                  ·{" "}
+                  <button className="link small" onClick={() => act(() => api.deleteResume(d.id))}>
+                    delete
+                  </button>
+                </div>
               </li>
             ))}
-            {docs.length === 0 && <li className="empty-state">Nothing here.</li>}
+            {docs.length === 0 && <li className="empty-state small">Nothing here yet.</li>}
           </ul>
-          <div className="form-row" style={{ marginBottom: 0 }}>
-            <input ref={fileInput} type="file" accept=".pdf,.docx,.md,.txt" />
+          <div className="doc-actions">
             <select value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
               <option value="resume">Resume</option>
               <option value="cover_letter">Cover letter</option>
             </select>
-            <button className="ghost" onClick={uploadToOld} disabled={busy}>
-              {busy ? <Spinner label="Uploading..." /> : "Add to Old"}
-            </button>
+            <UploadButton label="Add an older one" onFile={upload} busy={busy} />
           </div>
         </>
       )}
@@ -174,45 +199,38 @@ function OldDocsSection({
   );
 }
 
-function ResumesSection() {
-  const [resumes, setResumes] = useState<ResumeSummary[]>([]);
+function MyDocuments({ resumes, onChanged }: { resumes: ResumeSummary[]; onChanged: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [libraryPath, setLibraryPath] = useState<string | null>(null);
 
-  const refresh = () => {
-    api.listResumes().then(setResumes);
+  useEffect(() => {
     api
       .getSettings()
       .then((s) => setLibraryPath((s as unknown as Record<string, string>).resume_library_path ?? null));
-  };
-
-  useEffect(refresh, []);
+  }, []);
 
   const currentResume = resumes.find((r) => r.kind === "resume" && r.is_template);
   const currentCoverLetter = resumes.find((r) => r.kind === "cover_letter" && r.is_template);
-  const oldDocs = resumes.filter((r) => r.id !== currentResume?.id && r.id !== currentCoverLetter?.id);
+  const older = resumes.filter((r) => r.id !== currentResume?.id && r.id !== currentCoverLetter?.id);
+  const changed = () => {
+    setError(null);
+    onChanged();
+  };
 
   return (
-    <>
+    <div className="card my-documents">
+      <h2>My documents</h2>
+      {error && <p className="error-text small">{error}</p>}
+      <CurrentDoc kind="resume" doc={currentResume} onChanged={changed} onError={setError} />
+      <CurrentDoc kind="cover_letter" doc={currentCoverLetter} onChanged={changed} onError={setError} />
+      <OlderDocs docs={older} onChanged={changed} onError={setError} />
       {libraryPath && (
-        <p className="muted small">
-          Bulk-imported from <code className="path">{libraryPath}</code> — new tailored docs save to{" "}
-          <code className="path">{libraryPath}/AI Generated</code>.
+        <p className="muted small" style={{ margin: "10px 0 0" }}>
+          Bulk-imported from <code className="path">{libraryPath}</code>; tailored documents save to its{" "}
+          <code className="path">AI Generated</code> folder.
         </p>
       )}
-      {error && <p className="error-text small">{error}</p>}
-
-      <CurrentDocCard kind="resume" doc={currentResume} onChanged={refresh} onError={setError} />
-      <CurrentDocCard
-        kind="cover_letter"
-        doc={currentCoverLetter}
-        onChanged={refresh}
-        onError={setError}
-      />
-      <OldDocsSection docs={oldDocs} onChanged={refresh} onError={setError} />
-
-      <CandidateProfileCard hasDocuments={resumes.length > 0} />
-    </>
+    </div>
   );
 }
 
@@ -278,16 +296,26 @@ function GeneratedDocumentsSection() {
   );
 }
 
+
 export default function ProfilePage() {
+  const [resumes, setResumes] = useState<ResumeSummary[]>([]);
+  const refresh = () => {
+    api.listResumes().then(setResumes);
+  };
+  useEffect(refresh, []);
+
   return (
     <div>
       <h1>Profile</h1>
       <p className="muted" style={{ marginBottom: "18px" }}>
-        Who you are and what you're looking for — drives scoring and generation. Company/job-board
-        discovery lives on the Manage Sources page.
+        What you're looking for and who you are: it drives scoring, New &amp; Noteworthy and every
+        tailored document. Company and job-board discovery lives on Manage Sources.
       </p>
-      <ResumesSection />
-      <DesiredRoleForm />
+      <div className="profile-top">
+        <DesiredRoleForm />
+        <MyDocuments resumes={resumes} onChanged={refresh} />
+      </div>
+      <CandidateProfileCard hasDocuments={resumes.length > 0} />
       <GeneratedDocumentsSection />
     </div>
   );

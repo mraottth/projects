@@ -9,6 +9,7 @@ import {
   JobFilterState,
   NO_JOB_FILTERS,
   filterJobs,
+  toggleFilterValue,
 } from "../components/JobFilters";
 import { ScoredJobCard } from "../components/ScoredJobCard";
 
@@ -59,7 +60,12 @@ export default function AllJobsPage() {
             />
             {filtered.length === 0 && <FilteredEmptyState onClear={() => setFilters(NO_JOB_FILTERS)} />}
             {filtered.map((job) => (
-              <ScoredJobCard key={job.id} job={job} />
+              <ScoredJobCard
+                key={job.id}
+                job={job}
+                onFilter={(key, value) => setFilters((f) => toggleFilterValue(f, key, value))}
+                activeFilters={filters}
+              />
             ))}
           </div>
           <aside className="list-side">

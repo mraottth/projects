@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, type LocationCheck, Settings } from "../api";
+import { api, type LocationCheck, type SalaryCheck, Settings } from "../api";
 import { TagInput } from "./TagInput";
 
 // The "What are you looking for?" card -- shared by the Profile page and onboarding's second step.
@@ -117,9 +117,34 @@ export function DesiredRoleForm() {
         <input
           type="number"
           defaultValue={settings.salary_floor ?? ""}
-          onBlur={(e) => save({ salary_floor: e.target.value ? Number(e.target.value) : null })}
+          onBlur={(e) =>
+            save({ salary_floor: e.target.value ? Number(e.target.value) : null }).then(() =>
+              setCheckVersion((v) => v + 1),
+            )
+          }
           style={{ width: "200px" }}
         />
+        {!!settings.salary_floor && (
+          <>
+            <label className="field inline" style={{ margin: "10px 0 0" }}>
+              <input
+                type="checkbox"
+                checked={!!settings.salary_dealbreaker}
+                onChange={(e) =>
+                  save({ salary_dealbreaker: e.target.checked }).then(() => setCheckVersion((v) => v + 1))
+                }
+              />
+              <span style={{ margin: 0, fontWeight: 400, color: "var(--ink)" }}>
+                Dealbreaker: hide jobs that pay less
+              </span>
+            </label>
+            <p className="muted small" style={{ margin: "4px 0 0" }}>
+              Compares the low end of a posted range, per year (hourly pay × 2,080). Jobs with no
+              pay listed, or in another currency, always stay.
+            </p>
+            <SalaryReadout version={checkVersion} enabled={!!settings.salary_dealbreaker} />
+          </>
+        )}
       </div>
 
       <div className="fsection" style={{ marginBottom: 0 }}>
@@ -142,6 +167,36 @@ export function DesiredRoleForm() {
       {busy && <p className="muted small">Saving...</p>}
       {saved && !busy && <p className="muted small">Saved.</p>}
       {error && <p className="error-text small">{error}</p>}
+    </div>
+  );
+}
+
+/** What the minimum-salary dealbreaker hides (or would hide) among All Jobs right now. */
+function SalaryReadout({ version, enabled }: { version: number; enabled: boolean }) {
+  const [check, setCheck] = useState<SalaryCheck | null>(null);
+
+  useEffect(() => {
+    api
+      .getSalaryCheck()
+      .then(setCheck)
+      .catch(() => setCheck(null));
+  }, [version]);
+
+  if (!check || !check.floor || check.preview.total === 0) return null;
+  const { preview } = check;
+  const money = (n: number) => `$${Math.round(n / 1000)}k`;
+  return (
+    <div className="location-readout small">
+      <p className="muted" style={{ margin: 0 }}>
+        {preview.with_pay} of your {preview.total} jobs on All Jobs list pay.{" "}
+        {preview.hidden === 0
+          ? `None of them start below ${money(check.floor)}.`
+          : `${enabled ? "Hiding" : "Would hide"} ${preview.hidden} that start below ${money(check.floor)}`}
+        {preview.examples.length > 0 &&
+          `, e.g. ${preview.examples
+            .map((e) => `${e.title} at ${e.company} (from ${money(e.annual_low)}/yr)`)
+            .join(" · ")}.`}
+      </p>
     </div>
   );
 }

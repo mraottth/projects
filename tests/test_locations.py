@@ -265,8 +265,8 @@ def test_hidden_from_new_and_noteworthy_and_all_jobs_but_not_my_jobs():
         add_to_digest(job_id)
     assert {j["title"] for j in get_digest(today_str())} == {"Here", "Unknown", "Remote"}
     with TestClient(app) as http:
-        ranked = {j["title"]: j["outside_locations"] for j in http.get("/api/jobs/ranked").json()}
-        assert ranked == {"Here": False, "There": True, "Unknown": False, "Remote": False}
+        ranked = {j["title"]: j["dealbreakers"] for j in http.get("/api/jobs/ranked").json()}
+        assert ranked == {"Here": [], "There": ["location"], "Unknown": [], "Remote": []}
         assert http.post(
             "/api/applications", json={"job_id": ids["There"], "status": "waiting"}
         ).status_code in (200, 201)

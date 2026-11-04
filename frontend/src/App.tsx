@@ -41,7 +41,7 @@ function GearIcon() {
 // These pages need the extra room (a filter sidebar, a wide table, Jobby's job picker beside
 // the chat, Manage Sources' two columns, or the Timeline's milestone strip) that the default
 // prose-friendly max-width doesn't give them.
-const WIDE_ROUTES = ["/", "/all-jobs", "/tracker", "/jobby", "/sources", "/changelog", "/admin"];
+const WIDE_ROUTES = ["/", "/all-jobs", "/tracker", "/jobby", "/sources", "/changelog", "/admin", "/profile"];
 
 function AppMain({
   needsOnboarding,

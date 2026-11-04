@@ -407,3 +407,22 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 - At the owner's ask, a job listing several places is hidden when every place is clearly elsewhere and nothing marks the list as incomplete. "New York, NY; San Francisco, CA" goes for someone who wants DC.
 - It's still kept if any place matches, if one can't be read, or if the wording is vague ("+2 more", "3 locations", "multiple", "nationwide").
 - A written state code now outranks state names inside a city's name, so "Kansas City, MO" reads as Missouri, not Kansas plus Missouri.
+
+## D-027 · A salary dealbreaker on the low end of the posted range
+- **Date:** 2026-11-04
+- **Category:** pipeline
+- **Prompts:** ab602548-110
+
+**Decision.**
+- "Minimum salary" gets an opt-in dealbreaker. A job is hidden when its posted pay, annualized at the low end of the range, is below the minimum.
+- It applies everywhere the location dealbreaker does: not scored, not on New & Noteworthy or in the email, behind a toggle on All Jobs, and never on My Jobs.
+
+**Context.** The owner asked to match "an annualized total at the lowest end of a posted range". It came with the Profile redesign and two chip changes (no chip in the Interest/Fit colors; clickable organization and location chips).
+
+**Alternatives considered.**
+- **Compare the top of the range:** more lenient, but not what was asked.
+- **Treat a missing salary as failing:** most postings list no pay, so it would hide most jobs.
+
+**Why.**
+- As with location, it hides only what it's sure about. No pay listed, a non-USD currency, an unclear period, or a bare number under 1,000 all stay.
+- The Settings readout shows how many jobs list pay and which would be hidden before it's switched on.

@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 from starlette.background import BackgroundTask
 
-from jobhunt.core import backup, locations, retag
+from jobhunt.core import backup, dealbreakers, locations, retag
 
 from jobhunt.core.llm import CACHE_READ_MULTIPLIER, CACHE_WRITE_MULTIPLIER, PRICING_PER_MTOK, LLMError
 from jobhunt.core.email_digest import EmailNotConfigured, email_status, send_test_email
@@ -102,6 +102,33 @@ def location_check():
         "entries": locations.describe(entries),
         "preview": preview,
     }
+
+
+@router.get("/salary-check")
+def salary_check():
+    """For the minimum-salary dealbreaker: among the jobs on All Jobs right now, how many state pay,
+    and which would be hidden (their annualized low end is below the minimum), whether or not it's
+    switched on. Jobs with no pay, another currency, or an unclear period are never hidden."""
+    from jobhunt.api.jobs import list_ranked_jobs
+
+    current = get_settings()
+    floor = current.get("salary_floor")
+    preview = {"total": 0, "with_pay": 0, "hidden": 0, "examples": []}
+    if floor:
+        check = {**current, "salary_dealbreaker": True}
+        for job in list_ranked_jobs():
+            preview["total"] += 1
+            low = dealbreakers.annual_low(job)
+            if low is None:
+                continue
+            preview["with_pay"] += 1
+            if dealbreakers.below_floor(job, check):
+                preview["hidden"] += 1
+                if len(preview["examples"]) < 5:
+                    preview["examples"].append(
+                        {"title": job["title"], "company": job["company"], "annual_low": round(low)}
+                    )
+    return {"enabled": dealbreakers.salary_dealbreaker_on(current), "floor": floor, "preview": preview}
 
 
 @router.get("/retag-highlights")

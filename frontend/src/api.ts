@@ -118,8 +118,8 @@ export interface Application {
 }
 
 export interface ScoredJob extends Job {
-  // All Jobs only: outside your locations with the location dealbreaker on (hidden unless asked).
-  outside_locations?: boolean;
+  // All Jobs only: which dealbreakers rule this job out ("location", "salary"); hidden unless asked.
+  dealbreakers?: string[];
   interest_fit: "High" | "Med" | "Low" | null;
   interest_score: number | null;
   candidate_fit: "High" | "Med" | "Low" | null;
@@ -236,6 +236,7 @@ export interface Settings {
   prefilter_locations: string[];
   prefilter_remote_only: boolean;
   location_dealbreaker?: boolean;
+  salary_dealbreaker?: boolean;
   salary_floor: number | null;
   looking_for_notes: string;
   onboarding_completed: boolean;
@@ -494,6 +495,18 @@ export type RescoreStatus = {
 
 export type RescoreResult = { scored: number; failed: number; stopped: string | null };
 
+/** GET /api/settings/salary-check: what the minimum-salary dealbreaker hides (or would). */
+export type SalaryCheck = {
+  enabled: boolean;
+  floor: number | null;
+  preview: {
+    total: number;
+    with_pay: number;
+    hidden: number;
+    examples: { title: string; company: string; annual_low: number }[];
+  };
+};
+
 /** GET /api/settings/location-check: how desired locations are read, and what they'd hide. */
 export type LocationCheck = {
   enabled: boolean;
@@ -708,6 +721,8 @@ export const api = {
   getSettings: () => request<Settings>("/api/settings"),
 
   getLocationCheck: () => request<LocationCheck>("/api/settings/location-check"),
+
+  getSalaryCheck: () => request<SalaryCheck>("/api/settings/salary-check"),
 
   putSettings: (payload: Partial<Settings>) =>
     request<Settings>("/api/settings", {
