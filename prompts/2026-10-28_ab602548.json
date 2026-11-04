@@ -891,8 +891,16 @@
    "time": "2026-11-04T14:49:51.373Z",
    "kind": "prompt",
    "text": "Let's add an 'About' page that has details about the project and a basic usage guide. We can also move the Product Timeline there from the settings page and let's make sure that's up to date and kept so. It seems like the milestones might be behind",
-   "reply": null,
+   "reply": "There's a new About page, linked at the right of the top bar next to Admin and the gear. The Product Timeline moved there from Settings, and the milestones are now up to date (they had stopped on Oct 30). It's pushed to `claude/upbeat-hamilton-y05u73`; all 469 tests pass, and I checked the page in a browser.\n\n**What's on the About page:**\n- **What it is:** a short description of the project.\n- **How it works:** the daily check in five steps, from reading sources at 2pm ET to scoring, New & Noteworthy and the email, and how your marks feed back in.\n- **Getting started:** one step per page, each linking to it.\n- **Costs and limits:** each person's own daily scoring limit and monthly budget (shown for them), the pause after a week away, plus the existing privacy note.\n- **Built with:** what the app runs on.\n- **Product Timeline:** the milestone highlights, with an \"Open the full Timeline\" button. Clicking a prompt or decision on a milestone opens the full Timeline at that item.\n\nThe full Timeline's intro used to say it's \"only visible to you\". It now says it's visible to people you've approved.\n\n**Milestones caught up:** they now run to M20, covering all decisions through D-027:\n- M11 careers pages read harder\n- M12 My Jobs rework\n- M13 prompt caching\n- M14 backups and Litestream\n- M15 approved users and cost controls\n- M16 the daily-check failures and the Daily check card\n- M17 scoring cost and unchanged board pages\n- M18 dealbreakers\n- M19 Profile redesign and filterable chips\n- M20 this About page\n\nD-003 (browser rendering for JavaScript-built boards) is now attached to M07.\n\n**Keeping it up to date:**\n- A new test fails whenever a decision isn't part of any milestone. It also fails if a milestone names a prompt, decision or commit that doesn't exist, or if milestone numbers or dates are out of order.\n- Building the Timeline prints the same warning.\n- CLAUDE.md now says each new decision needs a milestone.\n- D-007, merging the branch, is the one decision excused, since it's a process choice rather than a product change.\n\nOne limit: the full Timeline still links to `prompts/` and `DECISIONS.md` on GitHub. The repo is private, so those links only work for you, not for other approved people.\n\n```bash\ncd ~/job-search-assistant && git checkout main && git pull && git merge origin/claude/upbeat-hamilton-y05u73 && git push && make deploy ADMIN_EMAIL=you@example.com\n```",
    "id": "ab602548-113",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-04T21:06:29.761Z",
+   "kind": "prompt",
+   "text": "Let's make sure that jobs from My Jobs don't end up in New & Noteworthy",
+   "reply": null,
+   "id": "ab602548-114",
    "session": "ab602548"
   }
  ]
