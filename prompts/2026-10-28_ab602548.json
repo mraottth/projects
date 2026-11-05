@@ -907,8 +907,34 @@
    "time": "2026-11-05T22:51:45.778Z",
    "kind": "prompt",
    "text": "I'm still not receiving emails - there was a New & Noteworthy that came up today but I didn't get an email. Can you investigate?",
-   "reply": null,
+   "reply": "The most likely cause is that email has been switched off on the server by every deploy since the multi-user work. I fixed that and pushed it to `claude/upbeat-hamilton-y05u73`. I can't see the live server from here, so this isn't confirmed yet: Settings will tell you once you check it.\n\n**What's been happening:**\n- Email only switched on when a deploy included `EMAIL_ADDRESS=...`.\n- The deploy command I've been giving you, `make deploy ADMIN_EMAIL=...`, doesn't include it, and each deploy replaces the server's whole set of settings.\n- So every deploy quietly turned email off, even if it had been on before, and nothing said so.\n- The exception would be if `EMAIL_ADDRESS` is set in your local `.deploy.local.mk`. I can't see that file from here.\n\n**Confirm in one look:** open Settings and find the Daily email card. If it says it isn't set up, that's the cause. If it shows \"Sending to …\", press \"Send a test email\" and check spam and All Mail.\n\n**What I changed:**\n- **Email stays on:** once the Gmail app password is stored, every deploy now turns email on, sent from your admin address unless you give a different one.\n- **Deploys say so:** each deploy prints either \"Daily email: on, sent from …\" or \"Daily email: OFF\", so it can't switch off silently again. I checked all three cases (password stored, not stored, address passed in) with a dry run against a stand-in for `gcloud`.\n- **Settings explains a missing email:** each check now records what its email step did, and the Daily email card shows the outcome. For example:\n  - \"Last check (Nov 5, 2:04 PM): sent 2 jobs to …\"\n  - \"nothing sent: none of the 3 jobs on New & Noteworthy had High interest with a High or Med fit (the best was Med interest)\"\n  - \"nothing sent, because email isn't set up on the server\"\n\nAll 473 tests pass, including new ones for the recorded outcome.\n\n**Why a job can still go out with no email:** the email only includes jobs with High interest and a High or Med fit, so a Med-interest job on New & Noteworthy won't be sent. The new \"Last check\" line will say when that's what happened.\n\nWhat to run in Cloud Shell:\n\n1. If you've never stored the Gmail app password (or aren't sure), store it once. It's a 16-character password from your Google account's \"App passwords\" page, not your normal password:\n```bash\ncd ~/job-search-assistant && git checkout main && git pull && git merge origin/claude/upbeat-hamilton-y05u73 && git push && GMAIL_APP_PASSWORD='xxxx xxxx xxxx xxxx' make email-secret\n```\n\n2. Deploy as usual and check that it prints \"Daily email: on, sent from …\":\n```bash\ncd ~/job-search-assistant && make deploy ADMIN_EMAIL=you@example.com\n```\n\n3. Then press \"Send a test email\" on Settings. After the next 2pm check, the card's \"Last check\" line will show what happened.",
    "id": "ab602548-115",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-05T23:17:36.666Z",
+   "kind": "prompt",
+   "text": "Wait does it only send if there's a high interest job? That might actually be the reason. There was just a med/med job",
+   "reply": null,
+   "asked": [
+    {
+     "question": "Which jobs should the daily email include? (Today it's High interest with a High or Med fit.)",
+     "options": [
+      "High or Med interest (Recommended)",
+      "Everything on New & Noteworthy",
+      "Keep it as is"
+     ]
+    }
+   ],
+   "id": "ab602548-116",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-05T23:18:27.341Z",
+   "kind": "answer",
+   "text": "\"Which jobs should the daily email include? (Today it's High interest with a High or Med fit.)\"=\"High or Med interest (Recommended)\".",
+   "reply": null,
+   "id": "ab602548-117",
    "session": "ab602548"
   }
  ]
