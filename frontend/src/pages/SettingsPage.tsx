@@ -32,7 +32,7 @@ function DailyEmail() {
         ok: true,
         text: r.count
           ? `Sent ${r.count} current match${r.count === 1 ? "" : "es"} to ${r.to}.`
-          : `Sent to ${r.to} (no High-interest matches right now, so it's a short check-in).`,
+          : `Sent to ${r.to} (no High or Med matches right now, so it's a short check-in).`,
       });
     } catch (e) {
       setResult({ ok: false, text: e instanceof Error ? e.message : String(e) });
@@ -45,7 +45,7 @@ function DailyEmail() {
     <div className="card">
       <h2>Daily email</h2>
       <p className="muted small">
-        After the daily check at 2:00pm ET, new High-interest matches with a High or Med fit are
+        After the daily check at 2:00pm ET, new matches with High or Med interest and a High or Med fit are
         emailed to you, each one once. No new matches, no email.
       </p>
       {status === null ? (
@@ -85,7 +85,7 @@ function LastEmail({ last }: { last: NonNullable<EmailStatus["last"]> }) {
       last.on_list_today === 0
         ? "nothing sent: New & Noteworthy had nothing new."
         : `nothing sent: none of the ${last.on_list_today} job${last.on_list_today === 1 ? "" : "s"} on ` +
-          `New & Noteworthy had High interest with a High or Med fit` +
+          `New & Noteworthy had High or Med interest with a High or Med fit` +
           (last.best_interest_today ? ` (the best was ${last.best_interest_today} interest).` : ".");
   else what = `nothing sent (${last.reason ?? "unknown reason"}).`;
   return (

@@ -113,8 +113,8 @@ export default function AboutPage() {
             and what you've marked before: Interest and Fit, High, Med or Low, with the reasons.
           </li>
           <li>
-            <strong>They land in New &amp; Noteworthy</strong>, and the strongest (High interest with a High or Med
-            fit) go out in a daily email.
+            <strong>They land in New &amp; Noteworthy</strong>, and the good ones (High or Med interest with a
+            High or Med fit) go out in a daily email.
           </li>
           <li>
             <strong>Your marks and outcomes feed back in</strong>: once enough build up, it rebuilds what it knows

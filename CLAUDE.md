@@ -565,8 +565,9 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   `sqlite_master` with foreign keys off, so the live DB's leftover tables are cleared too.
 - **Daily email** (`core/email_digest.py`): at the end of every `run_daily` (Cloud Scheduler
   now runs it at 2:00pm America/New_York, `0 14 * * *` with `--time-zone`), `send_new_jobs_email()`
-  emails New & Noteworthy jobs from today's and yesterday's digest with High interest and a High
-  or Med fit (the user's choice), best first, each one once (`digest_entries.emailed_at`, a
+  emails New & Noteworthy jobs from today's and yesterday's digest with High or Med interest and a
+  High or Med fit (`GOOD_INTEREST`/`GOOD_FITS`; widened from High interest only on 2026-11-05 at
+  the user's ask, after a Med/Med match never arrived), best first, each one once (`digest_entries.emailed_at`, a
   migration). No new matches means no email. It's sent over Gmail SMTP (`smtp.gmail.com:465`) with an app
   password, from `EMAIL_ADDRESS` to itself (or `EMAIL_TO`), with posting links and, given
   `APP_URL`, "Open in the app" links. Without `EMAIL_ADDRESS` + `GMAIL_APP_PASSWORD` nothing is

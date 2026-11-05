@@ -79,24 +79,25 @@ def test_not_configured_sends_nothing(monkeypatch):
     assert email_digest.send_new_jobs_email() == {"sent": False, "reason": "not configured"}
 
 
-def test_sends_new_high_interest_matches_once(monkeypatch):
+def test_sends_new_high_or_med_matches_once(monkeypatch):
     _configure(monkeypatch)
     _digest_job(
         "Data Director", "High", "Med", 90, 60, salary_min=160000, salary_max=210000, salary_period="year"
     )
     best = _digest_job("Head of Analytics", "High", "High", 95, 90)
     _digest_job("Low Fit Role", "High", "Low")
-    _digest_job("Med Interest Role", "Med", "High")
+    _digest_job("Med Interest Role", "Med", "Med", 55, 50)  # Med/Med goes out too (2026-11-05)
+    _digest_job("Low Interest Role", "Low", "High")
 
     result = email_digest.send_new_jobs_email()
-    assert result == {"sent": True, "count": 2, "to": "me@example.com"}
+    assert result == {"sent": True, "count": 3, "to": "me@example.com"}
     message = SENT[0]
-    assert message["Subject"] == "2 new job matches: Head of Analytics at Acme, +1 more"
+    assert message["Subject"] == "3 new job matches: Head of Analytics at Acme, +2 more"
     body = message.get_body(("plain",)).get_content()
-    assert body.index("Head of Analytics") < body.index("Data Director")  # best first
+    assert body.index("Head of Analytics") < body.index("Data Director") < body.index("Med Interest Role")
     assert "$160k-210k" in body and "/yr" not in body
     assert f"https://jobhunt.example.run.app/jobs/{best}" in body
-    assert "Low Fit Role" not in body and "Med Interest Role" not in body
+    assert "Low Fit Role" not in body and "Low Interest Role" not in body
     assert "View posting" in message.get_body(("html",)).get_content()
 
     # Already emailed: nothing new the second time.
@@ -104,9 +105,10 @@ def test_sends_new_high_interest_matches_once(monkeypatch):
     assert len(SENT) == 1
 
 
-def test_empty_day_sends_nothing(monkeypatch):
+def test_a_day_with_only_low_ratings_sends_nothing(monkeypatch):
     _configure(monkeypatch)
-    _digest_job("Med Interest Role", "Med", "High")
+    _digest_job("Low Interest Role", "Low", "High")
+    _digest_job("Low Fit Role", "Med", "Low")
     assert email_digest.send_new_jobs_email() == {"sent": False, "reason": "nothing new"}
     assert SENT == []
 

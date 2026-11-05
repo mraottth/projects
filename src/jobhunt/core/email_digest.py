@@ -1,7 +1,8 @@
 """The daily email: New & Noteworthy jobs worth a look, sent once the daily run finishes
-(Cloud Scheduler runs it at 2:00pm ET). "Worth a look" means High interest with a High or Med fit,
-per the user's choice; each job is emailed once (digest_entries.emailed_at), and a day with
-nothing new sends nothing.
+(Cloud Scheduler runs it at 2:00pm ET). "Worth a look" means High or Med interest with a High or
+Med fit, the same jobs New & Noteworthy shows with its default filters (widened from High interest
+only on 2026-11-05, when a Med/Med match never arrived); each job is emailed once
+(digest_entries.emailed_at), and a day with nothing new sends nothing.
 
 Sent through Gmail's SMTP with an app password, from the user's own address to themselves:
 EMAIL_ADDRESS and GMAIL_APP_PASSWORD (a Secret Manager secret in production; see the Makefile's
@@ -23,6 +24,7 @@ SMTP_HOST = "smtp.gmail.com"
 SMTP_PORT = 465
 SMTP_TIMEOUT = 20
 GOOD_FITS = ("High", "Med")
+GOOD_INTEREST = ("High", "Med")
 # Today's digest plus yesterday's: a source added in the evening puts its jobs in that day's
 # digest after the email already went out.
 LOOKBACK_DAYS = 1
@@ -148,12 +150,14 @@ def _salary_text(job: dict) -> str | None:
 
 
 def qualifying_jobs(include_emailed: bool = False) -> list[dict]:
-    """Recent digest jobs with High interest and a High/Med fit, best first. get_digest() has
+    """Recent digest jobs with High or Med interest and a High/Med fit, best first. get_digest() has
     already dropped dismissed, stale and general-application postings."""
     jobs, seen = [], set()
     for days_ago in range(LOOKBACK_DAYS + 1):
         for job in get_digest((date.today() - timedelta(days=days_ago)).isoformat()):
-            if job["id"] in seen or job["interest_fit"] != "High" or job["candidate_fit"] not in GOOD_FITS:
+            if job["id"] in seen:
+                continue
+            if job["interest_fit"] not in GOOD_INTEREST or job["candidate_fit"] not in GOOD_FITS:
                 continue
             if job["emailed_at"] and not include_emailed:
                 continue
@@ -199,7 +203,7 @@ def build_message(jobs: list[dict], sender: str, to: str, app_url: str, subject:
             f'<div style="font-size:13px;margin-top:6px">{" &nbsp;·&nbsp; ".join(links)}</div>'
             "</div>"
         )
-    footer = f'<p style="font-size:12px;color:#6b6a65">{len(jobs)} High-interest match'
+    footer = f'<p style="font-size:12px;color:#6b6a65">{len(jobs)} new match'
     footer += "es" if len(jobs) != 1 else ""
     footer += " from today's check."
     if app_url:
@@ -260,7 +264,7 @@ def send_test_email() -> dict:
         message["From"] = f"Job Search Assistant <{config['sender']}>"
         message["To"] = config["to"]
         message.set_content(
-            "Email is set up. There are no High-interest matches in New & Noteworthy right now; "
+            "Email is set up. There are no new High or Med matches in New & Noteworthy right now; "
             "new ones will arrive after the daily 2:00pm ET check."
         )
     _send(message, config)
