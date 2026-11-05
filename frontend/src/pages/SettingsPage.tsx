@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, ApiError, LlmCall, Me, Settings } from "../api";
+import { api, ApiError, type EmailStatus, LlmCall, Me, Settings } from "../api";
 import { Markdown } from "../components/Markdown";
 import { RescoreButton } from "../components/RescoreButton";
 import { Spinner } from "../components/Spinner";
@@ -15,7 +15,7 @@ function toList(s: string): string[] {
 
 // The daily email (core/email_digest.py): status, plus a test send that doesn't affect the real one.
 function DailyEmail() {
-  const [status, setStatus] = useState<{ configured: boolean; to: string | null } | null>(null);
+  const [status, setStatus] = useState<EmailStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -56,15 +56,42 @@ function DailyEmail() {
         </p>
       ) : (
         <p className="small">
-          Not set up yet: store a Gmail app password with <code>make email-secret</code>, then
-          redeploy with <code>EMAIL_ADDRESS=you@gmail.com</code> added to <code>make deploy</code>.
+          <strong>Not set up on the server</strong>, so nothing is sent. Store a Gmail app password once with{" "}
+          <code>make email-secret</code>; after that, every <code>make deploy</code> keeps email on.
         </p>
       )}
+      {status?.last && <LastEmail last={status.last} />}
       <button className="ghost" onClick={test} disabled={busy || !status?.configured}>
         {busy ? <Spinner label="Sending..." /> : "Send a test email"}
       </button>
       {result && <p className={result.ok ? "muted small" : "error-text small"}>{result.text}</p>}
     </div>
+  );
+}
+
+/** What the last check's email step did, so a missing email has a reason on screen. */
+function LastEmail({ last }: { last: NonNullable<EmailStatus["last"]> }) {
+  const when = new Date(last.at).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  let what: string;
+  if (last.sent) what = `sent ${last.count} job${last.count === 1 ? "" : "s"} to ${last.to}.`;
+  else if (last.reason === "not configured") what = "nothing sent, because email isn't set up on the server.";
+  else if (last.reason === "nothing new")
+    what =
+      last.on_list_today === 0
+        ? "nothing sent: New & Noteworthy had nothing new."
+        : `nothing sent: none of the ${last.on_list_today} job${last.on_list_today === 1 ? "" : "s"} on ` +
+          `New & Noteworthy had High interest with a High or Med fit` +
+          (last.best_interest_today ? ` (the best was ${last.best_interest_today} interest).` : ".");
+  else what = `nothing sent (${last.reason ?? "unknown reason"}).`;
+  return (
+    <p className={`small ${last.sent ? "muted" : ""}`}>
+      Last check ({when}): {what}
+    </p>
   );
 }
 

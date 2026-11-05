@@ -19,6 +19,7 @@ from jobhunt.core import backup, budget, prefilter, queue
 from jobhunt.core import settings as settings_module
 from jobhunt.core.dedupe import compute_dedupe_key
 from jobhunt.core.digest import add_to_digest
+from jobhunt.core.email_digest import record_outcome as record_email_outcome
 from jobhunt.core.email_digest import send_new_jobs_email, send_plain_email
 from jobhunt.core.generic_postings import is_generic_posting
 from jobhunt.core.llm import LLMError
@@ -596,6 +597,10 @@ def _run_for_person(
             except Exception as exc:  # noqa: BLE001
                 logger.exception("daily email for user %s failed", user_id)
                 email_result = {"sent": False, "reason": f"error: {exc}"}
+            try:  # what happened, for Settings' Daily email card; never fails the run
+                record_email_outcome(email_result)
+            except Exception:  # noqa: BLE001
+                logger.exception("recording the email outcome for user %s failed", user_id)
 
         summary = {
             "user_id": user_id,

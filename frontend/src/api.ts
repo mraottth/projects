@@ -519,6 +519,21 @@ export type LocationCheck = {
   };
 };
 
+/** GET /api/settings/email-status: set up or not, and what the last check's email step did. */
+export type EmailStatus = {
+  configured: boolean;
+  to: string | null;
+  last?: {
+    at: string;
+    sent: boolean;
+    count: number;
+    to: string | null;
+    reason: string | null;
+    on_list_today: number;
+    best_interest_today: string | null;
+  } | null;
+};
+
 export interface DailyRunStatus {
   latest: {
     status: "running" | "ok" | "failed" | "unfinished";
@@ -754,7 +769,7 @@ export const api = {
     return result as { retagged: number; skipped: number };
   },
 
-  getEmailStatus: () => request<{ configured: boolean; to: string | null }>("/api/settings/email-status"),
+  getEmailStatus: () => request<EmailStatus>("/api/settings/email-status"),
 
   sendTestEmail: () =>
     request<{ sent: boolean; count: number; to: string }>("/api/settings/test-email", { method: "POST" }),

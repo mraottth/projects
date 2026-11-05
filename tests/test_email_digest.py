@@ -123,13 +123,21 @@ def test_email_failure_does_not_fail_the_daily_run(monkeypatch):
 def test_test_email_route(monkeypatch):
     monkeypatch.delenv("EMAIL_ADDRESS", raising=False)
     with TestClient(app) as client:
-        assert client.get("/api/settings/email-status").json() == {"configured": False, "to": None}
+        assert client.get("/api/settings/email-status").json() == {
+            "configured": False,
+            "to": None,
+            "last": None,
+        }
         assert client.post("/api/settings/test-email").status_code == 400
 
     _configure(monkeypatch)
     _digest_job("Data Director", "High", "High")
     with TestClient(app) as client:
-        assert client.get("/api/settings/email-status").json() == {"configured": True, "to": "me@example.com"}
+        assert client.get("/api/settings/email-status").json() == {
+            "configured": True,
+            "to": "me@example.com",
+            "last": None,
+        }
         resp = client.post("/api/settings/test-email")
     assert resp.json()["count"] == 1
     assert SENT[0]["Subject"].startswith("[Test] ")

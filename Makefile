@@ -46,14 +46,20 @@ GCP_REGION  ?= us-central1
 IMAGE        = $(GCP_REGION)-docker.pkg.dev/$(GCP_PROJECT)/jobhunt/app
 BUCKET      ?= $(GCP_PROJECT)-jobhunt-data
 
-# The daily email (core/email_digest.py) is on only when EMAIL_ADDRESS is set (in .deploy.local.mk
-# or on the command line) -- after `make email-secret` has stored the Gmail app password, since
-# deploy then mounts that secret. APP_URL (for "Open in the app" links) is the service's own URL.
+# The daily email (core/email_digest.py) needs the Gmail app password stored once with
+# `make email-secret`. After that, every deploy turns email on, sent from EMAIL_ADDRESS if given
+# (in .deploy.local.mk or on the command line), else from ADMIN_EMAIL. It used to be on only when
+# EMAIL_ADDRESS was passed, and since `gcloud run deploy --set-env-vars/--set-secrets` replace the
+# whole set, every deploy without it quietly switched email off (no emails arrived; 2026-11-05).
+# The secret check is a lazy `=` so gcloud only runs when a deploy needs it. APP_URL (for "Open in
+# the app" links) is the service's own URL.
 EMAIL_ADDRESS ?=
 comma := ,
 SERVICE_URL = $$(gcloud run services describe jobhunt --project $(GCP_PROJECT) --region $(GCP_REGION) --format 'value(status.url)')
-EMAIL_ENV = $(if $(EMAIL_ADDRESS),$(comma)EMAIL_ADDRESS=$(EMAIL_ADDRESS))
-EMAIL_SECRET = $(if $(EMAIL_ADDRESS),$(comma)GMAIL_APP_PASSWORD=gmail-app-password:latest)
+HAS_EMAIL_SECRET = $(shell gcloud secrets describe gmail-app-password --project $(GCP_PROJECT) >/dev/null 2>&1 && echo yes)
+EMAIL_SENDER = $(or $(EMAIL_ADDRESS),$(if $(HAS_EMAIL_SECRET),$(ADMIN_EMAIL)))
+EMAIL_ENV = $(if $(EMAIL_SENDER),$(comma)EMAIL_ADDRESS=$(EMAIL_SENDER))
+EMAIL_SECRET = $(if $(EMAIL_SENDER),$(comma)GMAIL_APP_PASSWORD=gmail-app-password:latest)
 
 # The live database sits on the server's own disk and Litestream streams it to the bucket's
 # litestream/ folder (scripts/start.sh, DECISIONS.md D-020). The first start seeds it from the old
@@ -109,6 +115,7 @@ bucket-protect:  ## once: make sure the data bucket keeps deleted/overwritten fi
 # -- and a web-search discovery call can both outlast 5 minutes.
 deploy:       ## Timeline data, then build the image in Cloud Build and deploy to Cloud Run, locked behind IAP
 	@test -n "$(ADMIN_EMAIL)" || (echo "set ADMIN_EMAIL=you@gmail.com (the Google account you sign in with)" && exit 1)
+	@echo "Daily email: $(if $(EMAIL_SENDER),on$(comma) sent from $(EMAIL_SENDER),OFF -- no gmail-app-password secret yet; run make email-secret once$(comma) then deploy again)"
 	python3 scripts/build_changelog.py
 	gcloud builds submit --project $(GCP_PROJECT) --region $(GCP_REGION) --tag $(IMAGE) .
 	gcloud run deploy jobhunt --project $(GCP_PROJECT) --region $(GCP_REGION) --image $(IMAGE) \

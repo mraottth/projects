@@ -575,8 +575,16 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   daily email. Settings' "Daily email" card shows who it goes to and has "Send a test email"
   (`POST /api/settings/test-email`: today's top 5 matches, without marking them emailed).
   Deploy wiring: `make email-secret` stores `GMAIL_APP_PASSWORD` as `gmail-app-password` (and
-  grants the compute service account access); `make deploy EMAIL_ADDRESS=...` (or set it in
-  `.deploy.local.mk`) adds the env vars and mounts the secret; without it deploy leaves email off.
+  grants the compute service account access). After that every `make deploy` turns email on: the
+  sender is `EMAIL_ADDRESS` if given (command line or `.deploy.local.mk`), else `ADMIN_EMAIL`, when
+  the `gmail-app-password` secret exists (`HAS_EMAIL_SECRET`, a lazy `gcloud secrets describe`), and
+  deploy prints "Daily email: on, sent from ..." or "OFF -- ...". It used to need `EMAIL_ADDRESS` on
+  every deploy, and `--set-env-vars`/`--set-secrets` replace the whole set, so the usual
+  `make deploy ADMIN_EMAIL=...` quietly switched email off (no emails arrived, found 2026-11-05).
+  Each check records what its email step did as the person's `last_daily_email` setting
+  (`email_digest.record_outcome()`: sent and to whom, not configured, nothing new with how many
+  were on today's list and the best interest, or the error), returned as `last` by
+  `GET /api/settings/email-status` and shown on Settings' Daily email card ("Last check (...)").
 - **Settings is a gear icon** (`.settings-gear`, right end of the top bar), not a nav tab.
 - **About** (`pages/AboutPage.tsx`, route `/about`, an "About" link at the right of the top bar
   before Admin and the gear; asked 2026-11-04): what the project is, how the daily pipeline works,

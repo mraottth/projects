@@ -93,11 +93,43 @@ def admin_address() -> str | None:
     return os.environ.get("EMAIL_TO") or os.environ.get("EMAIL_ADDRESS")
 
 
+LAST_OUTCOME_SETTING = "last_daily_email"
+
+
 def email_status() -> dict:
+    """Whether email is set up, who it goes to, and what the last check did about it (`last`)."""
+    from jobhunt.core.settings import get_setting
+
+    last = get_setting(LAST_OUTCOME_SETTING)
     try:
-        return {"configured": True, "to": _config()["to"]}
+        return {"configured": True, "to": _config()["to"], "last": last}
     except EmailNotConfigured:
-        return {"configured": False, "to": None}
+        return {"configured": False, "to": None, "last": last}
+
+
+def record_outcome(result: dict | None) -> dict:
+    """Saves what a check's email step did for the current person, so Settings can say why no
+    email came (asked 2026-11-05, when none arrived and nothing said why): sent, not set up,
+    nothing new qualified (with what was on today's list), or an error."""
+    from datetime import UTC, datetime
+
+    from jobhunt.core.settings import update_settings
+
+    result = result or {"sent": False, "reason": "skipped"}
+    today = get_digest(date.today().isoformat())
+    ranks = {"High": 3, "Med": 2, "Low": 1}
+    best = max((j["interest_fit"] for j in today if j.get("interest_fit")), key=ranks.get, default=None)
+    outcome = {
+        "at": datetime.now(UTC).isoformat(timespec="seconds"),
+        "sent": bool(result.get("sent")),
+        "count": result.get("count", 0),
+        "to": result.get("to"),
+        "reason": result.get("reason"),
+        "on_list_today": len(today),
+        "best_interest_today": best,
+    }
+    update_settings({LAST_OUTCOME_SETTING: outcome})
+    return outcome
 
 
 def _salary_text(job: dict) -> str | None:
