@@ -90,9 +90,7 @@
   "title": "Live on Cloud Run, locked to one account via IAP",
   "summary": "Deployed to a dedicated GCP project with persistent storage for the database and uploaded resumes, Identity-Aware Proxy restricting access to one Google account, and a daily Cloud Scheduler job authenticated through IAP with a real signed identity.",
   "prompts": [
-   "e2f9082b-055",
-   "e2f9082b-056",
-   "e2f9082b-066"
+   "e2f9082b-055"
   ],
   "commits": [
    "a516516",
@@ -445,8 +443,6 @@
   "title": "Moved into the public projects repo",
   "summary": "The code, prompt log and decisions moved from a private repo into the public mraottth/projects portfolio, next to Shelf Life. The history was rewritten first to take a personal email address out, and the prompt log now strips email addresses on every export. The app itself stays behind sign-in and approval, and nothing about how it runs changed.",
   "prompts": [
-   "ab602548-118",
-   "ab602548-120",
    "ab602548-122",
    "ab602548-123"
   ],

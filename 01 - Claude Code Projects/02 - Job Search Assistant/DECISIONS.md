@@ -70,7 +70,7 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 ## D-005 · A separate, dedicated GCP project for this app
 - **Date:** 2026-10-27
 - **Category:** infra
-- **Prompts:** e2f9082b-055, e2f9082b-056
+- **Prompts:** e2f9082b-055
 
 **Decision.** Deploy to `job-searcher-512814`, not Shelf Life's `book-recommender-406619`.
 
@@ -430,7 +430,7 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 ## D-028 · Move into the public projects repo, with a personal email scrubbed from the history
 - **Date:** 2026-11-06
 - **Category:** infra
-- **Prompts:** ab602548-118, ab602548-120, ab602548-122, ab602548-123
+- **Prompts:** ab602548-122, ab602548-123
 - **Commits:** 6e5cc83, d208597
 
 **Decision.**

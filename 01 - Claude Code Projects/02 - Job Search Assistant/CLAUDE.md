@@ -1120,9 +1120,19 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     inventing it if the reasoning wasn't stated.
   - **`prompts/`:** a `Stop` hook (`.claude/settings.json`) runs `scripts/export_prompts.py` after
     every turn, keeping `prompts/<date>_<session>.md/.json` current. Commit those files with the
-    related work. `prompts/omit.json` ({id: reason}) drops purely operational prompts (commit/
-    deploy requests, local setup, troubleshooting); `prompts/trim.json` ({id: text}) cuts an
-    operational aside out of an otherwise-relevant prompt. `prompts/categories.json` /
+    related work. **Only prompts that drive the product belong on the Timeline** (the owner's
+    rule, 2026-11-06): feature requests, design feedback, bug reports, and questions that led
+    straight to a change or a decision. Everything else goes in `prompts/omit.json` ({id: reason},
+    "operational: ..." or "general question, no product change: ..."), which also removes it from
+    the exported files on the next `--refresh`:
+    - housekeeping: commit/push/deploy requests, repo moves, setup and sign-in troubleshooting,
+      pasted command output, "OK to run it?" answers, subagent hand-backs, resent duplicates;
+    - general questions that changed nothing ("what are the criteria?", "show me the prompts",
+      cost breakdowns, ideas that weren't built).
+
+    Label each new prompt either way when exporting (`build_changelog.py` warns about unlabeled
+    ones), and drop an omitted prompt from any milestone or decision that cites it.
+    `prompts/trim.json` ({id: text}) cuts an operational aside out of an otherwise-relevant prompt. `prompts/categories.json` /
     `commit_categories.json` are hand labels (categories: `ui` · `ai` · `pipeline` · `infra` ·
     `docs` · `discussion`) — commits are categorized first by `commit_categories.json`, then by
     which files they touch (`FILE_CATEGORIES` in `scripts/build_changelog.py`), since this repo's
