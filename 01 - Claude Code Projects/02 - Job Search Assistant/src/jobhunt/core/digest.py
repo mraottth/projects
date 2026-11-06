@@ -80,12 +80,21 @@ def add_to_digest(job_id: int, digest_date: str | None = None) -> None:
         )
 
 
+# Whether a job's source is a job board (several employers) rather than one organization's own
+# careers page: the same rule Manage Sources files them by (isOrganization() there). Only a board's
+# name is worth showing on a job card, since an organization's source just repeats the employer.
+SOURCE_IS_BOARD_SQL = (
+    "(s.id IS NOT NULL AND s.kind NOT LIKE 'ats\\_%' ESCAPE '\\' AND COALESCE(s.company_name, '') = '')"
+)
+
+
 def get_digest(digest_date: str) -> list[dict]:
     with get_db() as conn:
         rows = conn.execute(
             f"""SELECT j.*, js.interest_fit, js.interest_score, js.candidate_fit, js.candidate_fit_score,
                       js.summary_text, js.rationale_text, de.rank, de.emailed_at,
-                      de.digest_date, s.name AS source_name
+                      de.digest_date, s.name AS source_name,
+                      {SOURCE_IS_BOARD_SQL} AS source_is_board
                FROM digest_entries de
                JOIN jobs j ON j.id = de.job_id
                LEFT JOIN job_scores js ON {LATEST_SCORE_SQL.format(job="de.job_id")}

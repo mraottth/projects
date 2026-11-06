@@ -7,6 +7,7 @@ from jobhunt.core.preference import get_current_preference_profile
 from jobhunt.core.profile import get_current_candidate_profile
 from jobhunt.core.scoring import score_job, store_score
 from jobhunt.core import dealbreakers
+from jobhunt.core.digest import SOURCE_IS_BOARD_SQL
 from jobhunt.core.settings import get_setting, get_settings
 from jobhunt.db.connection import get_db
 from jobhunt.ingest.manual_import import ManualImportError, parse_job_posting
@@ -66,8 +67,9 @@ def list_ranked_jobs(status: str = "active"):
     digest (score, then recency, then salary) for consistency."""
     with get_db() as conn:
         rows = conn.execute(
-            """SELECT j.*, js.interest_fit, js.interest_score, js.candidate_fit, js.candidate_fit_score,
-                       js.summary_text, js.rationale_text, s.name AS source_name
+            f"""SELECT j.*, js.interest_fit, js.interest_score, js.candidate_fit, js.candidate_fit_score,
+                       js.summary_text, js.rationale_text, s.name AS source_name,
+                       {SOURCE_IS_BOARD_SQL} AS source_is_board
                 FROM jobs j
                 LEFT JOIN job_scores js ON js.id = (
                     SELECT id FROM job_scores WHERE user_id = :uid AND job_id = j.id ORDER BY id DESC LIMIT 1

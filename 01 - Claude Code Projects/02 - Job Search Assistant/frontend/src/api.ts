@@ -127,6 +127,8 @@ export interface ScoredJob extends Job {
   summary_text: string | null;
   rationale_text: string | null;
   source_name: string | null;
+  // The source is a job board (several employers), not one organization's own page (SQLite 0/1).
+  source_is_board?: number | boolean | null;
 }
 
 export interface DigestEntry extends ScoredJob {
