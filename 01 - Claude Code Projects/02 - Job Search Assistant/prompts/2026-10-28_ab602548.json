@@ -1050,8 +1050,16 @@
    "time": "2026-11-06T15:13:24.422Z",
    "kind": "prompt",
    "text": "On the About page, let's move \"Getting started\" to the top and then make the Product Timeline a little taller",
-   "reply": null,
+   "reply": "On the About page, \"Getting started\" now comes first, right after the intro paragraph, and the Product Timeline is taller (520px, up from 380px). I checked both in a browser and the frontend builds.\n\nThe Timeline was stuck short because it sizes itself to fit the window, and at the bottom of the About page it can't fit, so it always fell back to its 380px minimum. The About page now sets a 520px minimum instead; the full Timeline page is unchanged. If you'd like it taller still, it's one number in `AboutPage.tsx`; at 520px the longer milestone descriptions are still cut off at the bottom of their cards.\n\nIt's pushed to the same `claude/move-job-search-assistant` branch in `projects`, along with the cold-start changes, so it all goes live when you merge and deploy.",
    "id": "ab602548-128",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-06T15:39:44.859Z",
+   "kind": "prompt",
+   "text": "let's also make the Usage log in settings a fixed height with scroll",
+   "reply": null,
+   "id": "ab602548-129",
    "session": "ab602548"
   }
  ]
