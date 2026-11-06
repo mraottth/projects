@@ -86,5 +86,7 @@
  "ab602548-120": "general question, no product change: risk to Shelf Life from the repo move",
  "ab602548-121": "general question, no product change: repeat the repo-move plan",
  "ab602548-124": "operational: OK to push the move branch",
- "ab602548-131": "operational: the deploy command"
+ "ab602548-131": "operational: the deploy command",
+ "ab602548-133": "operational: push, merge and deploy",
+ "ab602548-134a": "operational: approving network access for this session"
 }

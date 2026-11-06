@@ -1,7 +1,7 @@
 {
  "session": "ab602548-13cf-5dd6-933c-6e698e563853",
  "omitted_api_errors": 0,
- "omitted": 46,
+ "omitted": 48,
  "entries": [
   {
    "time": "2026-10-28T14:37:31.396Z",
@@ -921,8 +921,16 @@
    "time": "2026-11-06T15:54:26.708Z",
    "kind": "prompt",
    "text": "let's ignore housekeeping prompts in the product timeline logs and scrub existing ones. We just need things that drive product decisions in there - not general questions",
-   "reply": null,
+   "reply": "The Product Timeline now keeps only prompts that shaped the product: 121 prompts, down from 148. The dropped ones are also removed from the prompt-log files in the repo, not just hidden on the page. It's pushed to the same `claude/move-job-search-assistant` branch in `projects`.\n\n**What was removed (28 prompts):**\n- **Housekeeping:** port conflicts, the GitHub and sign-in setup and troubleshooting, the GCP project choice, \"anything to deploy?\", pasted command output, \"OK to run a live check?\" answers, a hand-back from a sub-agent (a separate Claude process), the two attempts at moving the repo, and today's \"full command to deploy\".\n- **Three exact duplicates:** prompts that had been sent twice.\n- **General questions that changed nothing:** the cost breakdown, \"show me Jobby's starter prompts\", the New & Noteworthy criteria, the agent-vs-pipeline discussion (never built), and the migration reminder and risk questions.\n\n**What stays:** feature requests, design feedback, bug reports, and questions that led straight to a change or decision. The cost questions behind the scoring experiment, the multi-user planning and the warm-instance question all stay.\n\n**Going forward:** CLAUDE.md now states the rule, and I'll label each new prompt by it, as I did with today's two.\n\n**Three things to know:**\n- **Milestones and decisions:** the milestones and two decisions that cited dropped prompts no longer do. The Timeline tests pass.\n- **Old commits:** the removed text is gone from the current files but still visible in earlier commits on GitHub. That includes a Google sign-in client ID from the first deploy. It's an ID rather than a password, so it isn't a security risk on its own. Removing it would mean rewriting the public history again, which I'd only do if you want it.\n- **Shelf Life:** this applies only to the Job Search Assistant's Timeline. Shelf Life's Changelog has its own list and is unchanged. Say if you'd like the same cleanup there.",
    "id": "ab602548-132",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-06T16:35:01.141Z",
+   "kind": "prompt",
+   "text": "Job boards rarely seem to work. For example, this one: https://civicworkstudio.com/jobs/?search_category=&filter_state=&cws_remote_only=1&search_keywords=&cws_job_type=&filter_org_type=&filter_salary=&search_keywords=&search_location=&search_categories%5B%5D=&sort_by=&filter_job_type%5B%5D=fellowship&filter_job_type%5B%5D=full-time&filter_job_type%5B%5D=full-time-contract&filter_job_type%5B%5D=internship&filter_job_type%5B%5D=part-time&filter_job_type%5B%5D=",
+   "reply": null,
+   "id": "ab602548-134",
    "session": "ab602548"
   }
  ]
