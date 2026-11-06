@@ -1,15 +1,37 @@
 # Job Search Assistant
 
-Personal tool: aggregates job postings, scores interest/candidate fit with Claude, tailors
-resumes/cover letters, and tracks applications. Private, single-user — see `CLAUDE.md` for
-architecture and commands.
+A web app that finds job postings at the organizations and job boards you choose, has Claude rate
+each one for how interested you'd be and how strong a candidate you are, tailors your resume and
+cover letter to the ones you pursue (as Word files with tracked changes), and tracks your
+applications. It's a personal project, shared with a few people the owner approves.
 
-**Status:** Milestones 1–5 complete (scaffold, resume ingestion, manual job scoring + digest,
-feedback loop + application tracker, automated source adapters + pre-filter + daily cap, tailored
-resume/cover-letter generation) — runs fully locally, plus a cold-start pass (Profile page for
-desired titles/locations/salary, Claude+web-search company discovery, favorite companies that
-bypass the daily cap and get flagged in the digest) and real-folder resume ingestion (51 real
-resumes/cover letters bulk-imported from `~/Documents/Resumes`, recency-weighted, with generation
-now producing an actual `.docx` cloned from the user's own template rather than plain text).
-Milestone 6 (Cloud Run deploy) has a Dockerfile and Makefile targets ready but hasn't actually been
-deployed; see `CLAUDE.md` → Deploy.
+* **Daily pipeline:** reads every followed source once a day (ATS APIs for Greenhouse, Lever and
+  Ashby; Claude extraction for any other careers page or board, with a headless-browser fallback),
+  runs a free rule-based pre-filter, then scores the best postings with Claude within each person's
+  daily cap and monthly budget.
+* **New & Noteworthy and a daily email:** each day's best new matches, with highlighted reasons,
+  opt-in location and salary dealbreakers, and feedback that teaches it what you like.
+* **Tailoring:** edits your own resume in place as Word tracked changes, so every change is yours
+  to accept or reject; cover letters keep your template's formatting.
+* **Jobby:** an interview-prep chat that knows the posting, your documents and your profile.
+* **Multi-user:** Google sign-in through Identity-Aware Proxy, admin approval, and per-person data
+  isolation on one SQLite database (streamed to Cloud Storage by Litestream).
+* **Built in conversation with Claude Code:** the in-app Timeline shows every prompt, commit and
+  decision (`prompts/`, `DECISIONS.md`).
+
+The app itself is private (behind IAP and an approval step); this folder is its code. See
+[`CLAUDE.md`](CLAUDE.md) for architecture, commands and deployment.
+
+**Filetree:**
+```
+├── src/jobhunt/
+│   ├── ingest/      source adapters (Greenhouse, Lever, Ashby, Adzuna, RemoteOK, any web page)
+│   ├── pipeline/    the daily run
+│   ├── core/        scoring, tailoring, Jobby, digest, email, dealbreakers, users and budgets
+│   ├── api/         FastAPI routes, IAP sign-in, admin
+│   └── db/          SQLite schema and migrations
+├── frontend/        React + Vite + TypeScript
+├── scripts/         Timeline build, prompt-log export, container start (Litestream)
+├── prompts/         the exported Claude Code prompt log and milestones
+└── tests/
+```

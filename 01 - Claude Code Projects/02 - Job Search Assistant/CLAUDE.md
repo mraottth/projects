@@ -2,10 +2,22 @@
 
 Personal job-search assistant: aggregates job postings, scores them for interest/candidate fit via
 Claude, tailors resumes/cover letters, and tracks applications. Built single-user; now multi-user
-for up to ~20 people the admin approves (D-021, see "Multi-user" below). Private repo — holds real
-resume content and application history, so nothing here is published anywhere public. See
-`/Users/mattroth/.claude/plans/i-want-to-create-typed-cake.md` for the full design plan and milestone
-breakdown this was built from.
+for up to ~20 people the admin approves (D-021, see "Multi-user" below).
+
+**Where it lives (D-028, 2026-11-06).** This folder is `01 - Claude Code Projects/02 - Job Search
+Assistant/` in the **public** `mraottth/projects` repo, next to Shelf Life (`01 - Shelf Life
+(Goodreads Recommender v2)/`). It used to be the private `mraottth/job-search-assistant` repo, now
+archived; its history came in by `git subtree add` after a rewrite that replaced a personal email
+address, so commit hashes differ from the old repo's. The deployed app stays private (IAP plus
+approval); the code, prompt log and decisions are public. So:
+- Real resumes, cover letters, the database and anything under `data/` never go in git (they're
+  git-ignored; never relax that), and neither do secrets, `.deploy.local.mk` or `.redact.local.json`.
+- The prompt log is scrubbed on export (`scripts/redact.py`: local paths, session links, and any
+  email address that isn't a placeholder). Put other literals you don't want public in the
+  git-ignored `.redact.local.json`. Write deploy commands with a placeholder
+  (`ADMIN_EMAIL=you@example.com`) in docs.
+- Run every command from this folder (`make`, `uv`, `npm`); git commands work from anywhere in the
+  repo.
 
 ## Commands
 
@@ -1095,12 +1107,10 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
 ## Working conventions
 
 - Small commits, one concern each.
-- **Product Timeline (D-008):** this repo *is* now on the same changelog/prompts-log pattern as
-  `projects/01 - Shelf Life`, just private rather than public — superseding an earlier version of
-  this note that said otherwise. That earlier reasoning ("Shelf Life's dev history is public, here
-  it would just be noise and a privacy problem") predates this app being IAP-locked (D-002); with
-  the whole app private to one Google account, a Timeline page carries the same exposure as any
-  other page in it. See `DECISIONS.md` for the full reasoning.
+- **Product Timeline (D-008):** this project uses the same changelog/prompts-log pattern as Shelf
+  Life. The in-app Timeline is visible only to approved people, but since the move into
+  `mraottth/projects` (D-028) the records behind it (`prompts/`, `DECISIONS.md`, commits) are
+  public in the repo, as Shelf Life's are. See `DECISIONS.md` for the full reasoning.
   - **`DECISIONS.md`:** add an entry (next `D-NNN`, same fields as the others) whenever a choice
     or tradeoff is made. Link prompt ids and commits; quote measured numbers; say so rather than
     inventing it if the reasoning wasn't stated.
@@ -1113,11 +1123,10 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     `docs` · `discussion`) — commits are categorized first by `commit_categories.json`, then by
     which files they touch (`FILE_CATEGORIES` in `scripts/build_changelog.py`), since this repo's
     commits use conventional-commit types (`feat:`/`fix:`), not Shelf Life's bare `category:`
-    prefix. **This hook only fires for a Claude Code session whose project root is this repo** —
-    one started from inside `projects/` (Shelf Life's root) will trigger *Shelf Life's* hook
-    instead, exporting unrelated conversation into *its* `prompts/` folder (this happened once,
-    caught and cleaned up before anything was committed or deployed — start job-search-assistant
-    sessions rooted directly in this repo, not nested under `projects/`).
+    prefix. **This hook only fires for a Claude Code session whose project root is this folder** —
+    one started at the `projects` repo root triggers the root hook, which exports into *Shelf
+    Life's* `prompts/` folder (this happened once, caught and cleaned up before anything was
+    committed or deployed). Start Job Search Assistant sessions rooted in this folder.
   - **Importing a Claude Code on the web session:** its commits carry a `Claude-Session:` trailer
     (shown as a "Claude Code on the web" badge on the Timeline) but its prompt-by-prompt transcript
     isn't local. The system handles this fine as-is -- those commits still show up, just without
@@ -1188,7 +1197,9 @@ makes it noticeably bigger than Shelf Life's — expect a slower Cloud Build and
 Deployed to the `job-searcher-512814` GCP project, service `jobhunt`, region `us-central1`.
 The URL isn't recorded in this repo; get it with `gcloud run services describe jobhunt --project
 job-searcher-512814 --region us-central1 --format='value(status.url)'` or from the Cloud Run
-console. One-time setup order (see the Makefile): `apis-setup` → `bucket-setup` → `anthropic-secret`
+console. Deploy from this folder in Cloud Shell's checkout of `mraottth/projects` (`cd
+~/projects/"01 - Claude Code Projects/02 - Job Search Assistant"`), with `.deploy.local.mk` copied
+there from the old checkout. One-time setup order (see the Makefile): `apis-setup` → `bucket-setup` → `anthropic-secret`
 / `scheduler-secret` (/ `email-secret` for the daily email) → `deploy` → `iap-setup` →
 `scheduler-setup` (the daily run at 2:00pm ET), then `bucket-protect` once; after that, `make
 deploy` alone ships every update. Every one of these is real spend/real infrastructure, so don't run them from

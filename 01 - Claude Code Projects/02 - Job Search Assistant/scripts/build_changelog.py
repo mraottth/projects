@@ -9,9 +9,11 @@ Sources:
   DECISIONS.md      the decision log
   prompts/milestones.json   hand-curated major changes for the visual timeline
 
-This repo is a single, standalone project (unlike Shelf Life, which lives inside the larger
-`projects` portfolio repo and has to filter git log by folder), so commits are just `git log`
-over the whole repo. They're categorized first by `commit_categories.json` (hand overrides, keyed
+Since 2026-11-06 this project lives in the `projects` portfolio repo, next to Shelf Life, under
+`01 - Claude Code Projects/`. Its history came in by `git subtree add`, so commits up to
+IMPORTED_TIP keep their original root-level paths: commits are everything reachable from
+IMPORTED_TIP plus later commits that touch this folder (paths read relative to it). Run from a
+standalone checkout of the old repo, it's still plain `git log`. They're categorized first by `commit_categories.json` (hand overrides, keyed
 by short hash), then by which files they touch (FILE_CATEGORIES below) -- this repo's commits use
 conventional-commit types (`feat:`/`fix:`/`docs:`), not a bare `category:` prefix, so there's no
 regex step the way Shelf Life has one. Commits with a `Claude-Session:` trailer were made in
@@ -35,7 +37,10 @@ from redact import redact  # noqa: E402  (scrubs local paths/session ids; script
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "frontend" / "src" / "changelog.json"
-GITHUB = "https://github.com/mraottth/job-search-assistant"
+GITHUB = "https://github.com/mraottth/projects"
+# The last commit of the history brought in from the old job-search-assistant repo (scrubbed of a
+# personal email address before the move, which is why its hashes differ from the old repo's).
+IMPORTED_TIP = "6e5cc83e2443e432a7365c04062b15fd79c12daf"
 
 CATEGORIES = {
     "ui": "UI/UX", "ai": "AI (scoring, generation, Jobby)", "pipeline": "Ingest & pipeline",
@@ -75,15 +80,30 @@ def load_json(path: Path, default):
     return json.loads(path.read_text(encoding="utf-8")) if path.exists() else default
 
 
+def _git(repo: Path, *args: str) -> str:
+    return subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True, check=True).stdout
+
+
+def _log_ranges(repo: Path) -> list[tuple[list[str], str]]:
+    """(git log arguments, folder prefix to strip from changed paths) for each part of the history."""
+    top = Path(_git(repo, "rev-parse", "--show-toplevel").strip())
+    folder = repo.resolve().relative_to(top.resolve()).as_posix()
+    if folder == ".":  # a standalone checkout of the old repo
+        return [([], "")]
+    return [([IMPORTED_TIP], ""), ([f"{IMPORTED_TIP}..HEAD", "--", folder], folder + "/")]
+
+
 def git_commits(repo: Path = ROOT) -> list[dict]:
     fmt = SEP_REC + SEP_FIELD.join(["%H", "%h", "%cI", "%an", "%s", "%b"]) + SEP_FIELD
-    out = subprocess.run(["git", "-C", str(repo), "log", "--no-merges", f"--format={fmt}", "--name-only"],
-                         capture_output=True, text=True, check=True).stdout
+    records = []
+    for args, prefix in _log_ranges(repo):
+        out = _git(repo, "log", "--no-merges", f"--format={fmt}", "--name-only", *args)
+        records += [(rec, prefix) for rec in out.split(SEP_REC)[1:]]
     commits = []
-    for rec in out.split(SEP_REC)[1:]:
+    for rec, prefix in records:
         full, short, when, author, subject, body, files = rec.split(SEP_FIELD)
         session = re.search(r"^Claude-Session:\s*(\S+)", body, re.M)
-        paths = [f for f in files.split("\n") if f.strip()]
+        paths = [f.removeprefix(prefix) for f in files.split("\n") if f.strip()]
         commits.append({
             "hash": full, "short": short, "time": when, "author": author, "subject": redact(subject.strip()),
             "body": redact(TRAILER.sub("", body).strip()), "files": len(paths), "_paths": paths,

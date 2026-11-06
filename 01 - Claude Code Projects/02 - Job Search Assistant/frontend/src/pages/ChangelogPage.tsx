@@ -7,7 +7,7 @@ import { MilestoneTimeline, type Milestone } from "../components/MilestoneTimeli
 /**
  * Product Timeline: how this app was built, every prompt given to Claude Code, Claude's replies, the commits
  * they produced and the decisions along the way. Ported from Shelf Life's own Changelog page (D-008) --
- * private here, not public. Data: frontend/src/changelog.json, built by scripts/build_changelog.py from git,
+ * here behind the app's sign-in, though its records are public in the repo since D-028. Data: frontend/src/changelog.json, built by scripts/build_changelog.py from git,
  * prompts/ and DECISIONS.md. It isn't bundled into the frontend (whose files anyone who gets through IAP's
  * sign-in can fetch, approved or not, D-021): the page loads it from GET /api/changelog, which, like every
  * /api route, needs an approved person.
@@ -287,11 +287,11 @@ function ChangelogView() {
         <strong className="cl-stat">{CL.prompts.length} prompts</strong>, <strong className="cl-stat">{CL.commits.length} commits</strong>{" "}
         and <strong className="cl-stat">{CL.decisions.length} decisions</strong>{first ? ` since ${new Date(first).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}` : ""}.
         {CL.omitted_prompts > 0 && ` ${CL.omitted_prompts} purely operational prompts (commit and deploy requests, running it locally, setup) are left out.`}{" "}
-        Like the rest of the app, it's only visible to people the owner has approved (behind{" "}
+        The app itself is only open to people the owner has approved (behind{" "}
         <a href="https://cloud.google.com/iap" target="_blank" rel="noreferrer">Identity-Aware Proxy</a> and an
-        approval step). The same
-        records are also in the repo as <a href={`${CL.repo}/tree/main/prompts`} target="_blank" rel="noreferrer">prompts/</a>{" "}
-        and <a href={`${CL.repo}/blob/main/DECISIONS.md`} target="_blank" rel="noreferrer">DECISIONS.md</a>.
+        approval step), but the code and these records are public in the{" "}
+        <a href={CL.repo} target="_blank" rel="noreferrer">project&apos;s GitHub repo</a>, as <a href={`${CL.repo}/tree/main/01%20-%20Claude%20Code%20Projects/02%20-%20Job%20Search%20Assistant/prompts`} target="_blank" rel="noreferrer">prompts/</a>{" "}
+        and <a href={`${CL.repo}/blob/main/01%20-%20Claude%20Code%20Projects/02%20-%20Job%20Search%20Assistant/DECISIONS.md`} target="_blank" rel="noreferrer">DECISIONS.md</a>.
       </p>
 
       {CL.milestones.length > 0 && (

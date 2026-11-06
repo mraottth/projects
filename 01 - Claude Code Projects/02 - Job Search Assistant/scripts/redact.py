@@ -1,9 +1,9 @@
 """Scrub details that shouldn't show up verbatim in the prompt log or the Timeline page.
 
-This app is private (IAP-locked, never public), so the stakes here are lower than a public
-changelog -- but the prompt log can still end up in a screenshot or an export, so it's worth
-stripping local file paths with the username and Claude Code session links on general principle.
-Used by export_prompts.py (prompts/*.md/.json) and build_changelog.py (commit text).
+The app itself is private (IAP-locked), but its code and prompt log are public in the
+mraottth/projects repo (since 2026-11-06), so this strips local file paths with the username,
+Claude Code session links and real email addresses (deploy commands carry the admin's sign-in
+address). Used by export_prompts.py (prompts/*.md/.json) and build_changelog.py (commit text).
 
 Local literals (API keys, real company names you'd rather not have sitting in a plaintext log,
 etc.) go in `.redact.local.json` next to this folder's Makefile, git-ignored so the values
@@ -23,6 +23,11 @@ BUILTIN = [
     (re.compile(r"\bsession_[A-Za-z0-9]{16,}\b"), "<session id>"),
     (re.compile(r"-Users-[A-Za-z0-9_.]+-"), "-Users-<user>-"),
     (re.compile(r"/(?:Users|home)/[A-Za-z0-9_.]+/"), "~/"),
+    # Any email address but the placeholders the docs and tests use (example domains, you@gmail.com)
+    # and the commit-trailer, no-reply and SSH-remote ones (anthropic.com, github.com).
+    (re.compile(r"\b(?!you@gmail\.com\b)[A-Za-z0-9._%+-]+@(?!(?:[a-z0-9-]+\.)*(?:example\.(?:com|org|net)|"
+                r"anthropic\.com|github\.com)\b)[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}\b"),
+     "you@example.com"),
 ]
 
 _local: list[tuple[str, str]] | None = None
