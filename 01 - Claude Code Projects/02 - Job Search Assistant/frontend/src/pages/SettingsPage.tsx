@@ -420,31 +420,34 @@ function UsageLog() {
           {cache.saved_usd.toFixed(2)}.
         </p>
       )}
-      <table>
-        <thead>
-          <tr>
-            <th>When</th>
-            <th>Type</th>
-            <th>Model</th>
-            <th>Tokens</th>
-            <th>Cost</th>
-          </tr>
-        </thead>
-        <tbody>
-          {calls.map((c) => (
-            <tr key={c.id}>
-              <td className="small">{c.created_at}</td>
-              <td className="small">{c.call_type}</td>
-              <td className="small">{c.model}</td>
-              <td className="small">
-                {c.input_tokens}/{c.output_tokens}
-                {c.cache_read_tokens > 0 && <span className="muted"> · {c.cache_read_tokens} cached</span>}
-              </td>
-              <td className="small">{c.estimated_cost_usd != null ? `$${c.estimated_cost_usd.toFixed(4)}` : "—"}</td>
+      {/* A fixed-height box that scrolls (asked 2026-11-06), with the header row kept in view. */}
+      <div className="usage-log-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>When</th>
+              <th>Type</th>
+              <th>Model</th>
+              <th>Tokens</th>
+              <th>Cost</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {calls.map((c) => (
+              <tr key={c.id}>
+                <td className="small">{c.created_at}</td>
+                <td className="small">{c.call_type}</td>
+                <td className="small">{c.model}</td>
+                <td className="small">
+                  {c.input_tokens}/{c.output_tokens}
+                  {c.cache_read_tokens > 0 && <span className="muted"> · {c.cache_read_tokens} cached</span>}
+                </td>
+                <td className="small">{c.estimated_cost_usd != null ? `$${c.estimated_cost_usd.toFixed(4)}` : "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       {calls.length === 0 && <p className="empty-state">No Claude calls logged yet.</p>}
     </div>
   );
