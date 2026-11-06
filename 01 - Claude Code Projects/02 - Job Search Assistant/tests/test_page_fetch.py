@@ -6,6 +6,8 @@ from jobhunt.core.page_fetch import PageFetchError, fetch_page_text
 
 
 class FakeResponse:
+    status_code = 200
+
     def __init__(self, text: str):
         self.text = text
 
@@ -15,6 +17,7 @@ class FakeResponse:
 
 def test_static_fetch_used_when_content_is_substantial(monkeypatch):
     html = f"<html><body>{'Job description text. ' * 30}</body></html>"
+
     def fail(*a, **k):
         raise AssertionError("should not render when static content is already substantial")
 
@@ -49,11 +52,7 @@ def test_raises_when_both_static_and_browser_fail(monkeypatch):
 
 
 def test_preserve_links_keeps_hrefs_inline(monkeypatch):
-    html = (
-        "<html><body>"
-        + "<a href='/jobs/1'>Senior Engineer</a> " * 20
-        + "</body></html>"
-    )
+    html = "<html><body>" + "<a href='/jobs/1'>Senior Engineer</a> " * 20 + "</body></html>"
     monkeypatch.setattr(page_fetch.httpx, "get", lambda *a, **k: FakeResponse(html))
 
     text = fetch_page_text("https://example.com/board", preserve_links=True)
@@ -72,3 +71,23 @@ def test_force_render_skips_the_static_fetch(monkeypatch):
     assert page.rendered
     assert "Rendered listing." in page.text
     assert page.html == rendered_html
+
+
+def test_too_little_text_says_what_each_way_got(monkeypatch):
+    """Both outcomes are in the message: a live failure once hid what the plain request got."""
+    monkeypatch.setattr(page_fetch.httpx, "get", lambda *a, **k: FakeResponse("<html><p>Checking</p></html>"))
+    monkeypatch.setattr(page_fetch, "render_page_html", lambda *a, **k: "<html><p>Still checking</p></html>")
+    with pytest.raises(page_fetch.PageFetchError) as err:
+        page_fetch.fetch_page("https://example.com/jobs")
+    assert "plain request: HTTP 200, only 8 characters" in str(err.value)
+    assert "in the browser: only 14 characters" in str(err.value)
+
+
+def test_a_timed_out_plain_request_is_named(monkeypatch):
+    def timeout(*a, **k):
+        raise page_fetch.httpx.ReadTimeout("slow")
+
+    monkeypatch.setattr(page_fetch.httpx, "get", timeout)
+    monkeypatch.setattr(page_fetch, "render_page_html", lambda *a, **k: "<html></html>")
+    with pytest.raises(page_fetch.PageFetchError, match="plain request: timed out after 15 s"):
+        page_fetch.fetch_page("https://example.com/jobs")

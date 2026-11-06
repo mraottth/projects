@@ -168,3 +168,45 @@ def test_endpoint_follows_the_sites_own_setting():
         "https://x.example/blog/jm-ajax/get_listings/"
     )
     assert wp_job_manager.listings_endpoint("https://x.example/jobs/", "<p>no plugin</p>") is None
+
+
+def _page_fails(monkeypatch):
+    def fail(*a, **k):
+        raise custom_board.PageFetchError(
+            "fetched it but found too little text (plain request: timed out after 15 s)"
+        )
+
+    monkeypatch.setattr(custom_board, "fetch_page", fail)
+
+
+def test_when_the_page_wont_load_its_listings_endpoint_is_tried(monkeypatch, no_claude):
+    """Live: Civic Work Studio's page failed to load from the deployed app, while its listings
+    endpoint answered from Google Cloud."""
+    requests = []
+
+    def fake_post(url, *, data, **k):
+        requests.append((url, data))
+        return FakeResponse(_listing_page([card(1), card(2)], total=2, pages=1))
+
+    _page_fails(monkeypatch)
+    monkeypatch.setattr(wp_job_manager.httpx, "post", fake_post)
+    url = "https://board.example/jobs/?cws_remote_only=1"
+    postings, steps = custom_board.fetch_with_report({"config": {"url": url}, "company_name": None})
+
+    assert [p["title"] for p in postings] == ["Role 1", "Role 2"]
+    assert requests[0][0] == "https://board.example/jm-ajax/get_listings/"
+    assert requests[0][1]["form_data"] == "cws_remote_only=1"
+    assert steps[0].startswith("couldn't load the page (")
+    assert steps[1] == "read its listings directly (WP Job Manager): 2"
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [json.JSONDecodeError("an HTML 404 page", "", 0), {"posts": []}],
+    ids=["not JSON", "other JSON"],
+)
+def test_a_site_without_the_plugin_still_reports_the_page_failure(monkeypatch, answer):
+    _page_fails(monkeypatch)
+    monkeypatch.setattr(wp_job_manager.httpx, "post", lambda *a, **k: FakeResponse(answer))
+    with pytest.raises(RuntimeError, match="could not be fetched: fetched it but found too little text"):
+        custom_board.fetch_with_report({"config": {"url": "https://other.example/careers"}})

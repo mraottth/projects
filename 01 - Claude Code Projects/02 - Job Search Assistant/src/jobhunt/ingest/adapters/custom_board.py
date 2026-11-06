@@ -93,6 +93,12 @@ def fetch_with_report(source: dict) -> tuple[list[dict], list[str]]:
     try:
         page = fetch_page(url, preserve_links=True, max_chars=PAGE_MAX_CHARS)
     except PageFetchError as exc:
+        # The page didn't load, but a WP Job Manager board's listings endpoint may still answer
+        # (caught live: Civic Work Studio's page failed from the deployed app, its endpoint didn't).
+        steps.append(f"couldn't load the page ({exc})")
+        listed = wp_job_manager.fetch(url, None, source, steps)
+        if listed is not None:
+            return listed, steps
         raise RuntimeError(f"custom board {url} could not be fetched: {exc}") from exc
     how = "in the browser" if page.rendered else "as plain HTML"
 

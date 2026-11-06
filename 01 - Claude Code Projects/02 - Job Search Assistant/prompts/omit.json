@@ -88,5 +88,10 @@
  "ab602548-124": "operational: OK to push the move branch",
  "ab602548-131": "operational: the deploy command",
  "ab602548-133": "operational: push, merge and deploy",
- "ab602548-134a": "operational: approving network access for this session"
+ "ab602548-134a": "operational: approving network access for this session",
+ "ab602548-135": "operational: showing the deploy command",
+ "ab602548-136": "operational: Cloud Shell git sign-in",
+ "ab602548-137": "operational: the deploy command's shape",
+ "ab602548-139": "general question, no product change: why testing missed the failure",
+ "ab602548-140": "operational: pasted command output (Cloud Shell check)"
 }

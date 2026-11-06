@@ -52,10 +52,15 @@ def listings_endpoint(page_url: str, html: str) -> str | None:
     return None
 
 
-def fetch(page_url: str, html: str, source: dict, steps: list[str]) -> list[dict] | None:
+def fetch(page_url: str, html: str | None, source: dict, steps: list[str]) -> list[dict] | None:
     """Every listing (up to MAX_PAGES pages), or None when this isn't a WP Job Manager board or
-    its endpoint can't be read, so the page is read the usual way instead."""
-    endpoint = listings_endpoint(page_url, html)
+    its endpoint can't be read, so the page is read the usual way instead.
+
+    With `html` None (the page itself couldn't be loaded), the site's standard endpoint is tried
+    anyway, and only an answer shaped like WP Job Manager's counts. Live, Civic Work Studio's page
+    failed to load from the deployed app while its listings endpoint answered from Google Cloud."""
+    probing = html is None
+    endpoint = urljoin(page_url, "/jm-ajax/get_listings/") if probing else listings_endpoint(page_url, html)
     if endpoint is None:
         return None
     query = urlsplit(page_url).query
@@ -79,11 +84,14 @@ def fetch(page_url: str, html: str, source: dict, steps: list[str]) -> list[dict
             )
             resp.raise_for_status()
             data = resp.json()
+            if not isinstance(data, dict) or "found_jobs" not in data:
+                raise ValueError("not a WP Job Manager listings answer")
         except (httpx.HTTPError, json.JSONDecodeError, ValueError) as exc:
             log.info("WP Job Manager listings at %s unreadable: %s", endpoint, exc)
             if postings:
                 break
-            steps.append(f"found a WP Job Manager board but couldn't read its listings ({exc})")
+            if not probing:  # a guess that didn't pan out isn't worth a step
+                steps.append(f"found a WP Job Manager board but couldn't read its listings ({exc})")
             return None
         total = data.get("total_jobs", total)
         found = parse_cards(data.get("html") or "", source)
@@ -95,7 +103,12 @@ def fetch(page_url: str, html: str, source: dict, steps: list[str]) -> list[dict
             break
 
     more = f" of {total}" if isinstance(total, int) and total > len(postings) else ""
-    steps.append(f"read the board's listings (WP Job Manager): {len(postings)}{more}")
+    how = (
+        "read its listings directly (WP Job Manager)"
+        if probing
+        else "read the board's listings (WP Job Manager)"
+    )
+    steps.append(f"{how}: {len(postings)}{more}")
     return postings
 
 

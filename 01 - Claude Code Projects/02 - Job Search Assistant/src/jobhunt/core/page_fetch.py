@@ -39,17 +39,27 @@ def fetch_page(
     MIN_CHARS but held nothing useful (a careers page whose listings load via JS or an iframe)."""
     base_url = url if preserve_links else None
     static_error = None
+    # What the plain request got, for the error message when both ways fail.
+    static_note = "skipped" if force_render else ""
     if not force_render:
         try:
             resp = httpx.get(url, headers={"User-Agent": USER_AGENT}, follow_redirects=True, timeout=15.0)
             resp.raise_for_status()
             html = resp.text
-        except httpx.HTTPError as exc:
+        except httpx.TimeoutException:
+            static_error = static_note = "timed out after 15 s"
+        except httpx.HTTPStatusError as exc:
             static_error = str(exc)
+            static_note = f"HTTP {exc.response.status_code}"
+        except httpx.HTTPError as exc:
+            static_error = static_note = f"{type(exc).__name__}: {exc}"
         else:
             text = extract_readable_text(html, max_chars, base_url=base_url)
             if len(text) >= MIN_CHARS:
                 return FetchedPage(text=text, html=html, rendered=False)
+            static_note = (
+                f"HTTP {resp.status_code}, only {len(text)} characters of text ({len(html):,} bytes)"
+            )
 
     try:
         rendered_html = render_page_html(url)
@@ -60,8 +70,11 @@ def fetch_page(
 
     rendered_text = extract_readable_text(rendered_html, max_chars, base_url=base_url)
     if len(rendered_text) < MIN_CHARS:
+        # Both results go in the message, so a failure says what each way got (it hid the plain
+        # request's outcome before, which left a live failure unexplained).
         raise PageFetchError(
-            f"fetched {url} but found too little text even after rendering JS "
-            "-- the page may require login, or paste the content directly instead"
+            f"fetched {url} but found too little text (plain request: {static_note}; in the browser: "
+            f"only {len(rendered_text)} characters) -- the site may be blocking automated requests "
+            "or need a login; you can paste a job in on My Jobs instead"
         )
     return FetchedPage(text=rendered_text, html=rendered_html, rendered=True)

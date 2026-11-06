@@ -391,6 +391,13 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   (`extract_salary` on the card) and `remote_type` "remote" when the card says so. No `external_id`,
   so jobs keep the URL-based dedupe keys of those stored before. An unreadable endpoint, or cards
   it can't make out, falls back to the page reader; zero matches is an answer. Free: no Claude call.
+  Live, the deployed app's Test fetch then failed on that board before the reader ran: the page
+  itself "found too little text", while Cloud Shell (also Google Cloud) loaded both the page and
+  the endpoint fine, so the cause is still unknown. Two changes followed: when the page won't load,
+  `custom_board` tries `wp_job_manager.fetch(url, None, ...)`, which posts to the site's standard
+  `/jm-ajax/get_listings/` and counts only a WP Job Manager-shaped answer (`found_jobs`); and
+  `page_fetch`'s "too little text" error now names what each way got (the plain request's status,
+  timeout or text length, and the browser's text length), which it used to hide.
   **Unchanged pages aren't paid for twice** (D-025): `_extract_postings()` fingerprints the page
   text (sha256, with relative dates like "3 days ago"/"today" blanked by `RELATIVE_DATE`) and, when
   the shared `page_extractions` table has that URL + fingerprint, rebuilds the postings from the

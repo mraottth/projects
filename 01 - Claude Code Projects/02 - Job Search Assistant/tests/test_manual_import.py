@@ -37,6 +37,7 @@ def test_parse_job_posting_from_raw_text(monkeypatch):
 
 def test_fetch_url_text_rejects_thin_pages_even_after_browser_fallback(monkeypatch):
     class FakeResponse:
+        status_code = 200
         text = "<html><body>Please log in</body></html>"
 
         def raise_for_status(self):
