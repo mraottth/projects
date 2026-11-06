@@ -112,14 +112,16 @@ bucket-protect:  ## once: make sure the data bucket keeps deleted/overwritten fi
 # integration, no load balancer needed) -- run `make iap-setup` once afterward to actually grant
 # your own account access, or nobody (including you) can reach it. --timeout 3600 (Cloud Run's max,
 # default is 300s) because a full daily run -- polling plus up to daily_llm_cap serial scoring calls
-# -- and a web-search discovery call can both outlast 5 minutes.
+# -- and a web-search discovery call can both outlast 5 minutes. --cpu-boost gives the server extra CPU
+# while it starts (restoring the database, importing the app), so the first page after an idle spell
+# comes up sooner; it bills only for those seconds.
 deploy:       ## Timeline data, then build the image in Cloud Build and deploy to Cloud Run, locked behind IAP
 	@test -n "$(ADMIN_EMAIL)" || (echo "set ADMIN_EMAIL=you@gmail.com (the Google account you sign in with)" && exit 1)
 	@echo "Daily email: $(if $(EMAIL_SENDER),on$(comma) sent from $(EMAIL_SENDER),OFF -- no gmail-app-password secret yet; run make email-secret once$(comma) then deploy again)"
 	python3 scripts/build_changelog.py
 	gcloud builds submit --project $(GCP_PROJECT) --region $(GCP_REGION) --tag $(IMAGE) .
 	gcloud run deploy jobhunt --project $(GCP_PROJECT) --region $(GCP_REGION) --image $(IMAGE) \
-	  --memory 2Gi --cpu 1 --max-instances 1 --min-instances 0 --no-cpu-throttling \
+	  --memory 2Gi --cpu 1 --max-instances 1 --min-instances 0 --no-cpu-throttling --cpu-boost \
 	  --no-allow-unauthenticated --iap --timeout 3600 \
 	  --execution-environment gen2 \
 	  --add-volume name=data,type=cloud-storage,bucket=$(BUCKET) \

@@ -6,14 +6,21 @@ which also reaches for the cheaper tier for routine calls) -- override via JOBHU
 if quality ever needs to beat cost here.
 """
 
+from __future__ import annotations
+
 import os
 from contextlib import contextmanager
-
-import anthropic
+from typing import TYPE_CHECKING
 
 from jobhunt.core import budget
 from jobhunt.db.connection import get_db
 from jobhunt.core.users import optional_user_id
+
+if TYPE_CHECKING:
+    import anthropic
+
+# The SDK is imported where it's first used, not at startup: it's about half of the app's import
+# time, which a cold start on Cloud Run waits for before serving the first page.
 
 
 class LLMError(Exception):
@@ -52,6 +59,8 @@ def get_client() -> anthropic.Anthropic:
     if user_id is not None:
         budget.check(user_id)
     if _client is None:
+        import anthropic
+
         _client = anthropic.Anthropic()
     return _client
 
@@ -68,6 +77,8 @@ def llm_error_boundary(action: str):
     """Wrap a Claude call site so missing credentials / API errors surface as a clean LLMError
     instead of an unhandled 500 -- `anthropic`'s missing-auth check raises a bare TypeError, not
     one of its typed API errors, so that's caught here too."""
+    import anthropic
+
     try:
         yield
     except anthropic.BadRequestError as exc:

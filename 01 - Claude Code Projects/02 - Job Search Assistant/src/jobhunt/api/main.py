@@ -1,4 +1,5 @@
 import logging
+import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -32,15 +33,23 @@ FRONTEND_DIST = Path(__file__).resolve().parents[3] / "frontend" / "dist"
 
 
 @asynccontextmanager
+def _backfill_salaries_safely() -> None:
+    try:
+        backfill_salaries()
+    except Exception:  # noqa: BLE001 - never let this take the app down
+        logging.getLogger(__name__).exception("salary backfill at startup failed")
+
+
 async def lifespan(app: FastAPI):
     init_db()
     # Fill in salaries readable from text already stored, so a deploy that improves pay reading
-    # shows on existing job cards right away instead of after the next daily run. Regex only.
-    try:
-        backfill_salaries()
-    except Exception:  # noqa: BLE001 - never let this keep the app from starting
-        logging.getLogger(__name__).exception("salary backfill at startup failed")
+    # shows on existing job cards right away instead of after the next daily run. Regex only. It
+    # runs in the background so a cold start serves the first page without waiting for it; shutdown
+    # waits briefly for it to finish.
+    backfill = threading.Thread(target=_backfill_salaries_safely, name="salary-backfill", daemon=True)
+    backfill.start()
     yield
+    backfill.join(timeout=30)
 
 
 app = FastAPI(title="Job Search Assistant", lifespan=lifespan)

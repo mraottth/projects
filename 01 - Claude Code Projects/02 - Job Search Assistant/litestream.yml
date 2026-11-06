@@ -7,7 +7,9 @@ dbs:
   - path: ${JOBHUNT_DB_PATH}
     replicas:
       - url: ${LITESTREAM_REPLICA_URL}
-        # A full snapshot once a day, and the change log kept for a week, so any moment in the
-        # last 7 days can be restored (`litestream restore -timestamp ...`).
-        snapshot-interval: 24h
+        # A full snapshot every hour, so a new server's restore replays at most an hour of changes
+        # (with one a day, a morning cold start replayed nearly a day's worth, after the 2pm check's
+        # writes). The change log is kept for a week, so any moment in the last 7 days can still be
+        # restored (`litestream restore -timestamp ...`).
+        snapshot-interval: 1h
         retention: 168h

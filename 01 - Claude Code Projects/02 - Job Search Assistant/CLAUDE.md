@@ -747,8 +747,9 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   scoring. Scoring also returns the posting's stated pay (`ScoredPosting`, a `JobScore` subclass
   with nullable salary fields, the same pattern as manual_import's), and `store_score()` fills an
   empty salary from it: still "N/A" live while Claude's own summary quoted "$160-210k".
-  `backfill_salaries()` (regex only, free) runs at app startup (`api/main.py`'s lifespan, so a
-  deploy shows on existing cards at once) and in every daily run, over active jobs still missing
+  `backfill_salaries()` (regex only, free) runs at app startup (`api/main.py`'s lifespan, in a
+  background thread so a cold start doesn't wait on it; a deploy still shows on existing cards
+  within moments) and in every daily run, over active jobs still missing
   pay, reading the description and then the latest score summary.
   `salaryText()` prints hourly pay as whole dollars ("$45-60/hr"; rounding to thousands showed
   "$0k") and uses the currency's symbol. Yearly is the assumed default and gets no suffix
@@ -1183,7 +1184,14 @@ with two differences from that project:
   (onboarding) or resurrect the stale seed. Without `LITESTREAM_REPLICA_URL` (local Docker) it's
   plain uvicorn. Deploy flags: `--no-cpu-throttling` (streaming never stalls between requests),
   `--min-instances 0` (still shuts down when idle), 2 GiB (the database now lives in memory-backed
-  local disk, plus Chromium). Caveat: a deploy briefly overlaps old and new servers, and a write
+  local disk, plus Chromium).
+  **Cold starts (D-029).** After ~15 idle minutes the next visit starts a new server, so the first
+  page waits for it. The warm instance that would avoid this (`--min-instances 1`) was priced at
+  about $52-57/month with the CPU always on, so it was declined in favor of cheaper fixes:
+  `--cpu-boost` (extra CPU during startup); `litestream.yml`'s `snapshot-interval: 1h` (was 24h,
+  so a restore replays at most an hour of changes); the salary backfill off the startup path; and
+  the Anthropic SDK imported on first use in `core/llm.py` (it was half of the app's import time:
+  1.26 s down to 0.55 s locally; `tests/test_startup.py` keeps it that way). Caveat: a deploy briefly overlaps old and new servers, and a write
   to the old one in those seconds can be lost, so don't use the app mid-deploy. Tested locally
   with the real binary and a `file://` replica: seed, a write right before SIGTERM, restore onto
   an empty disk (all rows back), and the refusal; not yet against GCS from here.
