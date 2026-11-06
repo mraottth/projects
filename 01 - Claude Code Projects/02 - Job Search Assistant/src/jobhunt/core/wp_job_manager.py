@@ -30,6 +30,7 @@ from jobhunt.core.salary_extract import extract_salary
 PER_PAGE = 100
 MAX_PAGES = 5  # up to 500 jobs from one board per read
 TIMEOUT = 20.0
+PROBE_TIMEOUT = 10.0  # when the page already failed: keep the whole Test fetch short
 
 # The plugin's script settings on the page: "ajax_url":"\/jm-ajax\/%%endpoint%%\/" (slashes escaped).
 AJAX_URL = re.compile(r'"ajax_url"\s*:\s*"([^"]*%%endpoint%%[^"]*)"')
@@ -78,7 +79,7 @@ def fetch(page_url: str, html: str | None, source: dict, steps: list[str]) -> li
             resp = httpx.post(
                 endpoint,
                 data={**base, "page": str(page)},
-                timeout=TIMEOUT,
+                timeout=PROBE_TIMEOUT if probing else TIMEOUT,
                 headers={"User-Agent": USER_AGENT},
                 follow_redirects=True,
             )

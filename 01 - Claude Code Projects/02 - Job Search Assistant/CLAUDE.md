@@ -398,6 +398,12 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   `/jm-ajax/get_listings/` and counts only a WP Job Manager-shaped answer (`found_jobs`); and
   `page_fetch`'s "too little text" error now names what each way got (the plain request's status,
   timeout or text length, and the browser's text length), which it used to hide.
+  The next Test fetch didn't answer at all ("Lost the connection to the app"): the plain request
+  (15 s), the browser (20 s plus start-up) and the endpoint try (20 s) together ran past the point
+  where a silent request gets dropped, which suggests the site doesn't answer the deployed app.
+  So a plain request that times out or can't connect now fails at once, skipping the browser (it
+  would only wait out its own timeout), and the endpoint try after a failed page waits 10 s
+  (`PROBE_TIMEOUT`): about 25 s at worst, with the reason in the message.
   **Unchanged pages aren't paid for twice** (D-025): `_extract_postings()` fingerprints the page
   text (sha256, with relative dates like "3 days ago"/"today" blanked by `RELATIVE_DATE`) and, when
   the shared `page_extractions` table has that URL + fingerprint, rebuilds the postings from the

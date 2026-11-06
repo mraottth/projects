@@ -46,8 +46,19 @@ def fetch_page(
             resp = httpx.get(url, headers={"User-Agent": USER_AGENT}, follow_redirects=True, timeout=15.0)
             resp.raise_for_status()
             html = resp.text
-        except httpx.TimeoutException:
-            static_error = static_note = "timed out after 15 s"
+        except (httpx.TimeoutException, httpx.ConnectError) as exc:
+            # The site isn't answering at all: the browser would wait out its own timeout too, and
+            # together they ran past the point where the app's connection to the page asking was
+            # dropped (Test fetch on Civic Work Studio, live: "Lost the connection to the app").
+            note = (
+                "timed out after 15 s"
+                if isinstance(exc, httpx.TimeoutException)
+                else f"couldn't connect ({exc})"
+            )
+            raise PageFetchError(
+                f"could not fetch {url}: plain request {note}; "
+                "skipped the browser, since the site isn't answering"
+            ) from exc
         except httpx.HTTPStatusError as exc:
             static_error = str(exc)
             static_note = f"HTTP {exc.response.status_code}"

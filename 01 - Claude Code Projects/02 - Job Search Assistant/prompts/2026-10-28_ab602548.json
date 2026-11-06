@@ -940,6 +940,14 @@
    "reply": "I think I know why, but I can't confirm it from here. The site is hosted on SiteGround (its response headers match their setup), and SiteGround's bot protection commonly shows a challenge page to traffic from data centers. Your app runs on Google Cloud, so it would get that tiny challenge page instead of the board, in the browser fallback too. From this sandbox, which isn't on Google Cloud, the site loads normally.\n\nCloud Shell also runs on Google Cloud, so it can test this directly. Please run this there and paste me the output:\n\n```bash\nUA='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36'; curl -sS -A \"$UA\" -o /tmp/cws.html -w 'page: %{http_code}, %{size_download} bytes\\n' 'https://civicworkstudio.com/jobs/'; grep -o -i -E 'sgcaptcha|captcha|just a moment|access denied' /tmp/cws.html | sort | uniq -c; curl -sS -A \"$UA\" -X POST -d per_page=5 -o /tmp/cws.json -w 'listings: %{http_code}, %{size_download} bytes\\n' 'https://civicworkstudio.com/jm-ajax/get_listings/'; head -c 300 /tmp/cws.json; echo\n```\n\n**How to read the output:**\n- **The block is confirmed** if the page line shows a few hundred bytes rather than about 250,000, and you see `sgcaptcha` or `captcha`.\n- **The listings line matters most.** If the board's job-list endpoint answers with JSON even when the page is blocked, I can have the app skip the page and go straight to it, a small change.\n- **If everything is blocked from Google Cloud**, the realistic options are:\n  - have the browser fallback wait out the challenge, which sometimes works and sometimes doesn't;\n  - ask Civic Work Studio to allow your app;\n  - route these requests through a different network, which adds cost and complexity.\n\nEither way I'll also make Test fetch say \"blocked by the site's bot protection\" instead of the current message, which wrongly suggests a login is needed.",
    "id": "ab602548-138",
    "session": "ab602548"
+  },
+  {
+   "time": "2026-11-06T17:25:29.860Z",
+   "kind": "prompt",
+   "text": "on test fetch: Lost the connection to the app before it answered — check your connection and try again.",
+   "reply": null,
+   "id": "ab602548-141",
+   "session": "ab602548"
   }
  ]
 }

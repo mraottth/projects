@@ -83,11 +83,16 @@ def test_too_little_text_says_what_each_way_got(monkeypatch):
     assert "in the browser: only 14 characters" in str(err.value)
 
 
-def test_a_timed_out_plain_request_is_named(monkeypatch):
+def test_a_site_that_doesnt_answer_fails_fast_without_the_browser(monkeypatch):
     def timeout(*a, **k):
         raise page_fetch.httpx.ReadTimeout("slow")
 
+    def no_browser(*a, **k):
+        raise AssertionError("a site that isn't answering isn't worth a browser attempt")
+
     monkeypatch.setattr(page_fetch.httpx, "get", timeout)
-    monkeypatch.setattr(page_fetch, "render_page_html", lambda *a, **k: "<html></html>")
-    with pytest.raises(page_fetch.PageFetchError, match="plain request: timed out after 15 s"):
+    monkeypatch.setattr(page_fetch, "render_page_html", no_browser)
+    with pytest.raises(
+        page_fetch.PageFetchError, match="plain request timed out after 15 s; skipped the browser"
+    ):
         page_fetch.fetch_page("https://example.com/jobs")
