@@ -953,8 +953,16 @@
    "time": "2026-11-06T19:53:43.213Z",
    "kind": "prompt",
    "text": "A couple filtering improvements: \n1) on the My Sources page, let's have the \"X jobs · checked Y min ago\" text link to All jobs filtered to that source\n2) The 'Clear All' button on top of the filter bar doesn't clear the initial 2 default filters\n3) The dropdown arrows on the filters should be larger and more visible\n4) On the My Jobs page, the search bar takes up more width than necessary. Let's shrink it down and shift the active/closed/all toggles with it. The export button can stay on the right\n5) On My Jobs, let's make Organization and Location clickable to apply filters",
-   "reply": null,
+   "reply": "All five changes are done and pushed to the branch. I checked each one in a browser on a local copy with sample data:\n\n1. **Manage Sources:** \"4 jobs · checked 2h ago\" is now a link, with a dotted underline so it looks clickable. It opens All Jobs filtered to that source, with the default fit filters off so the list matches the count; in the check it showed \"4 of 14 jobs\".\n2. **Clear all** now clears everything, including the default High/Med fit filters; your chosen sort stays. In the check it went from 5 jobs to all 14.\n3. **Dropdown arrows** are bigger and darker, and flip to point up when a dropdown is open.\n4. **My Jobs search box** is narrower (300px), with the Active/Closed/All toggle right next to it. Export CSV stays on the right.\n5. **My Jobs Organization and Location** are now clickable. Clicking one shows only those jobs, and a pill such as \"Organization: Recidiviz ×\" appears in the toolbar. Click the pill, or the same cell again, to clear it.\n\nThe frontend builds. These were frontend-only changes, so I ran just the frontend-serving tests rather than the full suite.\n\nThe last change before these, the Test fetch error naming what each step got, is on the branch too. Whether to do anything more about Civic Work Studio is still your call from my last message: a fixed outgoing address, or checking that board yourself.\n\nThis merges and deploys it all:\n\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com\n```",
    "id": "ab602548-144",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-06T20:08:44.361Z",
+   "kind": "prompt",
+   "text": "The filters sidebar should show what filters are applied for all filters besides the interest/fit toggles, which are already visible by default",
+   "reply": null,
+   "id": "ab602548-145",
    "session": "ab602548"
   }
  ]

@@ -638,6 +638,10 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     fit filters, so it never cleared them), keeping the sort.
   - Dropdown arrows (`.select-wrap`, `.ms-dropdown` summaries) are one 14px SVG chevron, flipped when
     open, instead of a small grey glyph.
+  - The sidebar shows what's applied: `AppliedFilters`, under the heading, has one removable chip per
+    active filter except the Interest and Fit toggles (search, each organization/source/location,
+    posted, minimum salary, hidden unscored jobs, shown dealbreaker jobs), and a closed dropdown
+    names its selections ("Recidiviz, Civis Analytics", ellipsized) instead of "2 selected".
   - My Jobs: the search box is 300px wide, so the Active/Closed/All toggle sits next to it and Export
     stays right. Organization and Location cells are buttons (`CellFilter`) that filter the table
     to that value; a pill in the toolbar shows the filter and clears it, as does clicking the cell again.

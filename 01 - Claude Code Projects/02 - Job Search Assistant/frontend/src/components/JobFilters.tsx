@@ -231,6 +231,78 @@ function ChipMultiSelect({
   );
 }
 
+const RECENCY_LABELS: Record<RecencyFilter, string> = {
+  all: "Any time",
+  "1": "Last 24 hours",
+  "3": "Last 3 days",
+  "7": "Last 7 days",
+  "30": "Last 30 days",
+};
+
+/**
+ * What's filtering the list, one removable chip each (asked 2026-11-06), for every filter but the
+ * Interest and Fit toggles, which show their state where they are. Closed dropdowns hid it.
+ */
+function AppliedFilters({
+  filters,
+  onChange,
+}: {
+  filters: JobFilterState;
+  onChange: (f: JobFilterState) => void;
+}) {
+  const chips: { key: string; label: string; clear: () => void }[] = [];
+  const set = (patch: Partial<JobFilterState>) => onChange({ ...filters, ...patch });
+  const search = filters.search.trim();
+  if (search) chips.push({ key: "search", label: `Search: ${search}`, clear: () => set({ search: "" }) });
+  const lists: [keyof Pick<JobFilterState, "organization" | "source" | "location">, string][] = [
+    ["organization", "Organization"],
+    ["source", "Source"],
+    ["location", "Location"],
+  ];
+  for (const [field, name] of lists) {
+    for (const value of filters[field]) {
+      chips.push({
+        key: `${field}:${value}`,
+        label: `${name}: ${value}`,
+        clear: () => set({ [field]: filters[field].filter((v) => v !== value) }),
+      });
+    }
+  }
+  if (filters.recency !== "all") {
+    chips.push({
+      key: "recency",
+      label: `Posted: ${RECENCY_LABELS[filters.recency]}`,
+      clear: () => set({ recency: "all" }),
+    });
+  }
+  const minSalary = Number(filters.minSalary);
+  if (filters.minSalary.trim() && minSalary > 0) {
+    const amount = minSalary >= 1000 ? `$${Math.round(minSalary / 1000)}k` : `$${minSalary}`;
+    chips.push({ key: "salary", label: `Salary: ${amount}+`, clear: () => set({ minSalary: "" }) });
+  }
+  if (!filters.includeUnscored) {
+    chips.push({ key: "unscored", label: "Not yet scored: hidden", clear: () => set({ includeUnscored: true }) });
+  }
+  if (filters.includeDealbreakers) {
+    chips.push({
+      key: "dealbreakers",
+      label: "Showing dealbreaker jobs",
+      clear: () => set({ includeDealbreakers: false }),
+    });
+  }
+  if (chips.length === 0) return null;
+  return (
+    <div className="applied-filters" aria-label="Applied filters">
+      {chips.map((c) => (
+        <button key={c.key} type="button" className="table-filter-pill" onClick={c.clear} title="Remove this filter">
+          <span className="applied-filter-text">{c.label}</span>
+          <span aria-hidden="true">×</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function DropdownMultiSelect({
   label,
   options,
@@ -248,14 +320,18 @@ function DropdownMultiSelect({
     onChange(selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value]);
   };
 
-  const summary =
-    selected.length === 0 ? "All" : selected.length === 1 ? selected[0] : `${selected.length} selected`;
+  // The selections themselves, not a count (asked 2026-11-06); a long list ends in an ellipsis (CSS).
+  const summary = selected.length === 0 ? "All" : selected.join(", ");
 
   return (
     <div className="fsection">
       <span className="flabel">{label}</span>
       <details className="ms-dropdown">
-        <summary>{summary}</summary>
+        <summary>
+          <span className="ms-dropdown-summary" title={summary}>
+            {summary}
+          </span>
+        </summary>
         <div className="ms-dropdown-options">
           {options.map((opt) => (
             <label key={opt} className="multiselect-option">
@@ -303,6 +379,8 @@ export function JobFilterBar({
           </button>
         )}
       </div>
+
+      <AppliedFilters filters={filters} onChange={onChange} />
 
       <div className="fsection">
         <span className="flabel">Search</span>
