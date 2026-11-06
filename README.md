@@ -30,6 +30,33 @@ See the [project README](01%20-%20Claude%20Code%20Projects/01%20-%20Shelf%20Life
 
 ___
 
+### Job Search Assistant
+
+**Description:**
+A web app that finds postings at the organizations and job boards you choose, has Claude rate each one for how interested you'd be and how strong a candidate you are, tailors your resume and cover letter to the ones you pursue, and tracks your applications. It's a personal tool shared with a few approved people, so the app itself sits behind Google sign-in; the code and its whole build history are here.
+
+* **Daily pipeline:** reads every followed source once a day (Greenhouse, Lever and Ashby APIs; Claude extraction for any other careers page or board, with a headless-browser fallback), runs a free rule-based pre-filter, then scores the most promising postings within each person's daily cap and monthly budget. Unchanged board pages aren't paid for twice.
+* **New & Noteworthy and a daily email:** each day's best matches with highlighted reasons, opt-in location and salary dealbreakers that only hide what they're sure about, and feedback that teaches it your preferences.
+* **Tailoring:** edits your own Word resume in place as tracked changes, so every edit is yours to accept or reject.
+* **Jobby:** an interview-prep chat that knows the posting, your documents and your profile.
+* **Engineering:** FastAPI + SQLite (streamed to Cloud Storage by Litestream) and React/TypeScript on Google Cloud Run, behind Identity-Aware Proxy with admin approval and per-person data isolation. Prompt caching keeps a score to about a cent.
+
+**Filetree:**
+```
+├── src/jobhunt/
+│   ├── ingest/      source adapters
+│   ├── pipeline/    the daily run
+│   ├── core/        scoring, tailoring, Jobby, digest, email, dealbreakers, budgets
+│   ├── api/         FastAPI routes, sign-in, admin
+│   └── db/          SQLite schema and migrations
+├── frontend/        React + Vite + TypeScript
+├── prompts/         the Claude Code prompt log and milestones
+└── tests/
+```
+See the [project README](01%20-%20Claude%20Code%20Projects/02%20-%20Job%20Search%20Assistant/README.md) for details.
+
+___
+
 ### The TrashBot Project: Using drones and computer vision to find, map, and clean unregulated dumpsites in The Gambia
 
 Full Report: https://drive.google.com/file/d/1KwQvrzWQVAILF3BFSnOUfve1DKAJXGcg/view?usp=sharing

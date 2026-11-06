@@ -426,3 +426,27 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 **Why.**
 - As with location, it hides only what it's sure about. No pay listed, a non-USD currency, an unclear period, or a bare number under 1,000 all stay.
 - The Settings readout shows how many jobs list pay and which would be hidden before it's switched on.
+
+## D-028 · Move into the public projects repo, with a personal email scrubbed from the history
+- **Date:** 2026-11-06
+- **Category:** infra
+- **Prompts:** ab602548-118, ab602548-120, ab602548-122, ab602548-123
+- **Commits:** 6e5cc83, d208597
+
+**Decision.**
+- The code moves from the private `mraottth/job-search-assistant` repo into the public `mraottth/projects` portfolio, as `01 - Claude Code Projects/02 - Job Search Assistant/`. Shelf Life moves into the same folder as `01 - Shelf Life (Goodreads Recommender v2)/`. The old repo is archived.
+- The full history comes along (`git subtree add`), after a rewrite (`git filter-repo`) that replaced the owner's email address in the prompt log with a placeholder and set the 33 commits authored under that address to the owner's GitHub no-reply address. Every commit got a new hash, so DECISIONS, milestones and commit labels were remapped to them.
+- `scripts/redact.py` now replaces any real email address on every prompt-log export and in commit text on the Timeline, so a deploy command can't publish it again.
+- The deployed app is unchanged and stays private (IAP plus approval). The admin's address reaches production only at deploy time and in the live database, neither of which is in git.
+
+**Context.** A move like this was done once on Oct 31 and undone at the owner's request. Picking it up again, the history had grown to 170 commits and 135 prompts. The prompt log held the owner's Gmail address 15 times, in the deploy commands. The owner chose to scrub it "as long as that doesn't create any issues in production", and asked that the move not put the live Shelf Life site at risk.
+
+**Alternatives considered.**
+- **Move the history as it was:** the earlier choice. It would have published the email address.
+- **Copy the current code with one fresh commit:** nothing old published, but the Timeline would lose every commit link.
+- **Leave Shelf Life where it is and add this as a new top-level folder:** no change to Shelf Life at all. The owner preferred the shared `01 - Claude Code Projects/` folder.
+
+**Why.**
+- The scrub keeps the whole Timeline: every commit, prompt and decision is still linked, and the build's output was compared before and after (identical apart from the commit links).
+- Shelf Life's move was checked the same way: its Changelog output is identical, its tests give the same result from the new folder as from the old (58 passed; the same 10 need model files that aren't in git), and its frontend builds. Its live site changes only when it's next deployed.
+- This project's tests (473) and frontend build pass from the new folder, and `make deploy` expands the same commands there.

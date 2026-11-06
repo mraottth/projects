@@ -90,7 +90,7 @@ def _log_ranges(repo: Path) -> list[tuple[list[str], str]]:
     folder = repo.resolve().relative_to(top.resolve()).as_posix()
     if folder == ".":  # a standalone checkout of the old repo
         return [([], "")]
-    return [([IMPORTED_TIP], ""), ([f"{IMPORTED_TIP}..HEAD", "--", folder], folder + "/")]
+    return [([IMPORTED_TIP], ""), ([f"{IMPORTED_TIP}..HEAD", "--", f":(top){folder}"], folder + "/")]
 
 
 def git_commits(repo: Path = ROOT) -> list[dict]:
