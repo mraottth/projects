@@ -297,7 +297,8 @@ export function JobFilterBar({
       <div className="filters-head">
         <h2 style={{ fontSize: "1rem", margin: 0 }}>Filters{active ? ` (${active})` : ""}</h2>
         {active > 0 && (
-          <button className="link small" onClick={() => onChange({ ...DEFAULT_JOB_FILTERS, sort: filters.sort })}>
+          // Truly clears, the default High/Med fit filters included (asked 2026-11-06); the sort stays.
+          <button className="link small" onClick={() => onChange({ ...NO_JOB_FILTERS, sort: filters.sort })}>
             Clear all
           </button>
         )}

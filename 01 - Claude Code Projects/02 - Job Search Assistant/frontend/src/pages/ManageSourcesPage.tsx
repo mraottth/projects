@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api, RunProgress, runProgressText, Source, SourceKind } from "../api";
 import { DiscoverCompaniesSection, DiscoverJobBoardsSection, DiscoverySeed } from "../components/Discovery";
 import { Modal } from "../components/Modal";
@@ -227,10 +228,15 @@ function SourceStatus({ source }: { source: Source }) {
   if (!source.enabled) return <span className="pill">disabled</span>;
   if (isChecking(source)) return <Spinner label="Checking for jobs..." />;
   if (!source.last_polled_at) return <span className="muted">Not checked yet</span>;
+  // Opens All Jobs filtered to this source (asked 2026-11-06).
   return (
-    <span className="muted">
+    <Link
+      className="source-jobs-link muted"
+      to={`/all-jobs?source=${encodeURIComponent(source.name)}`}
+      title={`See ${source.name}'s jobs on All Jobs`}
+    >
       {source.job_count} {source.job_count === 1 ? "job" : "jobs"} · checked {timeAgo(source.last_polled_at)}
-    </span>
+    </Link>
   );
 }
 

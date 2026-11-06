@@ -630,6 +630,17 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   (`email_digest.record_outcome()`: sent and to whom, not configured, nothing new with how many
   were on today's list and the best interest, or the error), returned as `last` by
   `GET /api/settings/email-status` and shown on Settings' Daily email card ("Last check (...)").
+- **Filtering touches (asked 2026-11-06):**
+  - Manage Sources' "N jobs · checked ..." links to `/all-jobs?source=<name>`; `AllJobsPage` reads
+    `?source=` once into its initial filters (`NO_JOB_FILTERS` plus that source, so the list
+    matches the count).
+  - The filter bar's "Clear all" applies `NO_JOB_FILTERS` (it used to restore the default High/Med
+    fit filters, so it never cleared them), keeping the sort.
+  - Dropdown arrows (`.select-wrap`, `.ms-dropdown` summaries) are one 14px SVG chevron, flipped when
+    open, instead of a small grey glyph.
+  - My Jobs: the search box is 300px wide, so the Active/Closed/All toggle sits next to it and Export
+    stays right. Organization and Location cells are buttons (`CellFilter`) that filter the table
+    to that value; a pill in the toolbar shows the filter and clears it, as does clicking the cell again.
 - **Settings is a gear icon** (`.settings-gear`, right end of the top bar), not a nav tab.
 - **About** (`pages/AboutPage.tsx`, route `/about`, an "About" link at the right of the top bar
   before Admin and the gear; asked 2026-11-04): what the project is, how the daily pipeline works,

@@ -286,6 +286,31 @@ function RemoveButton({ app, onRemoved }: { app: Application; onRemoved: (id: nu
   );
 }
 
+/** An Organization or Location cell that filters the table to its value, or clears that filter. */
+function CellFilter({
+  field,
+  value,
+  active,
+  onToggle,
+}: {
+  field: "company" | "location";
+  value: string;
+  active: { field: string; value: string } | null;
+  onToggle: (field: "company" | "location", value: string) => void;
+}) {
+  const on = !!active && active.field === field && active.value === value;
+  return (
+    <button
+      type="button"
+      className={`cell-filter${on ? " on" : ""}`}
+      onClick={() => onToggle(field, value)}
+      title={on ? "Show all again" : `Show only jobs ${field === "company" ? "at" : "in"} ${value}`}
+    >
+      {value}
+    </button>
+  );
+}
+
 type SortKey = "score" | "company" | "title" | "location" | "salary" | "applied_at" | "status";
 type SortDir = "asc" | "desc";
 
@@ -531,6 +556,10 @@ export default function MyJobsPage() {
   const [pending, setPending] = useState<Job[]>([]);
   const [search, setSearch] = useState("");
   const [view, setView] = useState<StatusView>("active");
+  // Clicking an Organization or Location cell shows only those jobs; clicking it (or its pill) again clears it.
+  const [cellFilter, setCellFilter] = useState<{ field: "company" | "location"; value: string } | null>(null);
+  const toggleCellFilter = (field: "company" | "location", value: string) =>
+    setCellFilter((f) => (f && f.field === field && f.value === value ? null : { field, value }));
   const [sortKey, setSortKey] = useState<SortKey>("score");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   // The row order is fixed when the list loads or a sort is chosen, not on every edit: re-sorting as
@@ -569,6 +598,7 @@ export default function MyJobsPage() {
   const query = search.trim().toLowerCase();
   const matches = (app: Application) =>
     inView(app, view) &&
+    (!cellFilter || (app[cellFilter.field] ?? "") === cellFilter.value) &&
     (!query || `${app.company} ${app.title} ${app.location ?? ""}`.toLowerCase().includes(query));
 
   const byId = new Map(apps.map((a) => [a.id, a]));
@@ -643,6 +673,12 @@ export default function MyJobsPage() {
                 </button>
               ))}
             </div>
+            {cellFilter && (
+              <button className="table-filter-pill" onClick={() => setCellFilter(null)} title="Show all again">
+                {cellFilter.field === "company" ? "Organization" : "Location"}: {cellFilter.value}
+                <span aria-hidden="true">×</span>
+              </button>
+            )}
             <div className="table-tools small">
               <a className="link small" href={api.applicationsCsvUrl} download>
                 Export CSV
@@ -688,8 +724,16 @@ export default function MyJobsPage() {
                         </div>
                       )}
                     </td>
-                    <td className="col-company">{app.company}</td>
-                    <td className="col-location">{app.location ?? "N/A"}</td>
+                    <td className="col-company">
+                      <CellFilter field="company" value={app.company} active={cellFilter} onToggle={toggleCellFilter} />
+                    </td>
+                    <td className="col-location">
+                      {app.location ? (
+                        <CellFilter field="location" value={app.location} active={cellFilter} onToggle={toggleCellFilter} />
+                      ) : (
+                        "N/A"
+                      )}
+                    </td>
                     <td className="col-nowrap">{salaryText(app)}</td>
                     <td className="col-nowrap">
                       <AppliedDateCell app={app} onChanged={updateInPlace} />

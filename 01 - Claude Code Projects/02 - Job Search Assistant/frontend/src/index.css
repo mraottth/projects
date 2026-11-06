@@ -157,9 +157,10 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
   width: 100%; padding-right: 28px;
   appearance: none; -webkit-appearance: none; -moz-appearance: none;
 }
+/* An SVG chevron, bigger and darker than the old ▾ glyph (asked 2026-11-06: easier to see); flips when open. */
 .select-wrap::after {
-  content: "▾"; position: absolute; right: 11px; top: 50%; transform: translateY(-50%);
-  color: var(--muted); font-size: 0.72rem; pointer-events: none;
+  content: ""; position: absolute; right: 9px; top: 50%; width: 14px; height: 14px; margin-top: -7px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpath d='M3 5l4 4 4-4' fill='none' stroke='%23555349' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 14px no-repeat; pointer-events: none;
 }
 
 /* ---------- dropdown multi-select (Source / Location) */
@@ -169,8 +170,11 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
   align-items: center; font-size: 0.88rem; color: var(--ink);
 }
 .ms-dropdown summary::-webkit-details-marker { display: none; }
-.ms-dropdown summary::after { content: "▾"; color: var(--muted); font-size: 0.72rem; margin-left: 8px; }
-.ms-dropdown[open] summary::after { content: "▴"; }
+.ms-dropdown summary::after {
+  content: ""; flex: 0 0 auto; width: 14px; height: 14px; margin-left: 10px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpath d='M3 5l4 4 4-4' fill='none' stroke='%23555349' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 14px no-repeat; transition: transform 0.15s ease;
+}
+.ms-dropdown[open] summary::after { transform: rotate(180deg); }
 .ms-dropdown-options {
   display: flex; flex-direction: column; gap: 6px; padding: 8px 11px;
   border-top: 1px solid var(--ring); max-height: 180px; overflow-y: auto;
@@ -717,7 +721,19 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
   display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; padding: 14px 0 10px;
   border-bottom: 1px solid var(--grid);
 }
-.myjobs-search { flex: 1 1 240px; min-width: 0; }
+/* Sized to its job, so the Active/Closed/All toggle sits right after it; Export stays at the right. */
+.myjobs-search { flex: 0 1 300px; min-width: 0; }
+/* Organization and Location cells filter the table (asked 2026-11-06). */
+.cell-filter { background: none; border: 0; padding: 0; font: inherit; color: inherit; text-align: left; cursor: pointer;
+  text-decoration: underline dotted var(--muted); text-underline-offset: 3px; overflow-wrap: break-word; }
+.cell-filter:hover { color: var(--accent-ink); text-decoration-color: currentColor; }
+.cell-filter.on { color: var(--accent-ink); font-weight: 600; }
+.table-filter-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px;
+  border: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, white); color: var(--accent-ink);
+  font-size: 0.82rem; cursor: pointer; }
+.table-filter-pill:hover { background: color-mix(in srgb, var(--accent) 18%, white); }
+.source-jobs-link { text-decoration: underline dotted; text-underline-offset: 3px; }
+.source-jobs-link:hover { text-decoration: underline; color: var(--accent-ink); }
 .chip-count { opacity: 0.6; margin-left: 2px; }
 .table-tools { display: flex; gap: 14px; margin-left: auto; }
 .myjobs-table-card .jobs-table thead th {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { api, RankedJob } from "../api";
 import {
   DEFAULT_JOB_FILTERS,
@@ -16,7 +16,13 @@ import { ScoredJobCard } from "../components/ScoredJobCard";
 export default function AllJobsPage() {
   const [jobs, setJobs] = useState<RankedJob[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState<JobFilterState>(DEFAULT_JOB_FILTERS);
+  const [params] = useSearchParams();
+  // ?source=<name> (the job count on Manage Sources links here): every job from that source,
+  // without the default fit filters, so the list matches the count it was opened from.
+  const [filters, setFilters] = useState<JobFilterState>(() => {
+    const source = params.get("source");
+    return source ? { ...NO_JOB_FILTERS, source: [source] } : DEFAULT_JOB_FILTERS;
+  });
 
   useEffect(() => {
     api
