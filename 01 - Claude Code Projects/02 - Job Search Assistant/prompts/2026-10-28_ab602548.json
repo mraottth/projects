@@ -1058,8 +1058,16 @@
    "time": "2026-11-06T15:39:44.859Z",
    "kind": "prompt",
    "text": "let's also make the Usage log in settings a fixed height with scroll",
-   "reply": null,
+   "reply": "Settings' Usage log is now a box about 420px tall that scrolls, and the column headers stay at the top while you scroll. I checked it on a local copy with 60 sample entries, and the frontend builds.\n\nIt's pushed to the same `claude/move-job-search-assistant` branch in `projects`, so it goes live with everything else when you merge and deploy.",
    "id": "ab602548-129",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-06T15:42:11.169Z",
+   "kind": "prompt",
+   "text": "The chip on the far right in the jobs list only needs to be there if it's from a jobs board",
+   "reply": null,
+   "id": "ab602548-130",
    "session": "ab602548"
   }
  ]
