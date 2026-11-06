@@ -1,0 +1,461 @@
+[
+ {
+  "id": "M01",
+  "date": "2026-10-26",
+  "icon": "🏗️",
+  "category": "infra",
+  "title": "Full app scaffolded from one detailed spec",
+  "summary": "One long prompt specified the whole app -- aggregation, LLM fit scoring, resume/cover-letter tailoring, an application tracker, preference learning from feedback -- and Claude built milestones 1 through 6 (scaffold, manual scoring, feedback loop, automated source adapters, tailored generation, deploy artifacts) in one continuous pass.",
+  "prompts": [
+   "e2f9082b-001"
+  ],
+  "commits": [
+   "6e7164b",
+   "c5eb29f",
+   "e128fd0",
+   "0711c25",
+   "a4b91d6",
+   "b089e49"
+  ],
+  "decisions": [
+   "D-001"
+  ]
+ },
+ {
+  "id": "M02",
+  "date": "2026-10-26",
+  "icon": "🌱",
+  "category": "ui",
+  "title": "Cold-start onboarding and a Shelf-Life-matched UI",
+  "summary": "A guided first-run flow (resumes, desired role, company discovery, favorites) so a brand-new user isn't dropped into an empty digest, plus a UI overhaul matching Shelf Life's own design system and markdown rendering.",
+  "prompts": [
+   "e2f9082b-013",
+   "e2f9082b-015",
+   "e2f9082b-017"
+  ],
+  "commits": [
+   "3ad31eb",
+   "9060f7f",
+   "1337d18"
+  ],
+  "decisions": []
+ },
+ {
+  "id": "M03",
+  "date": "2026-10-26",
+  "icon": "🧭",
+  "category": "ui",
+  "title": "Flow redesign: guidance not filters, a real nav structure",
+  "summary": "Titles/salary became scoring guidance rather than strict filters, job-board discovery broadened beyond named companies, and the app split into Digest / All Jobs / My Jobs / Manage Sources / Profile instead of one overloaded page.",
+  "prompts": [
+   "e2f9082b-025",
+   "e2f9082b-030"
+  ],
+  "commits": [
+   "bf174a8",
+   "02b7a93",
+   "5b0d398",
+   "774b8ec",
+   "d641495",
+   "d69c163"
+  ],
+  "decisions": []
+ },
+ {
+  "id": "M04",
+  "date": "2026-10-27",
+  "icon": "📝",
+  "category": "ai",
+  "title": "Resumes edited in place as tracked changes, not rebuilt",
+  "summary": "Diagnosed why generated resumes were consistently poorly formatted (the old generator rebuilt the whole document from a handful of cloned paragraphs) and replaced it with context-anchored edits applied as real Word tracked changes to the user's own template.",
+  "prompts": [
+   "e2f9082b-044",
+   "e2f9082b-047",
+   "e2f9082b-048"
+  ],
+  "commits": [
+   "62cd68f",
+   "899346e",
+   "6a9db96"
+  ],
+  "decisions": [
+   "D-004"
+  ]
+ },
+ {
+  "id": "M05",
+  "date": "2026-10-28",
+  "icon": "☁️",
+  "category": "infra",
+  "title": "Live on Cloud Run, locked to one account via IAP",
+  "summary": "Deployed to a dedicated GCP project with persistent storage for the database and uploaded resumes, Identity-Aware Proxy restricting access to one Google account, and a daily Cloud Scheduler job authenticated through IAP with a real signed identity.",
+  "prompts": [
+   "e2f9082b-055",
+   "e2f9082b-056",
+   "e2f9082b-066"
+  ],
+  "commits": [
+   "a516516",
+   "b069971",
+   "b4085bf"
+  ],
+  "decisions": [
+   "D-002",
+   "D-005",
+   "D-006"
+  ]
+ },
+ {
+  "id": "M06",
+  "date": "2026-10-28",
+  "icon": "🤖",
+  "category": "ai",
+  "title": "Onboarding v2 and Jobby, the interview-prep chat",
+  "summary": "A rebuilt seven-step onboarding wizard (resume, what you're looking for, cover letter or \"write one for me\", older documents, an editable candidate profile, discovery, a first run that scores the top 20 with live progress), Favorite removed, and \"Jobby\": a saved per-job interview-prep chat with mock interviews, web search and streamed replies.",
+  "prompts": [
+   "ab602548-003",
+   "ab602548-004",
+   "ab602548-022",
+   "ab602548-023",
+   "ab602548-024"
+  ],
+  "commits": [
+   "8027d3d",
+   "906a15c",
+   "dce7234",
+   "1031bf0",
+   "f719a86",
+   "3944384"
+  ],
+  "decisions": [
+   "D-009",
+   "D-010"
+  ]
+ },
+ {
+  "id": "M07",
+  "date": "2026-10-28",
+  "icon": "🛰️",
+  "category": "pipeline",
+  "title": "Sources that actually return jobs",
+  "summary": "All Jobs showed only one board and careers pages came back empty. Scoring now takes jobs round-robin across sources, careers pages that embed Greenhouse/Lever/Ashby or load listings with JS are read properly, new sources are checked the moment they're added, and Manage Sources became two side-by-side lists.",
+  "prompts": [
+   "ab602548-028",
+   "ab602548-031",
+   "ab602548-033"
+  ],
+  "commits": [
+   "3300b0e",
+   "a570d76",
+   "fed313f"
+  ],
+  "decisions": [
+   "D-003",
+   "D-011"
+  ]
+ },
+ {
+  "id": "M08",
+  "date": "2026-10-29",
+  "icon": "💵",
+  "category": "pipeline",
+  "title": "Salaries, sorting, a daily email and readable descriptions",
+  "summary": "Salary filled in from ATS pay fields, the description text and the scoring call itself; sort by interest, fit, date or salary; generic talent-pool postings hidden; a 2:00pm ET daily run that emails new high-interest matches; job descriptions keep their headings and bullets; and run progress streamed so long runs aren't cut off.",
+  "prompts": [
+   "ab602548-034",
+   "ab602548-035",
+   "ab602548-036",
+   "ab602548-040",
+   "ab602548-045",
+   "ab602548-047"
+  ],
+  "commits": [
+   "5b7d5e5",
+   "6dbb6c8",
+   "178bbb7",
+   "60f4d6c",
+   "1012332",
+   "24cb942"
+  ],
+  "decisions": [
+   "D-012",
+   "D-013"
+  ]
+ },
+ {
+  "id": "M09",
+  "date": "2026-10-29",
+  "icon": "🖍️",
+  "category": "ai",
+  "title": "Rationale highlights colored by the rating they explain",
+  "summary": "Each highlighted phrase in a fit rationale is tagged as explaining interest or fit and drawn in exactly that rating's chip color, with a one-time Settings pass that tags older rationales without rewording them.",
+  "prompts": [
+   "ab602548-051",
+   "ab602548-052",
+   "ab602548-054",
+   "ab602548-055"
+  ],
+  "commits": [
+   "b3e920d",
+   "eaf8c33",
+   "6df34b9"
+  ],
+  "decisions": [
+   "D-014"
+  ]
+ },
+ {
+  "id": "M10",
+  "date": "2026-10-30",
+  "icon": "📚",
+  "category": "docs",
+  "title": "Product Timeline and decision log, ported from Shelf Life",
+  "summary": "Brought over the same system Shelf Life uses to show how it was built -- DECISIONS.md, the prompts/ export pipeline, and this Timeline page -- now that the app is private behind IAP rather than public, the reasoning that originally ruled it out no longer applies.",
+  "prompts": [
+   "e2f9082b-072"
+  ],
+  "commits": [],
+  "decisions": [
+   "D-008"
+  ]
+ },
+ {
+  "id": "M11",
+  "date": "2026-10-31",
+  "icon": "🔎",
+  "category": "pipeline",
+  "title": "Careers pages read harder when they show only a posting or two",
+  "summary": "Test fetch found 1 job on one careers page and 0 on another, both with many openings. A page that shows too few postings is now re-read in a headless browser, which also catches job boards only its scripts load, and then through the hosted job board it links to (Workable, BambooHR, Workday and others).",
+  "prompts": [
+   "ab602548-060"
+  ],
+  "commits": [
+   "8e3304a"
+  ],
+  "decisions": [
+   "D-015"
+  ]
+ },
+ {
+  "id": "M12",
+  "date": "2026-11-02",
+  "icon": "📋",
+  "category": "ui",
+  "title": "My Jobs: statuses that say how far it got, a table that holds still",
+  "summary": "Application statuses now say how far each one got (waiting, interviewing, rejected with or without an interview). Rows keep their order while you edit them, an Active/Closed toggle and sticky toolbar keep the table usable, a Prep column holds the tailoring and Jobby actions, and \"Ask Jobby what's working\" reads which kinds of jobs are getting interviews.",
+  "prompts": [
+   "ab602548-066",
+   "ab602548-068",
+   "ab602548-069",
+   "ab602548-070",
+   "ab602548-071",
+   "ab602548-072"
+  ],
+  "commits": [
+   "3185700",
+   "3805e84",
+   "77e76a5",
+   "c2b27cb",
+   "6c3a561"
+  ],
+  "decisions": [
+   "D-017"
+  ]
+ },
+ {
+  "id": "M13",
+  "date": "2026-11-02",
+  "icon": "⚡",
+  "category": "ai",
+  "title": "Prompt caching for scoring, discovery and Jobby",
+  "summary": "After Anthropic flagged a low cache hit rate, the parts of each prompt that repeat (a person's whole candidate context while scoring a batch, web-search turns, Jobby's context) are cached, so they're billed at a tenth of the price after the first call. Cached tokens are now counted in the cost log too.",
+  "prompts": [
+   "ab602548-067"
+  ],
+  "commits": [
+   "3002021"
+  ],
+  "decisions": [
+   "D-018"
+  ]
+ },
+ {
+  "id": "M14",
+  "date": "2026-11-02",
+  "icon": "🛟",
+  "category": "infra",
+  "title": "Backups, and the live database moved off the storage mount",
+  "summary": "Daily database snapshots, a downloadable backup and a CSV export of My Jobs. Then the live SQLite database moved onto the server's own disk, streamed to Cloud Storage by Litestream within a second of every change, since SQLite on a Cloud Storage mount had no real locking.",
+  "prompts": [
+   "ab602548-073",
+   "ab602548-076",
+   "ab602548-077"
+  ],
+  "commits": [
+   "3c16d6d",
+   "9b9748e",
+   "f01c8e7",
+   "d654a61"
+  ],
+  "decisions": [
+   "D-019",
+   "D-020"
+  ]
+ },
+ {
+  "id": "M15",
+  "date": "2026-11-02",
+  "icon": "👥",
+  "category": "infra",
+  "title": "Open to a few approved people, with costs kept in check",
+  "summary": "Anyone can ask for access, and only people the owner approves get in. Each person has their own data while sources are shared. Scoring runs only for people active in the last week, each person has a daily scoring limit and a monthly budget, New & Noteworthy shows when it was last updated with a Refresh button, and anyone can delete their account.",
+  "prompts": [
+   "ab602548-075",
+   "ab602548-078",
+   "ab602548-079",
+   "ab602548-080",
+   "ab602548-081",
+   "ab602548-086"
+  ],
+  "commits": [
+   "193b882",
+   "0a154e5",
+   "179188d",
+   "1b07435",
+   "cdea2f0",
+   "c322bee",
+   "ee71d7a",
+   "03702ae"
+  ],
+  "decisions": [
+   "D-021",
+   "D-022",
+   "D-023",
+   "D-024"
+  ]
+ },
+ {
+  "id": "M16",
+  "date": "2026-11-03",
+  "icon": "🩺",
+  "category": "pipeline",
+  "title": "Why the daily check kept failing, and a card that says so",
+  "summary": "Matches had gone 3 days without updating. Two causes: SQLite's lock file on the storage mount, and an empty Claude reply that crashed every run with a bare StopIteration. Both are fixed, one person's problem no longer stops everyone's run, and the Admin page's Daily check card shows how each run went and where any error happened.",
+  "prompts": [
+   "ab602548-090",
+   "ab602548-093",
+   "ab602548-094"
+  ],
+  "commits": [
+   "d654a61",
+   "3615e53",
+   "378f097",
+   "d10c5fe",
+   "d361418"
+  ],
+  "decisions": []
+ },
+ {
+  "id": "M17",
+  "date": "2026-11-04",
+  "icon": "🧪",
+  "category": "ai",
+  "title": "Scoring cost measured; unchanged pages no longer paid for",
+  "summary": "An experiment on 20 judged jobs measured a score at 0.9 cents, and cheaper settings saved only 6%, so scoring stayed as it was. Instead, a job board whose page hasn't changed since the last read reuses those postings with no Claude call. Rescore buttons with a cost estimate let you score a whole list again after changing your profile.",
+  "prompts": [
+   "ab602548-095",
+   "ab602548-096a",
+   "ab602548-098",
+   "ab602548-100",
+   "ab602548-102",
+   "ab602548-103"
+  ],
+  "commits": [
+   "f7c95ad",
+   "c8858c3",
+   "8fbd7ba",
+   "5a9d75f"
+  ],
+  "decisions": [
+   "D-025"
+  ]
+ },
+ {
+  "id": "M18",
+  "date": "2026-11-04",
+  "icon": "🎯",
+  "category": "pipeline",
+  "title": "Dealbreakers for location and salary",
+  "summary": "Location and minimum salary can each rule jobs out: never scored, never in New & Noteworthy or the email. Both hide only what they're sure about. \"DC\" matches every way of writing it and the whole metro area, remote, unknown and vague multi-location jobs stay, and jobs with no pay listed stay. A readout shows what each would hide before you switch it on.",
+  "prompts": [
+   "ab602548-107",
+   "ab602548-108",
+   "ab602548-109",
+   "ab602548-110"
+  ],
+  "commits": [
+   "7a554fa",
+   "106a9ec",
+   "10d86a8"
+  ],
+  "decisions": [
+   "D-026",
+   "D-027"
+  ]
+ },
+ {
+  "id": "M19",
+  "date": "2026-11-04",
+  "icon": "🗂️",
+  "category": "ui",
+  "title": "Profile redesign and job chips you can filter by",
+  "summary": "\"What are you looking for?\" moved to the top of Profile with your documents in a narrower column beside it. On job cards, no chip shares a color with the Interest and Fit ratings any more, and the organization and location chips filter the list when clicked.",
+  "prompts": [
+   "ab602548-110",
+   "ab602548-111",
+   "ab602548-112"
+  ],
+  "commits": [
+   "10d86a8",
+   "f724ed1",
+   "58268f0"
+  ],
+  "decisions": []
+ },
+ {
+  "id": "M20",
+  "date": "2026-11-04",
+  "icon": "📖",
+  "category": "docs",
+  "title": "An About page, and a Timeline that keeps up",
+  "summary": "A new About page explains what the app is, how the daily check works and how to use each page, and holds the Product Timeline's milestones, moved there from Settings. The milestones had stopped at the end of October; they're caught up, and a test now fails whenever a decision isn't part of a milestone, so they can't quietly fall behind again.",
+  "prompts": [
+   "ab602548-113"
+  ],
+  "commits": [
+   "5c79072"
+  ],
+  "decisions": []
+ },
+ {
+  "id": "M21",
+  "date": "2026-11-06",
+  "icon": "📦",
+  "category": "infra",
+  "title": "Moved into the public projects repo",
+  "summary": "The code, prompt log and decisions moved from a private repo into the public mraottth/projects portfolio, next to Shelf Life. The history was rewritten first to take a personal email address out, and the prompt log now strips email addresses on every export. The app itself stays behind sign-in and approval, and nothing about how it runs changed.",
+  "prompts": [
+   "ab602548-118",
+   "ab602548-120",
+   "ab602548-122",
+   "ab602548-123"
+  ],
+  "commits": [
+   "6e5cc83",
+   "d208597"
+  ],
+  "decisions": [
+   "D-028"
+  ]
+ }
+]

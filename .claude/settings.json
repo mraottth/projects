@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/01 - Shelf Life (Goodreads Recommender v2)/scripts/export_prompts.py\" --from-hook",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/01 - Claude Code Projects/01 - Shelf Life (Goodreads Recommender v2)/scripts/export_prompts.py\" --from-hook",
             "timeout": 60
           }
         ]

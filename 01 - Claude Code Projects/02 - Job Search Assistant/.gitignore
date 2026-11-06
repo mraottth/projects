@@ -1,0 +1,27 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+uv.lock.bak
+
+data/
+!data/.gitkeep
+
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
+
+.deploy.local.mk
+.env
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Timeline page build artifact (scripts/build_changelog.py) -- always rebuilt by `make frontend`/
+# `make deploy`, never committed (would lag the very commit that contains it).
+frontend/src/changelog.json
+# Local-only redaction literals (API keys, specifics you don't want in the prompt log) -- see
+# scripts/redact.py.
+.redact.local.json

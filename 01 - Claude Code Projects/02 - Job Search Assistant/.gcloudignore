@@ -1,0 +1,13 @@
+# Upload for `gcloud builds submit`. data/ is also in .gitignore (it's real personal data --
+# resumes, job/application history) and must never be part of a build context either.
+.gcloudignore
+.git
+.venv/
+data/
+tests/
+frontend/node_modules/
+frontend/dist/
+**/__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.log
