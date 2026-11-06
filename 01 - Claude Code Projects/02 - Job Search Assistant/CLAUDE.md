@@ -1124,6 +1124,12 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
 ## Working conventions
 
 - Small commits, one concern each.
+- **Show the deploy command** (the owner's ask, 2026-11-06) whenever a reply hands over a change
+  that needs a deploy to go live: merged or about to be, or the owner asks to ship. Give it in full,
+  ready to paste into Cloud Shell, in its own `bash` block, with the merge step first if the branch
+  isn't on `main` yet:
+  `cd ~/projects && git checkout main && git pull && cd "01 - Claude Code Projects/02 - Job Search Assistant" && make deploy ADMIN_EMAIL=<the admin's sign-in address>`
+  (in the reply use the real address; in files, a placeholder).
 - **Product Timeline (D-008):** this project uses the same changelog/prompts-log pattern as Shelf
   Life. The in-app Timeline is visible only to approved people, but since the move into
   `mraottth/projects` (D-028) the records behind it (`prompts/`, `DECISIONS.md`, commits) are
