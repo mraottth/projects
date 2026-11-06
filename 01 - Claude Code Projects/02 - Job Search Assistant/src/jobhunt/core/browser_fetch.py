@@ -32,6 +32,12 @@ ATS_REQUEST_HINTS = (
 )
 
 
+# Every other wait (reading the page's and each frame's HTML) gets this, not Playwright's 30 s default:
+# a bot-check page full of captcha frames made one Test fetch take 177 s and drop the connection.
+STEP_TIMEOUT_MS = 5_000
+MAX_FRAMES = 8
+
+
 def render_page_html(url: str, timeout_ms: int = 20_000) -> str:
     """The rendered page's HTML, with each embedded frame's HTML appended: an ATS job board is
     often an <iframe>, and page.content() alone returns only the outer page. Requests the page made
@@ -43,6 +49,7 @@ def render_page_html(url: str, timeout_ms: int = 20_000) -> str:
             browser = p.chromium.launch()
             try:
                 page = browser.new_page()
+                page.set_default_timeout(STEP_TIMEOUT_MS)
                 requested: list[str] = []
                 page.on(
                     "request",
@@ -55,7 +62,7 @@ def render_page_html(url: str, timeout_ms: int = 20_000) -> str:
                     # rendered by now is still worth reading.
                     pass
                 parts = [page.content()]
-                for frame in page.frames[1:]:
+                for frame in page.frames[1 : MAX_FRAMES + 1]:
                     try:
                         parts.append(f'<div data-frame-url="{frame.url}">{frame.content()}</div>')
                     except Exception:  # noqa: BLE001 - a detached/cross-origin frame just gets skipped

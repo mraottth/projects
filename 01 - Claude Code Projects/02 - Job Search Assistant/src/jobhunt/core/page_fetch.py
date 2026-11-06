@@ -2,6 +2,7 @@
 fall back to headless-browser rendering only when the static fetch yields too little text (a login
 wall or a JS-rendered page -- confirmed necessary for at least one real site, techjobsforgov.com)."""
 
+import re
 from dataclasses import dataclass
 
 import httpx
@@ -70,6 +71,7 @@ def fetch_page(
                 return FetchedPage(text=text, html=html, rendered=False)
             static_note = (
                 f"HTTP {resp.status_code}, only {len(text)} characters of text ({len(html):,} bytes)"
+                f"{_title_note(html)}"
             )
 
     try:
@@ -85,7 +87,15 @@ def fetch_page(
         # request's outcome before, which left a live failure unexplained).
         raise PageFetchError(
             f"fetched {url} but found too little text (plain request: {static_note}; in the browser: "
-            f"only {len(rendered_text)} characters) -- the site may be blocking automated requests "
+            f"only {len(rendered_text)} characters{_title_note(rendered_html)}) "
+            "-- the site may be blocking automated requests "
             "or need a login; you can paste a job in on My Jobs instead"
         )
     return FetchedPage(text=rendered_text, html=rendered_html, rendered=True)
+
+
+def _title_note(html: str) -> str:
+    """', titled "..."' for a thin page, which usually says what it is (a bot check, a login)."""
+    found = re.search(r"<title[^>]*>(.*?)</title>", html, re.I | re.S)
+    title = " ".join(found.group(1).split())[:80] if found else ""
+    return f', titled "{title}"' if title else ""

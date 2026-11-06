@@ -75,11 +75,15 @@ def test_force_render_skips_the_static_fetch(monkeypatch):
 
 def test_too_little_text_says_what_each_way_got(monkeypatch):
     """Both outcomes are in the message: a live failure once hid what the plain request got."""
-    monkeypatch.setattr(page_fetch.httpx, "get", lambda *a, **k: FakeResponse("<html><p>Checking</p></html>"))
+    monkeypatch.setattr(
+        page_fetch.httpx,
+        "get",
+        lambda *a, **k: FakeResponse("<html><title>Robot check</title><p>Checking</p></html>"),
+    )
     monkeypatch.setattr(page_fetch, "render_page_html", lambda *a, **k: "<html><p>Still checking</p></html>")
     with pytest.raises(page_fetch.PageFetchError) as err:
         page_fetch.fetch_page("https://example.com/jobs")
-    assert "plain request: HTTP 200, only 8 characters" in str(err.value)
+    assert "plain request: HTTP 200, only" in str(err.value) and 'titled "Robot check"' in str(err.value)
     assert "in the browser: only 14 characters" in str(err.value)
 
 

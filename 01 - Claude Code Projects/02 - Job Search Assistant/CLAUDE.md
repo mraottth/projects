@@ -404,6 +404,12 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   So a plain request that times out or can't connect now fails at once, skipping the browser (it
   would only wait out its own timeout), and the endpoint try after a failed page waits 10 s
   (`PROBE_TIMEOUT`): about 25 s at worst, with the reason in the message.
+  The request log then showed the earlier failures came back in 2.5-10 s (the site answered, with a
+  near-empty page: likely a bot check served to Cloud Run), and the dropped one took 177 s. The
+  browser step was the unbounded part: reading each frame's HTML waited up to Playwright's 30 s
+  default, and bot-check pages are full of captcha frames. Now `browser_fetch` sets a 5 s default
+  for every wait after loading (`STEP_TIMEOUT_MS`) and reads at most `MAX_FRAMES` (8) frames, and
+  the "too little text" error includes each thin page's `<title>`, to show what the site sent.
   **Unchanged pages aren't paid for twice** (D-025): `_extract_postings()` fingerprints the page
   text (sha256, with relative dates like "3 days ago"/"today" blanked by `RELATIVE_DATE`) and, when
   the shared `page_extractions` table has that URL + fingerprint, rebuilds the postings from the
