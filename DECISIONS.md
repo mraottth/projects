@@ -57,7 +57,7 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 - **Date:** 2026-10-27
 - **Category:** ai
 - **Prompts:** e2f9082b-047, e2f9082b-048
-- **Commits:** 1d10205
+- **Commits:** 899346e
 
 **Decision.** Resume tailoring proposes a short list of context-anchored edits (replace/insert/delete, each anchored to one line's exact existing text) applied as native Word tracked changes to a copy of the user's real template — not a full regeneration from a handful of cloned "exemplar" paragraphs.
 
@@ -81,7 +81,7 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 ## D-006 · Cloud Scheduler authenticates through IAP with a real identity, not a bare header
 - **Date:** 2026-10-28
 - **Category:** infra
-- **Commits:** 0fbe098
+- **Commits:** b069971
 
 **Decision.** The daily pipeline's Cloud Scheduler job authenticates with an OIDC identity token (audience = the IAP OAuth client id) from the default compute service account, which is granted `run.invoker` + `iap.httpsResourceAccessor` for this. The original plan's custom `X-Scheduler-Secret` header is kept as a second check, but is no longer the actual security boundary.
 
@@ -117,7 +117,7 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 - **Date:** 2026-10-28
 - **Category:** ui
 - **Prompts:** ab602548-003, ab602548-004, ab602548-013, ab602548-014
-- **Commits:** 379f309, bb23a91, f37c72a, 42ded0d
+- **Commits:** 8027d3d, 906a15c, dce7234, ffc96b4
 
 **Decision.** The wizard only appears when there are no uploaded documents and onboarding hasn't been completed, and every step can be skipped. The candidate-profile step allows both a direct edit and "Ask Claude to change it". The last step runs the pipeline instead of dropping the user on an empty digest, but scores only the top 20 jobs (the rest stay queued). Scoring itself moved from high to medium effort.
 
@@ -131,7 +131,7 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 - **Date:** 2026-10-28
 - **Category:** ai
 - **Prompts:** ab602548-022, ab602548-023, ab602548-024, ab602548-027
-- **Commits:** f66caea, 22d3315, 699f323, 90edb75
+- **Commits:** f719a86, 3944384, f73b19e, ad24c2b
 
 **Decision.** Jobby keeps one saved conversation per job plus one general one. It can search the web (up to three searches a turn), and its picker lists the jobs on My Jobs plus "No specific job". The posting, profile and documents sit in a cached system prompt, and replies stream.
 
@@ -143,7 +143,7 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 - **Date:** 2026-10-28
 - **Category:** pipeline
 - **Prompts:** ab602548-028, ab602548-031, ab602548-033
-- **Commits:** 18cb51d, 18273fe, ba604fc
+- **Commits:** 3300b0e, a570d76, fed313f
 
 **Decision.** Each run takes jobs for scoring round-robin across sources rather than a plain top-N. A careers page is checked first for an embedded Greenhouse/Lever/Ashby board, which is then read through that ATS's API with no Claude call. A page where Claude finds nothing is re-rendered in a headless browser and read again. New sources are checked as soon as they're added.
 
@@ -155,7 +155,7 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 - **Date:** 2026-10-29
 - **Category:** pipeline
 - **Prompts:** ab602548-040, ab602548-041
-- **Commits:** a473298
+- **Commits:** 60f4d6c
 
 **Decision.** The daily run moved to 2:00pm ET and ends by emailing new New & Noteworthy jobs with High interest and High or Med fit, each one once. The email is sent through Gmail SMTP with an app password stored in Secret Manager, and a day with no matches sends nothing.
 
@@ -167,7 +167,7 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 - **Date:** 2026-10-29
 - **Category:** pipeline
 - **Prompts:** ab602548-047, ab602548-053
-- **Commits:** 28f9cd9, 603caa8
+- **Commits:** 24cb942, 647ac27
 
 **Decision.** "Check every source now" starts the run in a thread and streams progress events every 2 seconds over the same request. If the stream drops, the page falls back to polling. Web-page boards are read at low effort, and the progress line names the sources still being read.
 
@@ -181,7 +181,7 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 - **Date:** 2026-10-29
 - **Category:** ai
 - **Prompts:** ab602548-051, ab602548-052, ab602548-054, ab602548-055
-- **Commits:** 10af09b, fa6f205, 9d9ec21
+- **Commits:** b3e920d, eaf8c33, 6df34b9
 
 **Decision.** New scores tag each highlight as explaining interest or fit, drawn in exactly that rating's chip color. Older rationales are fixed by a Settings button that asks Claude only for an interest/fit tag per highlight and splices the tags in, leaving the wording and ratings unchanged.
 
