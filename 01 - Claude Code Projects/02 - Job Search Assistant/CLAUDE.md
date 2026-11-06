@@ -378,6 +378,19 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   - with still too few, reads the one hosted board the page links to on an ATS with no adapter
     here (`ats_detect.detect_hosted_board()`: Workable, BambooHR, JazzHR, Breezy, Recruitee,
     Rippling, Paylocity, Jobvite, SmartRecruiters, Dover, Pinpoint, Workday).
+  **WP Job Manager boards** (asked 2026-11-06: "job boards rarely seem to work"; e.g. Civic Work
+  Studio, which techjobsforgov.com now serves) are read through the plugin's own listings endpoint
+  (`core/wp_job_manager.py`), right after the embedded-ATS check and before any Claude call. Their
+  page arrives with an empty `ul.job_listings` and the plugin's script fetches the jobs from
+  `/jm-ajax/get_listings/` a few at a time, so reading the page, even in the browser, found at most
+  the first handful of the board's 362. Detected by the script's `"ajax_url":".../jm-ajax/%%endpoint%%/"`
+  setting (or its script id). It posts 100 per page, up to `MAX_PAGES` (5), with the source URL's
+  query string as `form_data` (how the plugin's script sends the board's own filters, e.g. remote
+  only and job types; verified live: the owner's filtered URL gave its 30 remote jobs) plus the
+  standard fields directly. Cards give title, organization, location, posted date, pay
+  (`extract_salary` on the card) and `remote_type` "remote" when the card says so. No `external_id`,
+  so jobs keep the URL-based dedupe keys of those stored before. An unreadable endpoint, or cards
+  it can't make out, falls back to the page reader; zero matches is an answer. Free: no Claude call.
   **Unchanged pages aren't paid for twice** (D-025): `_extract_postings()` fingerprints the page
   text (sha256, with relative dates like "3 days ago"/"today" blanked by `RELATIVE_DATE`) and, when
   the shared `page_extractions` table has that URL + fingerprint, rebuilds the postings from the

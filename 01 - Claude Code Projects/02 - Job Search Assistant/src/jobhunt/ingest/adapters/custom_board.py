@@ -16,6 +16,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from jobhunt.core import wp_job_manager
 from jobhunt.core.ats_detect import detect_embedded_ats, detect_hosted_board
 from jobhunt.core.llm import DEFAULT_MODEL, get_client, llm_error_boundary, log_call
 from jobhunt.core.page_fetch import PageFetchError, fetch_page
@@ -80,7 +81,8 @@ def fetch(source: dict) -> list[dict]:
 def fetch_with_report(source: dict) -> tuple[list[dict], list[str]]:
     """The postings, plus a few words per step on how they were found (shown by Test fetch).
 
-    1. An embedded Greenhouse/Lever/Ashby board is read through that ATS's API, no Claude call.
+    1. An embedded Greenhouse/Lever/Ashby board is read through that ATS's API, and a WP Job
+       Manager board through its listings endpoint (core/wp_job_manager.py), no Claude call.
     2. Otherwise Claude reads the page's text.
     3. Too few postings: the page is re-rendered in the headless browser, which also catches an
        ATS board that only its scripts request, and read again if it now shows more.
@@ -97,6 +99,9 @@ def fetch_with_report(source: dict) -> tuple[list[dict], list[str]]:
     embedded = _fetch_embedded_ats(page.html, source, steps)
     if embedded is not None:
         return embedded, steps
+    listed = wp_job_manager.fetch(url, page.html, source, steps)
+    if listed is not None:
+        return listed, steps
     postings = _extract_postings(page.text, source, steps, f"read the page {how}")
     html = page.html
 
