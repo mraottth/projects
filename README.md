@@ -13,7 +13,7 @@ A web app that recommends books from your Goodreads history. Upload your Goodrea
 * **Assistant tab:** a Claude-powered reading assistant (Haiku for quick questions, Sonnet for harder ones) that calls the recommender as tools, finds post-2017 books via web search, and talks books like a book club.
 * **Engineering:** an offline pipeline (11 stages) produces the models; a FastAPI + React/TypeScript app serves recommendations in tens of milliseconds, deployed on Google Cloud Run. It replaces the 2023 version below, which took about a minute per request.
 
-![Shelf Life homepage](01%20-%20Shelf%20Life%20%28Goodreads%20Recommender%20v2%29/docs/screenshot-home.png)
+![Shelf Life homepage](01%20-%20Claude%20Code%20Projects/01%20-%20Shelf%20Life%20%28Goodreads%20Recommender%20v2%29/docs/screenshot-home.png)
 
 **Filetree:**
 ```
@@ -26,7 +26,7 @@ A web app that recommends books from your Goodreads history. Upload your Goodrea
 ├── frontend/        React + Vite + TypeScript
 └── tests/
 ```
-See the [project README](01%20-%20Shelf%20Life%20%28Goodreads%20Recommender%20v2%29/README.md) for details.
+See the [project README](01%20-%20Claude%20Code%20Projects/01%20-%20Shelf%20Life%20%28Goodreads%20Recommender%20v2%29/README.md) for details.
 
 ___
 

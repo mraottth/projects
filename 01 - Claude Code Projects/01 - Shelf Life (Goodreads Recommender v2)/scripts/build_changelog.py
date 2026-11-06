@@ -29,9 +29,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from redact import redact  # noqa: E402  (scrubs details that shouldn't be public; scripts/redact.py)
 
 ROOT = Path(__file__).resolve().parents[1]
-REPO = ROOT.parent
+REPO = Path(subprocess.run(["git", "-C", str(ROOT), "rev-parse", "--show-toplevel"],
+                          capture_output=True, text=True, check=True).stdout.strip())
 OUT = ROOT / "frontend" / "src" / "changelog.json"
-PATHS = [ROOT.name, "New & Improved Goodreads Book Recommender"]
+# Where this project has lived in the repo, newest first: moved under "01 - Claude Code Projects/" on 2026-11-06.
+PATHS = [ROOT.relative_to(REPO).as_posix(), "01 - Shelf Life (Goodreads Recommender v2)",
+         "New & Improved Goodreads Book Recommender"]
 GITHUB = "https://github.com/mraottth/projects"
 
 CATEGORIES = {
@@ -49,6 +52,14 @@ def load_json(path: Path, default):
     return json.loads(path.read_text(encoding="utf-8")) if path.exists() else default
 
 
+def _in_project(path: str) -> str:
+    """A changed file's path inside the project, whichever folder the project was in at the time."""
+    for prefix in PATHS:
+        if path.startswith(prefix + "/"):
+            return path[len(prefix) + 1:]
+    return path
+
+
 def git_commits(repo: Path = REPO) -> list[dict]:
     fmt = SEP_REC + SEP_FIELD.join(["%H", "%h", "%cI", "%an", "%s", "%b"]) + SEP_FIELD
     out = subprocess.run(["git", "-C", str(repo), "log", "--no-merges", f"--format={fmt}", "--name-only", "--", *PATHS],
@@ -62,7 +73,7 @@ def git_commits(repo: Path = REPO) -> list[dict]:
             "hash": full, "short": short, "time": when, "author": author, "subject": redact(subject.strip()),
             "body": redact(TRAILER.sub("", body).strip()), "files": len(paths),
             # Only touches prompts/ (prompt-log updates, labels): the Changelog folds these into "Housekeeping".
-            "housekeeping": bool(paths) and all(f.split("/")[1:2] == ["prompts"] for f in paths),
+            "housekeeping": bool(paths) and all(_in_project(f).startswith("prompts/") for f in paths),
             "web_session": bool(session), "url": f"{GITHUB}/commit/{full}",
         })
     return commits

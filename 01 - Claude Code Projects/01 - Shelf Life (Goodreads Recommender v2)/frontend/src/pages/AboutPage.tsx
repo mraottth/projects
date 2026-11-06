@@ -4,10 +4,10 @@ import { TeX } from "../components/TeX";
 
 /** About: what this is, the data, how recommendations are made, how well it works, privacy, credits. */
 export const REPO_URL =
-  "https://github.com/mraottth/projects/tree/main/01%20-%20Shelf%20Life%20%28Goodreads%20Recommender%20v2%29";
+  "https://github.com/mraottth/projects/tree/main/01%20-%20Claude%20Code%20Projects/01%20-%20Shelf%20Life%20%28Goodreads%20Recommender%20v2%29";
 
 const CODE_BASE =
-  "https://github.com/mraottth/projects/blob/main/01%20-%20Shelf%20Life%20%28Goodreads%20Recommender%20v2%29/";
+  "https://github.com/mraottth/projects/blob/main/01%20-%20Claude%20Code%20Projects/01%20-%20Shelf%20Life%20%28Goodreads%20Recommender%20v2%29/";
 type CodeKey = keyof typeof codeLinks;
 
 /** Link to the function (or file) in the repo; anchors come from scripts/code_links.py so they don't drift. */

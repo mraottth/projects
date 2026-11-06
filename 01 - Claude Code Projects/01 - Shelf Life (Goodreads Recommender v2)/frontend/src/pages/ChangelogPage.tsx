@@ -249,8 +249,8 @@ export function ChangelogPage() {
         <strong className="cl-stat">{CL.prompts.length} prompts</strong>, <strong className="cl-stat">{CL.commits.length} commits</strong>{" "}
         and <strong className="cl-stat">{CL.decisions.length} decisions</strong>{first ? ` since ${new Date(first).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}` : ""}.
         {CL.omitted_prompts > 0 && ` ${CL.omitted_prompts} purely operational prompts (commit and deploy requests, running it locally, setup) are left out.`}{" "}
-        The same records are in the repo as <a href={`${CL.repo}/tree/main/01%20-%20Shelf%20Life%20%28Goodreads%20Recommender%20v2%29/prompts`} target="_blank" rel="noreferrer">prompts/</a>{" "}
-        and <a href={`${CL.repo}/blob/main/01%20-%20Shelf%20Life%20%28Goodreads%20Recommender%20v2%29/DECISIONS.md`} target="_blank" rel="noreferrer">DECISIONS.md</a>.
+        The same records are in the repo as <a href={`${CL.repo}/tree/main/01%20-%20Claude%20Code%20Projects/01%20-%20Shelf%20Life%20%28Goodreads%20Recommender%20v2%29/prompts`} target="_blank" rel="noreferrer">prompts/</a>{" "}
+        and <a href={`${CL.repo}/blob/main/01%20-%20Claude%20Code%20Projects/01%20-%20Shelf%20Life%20%28Goodreads%20Recommender%20v2%29/DECISIONS.md`} target="_blank" rel="noreferrer">DECISIONS.md</a>.
       </p>
 
       {CL.milestones.length > 0 && (

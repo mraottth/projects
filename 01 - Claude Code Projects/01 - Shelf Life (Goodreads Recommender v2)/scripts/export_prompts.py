@@ -34,7 +34,8 @@ from redact import redact  # noqa: E402  (scrubs details that shouldn't be publi
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "prompts"
-REPO_PREFIXES = [(str(ROOT.parent) + "/", ""), (str(Path.home()) + "/", "~/")]
+# Paths are shown relative to the repo root, which is two folders up since the 2026-11-06 move.
+REPO_PREFIXES = [(str(ROOT.parents[1]) + "/", ""), (str(ROOT.parent) + "/", ""), (str(Path.home()) + "/", "~/")]
 SCRATCH = re.compile(r"/private/tmp/claude-\d+/[^\s`'\")]*?/scratchpad")
 DROP_TEXT = ("<system-reminder", "<ide_", "<command-", "<local-command", "<task-notification", "Caveat:",
              "[Request interrupted", "[Image: original")
