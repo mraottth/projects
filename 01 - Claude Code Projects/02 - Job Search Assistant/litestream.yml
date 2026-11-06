@@ -1,0 +1,13 @@
+# Litestream (https://litestream.io) streams every change to the live SQLite database to Cloud
+# Storage within about a second, and restores it when a new server starts. See scripts/start.sh and
+# DECISIONS.md D-020. Both values come from the environment (set by `make deploy`):
+#   JOBHUNT_DB_PATH          the live database, on the server's own disk (e.g. /tmp/db/jobhunt.db)
+#   LITESTREAM_REPLICA_URL   where the copy lives (e.g. gcs://<bucket>/litestream/jobhunt)
+dbs:
+  - path: ${JOBHUNT_DB_PATH}
+    replicas:
+      - url: ${LITESTREAM_REPLICA_URL}
+        # A full snapshot once a day, and the change log kept for a week, so any moment in the
+        # last 7 days can be restored (`litestream restore -timestamp ...`).
+        snapshot-interval: 24h
+        retention: 168h

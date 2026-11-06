@@ -1,0 +1,50 @@
+[project]
+name = "jobhunt"
+version = "0.1.0"
+description = "Personal job-search assistant: aggregation, fit scoring, resume/cover-letter tailoring, application tracking"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "httpx>=0.27",
+    "orjson>=3.10",
+    "python-multipart>=0.0.9",
+    "pyyaml>=6.0",
+    "anthropic>=1.8",
+    "pypdf>=5.0",
+    "python-docx>=1.1",
+    "beautifulsoup4>=4.12",
+    "playwright>=1.47",
+    "pyjwt[crypto]>=2.8",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/jobhunt"]
+
+[tool.uv]
+default-groups = ["dev"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 110
+
+[tool.ruff.lint]
+select = ["E", "F", "B"]
+ignore = ["B008"]  # FastAPI's File(...)/Form(...)/Depends(...) defaults are the idiom, not a bug
+
+[tool.ruff.lint.per-file-ignores]
+# Timeline/prompt-log tooling ported from Shelf Life as-is (same file, kept in sync on purpose) --
+# not held to this repo's line length so the two copies don't drift from re-wrapping alone.
+"scripts/*.py" = ["E501"]
