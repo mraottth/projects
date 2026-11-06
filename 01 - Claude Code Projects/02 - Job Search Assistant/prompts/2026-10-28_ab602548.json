@@ -1042,8 +1042,16 @@
    "time": "2026-11-06T15:09:28.567Z",
    "kind": "prompt",
    "text": "yeah go for it",
-   "reply": null,
+   "reply": "The cold-start changes are pushed to the `claude/move-job-search-assistant` branch in `projects`. They take effect when you merge it and deploy from the new folder. All 478 tests pass and `make deploy` includes the new flag; the actual cold-start speedup can only be measured on Cloud Run after deploying.\n\n**What changed:**\n- **Extra CPU at startup:** deploys now use `--cpu-boost`, so the server gets more CPU while it starts. It's billed only for those seconds.\n- **Hourly database snapshots** instead of daily. A new server now replays at most an hour of database changes when it restores, instead of up to a day's worth after the 2pm check. I checked that the pinned Litestream version accepts the new setting. Point-in-time restore still covers the past 7 days.\n- **Salary backfill in the background:** the first page no longer waits for it.\n- **Claude's SDK loads on first use:** it was about half of the app's startup import time, which drops from 1.26 s to 0.55 s here. The new `tests/test_startup.py` keeps it that way, and checks that pages are served while the backfill is still running.\n- **Records:** decision D-029 (why not a warm instance, with the costs), milestone M22, and the CLAUDE.md notes.\n\n**Cost:** close to nothing. The one new cost is snapshot storage: about 168 hourly snapshots are kept for the week. That's a few cents a month for a database of tens of MB, and roughly $0.40 a month per 100 MB of database.\n\n**To see the effect:** after the deploy, leave the app idle for 15+ minutes, open it, then check the Cloud Run logs for how long the new instance took to start. Tell me if the first load still feels slow and we can look at the numbers together.",
    "id": "ab602548-127",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-06T15:13:24.422Z",
+   "kind": "prompt",
+   "text": "On the About page, let's move \"Getting started\" to the top and then make the Product Timeline a little taller",
+   "reply": null,
+   "id": "ab602548-128",
    "session": "ab602548"
   }
  ]
