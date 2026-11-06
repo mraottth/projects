@@ -450,3 +450,27 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 - The scrub keeps the whole Timeline: every commit, prompt and decision is still linked, and the build's output was compared before and after (identical apart from the commit links).
 - Shelf Life's move was checked the same way: its Changelog output is identical, its tests give the same result from the new folder as from the old (58 passed; the same 10 need model files that aren't in git), and its frontend builds. Its live site changes only when it's next deployed.
 - This project's tests (473) and frontend build pass from the new folder, and `make deploy` expands the same commands there.
+
+## D-029 · Faster cold starts instead of a warm instance
+- **Date:** 2026-11-06
+- **Category:** infra
+- **Prompts:** ab602548-125, ab602548-126, ab602548-127
+- **Commits:** cd32c20
+
+**Decision.**
+- Keep `--min-instances 0`, so the server still shuts down after about 15 idle minutes, and make the start that follows faster:
+  - `--cpu-boost` on deploy: extra CPU while the server starts;
+  - Litestream snapshots every hour instead of every day, so a restore replays at most an hour of changes;
+  - the startup salary backfill runs in the background instead of before the first request;
+  - the Anthropic SDK is imported on first use instead of at startup.
+
+**Context.** The owner asked what a warm instance would cost. With 1 vCPU, 2 GiB and the CPU always on (which Litestream needs), Cloud Run bills a minimum instance at the full rate around the clock: about $57 a month at list prices, about $52 if the free allowance isn't already used by Shelf Life's warm instance. Turning CPU throttling back on to get the cheaper idle rate (about $19) would stall Litestream between requests.
+
+**Alternatives considered.**
+- **A warm instance all day:** no cold starts, about $52-57 a month.
+- **Warm only during the day** (a scheduled switch of the minimum between 1 and 0): about $33 a month, and more moving parts.
+- **A smaller image:** Cloud Run streams images, so size matters less than it seems, and the one big piece (Chromium) is needed for some job boards.
+
+**Why.**
+- Together these cost close to nothing: the boost bills only for startup seconds, and hourly snapshots add some storage in proportion to the database's size.
+- The app's import time dropped from 1.26 s to 0.55 s locally; the SDK was about half of it. The other gains (boost, restore) can only be measured on Cloud Run, from the startup time in the logs after an idle spell.
