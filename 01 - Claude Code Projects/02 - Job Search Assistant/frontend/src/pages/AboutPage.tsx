@@ -7,8 +7,9 @@ import { useMe } from "../me";
 import { PrivacyNote } from "./AccessPage";
 
 /**
- * About (asked 2026-11-04): what this project is, how it works, a short usage guide, and the
- * Product Timeline's milestones (moved here from Settings). The full Timeline, with every prompt,
+ * About (asked 2026-11-04): what this project is, a short usage guide (first, at the user's ask), how it
+ * works, and the Product Timeline's milestones (moved here from Settings; given a 520px minimum height
+ * here, since this low on the page it can't fit the window). The full Timeline, with every prompt,
  * commit and decision, stays at /changelog; a milestone's prompt or decision opens it there.
  */
 
@@ -98,6 +99,18 @@ export default function AboutPage() {
       </p>
 
       <div className="card">
+        <h2>Getting started</h2>
+        <ol className="about-guide">
+          {GUIDE.map((step) => (
+            <li key={step.title}>
+              <strong>{step.title}</strong> <Link to={step.to}>({step.link})</Link>
+              <p className="muted small">{step.body}</p>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      <div className="card">
         <h2>How it works</h2>
         <ol className="about-steps">
           <li>
@@ -123,17 +136,6 @@ export default function AboutPage() {
         </ol>
       </div>
 
-      <div className="card">
-        <h2>Getting started</h2>
-        <ol className="about-guide">
-          {GUIDE.map((step) => (
-            <li key={step.title}>
-              <strong>{step.title}</strong> <Link to={step.to}>({step.link})</Link>
-              <p className="muted small">{step.body}</p>
-            </li>
-          ))}
-        </ol>
-      </div>
 
       <div className="card">
         <h2>Costs and limits</h2>
@@ -201,6 +203,7 @@ function TimelineSection() {
           categories={data.categories}
           onShowPrompt={(id) => navigate(`/changelog?prompt=${encodeURIComponent(id)}`)}
           onShowDecision={(id) => navigate(`/changelog?decision=${encodeURIComponent(id)}`)}
+          minHeight={520}
         />
       )}
     </div>

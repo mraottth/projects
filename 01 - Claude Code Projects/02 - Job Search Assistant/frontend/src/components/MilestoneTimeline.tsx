@@ -25,9 +25,11 @@ const fmtDay = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString(undef
 const SWITCH_MS = 550;
 const OPEN_MS = Math.round(SWITCH_MS * 0.75);
 
-export function MilestoneTimeline({ milestones, prompts, categories, onShowPrompt, onShowDecision }: {
+export function MilestoneTimeline({ milestones, prompts, categories, onShowPrompt, onShowDecision, minHeight = 380 }: {
   milestones: Milestone[]; prompts: Map<string, PromptLite>; categories: Record<string, string>;
   onShowPrompt: (id: string) => void; onShowDecision: (id: string) => void;
+  /** The shortest it gets. Low on a long page (the About page) it's always this tall, since it can't fit the window. */
+  minHeight?: number;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [newestFirst, setNewestFirst] = useState(true);
@@ -51,12 +53,12 @@ export function MilestoneTimeline({ milestones, prompts, categories, onShowPromp
       const el = section.current;
       if (!el) return;
       const top = el.getBoundingClientRect().top + window.scrollY;
-      setHeight(Math.round(Math.min(Math.max(window.innerHeight - top - 90, 380), 760)));
+      setHeight(Math.round(Math.min(Math.max(window.innerHeight - top - 90, minHeight), 760)));
     };
     fit();
     window.addEventListener("resize", fit);
     return () => window.removeEventListener("resize", fit);
-  }, []);
+  }, [minHeight]);
 
   // After the order flips, start at the beginning of the reversed strip (the newest or the oldest milestone).
   const firstOrder = useRef(true);
