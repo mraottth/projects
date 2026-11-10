@@ -69,12 +69,15 @@ def list_ranked_jobs(status: str = "active"):
         rows = conn.execute(
             f"""SELECT j.*, js.interest_fit, js.interest_score, js.candidate_fit, js.candidate_fit_score,
                        js.summary_text, js.rationale_text, s.name AS source_name,
-                       {SOURCE_IS_BOARD_SQL} AS source_is_board
+                       {SOURCE_IS_BOARD_SQL} AS source_is_board,
+                       a.status AS application_status
                 FROM jobs j
                 LEFT JOIN job_scores js ON js.id = (
                     SELECT id FROM job_scores WHERE user_id = :uid AND job_id = j.id ORDER BY id DESC LIMIT 1
                 )
                 LEFT JOIN sources s ON s.id = j.source_id
+                -- Its status on the person's My Jobs, if it's there (the card shows it; asked 2026-11-10).
+                LEFT JOIN applications a ON a.job_id = j.id AND a.user_id = :uid
                 WHERE j.status = :status AND j.source_id IS NOT NULL
                   AND j.source_id IN (SELECT source_id FROM source_follows WHERE user_id = :uid)
                 ORDER BY (COALESCE(js.interest_score, 0) + COALESCE(js.candidate_fit_score, 0)) DESC,

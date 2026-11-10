@@ -1,7 +1,7 @@
 {
  "session": "ab602548-13cf-5dd6-933c-6e698e563853",
  "omitted_api_errors": 0,
- "omitted": 56,
+ "omitted": 57,
  "entries": [
   {
    "time": "2026-10-28T14:37:31.396Z",
@@ -1012,8 +1012,16 @@
    "time": "2026-11-10T14:14:15.379Z",
    "kind": "answer",
    "text": "\"Which window should the app be kept warm (Eastern time)? Cost is the server's time, about $0.08 an hour.\"=\"Let's do 9:30am to 8:30pm\".",
-   "reply": null,
+   "reply": "The warm window is set up and pushed to the branch: every day from 9:30am to 8:30pm Eastern, which I estimate at about **$26 a month** from list prices. That's half the cost of keeping it warm all day. Outside those hours the app starts on demand, as now.\n\n**How it works:**\n- **Pings:** three small Cloud Scheduler jobs call a do-nothing page on the app every 10 minutes through the window, which keeps the server from shutting down.\n- **No redeploys:** nothing about the service changes twice a day, so there's no restart overlap where a change could be lost.\n- **Your activity:** the pings don't count as you visiting, so they don't affect the 7-day \"active user\" rule for scoring.\n- **Scheduler cost:** one cron line can't start and stop at half past, so it takes three jobs. With your 2pm job that's four, one more than Google's three free, so about 10¢ a month.\n\nI've recorded it as decision D-030 and added it to the cold-starts milestone. All 503 tests pass, and a dry run of the setup with a stand-in `gcloud` produced the three jobs with the right schedules. The real `gcloud` commands haven't been run against your project yet.\n\nRun these in Cloud Shell. First deploy, so the ping page exists:\n\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com\n```\n\nThen switch on the warm window. It's a one-time step, and later deploys don't affect it:\n\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && make keep-warm\n```\n\nIt prints the three jobs and their schedules. To turn it off later, run `make keep-warm-off`. To change the hours, tell me the new window and I'll adjust it.",
    "id": "ab602548-151",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-10T14:44:02.558Z",
+   "kind": "prompt",
+   "text": "if I've already added a job to My Jobs, can you show the status on the job's card in All Jobs?",
+   "reply": null,
+   "id": "ab602548-153",
    "session": "ab602548"
   }
  ]

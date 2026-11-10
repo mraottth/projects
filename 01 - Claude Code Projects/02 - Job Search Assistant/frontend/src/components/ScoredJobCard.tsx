@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, ApiError, ScoredJob } from "../api";
+import { api, ApiError, APPLICATION_STATUS_LABELS, ApplicationStatus, ScoredJob } from "../api";
 import { Markdown } from "./Markdown";
 
 function daysAgo(iso: string): string {
@@ -107,7 +107,17 @@ export function FitBadge({ label, value }: { label: string; value: string | null
   );
 }
 
-export function JobActions({ job, onDismissed }: { job: ScoredJob; onDismissed?: () => void }) {
+export function JobActions({
+  job,
+  onDismissed,
+  onTracked,
+  alreadyTracked = false,
+}: {
+  job: ScoredJob;
+  onDismissed?: () => void;
+  onTracked?: () => void;
+  alreadyTracked?: boolean;
+}) {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [tracked, setTracked] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -126,6 +136,7 @@ export function JobActions({ job, onDismissed }: { job: ScoredJob; onDismissed?:
           if (!(e instanceof ApiError && e.status === 409)) throw e;
         }
         setTracked(true);
+        onTracked?.();
       }
       if (value === "not_interested") onDismissed?.();
     } catch (e) {
@@ -139,8 +150,9 @@ export function JobActions({ job, onDismissed }: { job: ScoredJob; onDismissed?:
     <div className="card-section form-actions">
       <button
         className="ghost small"
-        disabled={busy || feedback === "interested"}
+        disabled={busy || feedback === "interested" || alreadyTracked}
         onClick={() => sendFeedback("interested")}
+        title={alreadyTracked ? "Already on My Jobs" : undefined}
       >
         Interested
       </button>
@@ -211,6 +223,8 @@ export function ScoredJobCard({
   onFilter?: (key: ChipFilterKey, value: string) => void;
   activeFilters?: { location: string[]; organization: string[] };
 }) {
+  // Where it stands on My Jobs (asked 2026-11-10); marking it Interested here adds it as Drafting.
+  const [status, setStatus] = useState<ApplicationStatus | null>(job.application_status ?? null);
   return (
     <div className="card">
       <div className="card-header">
@@ -251,6 +265,15 @@ export function ScoredJobCard({
             </div>
           </div>
         </div>
+        {status && (
+          <Link
+            to="/tracker"
+            className={`pill pill-${status} tracked-pill`}
+            title="This job is on My Jobs"
+          >
+            On My Jobs · {APPLICATION_STATUS_LABELS[status]}
+          </Link>
+        )}
       </div>
 
       {job.summary_text && <p>{job.summary_text}</p>}
@@ -265,7 +288,12 @@ export function ScoredJobCard({
         <RationaleBlock text={job.rationale_text} className={rationaleClass(job.interest_fit, job.candidate_fit)} />
       )}
 
-      <JobActions job={job} onDismissed={onDismissed} />
+      <JobActions
+        job={job}
+        onDismissed={onDismissed}
+        alreadyTracked={!!status}
+        onTracked={() => setStatus((s) => s ?? "saved")}
+      />
     </div>
   );
 }

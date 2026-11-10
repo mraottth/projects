@@ -56,3 +56,26 @@ def test_ranked_jobs_sorts_by_score_with_unscored_last():
     assert resp.status_code == 200
     titles = [row["title"] for row in resp.json()]
     assert titles == ["High Score", "Low Score", "Unscored"]
+
+
+def test_each_job_says_its_status_on_my_jobs():
+    """All Jobs cards show where a job stands on My Jobs (asked 2026-11-10); another person's
+    tracking never shows."""
+    from jobhunt.core import users
+
+    source_id = _insert_source()
+    tracked = _insert_job("k1", "Tracked", source_id, score=60)
+    _insert_job("k2", "Not tracked", source_id, score=50)
+    bea = users.create_user("bea@example.com", "Bea", status="approved")["id"]
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO applications (user_id, job_id, status) VALUES (1, ?, 'waiting')", (tracked,)
+        )
+        other = _insert_job("k3", "Bea's", source_id, score=40)
+        conn.execute(
+            "INSERT INTO applications (user_id, job_id, status) VALUES (?, ?, 'offer')", (bea, other)
+        )
+
+    with TestClient(app) as client:
+        statuses = {row["title"]: row["application_status"] for row in client.get("/api/jobs/ranked").json()}
+    assert statuses == {"Tracked": "waiting", "Not tracked": None, "Bea's": None}

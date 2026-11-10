@@ -642,6 +642,10 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     fit filters, so it never cleared them), keeping the sort.
   - Dropdown arrows (`.select-wrap`, `.ms-dropdown` summaries) are one 14px SVG chevron, flipped when
     open, instead of a small grey glyph.
+  - All Jobs cards show where a job stands on My Jobs (asked 2026-11-10): `GET /api/jobs/ranked`
+    joins the person's own `applications` row as `application_status`, and `ScoredJobCard` shows
+    "On My Jobs · Waiting" (the status's `pill-*` colors, linking to `/tracker`) at the card's top
+    right. Marking a job Interested adds "Drafting" at once, and Interested is disabled once tracked.
   - The sidebar shows what's applied: `AppliedFilters`, under the heading, has one removable chip per
     active filter except the Interest and Fit toggles (search, each organization/source/location,
     posted, minimum salary, hidden unscored jobs, shown dealbreaker jobs), and a closed dropdown
