@@ -459,18 +459,23 @@
   "date": "2026-11-06",
   "icon": "⚡",
   "category": "infra",
-  "title": "Faster cold starts",
-  "summary": "A warm server would have cost about $52-57 a month, so the first visit after an idle spell got faster instead: extra CPU while the server starts, hourly database snapshots so less has to be replayed, a startup chore moved to the background, and Claude's SDK loaded only when it's first needed.",
+  "title": "Faster cold starts, and a warm window",
+  "summary": "A warm server around the clock would have cost about $52-57 a month, so the first visit after an idle spell got faster instead: extra CPU while the server starts, hourly database snapshots so less has to be replayed, a startup chore moved to the background, and Claude's SDK loaded only when it's first needed. Then the server was kept warm just from 9:30am to 8:30pm Eastern, for about $26 a month.",
   "prompts": [
    "ab602548-125",
    "ab602548-126",
-   "ab602548-127"
+   "ab602548-127",
+   "ab602548-148",
+   "ab602548-150",
+   "ab602548-151"
   ],
   "commits": [
-   "cd32c20"
+   "cd32c20",
+   "9a24eb3"
   ],
   "decisions": [
-   "D-029"
+   "D-029",
+   "D-030"
   ]
  }
 ]

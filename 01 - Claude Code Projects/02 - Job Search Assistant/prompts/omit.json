@@ -95,5 +95,6 @@
  "ab602548-139": "general question, no product change: why testing missed the failure",
  "ab602548-140": "operational: pasted command output (Cloud Shell check)",
  "ab602548-142": "operational: pasted request log output",
- "ab602548-143": "operational: pasted Test fetch result (diagnosis)"
+ "ab602548-143": "operational: pasted Test fetch result (diagnosis)",
+ "ab602548-149": "general question, no product change: why the warm instance costs more than Shelf Life's"
 }

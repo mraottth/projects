@@ -474,3 +474,25 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 **Why.**
 - Together these cost close to nothing: the boost bills only for startup seconds, and hourly snapshots add some storage in proportion to the database's size.
 - The app's import time dropped from 1.26 s to 0.55 s locally; the SDK was about half of it. The other gains (boost, restore) can only be measured on Cloud Run, from the startup time in the logs after an idle spell.
+
+## D-030 · Keep the server warm 9:30am-8:30pm Eastern, with scheduled pings
+- **Date:** 2026-11-10
+- **Category:** infra
+- **Prompts:** ab602548-148, ab602548-150, ab602548-151
+- **Commits:** 9a24eb3
+
+**Decision.**
+- Cloud Scheduler calls a no-op `GET /internal/ping` every 10 minutes from 9:30am to 8:30pm Eastern, every day (`make keep-warm`; `make keep-warm-off` removes it). A request keeps a Cloud Run instance up for about 15 minutes, so the server stays up through the window, and outside it the app still starts on demand.
+- Three Scheduler jobs, since one cron line can't start and stop at half past: 9:30-9:50, 10:00-19:50, 20:00-20:30. They reuse the 2pm job's service account and sign-in audience.
+
+**Context.** After D-029's cheaper cold-start fixes, the owner asked what a warm instance costs, then for a narrower daytime window to save money, and chose 9:30am-8:30pm.
+
+**Alternatives considered.**
+- **A warm instance around the clock** (`--min-instances 1`): about $52-57 a month with the CPU always on, which Litestream needs.
+- **Switching `--min-instances` between 1 and 0 on a schedule:** every switch deploys a new revision, with the brief old/new overlap in which a database write can be lost (D-020). Pings change nothing about the service.
+- **Throttled CPU for a cheaper idle rate (about $19 a month at 2 GiB):** stalls Litestream between requests.
+
+**Why.**
+- Cost scales with hours up: 11 hours a day at about $0.08 an hour (1 vCPU, 2 GiB, CPU always on, list prices) is about $26 a month, against $52-57 around the clock.
+- The pings don't count as anyone's visit (they aren't `/api` requests), so they don't affect who counts as active for scoring.
+- The fourth Scheduler job is past the three free per billing account, about $0.10 a month.

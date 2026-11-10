@@ -1,7 +1,7 @@
 {
  "session": "ab602548-13cf-5dd6-933c-6e698e563853",
  "omitted_api_errors": 0,
- "omitted": 55,
+ "omitted": 56,
  "entries": [
   {
    "time": "2026-10-28T14:37:31.396Z",
@@ -969,8 +969,51 @@
    "time": "2026-11-10T14:03:16.993Z",
    "kind": "prompt",
    "text": "An email came through with jobs that were NYC or SF (not remote or anything ambiguous). Can you make sure the location filtering is working as intended for New & Noteworthy and the emails?",
-   "reply": null,
+   "reply": "I found and fixed one real gap in the location dealbreaker; it's pushed to the branch. I can't see your production data from here, though, so I can't yet confirm it's what let those particular jobs into your email.\n\n**What I checked:** I ran about 30 common ways of writing New York and San Francisco locations through the rule, with \"DC\" as your location. Most were correctly hidden. A few slipped through:\n- **Work-arrangement notes:** \"New York City, NY (Hybrid)\" was read as two places, \"New York City\" and an unreadable \"NY (Hybrid)\". The rule keeps any job with an unreadable place, so it survived. \"San Francisco, CA - In Office\" failed the same way.\n- **\"SF\" on its own** wasn't recognized as San Francisco.\n\n**The fix:** words like \"(Hybrid)\", \"On-site:\" and \"- In Office\" are now ignored when reading a location. \"SF\" counts as San Francisco. A DC job marked hybrid still matches.\n\nNew & Noteworthy and the email use the same check, and a new test confirms the email leaves out a hidden New York or San Francisco job. All 501 tests pass.\n\n**Other reasons a job can still get through:** these are intentional, but they'd explain your email if the fix above doesn't.\n1. **The dealbreaker is off.** \"Only show jobs in these locations\" has to be checked under Profile → \"What are you looking for?\". Without it, your locations only guide scoring.\n2. **The job is marked remote** by its source, or its location text says \"remote\". Remote jobs are always kept.\n3. **No location was listed.** Unknown locations are always kept.\n\nTo see which applied, run this in Cloud Shell. It reads your latest daily backup, so an email sent today may not show up in it yet:\n\n```bash\nF=$(gsutil ls gs://job-searcher-512814-jobhunt-data/backups/ | grep -v before | sort | tail -1) && gsutil -q cp \"$F\" /tmp/jh.db && sqlite3 -header -column /tmp/jh.db \"SELECT key, value FROM settings WHERE user_id = 1 AND key IN ('location_dealbreaker', 'prefilter_locations'); SELECT substr(de.emailed_at, 1, 16) AS emailed, j.title, j.location, j.remote_type FROM digest_entries de JOIN jobs j ON j.id = de.job_id WHERE de.user_id = 1 AND de.emailed_at >= date('now', '-5 days') ORDER BY de.emailed_at;\" ; rm -f /tmp/jh.db\n```\n\nIt prints your two location settings, then each recently emailed job with its location and remote marking. Send me the output and I'll tell you which reason applied.\n\nTo deploy the fix:\n\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com\n```",
    "id": "ab602548-146",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-10T14:07:07.371Z",
+   "kind": "prompt",
+   "text": "Just to be clear, the formatting for the location that I'm referring to was \"San Francisco, CA | New York City, NY\" can you make sure that's something that'll get filtered out with the new filtering rules?",
+   "reply": "Yes: \"San Francisco, CA | New York City, NY\" gets hidden when DC is your only location and the dealbreaker is on. It's read as two places, San Francisco and New York City, and neither is in the DC area. I've added that exact string to the tests and pushed it, so it stays hidden.\n\nThe version you have deployed already hides it too. So the location's formatting isn't what let that job into your email; one of these is more likely:\n\n1. **The dealbreaker is off.** \"Only show jobs in these locations\" has to be checked under Profile → \"What are you looking for?\". Without it, your locations only influence scoring.\n2. **The job's source marks it as remote.** If it came from an organization on Ashby or Lever, those systems carry their own remote flag. The app trusts it and always keeps remote jobs, even when the listed locations are cities.\n3. **Your location list includes more than DC**, such as \"Remote\", New York or California.\n\nThe Cloud Shell command from my last message shows which: it prints your dealbreaker setting, your locations, and each recently emailed job with its location and remote flag. Here it is again:\n\n```bash\nF=$(gsutil ls gs://job-searcher-512814-jobhunt-data/backups/ | grep -v before | sort | tail -1) && gsutil -q cp \"$F\" /tmp/jh.db && sqlite3 -header -column /tmp/jh.db \"SELECT key, value FROM settings WHERE user_id = 1 AND key IN ('location_dealbreaker', 'prefilter_locations'); SELECT substr(de.emailed_at, 1, 16) AS emailed, j.title, j.location, j.remote_type FROM digest_entries de JOIN jobs j ON j.id = de.job_id WHERE de.user_id = 1 AND de.emailed_at >= date('now', '-5 days') ORDER BY de.emailed_at;\" ; rm -f /tmp/jh.db\n```\n\nIf it turns out to be the source's remote flag, there's a choice to make. A job its employer calls remote but that lists only San Francisco and New York could be \"remote for people near those offices\", or genuinely remote. I could hide those when every listed city is elsewhere, at the cost of sometimes dropping a real remote job. Let's see the output first.",
+   "id": "ab602548-147",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-10T14:09:12.469Z",
+   "kind": "prompt",
+   "text": "what would be the cost for keeping an instance warm?",
+   "reply": "Roughly **$52–57 a month**, the same as when you asked a few days ago:\n\n| Option | About per month |\n|---|---|\n| Warm instance around the clock, CPU always on (what this app needs) | ~$57 (1 vCPU at $0.000018/vCPU-second, 2 GiB at $0.000002/GiB-second) |\n| Same, if your free monthly allowance isn't already used by Shelf Life's warm instance | ~$52 |\n| Warm only during the day (e.g. 8am–10pm ET, switched by a schedule) | ~$33 |\n| Cheaper \"idle\" warm instance (CPU only during requests) | ~$19, but not workable: Litestream needs the CPU between requests to keep the database copied safely |\n\nThose are list prices as I last knew them, not checked against Google's current pricing page.\n\nSince then, the cheaper cold-start fixes have shipped to the branch: extra CPU at startup, hourly database snapshots, the salary backfill moved off the startup path, and Claude's SDK loaded only when needed. If you've deployed since, the first load after an idle spell should already be faster. If it still feels slow, a warm instance is a one-line Makefile change (`--min-instances 1`) plus a deploy, and I can make it.",
+   "id": "ab602548-148",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-10T14:12:01.301Z",
+   "kind": "prompt",
+   "text": "can we configure the daytime only settings to be narrower to save some?",
+   "reply": null,
+   "asked": [
+    {
+     "question": "Which window should the app be kept warm (Eastern time)? Cost is the server's time, about $0.08 an hour.",
+     "options": [
+      "Weekdays 9am–6pm (Recommended)",
+      "Weekdays 8am–8pm",
+      "Every day 9am–9pm",
+      "Evenings 6–11pm"
+     ]
+    }
+   ],
+   "id": "ab602548-150",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-10T14:14:15.379Z",
+   "kind": "answer",
+   "text": "\"Which window should the app be kept warm (Eastern time)? Cost is the server's time, about $0.08 an hour.\"=\"Let's do 9:30am to 8:30pm\".",
+   "reply": null,
+   "id": "ab602548-151",
    "session": "ab602548"
   }
  ]
