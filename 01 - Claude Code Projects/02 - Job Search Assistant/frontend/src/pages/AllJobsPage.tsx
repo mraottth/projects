@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api, RankedJob } from "../api";
 import {
@@ -27,11 +27,38 @@ export default function AllJobsPage() {
   useEffect(() => {
     api
       .getRankedJobs()
-      .then(setJobs)
+      .then((list) => {
+        setJobs(list);
+        // Descriptions come separately, after the list is up, for the search box (which also
+        // searches them); with the list they were most of its size.
+        api
+          .getRankedDescriptions()
+          .then((byId) => setJobs((js) => js.map((j) => ({ ...j, description_text: byId[j.id] ?? null }))))
+          .catch(() => {});
+      })
       .finally(() => setLoading(false));
   }, []);
 
   const filtered = filterJobs(jobs, filters);
+
+  // Cards are drawn PAGE at a time, more as you near the end (drawing thousands at once was most
+  // of the wait with many sources, asked 2026-11-10). A filter or sort change starts over.
+  const PAGE = 50;
+  const [shown, setShown] = useState(PAGE);
+  useEffect(() => setShown(PAGE), [filters]);
+  const sentinel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = sentinel.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) setShown((n) => n + PAGE);
+      },
+      { rootMargin: "800px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [filtered.length, shown]);
 
   return (
     <div>
@@ -65,7 +92,7 @@ export default function AllJobsPage() {
               onSort={(sort) => setFilters({ ...filters, sort })}
             />
             {filtered.length === 0 && <FilteredEmptyState onClear={() => setFilters(NO_JOB_FILTERS)} />}
-            {filtered.map((job) => (
+            {filtered.slice(0, shown).map((job) => (
               <ScoredJobCard
                 key={job.id}
                 job={job}
@@ -73,6 +100,11 @@ export default function AllJobsPage() {
                 activeFilters={filters}
               />
             ))}
+            {shown < filtered.length && (
+              <div ref={sentinel} className="muted small load-more">
+                Showing {shown} of {filtered.length}…
+              </div>
+            )}
           </div>
           <aside className="list-side">
             <JobFilterBar jobs={jobs} filters={filters} onChange={setFilters} />

@@ -1028,8 +1028,16 @@
    "time": "2026-11-10T14:47:54.136Z",
    "kind": "prompt",
    "text": "I think the pill should replace the Interested / Maybe / Not Interested pills if it's already on My Jobs",
-   "reply": null,
+   "reply": "Done and pushed to the branch: on All Jobs, a job that's already on My Jobs now shows its status pill where the Interested / Maybe / Not interested buttons were. The pill reads e.g. \"On My Jobs · Waiting\", in that status's color, and still links to My Jobs. It's no longer up by the title.\n\nMarking a job Interested swaps its buttons for \"On My Jobs · Drafting\" straight away.\n\nI checked it in a browser on a local copy with sample data: none of the tracked cards showed the buttons, and clicking Interested on another job switched it to the pill. The frontend builds, and the All Jobs and frontend-serving tests pass; I didn't rerun the full suite for this frontend-only change.\n\nTo deploy it along with the other changes waiting on the branch:\n\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com\n```",
    "id": "ab602548-154",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-10T14:49:03.116Z",
+   "kind": "prompt",
+   "text": "All Jobs is starting to take a long time to load now that I've added a lot of sources. What can we do to speed it up?",
+   "reply": null,
+   "id": "ab602548-155",
    "session": "ab602548"
   }
  ]

@@ -17,6 +17,7 @@ Your entries are read generously. "DC" is the Washington, DC metro area (DC, Arl
 Tysons...), as asked. "Washington" or "NY" match every place they could mean. An entry nothing here
 recognizes is matched as written, and Settings shows which entries were recognized."""
 
+import functools
 import re
 from dataclasses import dataclass, field
 
@@ -445,7 +446,15 @@ def _place_matches(place: Place, job: JobPlace) -> bool:
 
 
 def verdict(location: str | None, remote_type: str | None, entries: list[str]) -> str:
-    """'match', 'remote', 'unknown', 'multiple', or 'elsewhere'. Only 'elsewhere' is hidden."""
+    """'match', 'remote', 'unknown', 'multiple', or 'elsewhere'. Only 'elsewhere' is hidden.
+
+    Remembered per (location, remote_type, entries): many jobs share a location's text, and reading
+    each one afresh took 0.9 s of All Jobs' load for 4,000 jobs (2026-11-10)."""
+    return _verdict(location, remote_type, tuple(entries))
+
+
+@functools.lru_cache(maxsize=8192)
+def _verdict(location: str | None, remote_type: str | None, entries: tuple[str, ...]) -> str:
     if remote_type == "remote":
         return "remote"
     if not location or not location.strip():

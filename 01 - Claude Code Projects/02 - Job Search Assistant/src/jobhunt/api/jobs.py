@@ -56,6 +56,22 @@ def list_jobs(status: str | None = None):
     return [_row_to_dict(r) for r in rows]
 
 
+# What a job card and the filters use. Not raw_json (each source's raw copy of the posting, never
+# shown) or the description (its own route, below): the list is sent whole, every job at once.
+RANKED_JOB_COLUMNS = ", ".join(
+    f"j.{c}"
+    for c in (
+        "id", "source_id", "title", "company", "location", "remote_type", "salary_min", "salary_max",
+        "salary_currency", "salary_period", "url", "posted_at", "first_seen_at", "last_seen_at", "status",
+        "user_id",
+    )
+)  # fmt: skip
+RANKED_WHERE = (
+    "j.status = :status AND j.source_id IS NOT NULL "
+    "AND j.source_id IN (SELECT source_id FROM source_follows WHERE user_id = :uid)"
+)
+
+
 @router.get("/ranked")
 def list_ranked_jobs(status: str = "active"):
     """All jobs discovered from a tracked source (company board or job board), regardless of
@@ -67,7 +83,8 @@ def list_ranked_jobs(status: str = "active"):
     digest (score, then recency, then salary) for consistency."""
     with get_db() as conn:
         rows = conn.execute(
-            f"""SELECT j.*, js.interest_fit, js.interest_score, js.candidate_fit, js.candidate_fit_score,
+            f"""SELECT {RANKED_JOB_COLUMNS},
+                       js.interest_fit, js.interest_score, js.candidate_fit, js.candidate_fit_score,
                        js.summary_text, js.rationale_text, s.name AS source_name,
                        {SOURCE_IS_BOARD_SQL} AS source_is_board,
                        a.status AS application_status
@@ -78,8 +95,7 @@ def list_ranked_jobs(status: str = "active"):
                 LEFT JOIN sources s ON s.id = j.source_id
                 -- Its status on the person's My Jobs, if it's there (the card shows it; asked 2026-11-10).
                 LEFT JOIN applications a ON a.job_id = j.id AND a.user_id = :uid
-                WHERE j.status = :status AND j.source_id IS NOT NULL
-                  AND j.source_id IN (SELECT source_id FROM source_follows WHERE user_id = :uid)
+                WHERE {RANKED_WHERE}
                 ORDER BY (COALESCE(js.interest_score, 0) + COALESCE(js.candidate_fit_score, 0)) DESC,
                          COALESCE(j.posted_at, j.first_seen_at) DESC,
                          COALESCE(j.salary_max, j.salary_min, 0) DESC""",
@@ -91,7 +107,22 @@ def list_ranked_jobs(status: str = "active"):
     jobs = [_row_to_dict(r) for r in rows if not is_generic_posting(r["title"])]
     for job in jobs:
         job["dealbreakers"] = dealbreakers.reasons(job, settings)
+        job["description_text"] = None  # sent by /ranked/descriptions, after the list
     return jobs
+
+
+@router.get("/ranked/descriptions")
+def ranked_descriptions(status: str = "active"):
+    """{job id: description} for the same jobs as /ranked. All Jobs loads it after the list, for
+    its search box, which also searches descriptions: sent with the list they were most of its
+    size (17.6 MB for 4,000 jobs, measured 2026-11-10) and held up the first paint."""
+    with get_db() as conn:
+        rows = conn.execute(
+            f"SELECT j.id, j.description_text FROM jobs j "
+            f"WHERE {RANKED_WHERE} AND j.description_text IS NOT NULL",
+            {"status": status, "uid": current_user_id()},
+        ).fetchall()
+    return {str(r["id"]): r["description_text"] for r in rows}
 
 
 @router.get("/{job_id}")

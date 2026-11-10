@@ -616,6 +616,8 @@ export const api = {
   confirmJob: (id: number) => request<Job>(`/api/jobs/${id}/confirm`, { method: "POST" }),
 
   getRankedJobs: () => request<RankedJob[]>("/api/jobs/ranked"),
+  // {job id: description}, loaded after the list for All Jobs' search box.
+  getRankedDescriptions: () => request<Record<string, string>>("/api/jobs/ranked/descriptions"),
 
   getDigestToday: () => request<{ date: string; entries: DigestEntry[] }>("/api/digest/today"),
 

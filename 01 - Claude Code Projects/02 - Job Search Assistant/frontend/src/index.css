@@ -857,3 +857,4 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 .about-list li { margin: 4px 0; }
 .about-timeline-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .about-timeline-head h2 { margin: 0; }
+.load-more { text-align: center; padding: 16px 0 24px; }

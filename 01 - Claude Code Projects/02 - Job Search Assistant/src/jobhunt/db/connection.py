@@ -140,6 +140,9 @@ PLACEHOLDER_ADMIN_EMAIL = "admin@localhost"
 USER_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_jobs_user ON jobs(user_id)",
     "CREATE INDEX IF NOT EXISTS idx_source_follows_source ON source_follows(source_id)",
+    # A person's latest score of a job (All Jobs, the digest): looking it up for 4,000 jobs took
+    # 1.4 s without it (2026-11-10). Here, not in schema.sql: an old single-user table has no user_id.
+    "CREATE INDEX IF NOT EXISTS idx_job_scores_user_job ON job_scores(user_id, job_id, id)",
     *(f"CREATE INDEX IF NOT EXISTS idx_{t}_user ON {t}(user_id)" for t in PER_USER_TABLES if t != "settings"),
 ]
 

@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from starlette.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -55,6 +56,9 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Job Search Assistant", lifespan=lifespan)
 # Every /api request runs as its verified, approved signed-in person (D-021; api/auth.py).
 app.add_middleware(AuthMiddleware)
+# Compressed responses: All Jobs' list is sent whole. Starlette leaves text/event-stream (the live
+# progress streams) uncompressed, so their updates aren't held back.
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 app.include_router(access.router)
 app.include_router(admin.router)

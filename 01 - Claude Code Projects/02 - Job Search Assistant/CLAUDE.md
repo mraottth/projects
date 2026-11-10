@@ -642,6 +642,16 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     fit filters, so it never cleared them), keeping the sort.
   - Dropdown arrows (`.select-wrap`, `.ms-dropdown` summaries) are one 14px SVG chevron, flipped when
     open, instead of a small grey glyph.
+  - **All Jobs loading** (asked 2026-11-10, with many sources; measured on a 4,000-job test
+    database): the list took 1.7 s on the server and sent 17.6 MB. Now `GET /api/jobs/ranked` selects
+    only what cards and filters use (`RANKED_JOB_COLUMNS`: no `raw_json`, no description), and
+    `GET /api/jobs/ranked/descriptions` ({id: text}) follows for the search box, which still
+    searches descriptions once it lands. `idx_job_scores_user_job` (in `USER_INDEXES`, since an old
+    single-user table has no `user_id`) makes the latest-score lookup quick, `locations.verdict` is
+    remembered per (location, remote, entries), and responses are gzipped (`GZipMiddleware`;
+    Starlette leaves `text/event-stream` alone). 0.06 s and 2.9 MB before compression; the page draws
+    50 cards and adds 50 more as you near the end (an `IntersectionObserver` on a "Showing N of M"
+    line), starting over when a filter changes.
   - All Jobs cards show where a job stands on My Jobs (asked 2026-11-10): `GET /api/jobs/ranked`
     joins the person's own `applications` row as `application_status`, and `ScoredJobCard` shows
     "On My Jobs · Waiting" (the status's `pill-*` colors, linking to `/tracker`) in place of the

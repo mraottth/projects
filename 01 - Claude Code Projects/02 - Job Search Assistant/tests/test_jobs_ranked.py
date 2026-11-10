@@ -79,3 +79,23 @@ def test_each_job_says_its_status_on_my_jobs():
     with TestClient(app) as client:
         statuses = {row["title"]: row["application_status"] for row in client.get("/api/jobs/ranked").json()}
     assert statuses == {"Tracked": "waiting", "Not tracked": None, "Bea's": None}
+
+
+def test_the_list_leaves_out_descriptions_and_raw_data_which_load_separately():
+    """All Jobs sends its whole list at once, so it carries only what cards and filters use; the
+    descriptions (for the search box) come from their own route (asked 2026-11-10: slow loads)."""
+    source_id = _insert_source()
+    job_id = _insert_job("k1", "Analyst", source_id, score=50)
+    with get_db() as conn:
+        conn.execute(
+            "UPDATE jobs SET description_text = 'Full text', raw_json = '{\"big\": 1}' WHERE id = ?",
+            (job_id,),
+        )
+    with TestClient(app) as client:
+        [row] = client.get("/api/jobs/ranked").json()
+        descriptions = client.get("/api/jobs/ranked/descriptions").json()
+        gzipped = client.get("/api/jobs/ranked", headers={"Accept-Encoding": "gzip"})
+    assert row["description_text"] is None and "raw_json" not in row and "dedupe_key" not in row
+    assert row["title"] == "Analyst" and row["interest_fit"] == "High"
+    assert descriptions == {str(job_id): "Full text"}
+    assert gzipped.status_code == 200
