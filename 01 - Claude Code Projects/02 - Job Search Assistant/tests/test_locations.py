@@ -111,6 +111,7 @@ def test_several_locations_stay_unless_all_clearly_elsewhere(location):
         "Austin, TX, Seattle, WA",
         "Austin or Dallas, TX",
         "Chicago, IL | Denver, CO",
+        "San Francisco, CA | New York City, NY",  # as it appeared in a daily email (2026-11-10)
         "New York, NY / Boston, MA",
         "New York/San Francisco",
         "Paris, France, London, UK",
