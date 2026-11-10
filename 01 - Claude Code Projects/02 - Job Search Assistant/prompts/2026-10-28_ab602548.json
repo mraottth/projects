@@ -1,7 +1,7 @@
 {
  "session": "ab602548-13cf-5dd6-933c-6e698e563853",
  "omitted_api_errors": 0,
- "omitted": 57,
+ "omitted": 58,
  "entries": [
   {
    "time": "2026-10-28T14:37:31.396Z",
@@ -1036,8 +1036,16 @@
    "time": "2026-11-10T14:49:03.116Z",
    "kind": "prompt",
    "text": "All Jobs is starting to take a long time to load now that I've added a lot of sources. What can we do to speed it up?",
-   "reply": null,
+   "reply": "All Jobs should load much faster now; the changes are pushed to the branch. On a local test copy with 4,000 jobs across 40 sources, the first cards showed in under a second.\n\nBefore the fix, the server took 1.7 seconds to build the list, sent the browser 17.6 MB, and the browser then drew all 4,000 cards at once.\n\n| What changed | Effect |\n|---|---|\n| **Slimmer list:** only what the cards and filters use | 17.6 MB → 2.9 MB, before compression |\n| **Descriptions load separately**, after the list is on screen | Searching descriptions still works once they arrive, a moment later |\n| **Compressed responses** | Much smaller downloads; live progress updates (like \"Check my sources now\") aren't affected |\n| **A database index** for each job's latest score | The query dropped from 1.4 s to almost nothing |\n| **Each location text read once**, not once per job | The location dealbreaker's 0.9 s mostly disappears |\n| **50 cards at a time**, more as you scroll | No drawing thousands of cards up front; a filter change starts back at the top |\n\nAll together, building the list went from 1.7 s to 0.06 s. All 505 tests pass, including new ones for the slimmer list and the separate descriptions.\n\nThe real speed depends on your actual data and connection. If the app has been idle, the cold start before the first page still adds its few seconds; the warm window covers 9:30am–8:30pm.\n\nTo deploy:\n\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com\n```",
    "id": "ab602548-155",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-10T16:00:18.157Z",
+   "kind": "prompt",
+   "text": "Jobby seems to index a little too heavily on my cover letters, which gives it a kind of arbitrary bias (since not all jobs require a cover letter and I haven't uploaded all of them to the site). It should focus more on my resumes, my profile, and the jobs that score high on interest and fit (and the qualities that make those jobs high-scoring)",
+   "reply": null,
+   "id": "ab602548-157",
    "session": "ab602548"
   }
  ]

@@ -477,5 +477,22 @@
    "D-029",
    "D-030"
   ]
+ },
+ {
+  "id": "M23",
+  "date": "2026-11-10",
+  "icon": "🎯",
+  "category": "ai",
+  "title": "Jobby leans on what fits you best",
+  "summary": "Jobby had been leaning on cover letters, though only some applications needed one and not all are uploaded. Now it draws on your resumes, your profile, what your marks say you want, and the jobs that score highest for you along with why they score well; your current cover letter is only a short sample of how you write.",
+  "prompts": [
+   "ab602548-157"
+  ],
+  "commits": [
+   "bbe8b2b"
+  ],
+  "decisions": [
+   "D-031"
+  ]
  }
 ]

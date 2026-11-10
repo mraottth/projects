@@ -496,3 +496,25 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 - Cost scales with hours up: 11 hours a day at about $0.08 an hour (1 vCPU, 2 GiB, CPU always on, list prices) is about $26 a month, against $52-57 around the clock.
 - The pings don't count as anyone's visit (they aren't `/api` requests), so they don't affect who counts as active for scoring.
 - The fourth Scheduler job is past the three free per billing account, about $0.10 a month.
+
+## D-031 · Jobby leans on resumes, the profile and best-fit jobs; cover letters are a writing sample
+- **Date:** 2026-11-10
+- **Category:** ai
+- **Prompts:** ab602548-157
+- **Commits:** bbe8b2b
+
+**Decision.**
+- Jobby's context puts resumes first and gives the older-document allowance to resumes only.
+- Only the current cover letter goes in, cut to 3,000 characters and labeled a sample of how they write. Older cover letters are left out; a line says how many.
+- Added: the preference profile, and the 8 jobs that score highest on interest + fit (both High or Med, not dismissed, not the job being prepared for), each with the reason it scored well and its My Jobs status.
+- The persona says what each part is for, and not to read what a cover letter emphasizes as what matters most.
+
+**Context.** The owner found Jobby "indexes a little too heavily" on cover letters, "a kind of arbitrary bias, since not all jobs require a cover letter and I haven't uploaded all of them", and asked it to focus on resumes, the profile, and the jobs that score high on interest and fit and the qualities that make them score well.
+
+**Alternatives considered.**
+- **Leave cover letters out entirely:** loses the one sample of how they write, which helps when drafting answers in their voice.
+- **Keep them but say they're partial:** a long letter still takes a big share of the context and pulls attention whatever the label says.
+
+**Why.**
+- Resumes and the profile are the record of what they've done; top-scoring jobs and their reasons show what they're suited to and want. All of those exist for every person, while cover letters depend on which applications needed one.
+- About 5,000 characters for the top jobs, against up to 15,000 for the current letter plus 20,000 shared with older documents before.
