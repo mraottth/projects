@@ -166,6 +166,13 @@ def test_how_lists_are_split():
         "Paris, France",
         "Bangalore, India",
         "IN OFFICE - Chicago, IL",
+        # How the work is done isn't a place (2026-11-10: "(Hybrid)" made one job unreadable, so kept).
+        "New York City, NY (Hybrid)",
+        "New York, NY (On-site)",
+        "San Francisco, CA - In Office",
+        "Portland, OR (hybrid)",
+        "SF",
+        "NYC / SF",
     ],
 )
 def test_clearly_elsewhere(location):
@@ -284,6 +291,44 @@ def test_hidden_from_new_and_noteworthy_and_all_jobs_but_not_my_jobs():
         )
         conn.execute("DELETE FROM applications WHERE job_id = ?", (ids["There"],))
     assert {j["title"] for j in get_digest(today_str())} == {"Here", "There", "Unknown", "Remote"}
+
+
+def test_a_work_arrangement_never_hides_a_match():
+    for location in [
+        "Washington, DC (Hybrid)",
+        "Hybrid - Arlington, VA",
+        "New York, NY; Washington, DC (On-site)",
+    ]:
+        assert locations.verdict(location, None, DC) == "match", location
+    assert locations.verdict("Hybrid", None, DC) == "unknown"
+
+
+def test_the_daily_email_leaves_out_jobs_the_dealbreaker_hides():
+    """The email reads New & Noteworthy, so a New York or San Francisco job never goes out
+    (asked 2026-11-10, after an email listed some)."""
+    from jobhunt.core import email_digest
+
+    update_settings({"prefilter_locations": DC, "location_dealbreaker": True})
+    with get_db() as conn:
+        source = conn.execute(
+            "INSERT INTO sources (kind, name, config_json) VALUES ('custom_board', 'Board', '{}')"
+        ).lastrowid
+        conn.execute("INSERT INTO source_follows (user_id, source_id) VALUES (1, ?)", (source,))
+        for title, location in [("DC job", "Washington, DC"), ("NYC job", "New York City, NY (Hybrid)"),
+                                ("SF job", "San Francisco, CA")]:  # fmt: skip
+            job = conn.execute(
+                "INSERT INTO jobs (source_id, dedupe_key, title, company, location) "
+                "VALUES (?, ?, ?, 'Co', ?)",
+                (source, title, title, location),
+            ).lastrowid
+            conn.execute(
+                "INSERT INTO job_scores (user_id, job_id, model, interest_fit, interest_score, "
+                "candidate_fit, candidate_fit_score, summary_text, rationale_text) "
+                "VALUES (1, ?, 'x', 'High', 90, 'High', 90, 's', 'r')",
+                (job,),
+            )
+            add_to_digest(job)
+    assert [j["title"] for j in email_digest.qualifying_jobs()] == ["DC job"]
 
 
 def test_location_check_previews_before_switching_on():

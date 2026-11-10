@@ -80,7 +80,7 @@ METROS = [
         "hempstead", "mineola", "melville", "purchase"],
        ["ny", "new york metro", "tri state", "tristate", "nyc metro"]),
     _m("sf", "San Francisco Bay Area", "CA",
-       ["san francisco", "bay area", "sf bay area", "san francisco bay area", "silicon valley"],
+       ["san francisco", "bay area", "sf bay area", "san francisco bay area", "silicon valley", "sf"],
        ["oakland", "berkeley", "san jose", "palo alto", "mountain view", "menlo park",
         "redwood city", "sunnyvale", "santa clara", "cupertino", "san mateo", "emeryville",
         "fremont", "south san francisco", "burlingame", "foster city", "walnut creek",
@@ -221,6 +221,13 @@ VAGUE = re.compile(
 )
 # Between places in a list. " or "/" and " are lowercase only: "OR" is Oregon ("Portland, OR").
 LIST_SEPARATORS = re.compile(r"\s*(?:;|\||\n|/|\s&\s|\s(?:or|and)\s)\s*")
+# How the work is done, not where: "New York City, NY (Hybrid)" read "NY (Hybrid)" as a second,
+# unreadable place, which kept the job (caught live, 2026-11-10). Dropped before splitting.
+ARRANGEMENT = re.compile(
+    r"\(\s*(?:hybrid|on[- ]?site|in[- ]office|in[- ]person|office[- ]based)[^)]*\)"
+    r"|\b(?:hybrid|on[- ]?site|in[- ]office|in[- ]person)\b\s*[-:]?",
+    re.IGNORECASE,
+)
 # "Locations: Austin, TX" -- a label, not part of the place.
 LABEL = re.compile(r"^\s*(?:job\s+)?locations?\s*:\s*", re.IGNORECASE)
 # A comma part that only names the state/country of the place before it ("VA", "VA 22201",
@@ -399,9 +406,9 @@ def split_places(location: str) -> list[str]:
     """The separate places a location lists: "Austin, TX, Seattle, WA" -> ["Austin, TX",
     "Seattle, WA"]; "Washington, DC, United States" stays one place."""
     places = []
-    for chunk in LIST_SEPARATORS.split(LABEL.sub("", location)):
+    for chunk in LIST_SEPARATORS.split(LABEL.sub("", ARRANGEMENT.sub(" ", location))):
         current: list[str] = []
-        for part in (p.strip() for p in chunk.split(",")):
+        for part in (p.strip(" -–—:") for p in chunk.split(",")):
             if not part:
                 continue
             if current and _only_region(part):

@@ -324,6 +324,10 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     "Portland, OR" isn't "or"), a metro's core name (implies its home state), or a non-US country or
     big foreign city. A written state code wins over state names inside a city's name ("Kansas
     City, MO" is MO). A suburb name alone never proves "elsewhere".
+  - How the work is done isn't a place (2026-11-10, after a New York/San Francisco job reached the
+    email): `ARRANGEMENT` ("(Hybrid)", "On-site:", "- In Office"...) is dropped before splitting,
+    and stray dashes/colons are trimmed from each piece. "New York City, NY (Hybrid)" had read as
+    two places, one unreadable, which kept the job. "SF" alone now reads as San Francisco.
   - Entries are read generously: "DC"/"D.C."/"District of Columbia"/"DMV"/"Washington, DC" are the
     DC metro (its cities: Arlington, Bethesda, Tysons...; the user chose metro areas); "Washington"
     or "NY" match every reading; "Arlington, VA" is its metro; an unknown "City, ST" is that city in
