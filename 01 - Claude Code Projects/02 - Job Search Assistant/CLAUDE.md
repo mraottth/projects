@@ -740,7 +740,13 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   one general conversation (`job_id` NULL; SQLite's UNIQUE allows many NULLs, so `get_thread()`
   enforces "only one"). "Start over" deletes the thread. The picker lists My Jobs (open
   applications first) plus "No specific job"; "Prep with Jobby" on My Jobs rows and `JobDetailPage`
-  links straight to a job's conversation. `build_context()` puts the posting, tracking status/notes
+  links straight to a job's conversation. **What it leans on (D-031, asked 2026-11-10):** resumes,
+  the candidate profile, the preference profile, and the person's top `TOP_JOBS` (8) jobs by interest
+  + fit (both High/Med, not dismissed, not the current job) with their reasons (highlight markup
+  removed) and My Jobs status. Cover letters had skewed it: only the current one goes in, cut to
+  `COVER_LETTER_SAMPLE_CHARS` (3,000) and labeled a writing sample; older ones are left out (a count
+  says so), and `PERSONA` says not to read what a letter emphasizes as what matters most. Before that,
+  `build_context()` put the posting, tracking status/notes
   and fit rationale, the candidate profile, "What are you looking for?", the current and tailored
   documents (whole, up to generous limits), and older documents (trimmed to a shared budget) into
   the system prompt behind a `cache_control` breakpoint, so every later turn re-reads it from cache.

@@ -8,9 +8,11 @@ conversation re-reads it from cache instead of paying full price for it again. R
 search, e.g. for company research; a long server-tool turn that pauses (stop_reason
 "pause_turn") is resumed, same as discovery's run_web_search."""
 
+import re
 from collections.abc import Iterator
 
 from jobhunt.core.llm import DEFAULT_MODEL, LLMError, cache_tokens, get_client, llm_error_boundary, log_call
+from jobhunt.core.preference import get_current_preference_profile
 from jobhunt.core.profile import get_current_candidate_profile
 from jobhunt.core.settings import get_setting, get_settings
 from jobhunt.db.connection import get_db
@@ -21,11 +23,16 @@ app. You're talking with the job seeker directly -- write to them in the second 
 "your background"). You're warm and encouraging but practical and honest: concrete advice beats \
 pep talk, and if an answer they draft is weak, say so kindly and show how to make it stronger.
 
-You have their context below: the job they're preparing for (if any), their candidate profile, \
-what they're looking for, and their resumes and cover letters. Ground everything in it -- tie \
-advice to specific requirements in the posting and specific experience in their documents. Never \
-invent experience, skills, employers, or results they don't have; if something the role wants \
-isn't in their background, help them address the gap honestly instead.
+You have their context below: the job they're preparing for (if any), what they're looking for, \
+their candidate profile, what their marks and applications say they want, the jobs that score \
+highest for them and why, and their resumes. Ground everything in it -- tie advice to specific \
+requirements in the posting and specific experience in their resumes and profile. Their resumes \
+and profile are the record of what they've done; their highest-scoring jobs and what makes them \
+score well show what they're best suited to and most want. A cover letter, if one is included, \
+is only a sample of how they write: not every application needed one and not all of theirs are \
+here, so don't treat what it emphasizes as what matters most. Never invent experience, skills, \
+employers, or results they don't have; if something the role wants isn't in their background, \
+help them address the gap honestly instead.
 
 Keep replies focused and skimmable: short paragraphs, bullets or numbered lists where they help, \
 **bold** for the few things that matter most. Don't pad.
@@ -37,19 +44,27 @@ role-specific questions, about 6-8 in total unless they ask for more. When it's 
 their strengths and the 2-3 things to work on.
 
 When answering behavioral questions, help them use the STAR structure (situation, task, action, \
-result) with real stories from their documents.
+result) with real stories from their resumes and profile.
 
 You can search the web. Use it when current, specific facts would make your answer better -- \
 the company's recent news, funding, leadership, products, or reported interview process -- and \
 not for things their documents or general knowledge already cover. Mention what you found and \
 where, briefly."""
 
-# Older documents are trimmed so a big archive doesn't swamp the context (they matter far less
+# Older resumes are trimmed so a big archive doesn't swamp the context (they matter far less
 # than the current ones, which are kept whole up to a generous limit).
 CURRENT_DOC_CHARS = 15_000
 OLDER_DOC_CHARS = 4_000
 OLDER_DOCS_TOTAL_CHARS = 20_000
 TAILORED_DOC_CHARS = 8_000
+# Cover letters skewed Jobby (asked 2026-11-10): not every application needs one and only some are
+# uploaded, so a partial set read as what matters most. Only the current one goes in, short, as a
+# writing sample; older ones are left out.
+COVER_LETTER_SAMPLE_CHARS = 3_000
+# The jobs that score highest for them, and why (asked 2026-11-10): what they're best suited to.
+TOP_JOBS = 8
+TOP_JOB_REASON_CHARS = 600
+HIGHLIGHT = re.compile(r"==(?:[if]:)?(.*?)==", re.S)
 HISTORY_MESSAGES = 40
 MAX_WEB_SEARCHES = 3
 MAX_CONTINUATIONS = 3
@@ -101,10 +116,11 @@ def _documents_text(job_id: int | None) -> str:
                 )
             ]
 
+    resumes = [d for d in docs if d["kind"] == "resume"]
+    letters = [d for d in docs if d["kind"] != "resume"]
     parts = []
-    for doc in (d for d in docs if d["is_template"]):
-        label = "Current resume" if doc["kind"] == "resume" else "Current cover letter"
-        parts.append(f"### {label} ({doc['file_name']})\n{_clip(doc['raw_text'], CURRENT_DOC_CHARS)}")
+    for doc in (d for d in resumes if d["is_template"]):
+        parts.append(f"### Current resume ({doc['file_name']})\n{_clip(doc['raw_text'], CURRENT_DOC_CHARS)}")
 
     seen_kinds = set()
     for doc in tailored:
@@ -117,16 +133,60 @@ def _documents_text(job_id: int | None) -> str:
         )
 
     budget = OLDER_DOCS_TOTAL_CHARS
-    for doc in (d for d in docs if not d["is_template"]):
+    for doc in (d for d in resumes if not d["is_template"]):
         if budget <= 0:
-            parts.append("### (more older documents not shown)")
+            parts.append("### (more older resumes not shown)")
             break
         text = _clip(doc["raw_text"], min(OLDER_DOC_CHARS, budget))
         budget -= len(text)
-        kind = "resume" if doc["kind"] == "resume" else "cover letter"
-        parts.append(f"### Older {kind} ({doc['file_name']}, {doc['effective_date'][:10]})\n{text}")
+        parts.append(f"### Older resume ({doc['file_name']}, {doc['effective_date'][:10]})\n{text}")
+
+    current_letter = next((d for d in letters if d["is_template"]), None)
+    if current_letter is not None:
+        parts.append(
+            "### A sample of how they write: their current cover letter (only some applications needed "
+            "one, and not all are uploaded, so it isn't a guide to what matters most)\n"
+            + _clip(current_letter["raw_text"], COVER_LETTER_SAMPLE_CHARS)
+        )
+    older_letters = len(letters) - (current_letter is not None)
+    if older_letters:
+        parts.append(f"### ({older_letters} older cover letter{'s' if older_letters != 1 else ''} not shown)")
 
     return "\n\n".join(parts) or "(no documents uploaded)"
+
+
+def _top_jobs_text(exclude_job_id: int | None) -> str | None:
+    """The jobs that score highest for them (interest + fit, both High or Med), with the reasons,
+    and where each stands on My Jobs. Jobs they marked Not interested are left out."""
+    with get_db() as conn:
+        rows = conn.execute(
+            f"""SELECT j.id, j.title, j.company, j.location, js.interest_fit, js.candidate_fit,
+                       js.rationale_text, a.status AS application_status
+                FROM jobs j
+                JOIN job_scores js ON js.id = (
+                    SELECT id FROM job_scores WHERE user_id = :uid AND job_id = j.id ORDER BY id DESC LIMIT 1
+                )
+                LEFT JOIN applications a ON a.job_id = j.id AND a.user_id = :uid
+                WHERE {VISIBLE_JOB_SQL}
+                  AND js.interest_fit IN ('High', 'Med') AND js.candidate_fit IN ('High', 'Med')
+                  AND NOT EXISTS (SELECT 1 FROM feedback f WHERE f.user_id = :uid AND f.job_id = j.id
+                                  AND f.interested = 'not_interested')
+                  AND j.id != :exclude
+                ORDER BY js.interest_score + js.candidate_fit_score DESC, j.id DESC
+                LIMIT :limit""",
+            {"uid": current_user_id(), "exclude": exclude_job_id or -1, "limit": TOP_JOBS},
+        ).fetchall()
+    if not rows:
+        return None
+    lines = []
+    for r in rows:
+        status = f"; on My Jobs: {r['application_status']}" if r["application_status"] else ""
+        reason = _clip(HIGHLIGHT.sub(r"\1", r["rationale_text"] or ""), TOP_JOB_REASON_CHARS)
+        lines.append(
+            f"- **{r['title']}** at {r['company']} ({r['location'] or 'location unknown'}): interest "
+            f"{r['interest_fit']}, fit {r['candidate_fit']}{status}\n  Why: {reason}"
+        )
+    return "\n".join(lines)
 
 
 def build_context(job_id: int | None) -> str:
@@ -171,9 +231,19 @@ def build_context(job_id: int | None) -> str:
     )
     sections.append(
         "## Their candidate profile\n"
-        + (get_current_candidate_profile() or "(not built yet -- rely on their documents)")
+        + (get_current_candidate_profile() or "(not built yet -- rely on their resumes)")
     )
-    sections.append("## Their documents\n" + _documents_text(job_id))
+    preference = get_current_preference_profile()
+    if preference:
+        sections.append("## What their marks and applications say they want\n" + preference)
+    top = _top_jobs_text(job_id)
+    if top:
+        sections.append(
+            "## The jobs that score highest for them, and why\n"
+            "What they're best suited to and most want: the qualities these share are worth drawing on.\n"
+            + top
+        )
+    sections.append("## Their resumes (and a writing sample)\n" + _documents_text(job_id))
     if job_id is None:
         # The read-out Jobby gave on My Jobs ("Ask Jobby what's working"), so the general
         # conversation can pick it up when they want to talk it over.
@@ -240,9 +310,7 @@ def _add_message(thread_id: int, role: str, content: str) -> dict:
             "INSERT INTO jobby_messages (thread_id, role, content) VALUES (?, ?, ?)",
             (thread_id, role, content),
         ).lastrowid
-        conn.execute(
-            "UPDATE jobby_threads SET updated_at = datetime('now') WHERE id = ?", (thread_id,)
-        )
+        conn.execute("UPDATE jobby_threads SET updated_at = datetime('now') WHERE id = ?", (thread_id,))
         row = conn.execute(
             "SELECT id, role, content, created_at FROM jobby_messages WHERE id = ?", (message_id,)
         ).fetchone()
@@ -308,13 +376,15 @@ def stream_reply(job_id: int | None, content: str) -> Iterator[dict]:
                     cache_control={"type": "ephemeral"},
                 ) as stream:
                     for event in stream:
-                        if event.type == "content_block_start" and getattr(
-                            event.content_block, "type", None
-                        ) == "server_tool_use":
+                        if (
+                            event.type == "content_block_start"
+                            and getattr(event.content_block, "type", None) == "server_tool_use"
+                        ):
                             yield {"type": "status", "text": "Searching the web..."}
-                        elif event.type == "content_block_delta" and getattr(
-                            event.delta, "type", None
-                        ) == "text_delta":
+                        elif (
+                            event.type == "content_block_delta"
+                            and getattr(event.delta, "type", None) == "text_delta"
+                        ):
                             reply_parts.append(event.delta.text)
                             yield {"type": "delta", "text": event.delta.text}
                     final = stream.get_final_message()

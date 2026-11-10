@@ -73,7 +73,7 @@ def _insert_resume(raw_text, kind="resume", is_template=1, file_name="r.docx"):
 
 
 def _events(resp):
-    return [json.loads(line[len("data: "):]) for line in resp.text.splitlines() if line.startswith("data: ")]
+    return [json.loads(line[len("data: ") :]) for line in resp.text.splitlines() if line.startswith("data: ")]
 
 
 def test_context_includes_job_profile_documents_and_tailored_docs():
@@ -91,15 +91,23 @@ def test_context_includes_job_profile_documents_and_tailored_docs():
             "VALUES (1, ?, 'resume', 'TAILORED TEXT')",
             (job_id,),
         )
-        conn.execute("INSERT INTO candidate_profile (user_id, text, model) "
-        "VALUES (1, 'Matt leads data teams.', 'x')")
+        conn.execute(
+            "INSERT INTO candidate_profile (user_id, text, model) VALUES (1, 'Matt leads data teams.', 'x')"
+        )
     update_settings({"looking_for_notes": "Mission-driven work"})
 
     context = jobby.build_context(job_id)
     for expected in [
-        "Analytics Director", "Nava PBC", "Own the analytics roadmap", "Application status: interview",
-        "Panel on Friday", "Matt leads data teams.", "Mission-driven work", "CURRENT RESUME TEXT",
-        "TAILORED TEXT", "OLD RESUME TEXT",
+        "Analytics Director",
+        "Nava PBC",
+        "Own the analytics roadmap",
+        "Application status: interview",
+        "Panel on Friday",
+        "Matt leads data teams.",
+        "Mission-driven work",
+        "CURRENT RESUME TEXT",
+        "TAILORED TEXT",
+        "OLD RESUME TEXT",
     ]:
         assert expected in context, expected
     # Current documents come before older ones.
@@ -224,9 +232,70 @@ def test_general_chat_sees_jobbys_last_read_on_the_applications():
     from jobhunt.core.settings import update_settings
 
     assert "What you told them about their applications" not in jobby.build_context(None)
-    insights = {"text": "Civic data roles are landing.", "generated_at": "2026-11-02T15:00:00+00:00",
-                "applications": 3, "applied": 3}
+    insights = {
+        "text": "Civic data roles are landing.",
+        "generated_at": "2026-11-02T15:00:00+00:00",
+        "applications": 3,
+        "applied": 3,
+    }
     update_settings({"application_insights": insights})
     context = jobby.build_context(None)
     assert "What you told them about their applications (2026-11-02)" in context
     assert "Civic data roles are landing." in context
+
+
+def test_cover_letters_are_only_a_short_writing_sample():
+    """Cover letters skewed Jobby (asked 2026-11-10): only some applications needed one and only
+    some are uploaded. The current one goes in short, labeled a writing sample, after the resumes;
+    older ones are left out."""
+    _insert_resume("CURRENT RESUME")
+    _insert_resume("OLDER RESUME", is_template=0, file_name="old-resume.docx")
+    _insert_resume("CURRENT LETTER " + "x" * 10_000, kind="cover_letter", file_name="letter.docx")
+    _insert_resume("OLD LETTER ONE", kind="cover_letter", is_template=0, file_name="l1.docx")
+    _insert_resume("OLD LETTER TWO", kind="cover_letter", is_template=0, file_name="l2.docx")
+    context = jobby.build_context(None)
+    assert "CURRENT LETTER" in context and "sample of how they write" in context
+    assert "OLD LETTER" not in context and "2 older cover letters not shown" in context
+    assert context.index("OLDER RESUME") < context.index("CURRENT LETTER")
+    letter = context[context.index("CURRENT LETTER") :]
+    assert len(letter.split("###")[0]) < jobby.COVER_LETTER_SAMPLE_CHARS + 100
+
+
+def _scored_job(title, interest, fit, score, reason="Because ==i:the mission== and ==f:your SQL==."):
+    job_id = _insert_job(title=title, company=f"{title} Co")
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO job_scores (user_id, job_id, model, interest_fit, interest_score, candidate_fit, "
+            "candidate_fit_score, summary_text, rationale_text) VALUES (1, ?, 'x', ?, ?, ?, ?, 's', ?)",
+            (job_id, interest, score, fit, score, reason),
+        )
+    return job_id
+
+
+def test_the_highest_scoring_jobs_and_preferences_are_in_context():
+    """What Jobby should lean on (asked 2026-11-10): the jobs that score highest for them and why,
+    and what their marks say they want."""
+    best = _scored_job("Best Role", "High", "High", 95)
+    _scored_job("Good Role", "Med", "High", 70)
+    _scored_job("Low Fit Role", "High", "Low", 90)
+    dismissed = _scored_job("Dismissed Role", "High", "High", 99)
+    current = _scored_job("Current Role", "High", "High", 98)
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO feedback (user_id, job_id, interested) VALUES (1, ?, 'not_interested')", (dismissed,)
+        )
+        conn.execute(
+            "INSERT INTO applications (user_id, job_id, status) VALUES (1, ?, 'interviewing')", (best,)
+        )
+        conn.execute(
+            "INSERT INTO preference_profile (user_id, text, updated_at) "
+            "VALUES (1, 'Prefers civic tech.', datetime('now'))"
+        )
+    context = jobby.build_context(current)
+    top = context[context.index("score highest for them") : context.index("## Their resumes")]
+    assert top.index("Best Role") < top.index("Good Role")
+    assert "on My Jobs: interviewing" in top
+    assert "Because the mission and your SQL." in top  # highlight markup removed
+    for absent in ["Low Fit Role", "Dismissed Role", "Current Role"]:
+        assert absent not in top, absent
+    assert "Prefers civic tech." in context
