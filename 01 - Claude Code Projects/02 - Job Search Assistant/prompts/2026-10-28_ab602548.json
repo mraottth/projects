@@ -961,8 +961,16 @@
    "time": "2026-11-06T20:08:44.361Z",
    "kind": "prompt",
    "text": "The filters sidebar should show what filters are applied for all filters besides the interest/fit toggles, which are already visible by default",
-   "reply": null,
+   "reply": "The filters sidebar now shows everything that's applied, and it's pushed to the branch.\n\n- **Chips under the \"Filters\" heading:** each active filter gets one, except the Interest and Fit toggles, which already show their state. That covers search text, each organization, source and location, posted date, minimum salary, and the two checkboxes (unscored jobs hidden, dealbreaker jobs shown). Click a chip's × to remove just that filter; \"Clear all\" still removes everything.\n- **Closed dropdowns name what's selected:** \"Recidiviz, Civis Analytics\" instead of \"2 selected\", trimmed with \"…\" if it's long.\n\nI checked it in a browser on a local copy with two organizations, a source, \"Last 7 days\" and a $120k minimum: all five chips showed up, and removing one updated the list. The frontend builds.\n\nThis merges and deploys everything on the branch, including the earlier filtering changes:\n\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com\n```",
    "id": "ab602548-145",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-10T14:03:16.993Z",
+   "kind": "prompt",
+   "text": "An email came through with jobs that were NYC or SF (not remote or anything ambiguous). Can you make sure the location filtering is working as intended for New & Noteworthy and the emails?",
+   "reply": null,
+   "id": "ab602548-146",
    "session": "ab602548"
   }
  ]
