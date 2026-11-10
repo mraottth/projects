@@ -1263,7 +1263,11 @@ with two differences from that project:
   `--cpu-boost` (extra CPU during startup); `litestream.yml`'s `snapshot-interval: 1h` (was 24h,
   so a restore replays at most an hour of changes); the salary backfill off the startup path; and
   the Anthropic SDK imported on first use in `core/llm.py` (it was half of the app's import time:
-  1.26 s down to 0.55 s locally; `tests/test_startup.py` keeps it that way). Caveat: a deploy briefly overlaps old and new servers, and a write
+  1.26 s down to 0.55 s locally; `tests/test_startup.py` keeps it that way).
+  **Warm window (D-030):** `make keep-warm` creates three Cloud Scheduler jobs that `GET
+  /internal/ping` (a no-op) every 10 minutes from 9:30am to 8:30pm Eastern, which keeps the server
+  up (~$26/month); `make keep-warm-off` deletes them. They read the sign-in audience from the
+  `run-daily` job, so `scheduler-setup` must have run. Caveat: a deploy briefly overlaps old and new servers, and a write
   to the old one in those seconds can be lost, so don't use the app mid-deploy. Tested locally
   with the real binary and a `file://` replica: seed, a write right before SIGTERM, restore onto
   an empty disk (all rows back), and the refusal; not yet against GCS from here.

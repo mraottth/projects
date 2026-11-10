@@ -16,3 +16,12 @@ def trigger_run_daily(x_scheduler_secret: str | None = Header(default=None)):
     if expected and x_scheduler_secret != expected:
         raise HTTPException(403, "invalid or missing scheduler secret")
     return run_daily()
+
+
+@router.get("/ping")
+def ping():
+    """Does nothing; Cloud Scheduler calls it every 10 minutes during the warm window (Makefile's
+    keep-warm, asked 2026-11-10), so the server stays up and nobody waits for a cold start. A
+    request keeps a Cloud Run instance up for about 15 minutes. No secret: it reads and writes
+    nothing, and IAP still guards it like every other path."""
+    return {"ok": True}

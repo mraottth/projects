@@ -41,3 +41,10 @@ def test_importing_the_app_does_not_load_the_anthropic_sdk():
     code = "import sys, jobhunt.api.main; print('anthropic' in sys.modules)"
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
     assert out.stdout.strip() == "False"
+
+
+def test_the_keep_warm_ping_answers_without_signing_in_or_touching_data():
+    """Cloud Scheduler calls it every 10 minutes during the warm window (Makefile's keep-warm)."""
+    with TestClient(main.app) as client:
+        resp = client.get("/internal/ping", headers={"X-Dev-User": "nobody@example.com"})
+    assert resp.status_code == 200 and resp.json() == {"ok": True}

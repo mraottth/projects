@@ -1,7 +1,7 @@
 export PYTHONPATH := src
 PY := uv run python -m
 
-.PHONY: serve serve-sandbox reset-sandbox dev frontend test ingest-resumes docker apis-setup bucket-setup deploy iap-setup \
+.PHONY: keep-warm keep-warm-off serve serve-sandbox reset-sandbox dev frontend test ingest-resumes docker apis-setup bucket-setup deploy iap-setup \
         anthropic-secret scheduler-secret email-secret scheduler-setup bucket-protect iap-open iap-close
 
 # Locally there's no IAP: JOBHUNT_DEV_EMAIL stands in as the signed-in person (api/auth.py). It
@@ -205,3 +205,31 @@ scheduler-setup:  ## create/update the daily Cloud Scheduler job (M6) -- also gr
 	       --uri "$$(gcloud run services describe jobhunt --project $(GCP_PROJECT) --region $(GCP_REGION) --format 'value(status.url)')/internal/run-daily" \
 	       --http-method POST --headers "X-Scheduler-Secret=$$(gcloud secrets versions access latest --secret=scheduler-secret --project $(GCP_PROJECT))" \
 	       --schedule "0 14 * * *" --time-zone "America/New_York" --attempt-deadline 1800s --oidc-service-account-email $(SCHEDULER_SA) --oidc-token-audience $(IAP_CLIENT_ID)
+
+# Keep the server warm 9:30am-8:30pm Eastern, every day (asked 2026-11-10, D-030): Cloud Scheduler
+# calls /internal/ping every 10 minutes, and a request keeps a Cloud Run instance up for about
+# 15 minutes, so nobody waits for a cold start in that window. No redeploys (flipping
+# --min-instances twice a day would). About 11 h x $0.08/h (1 vCPU, 2 GiB, CPU always on) = ~$26 a
+# month. One Scheduler job can't start at :30 and stop at :30, hence three. Uses the 2pm job's
+# service account and sign-in audience, so run scheduler-setup first. keep-warm-off removes them.
+WARM_JOBS = keep-warm-1:30-50/10__9__*__*__* keep-warm-2:*/10__10-19__*__*__* keep-warm-3:0-30/10__20__*__*__*
+WARM_AUDIENCE = $(shell gcloud scheduler jobs describe run-daily --project $(GCP_PROJECT) --location $(GCP_REGION) \
+                  --format 'value(httpTarget.oidcToken.audience)' 2>/dev/null)
+
+keep-warm:    ## keep the server warm 9:30am-8:30pm ET (three Cloud Scheduler pings; see above)
+	@test -n "$(WARM_AUDIENCE)" || (echo "keep-warm: no run-daily job found; run make scheduler-setup first" && exit 1)
+	@url=$$(gcloud run services describe jobhunt --project $(GCP_PROJECT) --region $(GCP_REGION) --format 'value(status.url)'); \
+	for job in $(WARM_JOBS); do \
+	  name=$${job%%:*}; schedule=$$(echo "$${job#*:}" | sed 's/__/ /g'); \
+	  verb=create; gcloud scheduler jobs describe $$name --project $(GCP_PROJECT) --location $(GCP_REGION) >/dev/null 2>&1 && verb=update; \
+	  gcloud scheduler jobs $$verb http $$name --project $(GCP_PROJECT) --location $(GCP_REGION) \
+	    --uri "$$url/internal/ping" --http-method GET --schedule "$$schedule" --time-zone "America/New_York" \
+	    --attempt-deadline 60s --oidc-service-account-email $(SCHEDULER_SA) --oidc-token-audience $(WARM_AUDIENCE) \
+	    --quiet >/dev/null && echo "$$name: $$schedule (America/New_York)" || exit 1; \
+	done
+
+keep-warm-off:  ## stop keeping the server warm (deletes the three ping jobs)
+	@for job in $(WARM_JOBS); do name=$${job%%:*}; \
+	  gcloud scheduler jobs delete $$name --project $(GCP_PROJECT) --location $(GCP_REGION) --quiet 2>/dev/null \
+	    && echo "deleted $$name" || echo "$$name wasn't there"; \
+	done
