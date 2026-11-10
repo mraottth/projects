@@ -644,8 +644,9 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     open, instead of a small grey glyph.
   - All Jobs cards show where a job stands on My Jobs (asked 2026-11-10): `GET /api/jobs/ranked`
     joins the person's own `applications` row as `application_status`, and `ScoredJobCard` shows
-    "On My Jobs · Waiting" (the status's `pill-*` colors, linking to `/tracker`) at the card's top
-    right. Marking a job Interested adds "Drafting" at once, and Interested is disabled once tracked.
+    "On My Jobs · Waiting" (the status's `pill-*` colors, linking to `/tracker`) in place of the
+    Interested / Maybe / Not interested buttons, at the owner's ask. Marking a job Interested
+    switches its buttons to "Drafting" at once (`JobActions`' `onTracked`).
   - The sidebar shows what's applied: `AppliedFilters`, under the heading, has one removable chip per
     active filter except the Interest and Fit toggles (search, each organization/source/location,
     posted, minimum salary, hidden unscored jobs, shown dealbreaker jobs), and a closed dropdown

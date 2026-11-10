@@ -241,8 +241,9 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
   font-size: 0.8rem; font-weight: 600; background: #f1f0eb; color: var(--ink-2);
   border: 1px solid var(--ring);
 }
-/* A job card's "On My Jobs · Waiting" (ScoredJobCard): the status pill's colors, linking to My Jobs. */
-.tracked-pill { flex: 0 0 auto; align-self: flex-start; text-decoration: none; white-space: nowrap; }
+/* A job card's "On My Jobs · Waiting" in place of its feedback buttons (ScoredJobCard): the status
+   pill's colors, linking to My Jobs. */
+.tracked-pill { text-decoration: none; white-space: nowrap; font-size: 0.85rem; padding: 5px 12px; }
 .tracked-pill:hover { filter: brightness(0.96); text-decoration: underline; }
 .pill-saved { background: #f1f0eb; color: var(--ink-2); }
 .pill-waiting { background: rgba(42, 120, 214, 0.1); color: var(--accent-ink); }

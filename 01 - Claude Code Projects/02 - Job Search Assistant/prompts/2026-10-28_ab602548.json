@@ -1020,8 +1020,16 @@
    "time": "2026-11-10T14:44:02.558Z",
    "kind": "prompt",
    "text": "if I've already added a job to My Jobs, can you show the status on the job's card in All Jobs?",
-   "reply": null,
+   "reply": "All Jobs cards now show a job's status on My Jobs, and it's pushed to the branch.\n\n- **The status pill:** a job that's on My Jobs shows a pill at the top right of its card, e.g. \"On My Jobs · Waiting\", in the same color as its status on My Jobs. Click it to open My Jobs.\n- **Marking a job Interested** on All Jobs shows \"On My Jobs · Drafting\" straight away.\n- **Interested is disabled** once a job is on My Jobs, since it's already there.\n- **Only your own status shows.** Someone else tracking the same job doesn't show on your list; a test checks this.\n\nI checked it in a browser on a local copy with sample data: tracked jobs showed their statuses, and clicking Interested added the pill immediately. All 504 tests pass.\n\nThe earlier question about big sources like Anthropic is still open: say if you want unrelated backlog jobs to stop using leftover scoring slots.\n\nThis deploys this change along with the warm-window ping, the location fixes and the rest:\n\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com\n```\n\nIf you haven't switched on the warm window yet, run this once after the deploy:\n\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && make keep-warm\n```",
    "id": "ab602548-153",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-10T14:47:54.136Z",
+   "kind": "prompt",
+   "text": "I think the pill should replace the Interested / Maybe / Not Interested pills if it's already on My Jobs",
+   "reply": null,
+   "id": "ab602548-154",
    "session": "ab602548"
   }
  ]

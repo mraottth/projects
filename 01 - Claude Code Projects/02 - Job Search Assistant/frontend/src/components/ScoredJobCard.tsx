@@ -111,12 +111,10 @@ export function JobActions({
   job,
   onDismissed,
   onTracked,
-  alreadyTracked = false,
 }: {
   job: ScoredJob;
   onDismissed?: () => void;
   onTracked?: () => void;
-  alreadyTracked?: boolean;
 }) {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [tracked, setTracked] = useState(false);
@@ -150,9 +148,8 @@ export function JobActions({
     <div className="card-section form-actions">
       <button
         className="ghost small"
-        disabled={busy || feedback === "interested" || alreadyTracked}
+        disabled={busy || feedback === "interested"}
         onClick={() => sendFeedback("interested")}
-        title={alreadyTracked ? "Already on My Jobs" : undefined}
       >
         Interested
       </button>
@@ -265,15 +262,6 @@ export function ScoredJobCard({
             </div>
           </div>
         </div>
-        {status && (
-          <Link
-            to="/tracker"
-            className={`pill pill-${status} tracked-pill`}
-            title="This job is on My Jobs"
-          >
-            On My Jobs · {APPLICATION_STATUS_LABELS[status]}
-          </Link>
-        )}
       </div>
 
       {job.summary_text && <p>{job.summary_text}</p>}
@@ -288,12 +276,17 @@ export function ScoredJobCard({
         <RationaleBlock text={job.rationale_text} className={rationaleClass(job.interest_fit, job.candidate_fit)} />
       )}
 
-      <JobActions
-        job={job}
-        onDismissed={onDismissed}
-        alreadyTracked={!!status}
-        onTracked={() => setStatus((s) => s ?? "saved")}
-      />
+      {/* On My Jobs already: its status there replaces the Interested / Maybe / Not interested
+          buttons (asked 2026-11-10). Marking it Interested here switches to "Drafting". */}
+      {status ? (
+        <div className="card-section form-actions">
+          <Link to="/tracker" className={`pill pill-${status} tracked-pill`} title="Open My Jobs">
+            On My Jobs · {APPLICATION_STATUS_LABELS[status]}
+          </Link>
+        </div>
+      ) : (
+        <JobActions job={job} onDismissed={onDismissed} onTracked={() => setStatus("saved")} />
+      )}
     </div>
   );
 }
