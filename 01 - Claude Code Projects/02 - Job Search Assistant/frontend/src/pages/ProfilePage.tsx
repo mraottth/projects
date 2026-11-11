@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { JobLink } from "../components/JobLink";
 import { api, GeneratedDocWithJob, ResumeSummary } from "../api";
 import { CandidateProfileCard } from "../components/CandidateProfileCard";
 import { DesiredRoleForm } from "../components/DesiredRoleForm";
@@ -270,9 +270,9 @@ function GeneratedDocumentsSection() {
               <tr key={d.id}>
                 <td>{d.kind === "resume" ? "Resume" : "Cover letter"}</td>
                 <td>
-                  <Link to={`/jobs/${d.job_id}`}>
+                  <JobLink jobId={d.job_id}>
                     {d.job_title} — {d.job_company}
-                  </Link>
+                  </JobLink>
                 </td>
                 <td>{d.created_at}</td>
                 <td>

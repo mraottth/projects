@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { JobLink } from "./JobLink";
 import { api, ApiError, APPLICATION_STATUS_LABELS, ApplicationStatus, ScoredJob } from "../api";
 import { Markdown } from "./Markdown";
 
@@ -229,9 +230,9 @@ export function ScoredJobCard({
           <CompanyLogo company={job.company} />
           <div>
             <div className="card-title">
-              <Link to={`/jobs/${job.id}`}>
+              <JobLink jobId={job.id}>
                 {job.title} — {job.company}
-              </Link>
+              </JobLink>
             </div>
             <div className="meta-chips">
               <FilterChip

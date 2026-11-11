@@ -675,6 +675,16 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   away... your data is safe" with Reload, fixed at the bottom. Back on the tab after 5+ minutes
   hidden, it checks `/api/me` at once, so the banner can show before a page comes up empty.
 - **Settings is a gear icon** (`.settings-gear`, right end of the top bar), not a nav tab.
+- **A job opens in a card over its list** (asked 2026-11-10; `components/JobLink.tsx`,
+  `components/JobModal.tsx`). Every link to a job (New & Noteworthy, All Jobs, My Jobs, Jobby,
+  Profile's generated documents) is a `JobLink`: it goes to `/jobs/<id>` with the page it came from
+  as `state.background`. `App.tsx` renders its routes at `background ?? location`, so the list stays
+  mounted underneath (filters, sort, scroll, loaded data), plus a second `<Routes>` that shows
+  `JobModal` (a native `<dialog>` holding `JobDetailPage jobId=`). Back, Esc, × and a click on the
+  backdrop all go `navigate(-1)`. A direct load or reload of `/jobs/<id>` (an email link) has no
+  background and shows the full page, as before. Chosen over a Back button on the page, which would
+  have reloaded the list and lost its scroll. Don't give the dialog `position: relative`: it reset
+  the page's scroll position behind it when opened.
 - **About** (`pages/AboutPage.tsx`, route `/about`, an "About" link at the right of the top bar
   before Admin and the gear; asked 2026-11-04): what the project is, how the daily pipeline works,
   a "Getting started" guide linking each page, costs and limits (the person's own daily cap and

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { JobLink } from "../components/JobLink";
 import {
   api,
   Application,
@@ -626,7 +627,7 @@ export default function JobbyPage() {
                   {job ? (
                     <>
                       <div className="card-title">
-                        <Link to={`/jobs/${job.id}`}>{job.title}</Link>
+                        <JobLink jobId={job.id}>{job.title}</JobLink>
                       </div>
                       <div className="muted small">{job.company}</div>
                     </>

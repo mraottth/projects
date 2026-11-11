@@ -1,6 +1,7 @@
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { JobLink } from "../components/JobLink";
 import {
   api,
   Application,
@@ -716,7 +717,7 @@ export default function MyJobsPage() {
                 {sorted.map((app) => (
                   <tr key={app.id}>
                     <td className="col-title">
-                      <Link to={`/jobs/${app.job_id}`}>{app.title}</Link>
+                      <JobLink jobId={app.job_id}>{app.title}</JobLink>
                       {(app.interest_fit || app.candidate_fit) && (
                         <div className="title-badges">
                           <FitBadge label="Interest" value={app.interest_fit} />

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from "react";
-import { Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
+import { type Location, Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { api, type Me } from "./api";
 import { JobbyLogo } from "./components/JobbyLogo";
 import { Spinner } from "./components/Spinner";
@@ -15,6 +15,7 @@ import SettingsPage from "./pages/SettingsPage";
 import AccessPage from "./pages/AccessPage";
 import AdminPage from "./pages/AdminPage";
 import { MeContext } from "./me";
+import { JobModal } from "./components/JobModal";
 import { SessionExpiredBanner } from "./components/SessionExpiredBanner";
 
 // Carries ~220 KB of prompts and commits, so it's only loaded when visited.
@@ -45,6 +46,7 @@ function GearIcon() {
 // prose-friendly max-width doesn't give them.
 const WIDE_ROUTES = ["/", "/all-jobs", "/tracker", "/jobby", "/sources", "/changelog", "/admin", "/profile"];
 
+// A job opened from a list shows as a card over it (JobLink, JobModal); the list stays underneath.
 function AppMain({
   needsOnboarding,
   onOnboardingDone,
@@ -55,14 +57,16 @@ function AppMain({
   isAdmin: boolean;
 }) {
   const location = useLocation();
-  const wide = WIDE_ROUTES.includes(location.pathname);
+  const background = (location.state as { background?: Location } | null)?.background;
+  const shown = background ?? location;
+  const wide = WIDE_ROUTES.includes(shown.pathname);
   if (needsOnboarding && location.pathname !== "/onboarding") {
     return <Navigate to="/onboarding" replace />;
   }
   return (
     // My Jobs' table gets a little more room still, so most job titles fit on one line.
-    <main className={`app-main${wide ? " wide" : ""}${location.pathname === "/tracker" ? " extra-wide" : ""}`}>
-      <Routes>
+    <main className={`app-main${wide ? " wide" : ""}${shown.pathname === "/tracker" ? " extra-wide" : ""}`}>
+      <Routes location={shown}>
         <Route path="/onboarding" element={<OnboardingPage onDone={onOnboardingDone} />} />
         <Route path="/" element={<DigestPage />} />
         <Route path="/jobs/:id" element={<JobDetailPage />} />
@@ -90,6 +94,11 @@ function AppMain({
           }
         />
       </Routes>
+      {background && (
+        <Routes>
+          <Route path="/jobs/:id" element={<JobModal />} />
+        </Routes>
+      )}
     </main>
   );
 }

@@ -26,9 +26,10 @@ function FitBadge({ label, value }: { label: string; value: string | null }) {
   );
 }
 
-export default function JobDetailPage() {
+// A page at /jobs/<id>, or (given `jobId`) the card JobModal shows over the list it was opened from.
+export default function JobDetailPage({ jobId: shownId }: { jobId?: number } = {}) {
   const { id } = useParams();
-  const jobId = Number(id);
+  const jobId = shownId ?? Number(id);
 
   const [job, setJob] = useState<JobWithScores | null>(null);
   const [application, setApplication] = useState<Application | null>(null);
