@@ -95,7 +95,8 @@ const timeAgo = (iso: string) => {
   return `${days} day${days === 1 ? "" : "s"} ago`;
 };
 
-const chatTitle = (c: JobbyChatSummary) => c.title || (c.job_title ? c.job_title : "New chat");
+// A general chat from before titles existed is titled on its next message; until then, "General chat".
+const chatTitle = (c: JobbyChatSummary) => c.title || c.job_title || "General chat";
 
 /** The left tray: every chat, newest first, to reopen or delete (asked 2026-11-10). */
 function ChatHistory({
