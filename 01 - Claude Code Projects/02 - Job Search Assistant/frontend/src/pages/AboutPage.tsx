@@ -4,6 +4,7 @@ import { request } from "../api";
 import { type Milestone, MilestoneTimeline } from "../components/MilestoneTimeline";
 import { Spinner } from "../components/Spinner";
 import { useMe } from "../me";
+import { TOUR_EVENT } from "../components/Tour";
 import { PrivacyNote } from "./AccessPage";
 
 /**
@@ -99,7 +100,13 @@ export default function AboutPage() {
       </p>
 
       <div className="card">
-        <h2>Getting started</h2>
+        <div className="about-guide-head">
+          <h2>Getting started</h2>
+          {/* The guided tour of the tabs (Tour.tsx), any time. */}
+          <button className="ghost small" onClick={() => window.dispatchEvent(new Event(TOUR_EVENT))}>
+            Take the tour
+          </button>
+        </div>
         <ol className="about-guide">
           {GUIDE.map((step) => (
             <li key={step.title}>

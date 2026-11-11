@@ -684,6 +684,15 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     serves the `.md` only if that fails.
   - Profile's "My documents" shows a hint under a current document that isn't a `.docx`
     (`.doc-hint`), saying the Word version gets edits in their own layout.
+- **Guided tour** (`components/Tour.tsx`, asked 2026-11-11, first for the demo, then for new users):
+  one step per tab, in nav order (the gear last). Each opens its page and points a short note at its
+  tab (found by the nav links' `data-path`), with Back / Next / End tour. It follows a tab clicked
+  mid-tour, ends on Esc, becomes a bottom sheet under 760px, and never covers the page. In the app it
+  runs once after onboarding: finishing or skipping onboarding sets the person's `tour_pending`
+  setting, the tour starts when they're next on New & Noteworthy (not during the first run's progress
+  screen, which comes after setup is marked done), and ending it clears the flag. People set up
+  before it existed never have the flag. About's "Getting started" card has "Take the tour"
+  (`TOUR_EVENT`, also the demo bar's button). Wording differs by build (`DEMO_STEPS`/`APP_STEPS`).
 - **Settings is a gear icon** (`.settings-gear`, right end of the top bar), not a nav tab.
 - **A job opens in a card over its list** (asked 2026-11-10; `components/JobLink.tsx`,
   `components/JobModal.tsx`). Every link to a job (New & Noteworthy, All Jobs, My Jobs, Jobby,
@@ -1289,12 +1298,8 @@ no Claude calls, nothing from `data/`.
 - **Read-only UI:** `DEMO &&`/`!DEMO &&` hide Jobby's message box, starters, "Ask about this", new
   chat and delete; "+ Add more", "Add a source manually" and "Check my sources now"; "Add a job"; and
   upload buttons. Everything else stays visible and is refused with the toast.
-- **Guided tour** (`components/DemoTour.tsx`, asked 2026-11-11): one step per tab, in nav order (the
-  gear last). Each opens its page and points a short note at its tab (found by the nav links'
-  `data-path`), with Back / Next / End tour. It starts on a first visit to the demo's home
-  (`localStorage` `jsa-demo-tour-done`), restarts from the bar's "Take the tour"
-  (`DEMO_TOUR_EVENT`), follows a tab clicked mid-tour, and ends on Esc. Under 760px it's a bottom
-  sheet. It doesn't cover the page, so visitors can still click around.
+- **Guided tour:** the same one the app has (see "Guided tour" above), started on a first visit to the
+  demo's home and remembered in `localStorage` (`jsa-demo-tour-done`), with Jordan-specific wording.
 - **Sticky header:** `App.tsx`'s `AppHead` wraps the top bar (and the demo bar) in one sticky
   `.app-head` and writes its height to `--head-h`. The filter sidebar, My Jobs' table header and
   toolbar (`useStickyOffsets`), "My documents" and Jobby's history sit under it. The demo bar keeps to

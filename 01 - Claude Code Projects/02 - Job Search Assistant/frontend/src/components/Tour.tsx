@@ -1,14 +1,21 @@
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { api } from "../api";
+import { DEMO } from "../demo";
 
 /**
- * The public demo's guided tour (asked 2026-11-11): one step per tab, each opening that page with a
- * short note under its tab about what it's for. It starts on a first visit to the demo's home page,
- * can be restarted from the demo bar ("Take the tour", DEMO_TOUR_EVENT), and never blocks the page:
- * clicking a tab mid-tour jumps to that tab's step. Only mounted in the demo build (App.tsx).
+ * The guided tour (asked 2026-11-11): one step per tab, each opening that page with a short note
+ * under its tab about what it's for. It never blocks the page: clicking a tab mid-tour jumps to that
+ * tab's step. "Take the tour" (the demo bar, the About page) restarts it via TOUR_EVENT.
+ *
+ * When it starts on its own differs by build:
+ * - the demo: a first visit to its home page, remembered in localStorage;
+ * - the app: once after onboarding. Finishing or skipping onboarding sets the person's `tour_pending`
+ *   setting, and ending the tour clears it, so it doesn't come back on another device. People set up
+ *   before the tour existed never have the flag.
  */
 
-export const DEMO_TOUR_EVENT = "jobhunt:demo-tour";
+export const TOUR_EVENT = "jobhunt:tour";
 const DONE_KEY = "jsa-demo-tour-done";
 
 interface Step {
@@ -19,7 +26,7 @@ interface Step {
   body: string;
 }
 
-const STEPS: Step[] = [
+const DEMO_STEPS: Step[] = [
   {
     path: "/",
     selector: '.topbar nav a[data-path="/"]',
@@ -64,6 +71,17 @@ const STEPS: Step[] = [
   },
 ];
 
+// The same tabs for a real person, about their own data.
+const APP_STEPS: Step[] = DEMO_STEPS.map((step) =>
+  step.path === "/jobby"
+    ? {
+        ...step,
+        body: "An assistant that knows your background and the jobs you like. Start a chat about your search, or prep for a job on My Jobs: mock interviews, likely questions, strategy.",
+      }
+    : step,
+);
+const STEPS = DEMO ? DEMO_STEPS : APP_STEPS;
+
 function readDone(): boolean {
   try {
     return window.localStorage.getItem(DONE_KEY) === "1";
@@ -73,6 +91,10 @@ function readDone(): boolean {
 }
 
 function markDone() {
+  if (!DEMO) {
+    api.putSettings({ tour_pending: false }).catch(() => undefined);
+    return;
+  }
   try {
     window.localStorage.setItem(DONE_KEY, "1");
   } catch {
@@ -90,11 +112,13 @@ interface Place {
 const POPOVER_WIDTH = 340;
 const PHONE = 760;
 
-export function DemoTour() {
+export function Tour() {
   const location = useLocation();
   const navigate = useNavigate();
   // The step showing, or null when the tour isn't running.
-  const [step, setStep] = useState<number | null>(() => (location.pathname === "/" && !readDone() ? 0 : null));
+  const [step, setStep] = useState<number | null>(() =>
+    DEMO && location.pathname === "/" && !readDone() ? 0 : null,
+  );
   const [place, setPlace] = useState<Place | null>(null);
   const [phone, setPhone] = useState(() => window.innerWidth < PHONE);
 
@@ -110,11 +134,35 @@ export function DemoTour() {
     setStep(null);
   }, []);
 
-  // "Take the tour" in the demo bar.
+  // The app: start once if onboarding just ended (the person's tour_pending setting), but only on New
+  // & Noteworthy. Onboarding's last step marks setup done before its first job search finishes, and
+  // the tour mustn't pull them off that progress screen.
+  const [pending, setPending] = useState(false);
+  useEffect(() => {
+    if (DEMO) return;
+    let cancelled = false;
+    api
+      .getSettings()
+      .then((s) => {
+        if (!cancelled && s.tour_pending) setPending(true);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  useEffect(() => {
+    if (pending && location.pathname === "/") {
+      setPending(false);
+      setStep(0);
+    }
+  }, [pending, location.pathname]);
+
+  // "Take the tour" (the demo bar, the About page).
   useEffect(() => {
     const start = () => go(0);
-    window.addEventListener(DEMO_TOUR_EVENT, start);
-    return () => window.removeEventListener(DEMO_TOUR_EVENT, start);
+    window.addEventListener(TOUR_EVENT, start);
+    return () => window.removeEventListener(TOUR_EVENT, start);
   }, [go]);
 
   // A tab clicked mid-tour: follow it to that tab's step rather than fighting the visitor.
@@ -179,8 +227,14 @@ export function DemoTour() {
       <p>{s.body}</p>
       {last && (
         <p className="demo-tour-end">
-          That's the tour. Look around as much as you like, or{" "}
-          <a href={`${import.meta.env.BASE_URL}../job-search/`}>go back to the welcome page</a>.
+          {DEMO ? (
+            <>
+              That's the tour. Look around as much as you like, or{" "}
+              <a href={`${import.meta.env.BASE_URL}../job-search/`}>go back to the welcome page</a>.
+            </>
+          ) : (
+            "That's the tour. You can take it again any time from the About page."
+          )}
         </p>
       )}
       <div className="demo-tour-actions">

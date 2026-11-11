@@ -158,3 +158,17 @@ def test_other_bad_requests_keep_the_raw_error(monkeypatch):
     assert resp.status_code == 502
     assert "max_tokens too large" in resp.json()["detail"]
     assert "out of credits" not in resp.json()["detail"]
+
+
+def test_the_tour_flag_round_trips_per_person():
+    # Onboarding sets tour_pending; the guided tour (frontend Tour.tsx) clears it when it ends.
+    from fastapi.testclient import TestClient
+
+    from jobhunt.api.main import app
+
+    with TestClient(app) as client:
+        assert client.get("/api/settings").json().get("tour_pending") is None  # set up before the tour
+        client.put("/api/settings", json={"onboarding_completed": True, "tour_pending": True})
+        assert client.get("/api/settings").json()["tour_pending"] is True
+        client.put("/api/settings", json={"tour_pending": False})
+        assert client.get("/api/settings").json()["tour_pending"] is False

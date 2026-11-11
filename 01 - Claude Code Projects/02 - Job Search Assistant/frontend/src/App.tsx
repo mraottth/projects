@@ -18,7 +18,7 @@ import { MeContext } from "./me";
 import { JobModal } from "./components/JobModal";
 import { SessionExpiredBanner } from "./components/SessionExpiredBanner";
 import { DemoBanner } from "./components/DemoBanner";
-import { DemoTour } from "./components/DemoTour";
+import { Tour } from "./components/Tour";
 import { DEMO } from "./demo";
 
 // Carries ~220 KB of prompts and commits, so it's only loaded when visited.
@@ -228,7 +228,8 @@ export default function App() {
       </header>
       {DEMO && <DemoBanner />}
       </AppHead>
-      {DEMO && needsOnboarding === false && <DemoTour />}
+      {/* The guided tour: on a first demo visit, or once after onboarding in the app (Tour.tsx). */}
+      {needsOnboarding === false && <Tour />}
       {needsOnboarding !== null && (
         <AppMain
           needsOnboarding={needsOnboarding}

@@ -294,7 +294,8 @@ function FinishStep({ onDone }: { onDone: () => void }) {
     started.current = true;
     (async () => {
       try {
-        await api.putSettings({ onboarding_completed: true, onboarding_step: "finish" });
+        // tour_pending: the guided tour of the tabs runs once on New & Noteworthy (Tour.tsx).
+        await api.putSettings({ onboarding_completed: true, onboarding_step: "finish", tour_pending: true });
         onDone();
       } catch (e) {
         setError(errorText(e));
@@ -381,7 +382,7 @@ export default function OnboardingPage({ onDone }: { onDone: () => void }) {
   const back = () => goTo(STEPS[index - 1].key);
 
   const skipSetup = async () => {
-    await api.putSettings({ onboarding_completed: true }).catch(() => undefined);
+    await api.putSettings({ onboarding_completed: true, tour_pending: true }).catch(() => undefined);
     onDone();
     navigate("/", { replace: true });
   };

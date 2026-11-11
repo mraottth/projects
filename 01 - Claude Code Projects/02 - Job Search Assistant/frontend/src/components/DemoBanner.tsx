@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { DEMO_READONLY_EVENT, DEMO_READONLY_MESSAGE } from "../demo";
-import { DEMO_TOUR_EVENT } from "./DemoTour";
+import { TOUR_EVENT } from "./Tour";
 
 // Where "Request access" goes: the real app, set at build time (the GitHub workflow passes the repo
 // variable JSA_APP_URL). Without it the banner just says what the demo is.
@@ -34,7 +34,7 @@ export function DemoBanner() {
           A fictional job seeker's search. Look around freely; nothing can be changed.
         </span>
         <span className="demo-banner-links">
-          <button className="demo-banner-tour" onClick={() => window.dispatchEvent(new Event(DEMO_TOUR_EVENT))}>
+          <button className="demo-banner-tour" onClick={() => window.dispatchEvent(new Event(TOUR_EVENT))}>
             Take the tour
           </button>
           {APP_URL && (

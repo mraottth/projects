@@ -318,6 +318,8 @@ export interface Settings {
   looking_for_notes: string;
   onboarding_completed: boolean;
   onboarding_step: OnboardingStep;
+  // Set when someone finishes or skips onboarding; the guided tour (Tour.tsx) runs once, then clears it.
+  tour_pending?: boolean;
 }
 
 export type OnboardingStep =

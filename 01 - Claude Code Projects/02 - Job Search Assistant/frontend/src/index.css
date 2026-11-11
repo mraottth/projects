@@ -962,4 +962,5 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 .demo-tour-ring { position: fixed; z-index: 55; border-radius: 999px; pointer-events: none;
   box-shadow: 0 0 0 3px var(--accent), 0 0 0 7px color-mix(in srgb, var(--accent) 25%, transparent); }
 .demo-tour.sheet { left: 12px; right: 12px; bottom: 12px; top: auto; width: auto; }
-
+.about-guide-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px; }
+.about-guide-head h2 { margin: 0; }

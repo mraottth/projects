@@ -1233,8 +1233,34 @@
    "time": "2026-11-11T19:24:48.833Z",
    "kind": "answer",
    "text": "\"Which headline should replace \"Your job search, read and ranked for you every day.\" on the welcome page?\"=\"Find the best jobs, track applications, and prep for interviews\".",
-   "reply": null,
+   "reply": "The tour, the sticky demo bar and the welcome-page wording are all done and pushed to `claude/move-job-search-assistant`. They go live when you merge to main.\n\n**Guided tour**\n- **What it does:** a first-time visitor to the demo gets a 7-step walk through the tabs: New & Noteworthy, All Jobs, My Jobs, Jobby, Manage Sources, Profile, then Settings. Each step opens that page and shows a short note under its tab about what the page is for, with Back, Next and End tour.\n- **Last step:** it offers a link back to the welcome page.\n- **Behavior:**\n  - It runs once per browser, and \"Take the tour\" in the demo bar starts it again.\n  - Clicking a tab mid-tour jumps to that tab's step, and Esc ends it.\n  - It never covers the page, so people can click around while it's open.\n  - On a phone the note sits at the bottom of the screen instead of under the tab.\n\n**Demo bar**\n- It now stays at the top while you scroll, along with the nav.\n- It has a prominent blue \"← Back to the welcome page\" button (\"← Back\" on a phone).\n- It keeps to one line so it doesn't take up much of the screen. The filter sidebar and My Jobs' table header now sit below the bar instead of sliding under it.\n\n**Welcome page**\n- **Headline:** \"Find the best jobs, track applications, and prep for interviews\".\n- **Tailored resumes card:** \"Your resume, edited for each job with suggestions, so every change is yours to accept or reject.\"\n- **Jobby card:** retitled \"Jobby, your job search assistant\", with \"An assistant that knows your background and can help with your job search and interview prep.\"\n- **Tracker card:** \"Every application from draft to offer, with insights about how your search is going and what's working.\"\n\n**Checked in a browser:**\n- All 7 steps open the right page with the note under the right tab, and Back, End, restarting, a mid-tour tab click and Esc all behave.\n- After scrolling 1,500px the bars are still at the top, nothing is hidden under them, and the home button reaches the welcome page.\n- On a phone there's no sideways scrolling.\n- The real app has no tour or demo bar, and its header still sticks as before.\n- All 517 tests pass.\n\nThe steps from last time still apply: the `JSA_APP_URL` repo variable, Pages set to \"GitHub Actions\", then merge. My offer to remove the project number from this branch's history before you merge still stands.",
    "id": "ab602548-175",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-11T19:38:25.598Z",
+   "kind": "prompt",
+   "text": "the guided tour looks great! I forget, do we have that as part of the new user experience on the production app?",
+   "reply": null,
+   "asked": [
+    {
+     "question": "Should new users on the real app get the guided tour too?",
+     "options": [
+      "Yes, right after onboarding (Recommended)",
+      "Only from a link",
+      "Not now"
+     ]
+    }
+   ],
+   "id": "ab602548-176",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-11T19:39:18.201Z",
+   "kind": "answer",
+   "text": "\"Should new users on the real app get the guided tour too?\"=\"Yes, right after onboarding (Recommended)\".",
+   "reply": null,
+   "id": "ab602548-177",
    "session": "ab602548"
   }
  ]
