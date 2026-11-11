@@ -43,6 +43,8 @@ A web app that finds postings at the organizations and job boards you choose, ha
 * **Jobby:** an interview-prep chat that knows the posting, your documents and your profile.
 * **Engineering:** FastAPI + SQLite (streamed to Cloud Storage by Litestream) and React/TypeScript on Google Cloud Run, behind Identity-Aware Proxy with admin approval and per-person data isolation. Prompt caching keeps a score to about a cent.
 
+[![Job Search Assistant welcome page](01%20-%20Claude%20Code%20Projects/02%20-%20Job%20Search%20Assistant/docs/screenshot-home.png)](https://mraottth.github.io/projects/job-search/)
+
 **Filetree:**
 ```
 ├── src/jobhunt/

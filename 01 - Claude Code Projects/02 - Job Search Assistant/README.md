@@ -24,6 +24,8 @@ welcome page with a read-only demo (fictional data, no sign-in) and the way to r
 `make demo`). See
 [`CLAUDE.md`](CLAUDE.md) for architecture, commands and deployment.
 
+[![Job Search Assistant welcome page](docs/screenshot-home.png)](https://mraottth.github.io/projects/job-search/)
+
 **Filetree:**
 ```
 ├── src/jobhunt/
