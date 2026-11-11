@@ -73,7 +73,10 @@ LITESTREAM_ENV = JOBHUNT_DB_PATH=/tmp/db/jobhunt.db,JOBHUNT_SEED_DB=/data/jobhun
 # IAP's signed sign-in token against (api/auth.py); if it's ever wrong, every page says so, naming
 # the audience the token carried, so it can be fixed with `make deploy IAP_AUDIENCE=...`.
 ADMIN_EMAIL ?= $(EMAIL_ADDRESS)
-PROJECT_NUMBER = $$(gcloud projects describe $(GCP_PROJECT) --format='value(projectNumber)')
+# Looked up once per make run, only by targets that use it. It once came back empty, and that deploy
+# set IAP_AUDIENCE to "/projects//locations/...", so the app refused every sign-in (2026-11-11);
+# deploy now stops instead.
+PROJECT_NUMBER = $(eval PROJECT_NUMBER := $(shell gcloud projects describe $(GCP_PROJECT) --format='value(projectNumber)' 2>/dev/null))$(PROJECT_NUMBER)
 IAP_AUDIENCE ?= /projects/$(PROJECT_NUMBER)/locations/$(GCP_REGION)/services/jobhunt
 AUTH_ENV = JOBHUNT_ADMIN_EMAIL=$(ADMIN_EMAIL),IAP_AUDIENCE=$(IAP_AUDIENCE),APP_URL=$(SERVICE_URL)
 
@@ -117,6 +120,9 @@ bucket-protect:  ## once: make sure the data bucket keeps deleted/overwritten fi
 # comes up sooner; it bills only for those seconds.
 deploy:       ## Timeline data, then build the image in Cloud Build and deploy to Cloud Run, locked behind IAP
 	@test -n "$(ADMIN_EMAIL)" || (echo "set ADMIN_EMAIL=you@gmail.com (the Google account you sign in with)" && exit 1)
+	@echo "$(IAP_AUDIENCE)" | grep -Eq '^/projects/[0-9]+/locations/[^/]+/services/[^/]+$$' \
+	  || (echo "Stopped: couldn't work out the sign-in audience (got '$(IAP_AUDIENCE)'). gcloud projects describe $(GCP_PROJECT) gave no project number; check gcloud auth list, or pass IAP_AUDIENCE=/projects/NUMBER/locations/$(GCP_REGION)/services/jobhunt" && exit 1)
+	@echo "Sign-in audience: $(IAP_AUDIENCE)"
 	@echo "Daily email: $(if $(EMAIL_SENDER),on$(comma) sent from $(EMAIL_SENDER),OFF -- no gmail-app-password secret yet; run make email-secret once$(comma) then deploy again)"
 	python3 scripts/build_changelog.py
 	gcloud builds submit --project $(GCP_PROJECT) --region $(GCP_REGION) --tag $(IMAGE) .
