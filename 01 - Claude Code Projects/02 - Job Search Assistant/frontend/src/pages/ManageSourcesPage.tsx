@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { DEMO } from "../demo";
 import { api, RunProgress, runProgressText, Source, SourceKind } from "../api";
 import { DiscoverCompaniesSection, DiscoverJobBoardsSection, DiscoverySeed } from "../components/Discovery";
 import { Modal } from "../components/Modal";
@@ -486,9 +487,11 @@ function SourcePanel({
           </h2>
           <p className="muted small">{blurb}</p>
         </div>
-        <button className="primary" onClick={onAddMore}>
-          + Add more
-        </button>
+        {!DEMO && (
+          <button className="primary" onClick={onAddMore}>
+            + Add more
+          </button>
+        )}
       </div>
       {sources.length > 0 && (
         <input
@@ -632,8 +635,10 @@ export default function ManageSourcesPage() {
         onAdded={refresh}
       />
 
-      <AddSourceForm onAdded={() => refresh()} />
+      {/* The demo is read-only (demo.ts): nothing to add or run. */}
+      {!DEMO && <AddSourceForm onAdded={() => refresh()} />}
 
+      {!DEMO && (
       <div className="card">
         {/* The admin's run is everyone's (like the scheduled one); anyone else's is just their own. */}
         <h2>{isAdmin ? "Check every source now" : "Check my sources now"}</h2>
@@ -651,6 +656,7 @@ export default function ManageSourcesPage() {
           </p>
         )}
       </div>
+      )}
     </div>
   );
 }

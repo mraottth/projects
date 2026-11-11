@@ -1,3 +1,4 @@
+import { DEMO } from "../demo";
 import { useEffect, useRef, useState } from "react";
 import { JobLink } from "../components/JobLink";
 import { api, GeneratedDocWithJob, ResumeSummary } from "../api";
@@ -98,7 +99,7 @@ function CurrentDoc({
             Download
           </a>
         )}
-        <UploadButton label={doc ? "Replace" : "Upload"} onFile={upload} busy={busy} />
+        {!DEMO && <UploadButton label={doc ? "Replace" : "Upload"} onFile={upload} busy={busy} />}
       </div>
     </div>
   );
@@ -199,7 +200,7 @@ function OlderDocs({
               <option value="resume">Resume</option>
               <option value="cover_letter">Cover letter</option>
             </select>
-            <UploadButton label="Add an older one" onFile={upload} busy={busy} />
+            {!DEMO && <UploadButton label="Add an older one" onFile={upload} busy={busy} />}
           </div>
         </>
       )}

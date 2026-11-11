@@ -48,3 +48,5 @@ ignore = ["B008"]  # FastAPI's File(...)/Form(...)/Depends(...) defaults are the
 # Timeline/prompt-log tooling ported from Shelf Life as-is (same file, kept in sync on purpose) --
 # not held to this repo's line length so the two copies don't drift from re-wrapping alone.
 "scripts/*.py" = ["E501"]
+# The demo's fictional prose (asked 2026-11-11): written as paragraphs, not wrapped to fit.
+"demo/content.py" = ["E501"]

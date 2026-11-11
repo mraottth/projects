@@ -1,6 +1,7 @@
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { DEMO } from "../demo";
 import { JobLink } from "../components/JobLink";
 import {
   api,
@@ -624,9 +625,9 @@ export default function MyJobsPage() {
         through offer.
       </p>
 
-      <div className={`myjobs-top${apps.length > 0 ? "" : " single"}`}>
+      <div className={`myjobs-top${apps.length > 0 && !DEMO ? "" : " single"}`}>
         {apps.length > 0 && <Insights apps={apps} />}
-        <AddJobForm onAdded={(job) => setPending((p) => [...p, job])} />
+        {!DEMO && <AddJobForm onAdded={(job) => setPending((p) => [...p, job])} />}
       </div>
 
       {pending.map((job) => (

@@ -1,3 +1,5 @@
+import { DEMO, demoFetch, demoUrl } from "./demo";
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);
@@ -21,6 +23,7 @@ function sessionExpired(): never {
 
 /** Every request the app makes goes through here (streams too). */
 export async function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  if (DEMO) return demoFetch(path, init); // the public demo answers from a recording (demo.ts)
   const headers = new Headers(init.headers);
   headers.set("X-Requested-With", "XMLHttpRequest");
   let res: Response;
@@ -852,7 +855,7 @@ export const api = {
 
   // Plain links (the browser downloads them): the whole database, and My Jobs as a spreadsheet.
   backupDownloadUrl: "/api/settings/backup",
-  applicationsCsvUrl: "/api/applications/export.csv",
+  applicationsCsvUrl: DEMO ? demoUrl("downloads/my-jobs.csv") : "/api/applications/export.csv",
 
   listBackups: () => request<{ backups: { name: string; bytes: number }[] }>("/api/settings/backups"),
 
@@ -970,9 +973,11 @@ export const api = {
 
   getAllGeneratedDocuments: () => request<GeneratedDocWithJob[]>("/api/generate/documents"),
 
-  generatedDocumentDownloadUrl: (docId: number) => `/api/generate/documents/${docId}/download`,
+  generatedDocumentDownloadUrl: (docId: number) =>
+    DEMO ? demoUrl(`downloads/document-${docId}.docx`) : `/api/generate/documents/${docId}/download`,
 
-  resumeDownloadUrl: (resumeId: number) => `/api/resumes/${resumeId}/download`,
+  resumeDownloadUrl: (resumeId: number) =>
+    DEMO ? demoUrl(`downloads/resume-${resumeId}.docx`) : `/api/resumes/${resumeId}/download`,
 
   getJobbyThread: (jobId: number | null) => request<JobbyThread>(`/api/jobby/thread${jobbyQuery(jobId)}`),
   getJobbyChat: (threadId: number) => request<JobbyThread>(`/api/jobby/thread?thread_id=${threadId}`),

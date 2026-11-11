@@ -1,0 +1,56 @@
+# The Job Search Assistant's public demo (asked 2026-11-11): fictional data recorded from the real
+# app, built as a static, read-only site and published to GitHub Pages at <pages url>/jsa-demo/.
+# No secrets: it makes no Claude calls and never touches the real app or its data. The optional repo
+# variable JSA_APP_URL adds a "Request access" link to the demo's banner.
+name: Job Search Assistant demo
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "01 - Claude Code Projects/02 - Job Search Assistant/**"
+      - ".github/workflows/jsa-demo.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: "01 - Claude Code Projects/02 - Job Search Assistant"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the Timeline is built from the commit history
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Record the demo and build it
+        run: make demo
+        env:
+          VITE_DEMO_APP_URL: ${{ vars.JSA_APP_URL }}
+      - name: Lay out the site
+        run: mkdir -p "$GITHUB_WORKSPACE/_site" && cp -r frontend/dist-demo "$GITHUB_WORKSPACE/_site/jsa-demo"
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}jsa-demo/
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

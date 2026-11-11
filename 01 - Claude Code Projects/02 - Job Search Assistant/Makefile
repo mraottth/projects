@@ -1,7 +1,7 @@
 export PYTHONPATH := src
 PY := uv run python -m
 
-.PHONY: keep-warm keep-warm-off serve serve-sandbox reset-sandbox dev frontend test ingest-resumes docker apis-setup bucket-setup deploy iap-setup \
+.PHONY: demo keep-warm keep-warm-off serve serve-sandbox reset-sandbox dev frontend test ingest-resumes docker apis-setup bucket-setup deploy iap-setup \
         anthropic-secret scheduler-secret email-secret scheduler-setup bucket-protect iap-open iap-close
 
 # Locally there's no IAP: JOBHUNT_DEV_EMAIL stands in as the signed-in person (api/auth.py). It
@@ -32,6 +32,13 @@ frontend:     ## Timeline data, then build frontend/dist
 
 test:
 	uv run pytest -q
+
+# The public, read-only demo (demo/, frontend/src/demo.ts): fictional data recorded from the real app,
+# built as static files for GitHub Pages. No server, no Claude calls, nothing from data/.
+demo:         ## record the demo's data, then build frontend/dist-demo (DEMO_BASE overrides the sub-path)
+	python3 scripts/build_changelog.py
+	PYTHONPATH=src:. uv run python -m demo.record
+	cd frontend && npm install && npx tsc -b && npx vite build --mode demo $(if $(DEMO_BASE),--base $(DEMO_BASE))
 
 ingest-resumes:  ## re-runnable recursive bulk import: make ingest-resumes DIR=~/Documents/Resumes
 	$(PY) jobhunt.cli.ingest_resumes $(DIR)

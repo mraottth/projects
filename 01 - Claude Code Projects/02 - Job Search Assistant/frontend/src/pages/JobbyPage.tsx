@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { DEMO } from "../demo";
 import { JobLink } from "../components/JobLink";
 import {
   api,
@@ -122,9 +123,11 @@ function ChatHistory({
     <div className="card jobby-history">
       <div className="jobby-history-head">
         <span className="flabel">Your chats</span>
-        <button className="ghost small" onClick={onNew} disabled={disabled}>
-          + New chat
-        </button>
+        {!DEMO && (
+          <button className="ghost small" onClick={onNew} disabled={disabled}>
+            + New chat
+          </button>
+        )}
       </div>
       {!chats && <Spinner label="Loading..." />}
       {chats && chats.length === 0 && <p className="muted small">Your chats with Jobby will show up here.</p>}
@@ -151,7 +154,7 @@ function ChatHistory({
                   · {timeAgo(c.updated_at)}
                 </span>
               </button>
-              {confirm === c.id ? (
+              {DEMO ? null : confirm === c.id ? (
                 <span className="jobby-history-confirm small">
                   Delete?{" "}
                   <button className="link small danger-link" onClick={() => onDelete(c.id)}>
@@ -570,8 +573,12 @@ export default function JobbyPage() {
                 />
                 {/* Plainly buttons, with a line saying to pick one (asked 2026-11-10: a first-time
                     user should see these are how to get started). */}
-                <p className="jobby-home-prompt">Choose one to get started:</p>
+                <p className="jobby-home-prompt">
+                  {DEMO ? "Open one of Jordan's chats on the left, or a job's prep:" : "Choose one to get started:"}
+                </p>
                 <div className="jobby-home-actions">
+                  {/* The demo has no chatting, so no new chats either (demo.ts). */}
+                  {!DEMO && (
                   <button className="jobby-home-action" onClick={() => setParams({ new: "1" })}>
                     <span className="jobby-home-icon" aria-hidden="true">💬</span>
                     <span className="jobby-home-text">
@@ -582,6 +589,7 @@ export default function JobbyPage() {
                     </span>
                     <span className="jobby-home-go">Start →</span>
                   </button>
+                  )}
                   <button className="jobby-home-action" onClick={() => setParams({ pick: "1" })}>
                     <span className="jobby-home-icon" aria-hidden="true">💼</span>
                     <span className="jobby-home-text">
@@ -654,7 +662,7 @@ export default function JobbyPage() {
                           : "Hi! I'm **Jobby**. What would help most with your search right now? Pick a place to start, or ask me anything.",
                       }}
                     />
-                    <Starters starters={starters} onPick={send} />
+                    {!DEMO && <Starters starters={starters} onPick={send} />}
                   </div>
                 )}
                 {messages.map((m) => (
@@ -680,7 +688,7 @@ export default function JobbyPage() {
                   Jump to latest ↓
                 </button>
               )}
-              {quote && (
+              {quote && !DEMO && (
                 <button
                   className="jobby-quote-btn"
                   style={{ top: quote.top, left: quote.left }}
@@ -692,7 +700,7 @@ export default function JobbyPage() {
                 </button>
               )}
 
-              {!empty && !pending && (
+              {!empty && !pending && !DEMO && (
                 <div className="jobby-try">
                   <span className="muted small">Try:</span>
                   {starters.map((s) => (
@@ -704,6 +712,9 @@ export default function JobbyPage() {
               )}
 
               {sendError && <p className="error-text small">{sendError}</p>}
+              {DEMO ? (
+                <p className="demo-note">Chatting with Jobby is turned off in the demo. These are sample conversations.</p>
+              ) : (
               <div className="jobby-input">
                 <textarea
                   ref={inputRef}
@@ -723,6 +734,7 @@ export default function JobbyPage() {
                   Send
                 </button>
               </div>
+              )}
             </>
           )}
         </section>

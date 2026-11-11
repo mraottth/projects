@@ -17,6 +17,8 @@ import AdminPage from "./pages/AdminPage";
 import { MeContext } from "./me";
 import { JobModal } from "./components/JobModal";
 import { SessionExpiredBanner } from "./components/SessionExpiredBanner";
+import { DemoBanner } from "./components/DemoBanner";
+import { DEMO } from "./demo";
 
 // Carries ~220 KB of prompts and commits, so it's only loaded when visited.
 const ChangelogPage = lazy(() => import("./pages/ChangelogPage"));
@@ -198,6 +200,7 @@ export default function App() {
           </NavLink>
         )}
       </header>
+      {DEMO && <DemoBanner />}
       {needsOnboarding !== null && (
         <AppMain
           needsOnboarding={needsOnboarding}
