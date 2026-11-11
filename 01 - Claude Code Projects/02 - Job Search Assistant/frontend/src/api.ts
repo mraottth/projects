@@ -34,14 +34,30 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
     if (await signedOut()) sessionExpired();
     throw new Error(NETWORK_ERROR);
   }
-  if (res.status === 401) sessionExpired();
+  if (res.status === 401) await refusedOrExpired(res);
   return res;
+}
+
+// A 401 is either IAP's (the Google sign-in ran out: reload) or this app's own server refusing the
+// sign-in token it was handed (api/auth.py, `code: "signed_out"` with the reason), which no reload
+// fixes. Calling both "signed out after time away" hid the real reason (caught live, 2026-11-11).
+async function refusedOrExpired(res: Response): Promise<never> {
+  const body = await res
+    .clone()
+    .json()
+    .catch(() => null);
+  if (body && body.code === "signed_out" && typeof body.detail === "string") {
+    throw new ApiError(401, `The app couldn't confirm your Google sign-in (${body.detail}).`);
+  }
+  sessionExpired();
 }
 
 async function signedOut(): Promise<boolean> {
   try {
     const res = await fetch("/api/me", { headers: { "X-Requested-With": "XMLHttpRequest" } });
-    return res.status === 401;
+    if (res.status !== 401) return false;
+    const body = await res.json().catch(() => null);
+    return !(body && body.code === "signed_out"); // our own server's refusal isn't IAP's sign-out
   } catch {
     return false;
   }
