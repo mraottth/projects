@@ -518,3 +518,28 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 **Why.**
 - Resumes and the profile are the record of what they've done; top-scoring jobs and their reasons show what they're suited to and want. All of those exist for every person, while cover letters depend on which applications needed one.
 - About 5,000 characters for the top jobs, against up to 15,000 for the current letter plus 20,000 shared with older documents before.
+
+## D-032 · A public demo recorded from the real app, static and read-only
+- **Date:** 2026-11-11
+- **Category:** infra
+- **Prompts:** ab602548-169, ab602548-170, ab602548-171
+- **Commits:** 1b02608
+
+**Decision.**
+- A static, read-only demo on GitHub Pages, with a fictional job seeker (Jordan Rivera) whose search looks like the owner's: an analytics leader in civic tech and public health. Every organization, posting and link is made up.
+- No server and no Claude calls. `demo/seed.py` builds a throwaway database with the app's own code. `demo/record.py` runs the real app on it and saves its answer to every GET the pages make. A demo build of the frontend (`src/demo.ts`) answers from that recording.
+- Visitors can look at everything but change nothing: writes are refused with a toast, and Jobby's message box, adding sources or jobs, and uploads are hidden. Dates move forward to the day of the visit.
+- Published by `.github/workflows/jsa-demo.yml` on every push to main that touches the project.
+
+**Context.** The owner wanted people to be able to try the app before requesting an account. Their choices: a static demo, no Claude calls, nothing changeable ("they should just be able to see and navigate all the dummy content"), a persona like their own search, and GitHub Pages.
+
+**Alternatives considered.**
+- **A page inside the real app:** it would need part of the app outside Google sign-in, which the app must never allow.
+- **A second Cloud Run service with its own database:** real interactivity, but a public server, a key to protect, and a cost.
+- **Hand-written fixtures in the frontend:** about 45 endpoints' worth that would drift from the real responses.
+
+**Why.**
+- Recording the real backend keeps the demo exactly in step: re-running the build picks up any change in what the app returns, and `tests/test_demo.py` fails if the frontend calls a GET the recording doesn't cover.
+- Free to host, no keys, and nothing near the real app's infrastructure or data.
+- Building it found a real bug: a rationale with two tagged highlights counted as untagged (3ddb3da).
+

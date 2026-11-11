@@ -1247,6 +1247,40 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   pattern Shelf Life's own filter sidebar already uses for its mobile collapse, so it's consistent
   with the house style this app follows, not a one-off.
 
+## Public demo (D-032, asked 2026-11-11)
+
+A static, read-only copy of the app with fictional data, on GitHub Pages
+(`https://mraottth.github.io/projects/jsa-demo/`), so people can try it without signing in. No server,
+no Claude calls, nothing from `data/`.
+- **Content:** `demo/content.py` is the persona (Jordan Rivera, an analytics leader in civic tech):
+  resumes and cover letters, profiles, settings, 14 sources, about 35 jobs with scores and
+  highlighted rationales, New & Noteworthy for two days, My Jobs in every status, tailored documents,
+  Jobby chats and usage. Every organization, link (`.example`) and email (`@example.com`) is made up;
+  organizations are web-page sources, since a made-up Greenhouse/Lever/Ashby slug would link to the
+  real site.
+- **Seed:** `demo/seed.py` builds a throwaway database from it with the app's own code where no Claude
+  call is needed (`add_to_digest`, `write_resume_edits` with fixed edit plans).
+- **Record:** `demo/record.py` runs the real app on that database as Jordan (a non-admin) and saves
+  every GET the pages make (`FIXED` plus per-id paths) to `frontend/demo-build/demo-data.json`, and
+  the downloads to `demo-build/downloads/` under fixed names. `tests/test_demo.py` fails if a GET path
+  in `frontend/src` isn't recorded (add it to `FIXED`, or to `NOT_RECORDED` if it's write-only), and
+  checks every email and URL in it is fictional.
+- **Replay:** `npm run build:demo` (Vite mode `demo`, `.env.demo` sets `VITE_DEMO=1`) builds
+  `frontend/dist-demo/` with base `/projects/jsa-demo/` and `demo-build/` as its public folder, plus
+  a `404.html` copy of `index.html` for deep links on Pages. `src/demo.ts`'s `demoFetch()` answers
+  `apiFetch()`: a GET from the recording, anything else a 403 and a toast (`DemoBanner`). It moves
+  every date forward by the time since recording (date-times exactly, dates by whole days, digest
+  paths too), except `/api/changelog`. `DEMO` is a build-time constant, so the real bundle has none
+  of it. Download URLs (`api.ts`) point at the recorded files.
+- **Read-only UI:** `DEMO &&`/`!DEMO &&` hide Jobby's message box, starters, "Ask about this", new
+  chat and delete; "+ Add more", "Add a source manually" and "Check my sources now"; "Add a job"; and
+  upload buttons. Everything else stays visible and is refused with the toast.
+- **Build and publish:** `make demo` (Timeline data, record, build). `.github/workflows/jsa-demo.yml`
+  at the `projects` repo root runs it on every push to main that touches this folder and publishes it
+  with `actions/deploy-pages`. Pages must be set to "GitHub Actions" once (repo Settings → Pages).
+  The optional repo variable `JSA_APP_URL` adds "Request access →" to the banner.
+- The demo's Timeline is the same public prompt log as `prompts/` in this repo.
+
 ## Working conventions
 
 - Small commits, one concern each.

@@ -1116,8 +1116,73 @@
    "time": "2026-11-11T16:45:17.274Z",
    "kind": "prompt",
    "text": "let's do 1 to 3",
-   "reply": null,
+   "reply": "All three are done and pushed:\n\n1. **Cover letters use the person's own letter.** When their current cover letter is a PDF, its text now goes to Claude as a sample of how they write. The new letter matches their voice, tone, length and structure, and takes nothing from the old letter's job, organization or reasons. Before this, the letter only ever saw the profile and the posting.\n2. **Downloads are Word files.** A tailored resume or cover letter written from a PDF now downloads as a `.docx` instead of a `.md` file. It keeps the headings, bullets, numbered lists, bold and italics. It's a clean, simple layout, not their own, and building it costs no Claude call.\n3. **The Profile page says so.** Under a current resume or cover letter that isn't a Word file, a short note explains that uploading the `.docx` version gets edits made right in their own layout. For the cover letter, it adds that the current one is being used as a writing sample. The note on the job page and the onboarding wording now say the same.\n\nAll 511 tests pass, including new ones for the writing sample and for the Word download's headings, bullets and bold.\n\nThe two troubleshooting prompts from the sign-in problem are left out of the Timeline, since one contained your GCP project number and this repo is public.\n\nTo deploy (the `IAP_AUDIENCE` part is only needed if you haven't run the sign-in fix deploy yet; it does no harm either way):\n\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com IAP_AUDIENCE=/projects/882601067842/locations/us-central1/services/jobhunt\n```",
    "id": "ab602548-168",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-11T17:10:45.434Z",
+   "kind": "prompt",
+   "text": "I'd like to create a demo that's accessible before creating an account with gmail. How would you go about setting up a fully usable demo with dummy data (resumes, cover letters, sources, jobby conversations, and jobs?)",
+   "reply": null,
+   "asked": [
+    {
+     "question": "Where should the no-sign-in demo live? The real app's Google sign-in protects everything in it, so the demo can't be a page inside it.",
+     "options": [
+      "Separate demo service (Recommended)",
+      "Static demo, no server"
+     ]
+    },
+    {
+     "question": "Should the demo make real Claude calls (Jobby replies, tailoring, scoring, discovery)? Anyone on the internet could use it, and every call is paid from your key.",
+     "options": [
+      "Jobby live, rest canned (Recommended)",
+      "All canned, no Claude",
+      "Everything live, capped"
+     ]
+    },
+    {
+     "question": "How should visitors share the demo?",
+     "options": [
+      "Private sandbox each (Recommended)",
+      "One shared demo, reset nightly"
+     ]
+    },
+    {
+     "question": "Who should the dummy persona be? I'd write the resumes, cover letters, profile, sources, jobs and Jobby chats myself as fictional content.",
+     "options": [
+      "Like your search (Recommended)",
+      "Something generic"
+     ]
+    }
+   ],
+   "id": "ab602548-169",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-11T17:17:00.417Z",
+   "kind": "answer",
+   "text": "\"Where should the no-sign-in demo live? The real app's Google sign-in protects everything in it, so the demo can't be a page inside it.\"=\"Static demo, no server\", \"Should the demo make real Claude calls (Jobby replies, tailoring, scoring, discovery)? Anyone on the internet could use it, and every call is paid from your key.\"=\"All canned, no Claude\", \"How should visitors share the demo?\"=\"Users shouldn't be able to change anything or interact with Jobby or add sources etc. They should just be able to see and navigate all the dummy content\", \"Who should the dummy persona be? I'd write the resumes, cover letters, profile, sources, jobs and Jobby chats myself as fictional content.\"=\"Like your search (Recommended)\".",
+   "reply": null,
+   "asked": [
+    {
+     "question": "Where should the static demo be hosted? It's plain files (HTML, JS, JSON and a few .docx), all fictional, so any public static host works.",
+     "options": [
+      "GitHub Pages (Recommended)",
+      "Public Cloud Storage bucket",
+      "Next to Shelf Life"
+     ]
+    }
+   ],
+   "id": "ab602548-170",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-11T17:19:42.258Z",
+   "kind": "answer",
+   "text": "\"Where should the static demo be hosted? It's plain files (HTML, JS, JSON and a few .docx), all fictional, so any public static host works.\"=\"GitHub Pages (Recommended)\".",
+   "reply": null,
+   "id": "ab602548-171",
    "session": "ab602548"
   }
  ]
