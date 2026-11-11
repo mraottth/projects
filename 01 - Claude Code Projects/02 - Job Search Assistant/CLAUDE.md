@@ -664,6 +664,16 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   - My Jobs: the search box is 300px wide, so the Active/Closed/All toggle sits next to it and Export
     stays right. Organization and Location cells are buttons (`CellFilter`) that filter the table
     to that value; a pill in the toolbar shows the filter and clears it, as does clicking the cell again.
+- **Signed out after time away** (asked 2026-11-10: pages came up empty until a reload). IAP's
+  session runs out; a page left open then had its data requests sent to Google's sign-in page,
+  which a background request can't follow, so they failed and lists looked empty. Every request
+  now goes through `api.ts`'s `apiFetch()` (streams too), which sends `X-Requested-With:
+  XMLHttpRequest` (IAP then answers 401 instead of redirecting) and treats a 401 as signed out. A
+  request that fails outright asks `/api/me` once more before calling it a network problem, since
+  IAP's script detection isn't perfect. Either way it fires `SESSION_EXPIRED_EVENT`, and
+  `components/SessionExpiredBanner.tsx` (in `App`) shows "You've been signed out after some time
+  away... your data is safe" with Reload, fixed at the bottom. Back on the tab after 5+ minutes
+  hidden, it checks `/api/me` at once, so the banner can show before a page comes up empty.
 - **Settings is a gear icon** (`.settings-gear`, right end of the top bar), not a nav tab.
 - **About** (`pages/AboutPage.tsx`, route `/about`, an "About" link at the right of the top bar
   before Admin and the gear; asked 2026-11-04): what the project is, how the daily pipeline works,

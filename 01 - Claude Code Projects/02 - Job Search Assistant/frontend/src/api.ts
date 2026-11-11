@@ -6,15 +6,49 @@ export class ApiError extends Error {
 
 const NETWORK_ERROR = "Lost the connection to the app before it answered — check your connection and try again.";
 
-export async function request<T>(path: string, init?: RequestInit): Promise<T> {
+// The app sits behind Google's sign-in (IAP), whose session runs out after a while away. A page left
+// open then asked for data, got sent to Google's sign-in page (which a background request can't
+// follow), and showed nothing until a reload (asked 2026-11-10). Marked as coming from a script,
+// IAP answers 401 instead, so it's spotted, and App shows a banner (SessionExpiredBanner).
+export const SESSION_EXPIRED_EVENT = "jobhunt:session-expired";
+export const SESSION_EXPIRED_MESSAGE =
+  "You've been signed out after some time away. Reload the page to sign back in — your data is safe.";
+
+function sessionExpired(): never {
+  window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+  throw new ApiError(401, SESSION_EXPIRED_MESSAGE);
+}
+
+/** Every request the app makes goes through here (streams too). */
+export async function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(init.headers);
+  headers.set("X-Requested-With", "XMLHttpRequest");
   let res: Response;
   try {
-    res = await fetch(path, init);
+    res = await fetch(path, { ...init, headers });
   } catch {
-    // fetch() itself only rejects when no response arrived at all; browsers word that unhelpfully
-    // ("Load failed" in Safari, "Failed to fetch" in Chrome).
+    // fetch() only rejects when no response arrived at all (worded "Load failed" in Safari, "Failed
+    // to fetch" in Chrome). That's also what a request bounced to Google's sign-in looks like, when
+    // IAP doesn't recognize it as a script's, so ask once more, plainly, before calling it a
+    // network problem.
+    if (await signedOut()) sessionExpired();
     throw new Error(NETWORK_ERROR);
   }
+  if (res.status === 401) sessionExpired();
+  return res;
+}
+
+async function signedOut(): Promise<boolean> {
+  try {
+    const res = await fetch("/api/me", { headers: { "X-Requested-With": "XMLHttpRequest" } });
+    return res.status === 401;
+  } catch {
+    return false;
+  }
+}
+
+export async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await apiFetch(path, init);
   if (!res.ok) {
     const body = await res.json().catch(() => ({ detail: res.statusText }));
     throw new ApiError(res.status, body.detail ?? res.statusText);
@@ -335,7 +369,7 @@ async function runDaily(
   let result: RunSummary | null = null;
   let failure: string | null = null;
   try {
-    const res = await fetch(url, { method: "POST" });
+    const res = await apiFetch(url, { method: "POST" });
     if (!res.ok || !res.body) {
       const body = await res.json().catch(() => ({ detail: res.statusText }));
       throw new ApiError(res.status, typeof body.detail === "string" ? body.detail : res.statusText);
@@ -757,7 +791,7 @@ export const api = {
 
   // Colors older summaries' highlights; streams {done, total} progress until it finishes.
   retagHighlights: async (onProgress: (done: number, total: number) => void) => {
-    const res = await fetch("/api/settings/retag-highlights", { method: "POST" });
+    const res = await apiFetch("/api/settings/retag-highlights", { method: "POST" });
     if (!res.ok || !res.body) throw new ApiError(res.status, res.statusText);
     let result: { retagged: number; skipped: number } | null = null;
     let failure: string | null = null;
@@ -803,7 +837,7 @@ export const api = {
   getRescoreStatus: (scope: RescoreScope) => request<RescoreStatus>(`/api/rescore/${scope}`),
 
   rescore: async (scope: RescoreScope, onProgress: (done: number, total: number) => void) => {
-    const res = await fetch(`/api/rescore/${scope}`, { method: "POST" });
+    const res = await apiFetch(`/api/rescore/${scope}`, { method: "POST" });
     if (!res.ok || !res.body) {
       let detail = res.statusText;
       try {
@@ -835,7 +869,7 @@ export const api = {
     ),
 
   runScoringExperiment: async (onProgress: (done: number, total: number) => void) => {
-    const res = await fetch("/api/admin/scoring-experiment", { method: "POST" });
+    const res = await apiFetch("/api/admin/scoring-experiment", { method: "POST" });
     if (!res.ok || !res.body) throw new ApiError(res.status, res.statusText);
     let result: ScoringExperimentResult | null = null;
     let failure: string | null = null;
@@ -912,7 +946,7 @@ export const api = {
   // Sends a message and calls onEvent for each streamed event as it arrives. The reply streams
   // as server-sent events over a POST, which EventSource can't do, so this reads the body directly.
   streamJobbyMessage: async (jobId: number | null, content: string, onEvent: (e: JobbyEvent) => void) => {
-    const res = await fetch(`/api/jobby/thread/messages${jobbyQuery(jobId)}`, {
+    const res = await apiFetch(`/api/jobby/thread/messages${jobbyQuery(jobId)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ content }),

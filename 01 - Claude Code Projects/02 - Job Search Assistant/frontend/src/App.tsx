@@ -15,6 +15,7 @@ import SettingsPage from "./pages/SettingsPage";
 import AccessPage from "./pages/AccessPage";
 import AdminPage from "./pages/AdminPage";
 import { MeContext } from "./me";
+import { SessionExpiredBanner } from "./components/SessionExpiredBanner";
 
 // Carries ~220 KB of prompts and commits, so it's only loaded when visited.
 const ChangelogPage = lazy(() => import("./pages/ChangelogPage"));
@@ -122,6 +123,7 @@ export default function App() {
   if (meError) {
     return (
       <div className="app-shell">
+        <SessionExpiredBanner />
         <header className="topbar">
           <span className="brand">Job Search Assistant</span>
         </header>
@@ -148,6 +150,7 @@ export default function App() {
   return (
     <MeContext.Provider value={me}>
     <div className="app-shell">
+      <SessionExpiredBanner />
       <header className="topbar">
         <span className="brand">Job Search Assistant</span>
         {!inOnboarding && (
