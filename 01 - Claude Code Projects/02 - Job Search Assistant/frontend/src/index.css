@@ -506,6 +506,7 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 .source-row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 14px; margin-top: 3px; }
 .source-row-actions .link { padding: 0; margin: 0; }
 .source-panel .source-section-head .primary { white-space: nowrap; }
+.source-search { width: 100%; margin: 0 0 10px; }
 .source-row-test { margin: 4px 0 0; }
 @media (max-width: 640px) {
   /* Phone: brand + gear on the first line, the tabs in one swipeable row underneath. */
@@ -899,8 +900,21 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 .jobby-history-confirm { flex: none; padding: 8px 6px 0; white-space: nowrap; }
 @media (hover: none) { .jobby-history-delete { opacity: 1; } }
 .jobby-home { justify-content: center; }
-.jobby-home-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; padding-left: 38px; }
-.jobby-home-actions .jobby-starter-label { font-size: 1.05rem; }
+.jobby-home-prompt { margin: 6px 0 0 38px; font-weight: 600; color: var(--ink); }
+.jobby-home-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; padding-left: 38px; }
+/* Unmistakably buttons: accent outline and tint, an icon, a call to action, a lift on hover. */
+.jobby-home-action { display: grid; grid-template-columns: auto 1fr; grid-template-rows: 1fr auto; gap: 6px 12px;
+  align-items: start; text-align: left; padding: 16px 18px; border-radius: 14px; cursor: pointer; font: inherit;
+  color: var(--ink); background: color-mix(in srgb, var(--accent) 6%, var(--card));
+  border: 2px solid color-mix(in srgb, var(--accent) 45%, transparent); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease; }
+.jobby-home-action:hover, .jobby-home-action:focus-visible { transform: translateY(-2px); border-color: var(--accent);
+  box-shadow: 0 8px 20px rgba(42, 120, 214, 0.18); outline: none; }
+.jobby-home-icon { grid-row: 1 / span 2; font-size: 1.7rem; line-height: 1; padding-top: 2px; }
+.jobby-home-text { display: flex; flex-direction: column; gap: 3px; }
+.jobby-home-label { font-weight: 700; font-size: 1.08rem; }
+.jobby-home-go { justify-self: start; margin-top: 4px; padding: 6px 14px; border-radius: 999px; background: var(--accent);
+  color: #fff; font-weight: 600; font-size: 0.88rem; }
 .jobby-chooser { display: flex; flex-direction: column; gap: 10px; }
 .jobby-chooser input { width: 100%; }
 .jobby-chooser ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }

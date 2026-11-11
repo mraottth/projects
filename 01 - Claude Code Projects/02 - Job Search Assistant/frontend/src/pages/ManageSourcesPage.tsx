@@ -464,12 +464,25 @@ function SourcePanel({
   onChanged: () => void;
   onFindMoreLikeThis: (source: Source) => void;
 }) {
+  // Searches what's shown on a row: the name, the employer and the page or board it reads (asked
+  // 2026-11-10, with many sources).
+  const [query, setQuery] = useState("");
+  const q = query.trim().toLowerCase();
+  const shown = q
+    ? sources.filter((s) =>
+        [s.name, s.company_name ?? "", s.kind, ...Object.values(s.config ?? {}).map(String)]
+          .join(" ")
+          .toLowerCase()
+          .includes(q),
+      )
+    : sources;
   return (
     <section className="card source-panel">
       <div className="source-section-head">
         <div>
           <h2 className="source-section-title">
-            {title} <span className="muted source-count">{sources.length}</span>
+            {title}{" "}
+            <span className="muted source-count">{q ? `${shown.length} of ${sources.length}` : sources.length}</span>
           </h2>
           <p className="muted small">{blurb}</p>
         </div>
@@ -477,11 +490,28 @@ function SourcePanel({
           + Add more
         </button>
       </div>
+      {sources.length > 0 && (
+        <input
+          type="search"
+          className="source-search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={`Search ${title.toLowerCase()}...`}
+          aria-label={`Search ${title.toLowerCase()}`}
+        />
+      )}
       {sources.length === 0 ? (
         <p className="empty-state">{empty}</p>
+      ) : shown.length === 0 ? (
+        <p className="muted small">
+          Nothing matches "{query}".{" "}
+          <button className="link small" onClick={() => setQuery("")}>
+            Clear search
+          </button>
+        </p>
       ) : (
         <ul className="source-list">
-          {sources.map((s) => (
+          {shown.map((s) => (
             <SourceRow key={s.id} source={s} onChanged={onChanged} onFindMoreLikeThis={onFindMoreLikeThis} />
           ))}
         </ul>

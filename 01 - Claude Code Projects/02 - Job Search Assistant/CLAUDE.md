@@ -691,7 +691,8 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   view the daily cap's 50-job limit would otherwise hide. `ManageSourcesPage` (route `/sources`, a
   wide route) is purely source management, in two side-by-side `SourcePanel`s (`.sources-grid`;
   one column under 860px), each a fixed-height card whose list scrolls. A source is a compact
-  `SourceRow`: name, status ("N jobs · checked 3h ago" from `GET /api/sources`' `job_count`,
+  `SourceRow` (each panel has a search box over name, employer, kind and config, showing "N of M"
+  while searching; asked 2026-11-10): name, status ("N jobs · checked 3h ago" from `GET /api/sources`' `job_count`,
   "Checking for jobs..." for five minutes after it's added and before its first check, while the
   page polls every 4 s, or "disabled"), kind and host/board, the last error clamped to two lines,
   and text-link actions. The name links (new tab) to the page it reads (`sourceLink()`): a web
@@ -779,7 +780,9 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   `public/`: `api/main.py`'s SPA fallback answers every non-`/assets/` path with `index.html`.
 - **Jobby's layout** (asked 2026-11-10, in two rounds; "Start over" sounded like it would lose the
   chat, and it did delete it). URLs in `JobbyPage.tsx`: `/jobby` is home (Jobby's picture and
-  welcome, then "Start a general chat" and "Choose from My Jobs"); `?pick=1` lists My Jobs to choose
+  welcome, "Choose one to get started:", then "Start a general chat" and "Choose from My Jobs" as
+  plainly-button cards, `.jobby-home-action`: icon, accent outline and tint, "Start →" / "Pick a
+  job →", a lift on hover); `?pick=1` lists My Jobs to choose
   from (`JobChooser`); `?job=<id>` is that job's one chat (My Jobs and the job page link here);
   `?chat=<id>` reopens any chat; `?new=1` is a new general chat, created on its first message
   (`POST .../messages?new=true`), whose `done` event carries `thread_id` so the URL becomes

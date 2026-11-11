@@ -523,16 +523,27 @@ export default function JobbyPage() {
                       "Hi! I'm **Jobby**, your job search sidekick. Want to talk through your search in general, or get ready for one of the jobs on your My Jobs list?",
                   }}
                 />
+                {/* Plainly buttons, with a line saying to pick one (asked 2026-11-10: a first-time
+                    user should see these are how to get started). */}
+                <p className="jobby-home-prompt">Choose one to get started:</p>
                 <div className="jobby-home-actions">
-                  <button className="jobby-starter" onClick={() => setParams({ new: "1" })}>
-                    <span className="jobby-starter-label">Start a general chat</span>
-                    <span className="muted small">
-                      Finding organizations, your goals and strategy, resume and cover letter feedback...
+                  <button className="jobby-home-action" onClick={() => setParams({ new: "1" })}>
+                    <span className="jobby-home-icon" aria-hidden="true">💬</span>
+                    <span className="jobby-home-text">
+                      <span className="jobby-home-label">Start a general chat</span>
+                      <span className="muted small">
+                        Finding organizations, your goals and strategy, resume and cover letter feedback
+                      </span>
                     </span>
+                    <span className="jobby-home-go">Start →</span>
                   </button>
-                  <button className="jobby-starter" onClick={() => setParams({ pick: "1" })}>
-                    <span className="jobby-starter-label">Choose from My Jobs</span>
-                    <span className="muted small">Interview prep and research for one job</span>
+                  <button className="jobby-home-action" onClick={() => setParams({ pick: "1" })}>
+                    <span className="jobby-home-icon" aria-hidden="true">💼</span>
+                    <span className="jobby-home-text">
+                      <span className="jobby-home-label">Choose from My Jobs</span>
+                      <span className="muted small">Interview prep and research for one job</span>
+                    </span>
+                    <span className="jobby-home-go">Pick a job →</span>
                   </button>
                 </div>
               </div>
