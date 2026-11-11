@@ -54,6 +54,15 @@ class FakeStreamingClient:
         self.calls.append(kwargs)
         return self._streams.pop(0)
 
+    def create(self, **kwargs):
+        """The one non-streamed call: a general chat's title."""
+        self.title_calls = getattr(self, "title_calls", []) + [kwargs]
+        return SimpleNamespace(
+            content=[SimpleNamespace(type="text", text="Finding Civic Tech Roles")],
+            stop_reason="end_turn",
+            usage=SimpleNamespace(input_tokens=100, output_tokens=8),
+        )
+
 
 def _insert_job(title="Analytics Director", company="Nava PBC", description="Lead the data team.") -> int:
     with get_db() as conn:
@@ -185,7 +194,8 @@ def test_pause_turn_is_resumed_and_text_joined(monkeypatch):
 
     with TestClient(app) as http:
         events = _events(http.post("/api/jobby/thread/messages", json={"content": "Research them"}))
-    assert events[-1]["assistant"]["content"] == "Looking into the company. They raised a Series B."
+    done = next(e for e in events if e["type"] == "done")
+    assert done["assistant"]["content"] == "Looking into the company. They raised a Series B."
     assert len(client.calls) == 2
     assert client.calls[1]["messages"][-1]["role"] == "assistant"
 
@@ -347,3 +357,43 @@ def test_past_chats_can_be_listed_reopened_and_deleted(monkeypatch):
             http.get(f"/api/jobby/thread?thread_id={first['thread_id']}", headers=as_bea).status_code == 404
         )
         assert http.delete(f"/api/jobby/threads/{first['thread_id']}", headers=as_bea).status_code == 404
+
+
+def test_general_chats_get_a_title_from_their_first_exchange(monkeypatch):
+    """Asked 2026-11-10: the chat history names general chats by what they're about; job chats
+    are named by the job. The title comes once, after the first reply."""
+    job = _insert_job("Analytics Director", "Nava PBC")
+    client = FakeStreamingClient(*(FakeStream([f"reply {i}"]) for i in range(3)))
+    monkeypatch.setattr(jobby, "get_client", lambda: client)
+    with TestClient(app) as http:
+        first = _events(
+            http.post("/api/jobby/thread/messages?new=true", json={"content": "Help me find orgs"})
+        )
+        assert [e["type"] for e in first][-2:] == ["done", "title"]
+        assert first[-1]["title"] == "Finding Civic Tech Roles"
+        chat_id = first[-1]["thread_id"]
+        again = _events(
+            http.post(f"/api/jobby/thread/messages?thread_id={chat_id}", json={"content": "More"})
+        )
+        assert again[-1]["type"] == "done"  # titled once
+        job_chat = _events(http.post(f"/api/jobby/thread/messages?job_id={job}", json={"content": "Prep me"}))
+        assert job_chat[-1]["type"] == "done"  # job chats are named by the job
+        titles = {c["id"]: c["title"] for c in http.get("/api/jobby/threads").json()}
+    assert titles[chat_id] == "Finding Civic Tech Roles"
+    assert len(client.title_calls) == 1
+
+
+def test_a_failed_title_falls_back_to_the_first_message(monkeypatch):
+    client = FakeStreamingClient(FakeStream(["ok"]))
+
+    def broken(**kwargs):
+        raise RuntimeError("API down")
+
+    client.create = broken
+    monkeypatch.setattr(jobby, "get_client", lambda: client)
+    with TestClient(app) as http:
+        events = _events(http.post(
+            "/api/jobby/thread/messages?new=true",
+            json={"content": "Can you help me think through my goals for the next year please"},
+        ))  # fmt: skip
+    assert events[-1]["title"] == "Can you help me think through my…"

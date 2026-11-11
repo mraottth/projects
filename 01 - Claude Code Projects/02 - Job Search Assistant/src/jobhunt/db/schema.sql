@@ -266,6 +266,8 @@ CREATE TABLE IF NOT EXISTS jobby_threads (
     id INTEGER PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id),
     job_id INTEGER REFERENCES jobs(id),
+    -- A general chat's title, written from its first exchange (job chats are titled by the job).
+    title TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
     UNIQUE(user_id, job_id)

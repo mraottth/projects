@@ -231,6 +231,8 @@ export interface JobbyThread {
 export interface JobbyChatSummary {
   id: number;
   job_id: number | null;
+  // A general chat's title, written after its first reply (null until then, and for job chats).
+  title: string | null;
   job_title: string | null;
   job_company: string | null;
   application_status: ApplicationStatus | null;
@@ -247,6 +249,7 @@ export type JobbyEvent =
   | { type: "delta"; text: string }
   | { type: "status"; text: string }
   | { type: "done"; user: JobbyMessage; assistant: JobbyMessage; thread_id: number }
+  | { type: "title"; thread_id: number; title: string }
   | { type: "error"; message: string };
 
 function jobbyQuery(jobId: number | null) {

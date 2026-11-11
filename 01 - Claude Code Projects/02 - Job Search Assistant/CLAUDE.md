@@ -754,7 +754,7 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   the candidate profile, the preference profile, and the person's top `TOP_JOBS` (8) jobs by interest
   + fit (both High/Med, not dismissed, not the current job) with their reasons (highlight markup
   removed) and My Jobs status. Cover letters had skewed it: only the current one goes in, cut to
-  `COVER_LETTER_SAMPLE_CHARS` (3,000) and labeled a writing sample; older ones are left out (a count
+  `COVER_LETTER_SAMPLE_CHARS` (5,000, raised from 3,000 so "Cover letter feedback" sees a whole letter) and labeled a writing sample; older ones are left out (a count
   says so), and `PERSONA` says not to read what a letter emphasizes as what matters most. Before that,
   `build_context()` put the posting, tracking status/notes
   and fit rationale, the candidate profile, "What are you looking for?", the current and tailored
@@ -777,18 +777,26 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   way: flood fill from the edges, a slightly blurred alpha edge, cropped to the figure and padded
   square (128px avatar, 480px full). They're imported rather than put in
   `public/`: `api/main.py`'s SPA fallback answers every non-`/assets/` path with `index.html`.
-- **Jobby's home and chat history** (asked 2026-11-10; "Start over" sounded like it would lose the
-  chat, and it did delete it). `/jobby` is a home page, "Your chats" (`ChatList` in `JobbyPage.tsx`,
-  `GET /api/jobby/threads` → `jobby.list_threads()`): each chat with its job (or "General chat"), My
-  Jobs status, last-message preview, count and age, newest first (by latest message id; `updated_at`
-  has whole seconds only), with Delete (an inline "Delete this chat?", `DELETE
-  /api/jobby/threads/{id}`) and "New general chat". In a chat, "← Back" returns home and deletes
-  nothing. URLs: `?job=<id>` is that job's one chat (as before); `?chat=<id>` reopens any chat
-  (`GET /api/jobby/thread?thread_id=`); `?new=1` is a new general chat, created on its first message
-  (`POST .../messages?new=true`) whose `done` event carries `thread_id`, so the URL becomes
-  `?chat=<id>` without a reload. Any number of general chats (the UNIQUE on `(user_id, job_id)` allows
-  many NULLs); still one per job. The header reads "Your job search sidekick. Jobby knows your
-  profile, your documents, and the jobs you're interested in."
+- **Jobby's layout** (asked 2026-11-10, in two rounds; "Start over" sounded like it would lose the
+  chat, and it did delete it). URLs in `JobbyPage.tsx`: `/jobby` is home (Jobby's picture and
+  welcome, then "Start a general chat" and "Choose from My Jobs"); `?pick=1` lists My Jobs to choose
+  from (`JobChooser`); `?job=<id>` is that job's one chat (My Jobs and the job page link here);
+  `?chat=<id>` reopens any chat; `?new=1` is a new general chat, created on its first message
+  (`POST .../messages?new=true`), whose `done` event carries `thread_id` so the URL becomes
+  `?chat=<id>` without a reload. Job chats use `JOB_STARTERS` (mock interview, likely questions,
+  frame my background, prep plan); general chats `GENERAL_STARTERS` (find organizations, goals &
+  strategy, resume feedback, cover letter feedback, networking outreach, plan my week). The left
+  tray is the chat history (`ChatHistory`, `GET /api/jobby/threads` → `jobby.list_threads()`, newest
+  first by latest message id): title, job and status or "General", age; the open chat highlighted;
+  × then "Delete? Yes/No" (`DELETE /api/jobby/threads/{id}`; deleting the open chat goes home);
+  "+ New chat" goes home. "← Back" goes home and deletes nothing. General chats are titled from their
+  first exchange (`jobby.make_title()`: one low-effort call logged as `generation`/"jobby chat
+  title", sent as a `title` event after `done`, stored in `jobby_threads.title`, a migration; any
+  failure falls back to the first message's opening words). Job chats are titled by the job. Any
+  number of general chats (the UNIQUE on `(user_id, job_id)` allows many NULLs); one per job. The
+  header reads "Your job search sidekick. Jobby knows your profile, your documents, and the jobs
+  you're interested in." `PERSONA` covers general search help too, and says to always write in the
+  second person.
 - **Jobby's page** (asked 2026-11-10): the chat card's height is set from the window
   (`window.innerHeight` minus its top, min 420px), so the message box stays in view at the bottom
   and only `.jobby-messages` scrolls (it used to be `min-height: 70vh` under the page header, so

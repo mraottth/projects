@@ -404,8 +404,6 @@ a.button-link { display: inline-block; text-decoration: none; }
 .jobby-header { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
 .jobby-header h1 { margin: 0; }
 .jobby-layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 20px; align-items: start; }
-.jobby-picker { position: sticky; top: 16px; padding: 14px; }
-.jobby-picker ul { list-style: none; margin: 0; padding: 0; max-height: 60vh; overflow-y: auto; }
 .jobby-pick {
   display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%;
   text-align: left; background: none; border: 1px solid transparent; border-radius: 8px;
@@ -878,17 +876,32 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
   font-size: 0.92rem; border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12); }
 .session-banner button { padding: 6px 14px; }
-/* Jobby's home (JobbyPage's ChatList) and the chat's Back button (asked 2026-11-10). */
+/* Jobby (JobbyPage, asked 2026-11-10): the chat history tray, the home's two choices, choosing a job,
+   and the chat's Back button. */
 .jobby-chat-head .jobby-chat-title { flex: 1; min-width: 0; }
 .jobby-back { flex: none; }
-.jobby-chat-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.jobby-chat-item { display: flex; align-items: flex-start; gap: 12px; padding: 10px 12px; border: 1px solid var(--ring);
-  border-radius: 12px; background: var(--card); }
-.jobby-chat-item:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--ring)); }
-.jobby-chat-open { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; text-align: left; background: none;
-  border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; }
-.jobby-chat-item-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-weight: 600; }
-.jobby-chat-item-title .pill { font-size: 0.7rem; padding: 1px 7px; font-weight: 500; }
-.jobby-chat-preview { color: var(--ink-2); font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.jobby-chat-confirm { white-space: nowrap; }
+.jobby-history { position: sticky; top: 76px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+.jobby-history-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.jobby-history ul { list-style: none; margin: 0; padding: 0; max-height: 64vh; overflow-y: auto; display: flex;
+  flex-direction: column; gap: 2px; }
+.jobby-history-item { display: flex; align-items: flex-start; gap: 4px; border-radius: 10px; border: 1px solid transparent; }
+.jobby-history-item:hover { background: #efeee9; }
+.jobby-history-item.on { background: rgba(42, 120, 214, 0.08); border-color: rgba(42, 120, 214, 0.35); }
+.jobby-history-open { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; text-align: left;
+  background: none; border: 0; padding: 7px 8px; font: inherit; color: inherit; cursor: pointer; }
+.jobby-history-title { font-weight: 600; font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jobby-history-meta { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.jobby-history-meta .pill { font-size: 0.68rem; padding: 0 6px; }
+.jobby-history-delete { flex: none; background: none; border: 0; color: var(--muted); font-size: 1.1rem; line-height: 1;
+  padding: 8px 8px 4px; cursor: pointer; opacity: 0; }
+.jobby-history-item:hover .jobby-history-delete, .jobby-history-delete:focus-visible { opacity: 1; }
+.jobby-history-delete:hover { color: var(--bad); }
+.jobby-history-confirm { flex: none; padding: 8px 6px 0; white-space: nowrap; }
+@media (hover: none) { .jobby-history-delete { opacity: 1; } }
+.jobby-home { justify-content: center; }
+.jobby-home-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; padding-left: 38px; }
+.jobby-home-actions .jobby-starter-label { font-size: 1.05rem; }
+.jobby-chooser { display: flex; flex-direction: column; gap: 10px; }
+.jobby-chooser input { width: 100%; }
+.jobby-chooser ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 

@@ -13,12 +13,19 @@ import { JobbyLogo } from "../components/JobbyLogo";
 import { Markdown } from "../components/Markdown";
 import { Spinner } from "../components/Spinner";
 
-// Jobby, the job-search sidekick. Where you are lives in the URL: /jobby is Jobby's home, with your
-// past chats (asked 2026-11-10); ?job=42 is that job's chat (My Jobs and the job page link
-// straight there); ?chat=7 reopens any chat; ?new=1 is a new general chat. Chats are saved
-// server-side (core/jobby.py), so they survive reloads, and are only deleted from the home list.
+// Jobby, the job-search sidekick (layout asked 2026-11-10). Where you are lives in the URL:
+//   /jobby          home: Jobby's welcome, "Start a general chat" or "Choose from My Jobs"
+//   ?pick=1         choosing one of My Jobs
+//   ?job=42         that job's chat (My Jobs and the job page link straight here)
+//   ?chat=7         any chat, reopened from the history on the left
+//   ?new=1          a new general chat, created on its first message
+// The left tray is the chat history. Chats are saved server-side (core/jobby.py) and only
+// deleted from the history, never by going Back.
 
-const STARTERS: { label: string; blurb: string; text: string }[] = [
+type Starter = { label: string; blurb: string; text: string };
+
+// For a chat about one job.
+const JOB_STARTERS: Starter[] = [
   {
     label: "Mock interview",
     blurb: "Practice with Jobby as your interviewer",
@@ -41,54 +48,163 @@ const STARTERS: { label: string; blurb: string; text: string }[] = [
   },
 ];
 
-// Applications still in play come first in the picker; closed-out ones last.
+// For a general chat about the search itself (asked 2026-11-10).
+const GENERAL_STARTERS: Starter[] = [
+  {
+    label: "Find organizations",
+    blurb: "Places worth watching that fit what you want",
+    text: "Help me find organizations worth applying to. Based on my profile, what I'm looking for, and the jobs that score highest for me, suggest specific organizations (look up current ones), say why each fits, and point out patterns I could search for more of.",
+  },
+  {
+    label: "Clarify my goals & strategy",
+    blurb: "What you want next, and how to go after it",
+    text: "Help me clarify my goals and strategy. Ask me a few questions one at a time about what I want next, then sum up what you hear, where my search could be more focused, and a strategy that fits.",
+  },
+  {
+    label: "Resume feedback",
+    blurb: "What's strong, what to sharpen",
+    text: "Give me feedback on my current resume for the roles I'm targeting: what's strong, what's missing or unclear, and specific rewrites for the bullets that would gain the most.",
+  },
+  {
+    label: "Cover letter feedback",
+    blurb: "Tone, structure and what to cut",
+    text: "Give me feedback on my current cover letter: what works, what to tighten or cut, and how to make the opening and closing stronger. Suggest specific rewrites.",
+  },
+  {
+    label: "Networking outreach",
+    blurb: "A short note to a contact or a stranger",
+    text: "Help me write a short networking message to someone at an organization I'm interested in. Ask me who it's to and what I want from it, then draft a few versions with different tones.",
+  },
+  {
+    label: "Plan my week",
+    blurb: "A realistic plan for the next few days",
+    text: "Help me plan this week of my job search. Look at the jobs I'm tracking and where each stands, then suggest a realistic plan: what to apply to, follow up on, prepare for, and how to split my time.",
+  },
+];
+
+// Applications still in play come first in the list; closed-out ones last.
 const CLOSED = new Set(["rejected_no_interview", "rejected_interviewed", "withdrawn"]);
 
-function JobPicker({
-  apps,
-  selected,
-  onSelect,
+const timeAgo = (iso: string) => {
+  const then = new Date(iso.replace(" ", "T") + (iso.endsWith("Z") ? "" : "Z")).getTime();
+  const minutes = Math.max(0, Math.round((Date.now() - then) / 60_000));
+  if (minutes < 60) return minutes <= 1 ? "just now" : `${minutes} min ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} h ago`;
+  const days = Math.round(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
+};
+
+const chatTitle = (c: JobbyChatSummary) => c.title || (c.job_title ? c.job_title : "New chat");
+
+/** The left tray: every chat, newest first, to reopen or delete (asked 2026-11-10). */
+function ChatHistory({
+  chats,
+  activeId,
+  activeJobId,
   disabled,
+  onOpen,
+  onNew,
+  onDelete,
 }: {
-  apps: Application[];
-  selected: number | null;
-  onSelect: (jobId: number | null) => void;
+  chats: JobbyChatSummary[] | null;
+  activeId: number | null;
+  activeJobId: number | null;
   disabled: boolean;
+  onOpen: (c: JobbyChatSummary) => void;
+  onNew: () => void;
+  onDelete: (id: number) => void;
 }) {
+  const [confirm, setConfirm] = useState<number | null>(null);
+  return (
+    <div className="card jobby-history">
+      <div className="jobby-history-head">
+        <span className="flabel">Your chats</span>
+        <button className="ghost small" onClick={onNew} disabled={disabled}>
+          + New chat
+        </button>
+      </div>
+      {!chats && <Spinner label="Loading..." />}
+      {chats && chats.length === 0 && <p className="muted small">Your chats with Jobby will show up here.</p>}
+      <ul>
+        {chats?.map((c) => {
+          const on = c.id === activeId || (c.job_id !== null && c.job_id === activeJobId);
+          return (
+            <li key={c.id} className={`jobby-history-item${on ? " on" : ""}`}>
+              <button className="jobby-history-open" onClick={() => onOpen(c)} disabled={disabled}>
+                <span className="jobby-history-title">{chatTitle(c)}</span>
+                <span className="muted small jobby-history-meta">
+                  {c.job_id !== null ? (
+                    <>
+                      {c.job_company}
+                      {c.application_status && (
+                        <span className={`pill pill-${c.application_status}`}>
+                          {APPLICATION_STATUS_LABELS[c.application_status]}
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    "General"
+                  )}{" "}
+                  · {timeAgo(c.updated_at)}
+                </span>
+              </button>
+              {confirm === c.id ? (
+                <span className="jobby-history-confirm small">
+                  Delete?{" "}
+                  <button className="link small danger-link" onClick={() => onDelete(c.id)}>
+                    Yes
+                  </button>{" "}
+                  <button className="link small" onClick={() => setConfirm(null)}>
+                    No
+                  </button>
+                </span>
+              ) : (
+                <button
+                  className="jobby-history-delete"
+                  onClick={() => setConfirm(c.id)}
+                  disabled={disabled}
+                  title="Delete this chat"
+                  aria-label={`Delete "${chatTitle(c)}"`}
+                >
+                  ×
+                </button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+/** "Choose from My Jobs": pick the job to chat about. */
+function JobChooser({ apps, onPick }: { apps: Application[] | null; onPick: (jobId: number) => void }) {
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
-  const shown = apps
+  const shown = (apps ?? [])
     .filter((a) => !q || `${a.title} ${a.company}`.toLowerCase().includes(q))
     .sort((a, b) => Number(CLOSED.has(a.status)) - Number(CLOSED.has(b.status)));
-
   return (
-    <div className="card jobby-picker">
-      <span className="flabel">Which job are you prepping for?</span>
+    <div className="jobby-chooser">
       <input
         type="search"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search My Jobs..."
-        style={{ width: "100%", marginBottom: "8px" }}
+        autoFocus
       />
+      {!apps && <Spinner label="Loading My Jobs..." />}
+      {apps && apps.length === 0 && (
+        <p className="muted">
+          Jobs you track in <Link to="/tracker">My Jobs</Link> show up here.
+        </p>
+      )}
+      {apps && apps.length > 0 && shown.length === 0 && <p className="muted">No jobs match "{query}".</p>}
       <ul>
-        <li>
-          <button
-            className={`jobby-pick${selected === null ? " on" : ""}`}
-            onClick={() => onSelect(null)}
-            disabled={disabled}
-          >
-            <span className="jobby-pick-title">No specific job</span>
-            <span className="muted small">Start a new general chat</span>
-          </button>
-        </li>
         {shown.map((a) => (
           <li key={a.job_id}>
-            <button
-              className={`jobby-pick${selected === a.job_id ? " on" : ""}`}
-              onClick={() => onSelect(a.job_id)}
-              disabled={disabled}
-            >
+            <button className="jobby-pick" onClick={() => onPick(a.job_id)}>
               <span className="jobby-pick-title">{a.title}</span>
               <span className="muted small">
                 {a.company} ·{" "}
@@ -97,16 +213,6 @@ function JobPicker({
             </button>
           </li>
         ))}
-        {apps.length === 0 && (
-          <li className="muted small" style={{ padding: "6px 4px" }}>
-            Jobs you track in <Link to="/tracker">My Jobs</Link> show up here.
-          </li>
-        )}
-        {apps.length > 0 && shown.length === 0 && (
-          <li className="muted small" style={{ padding: "6px 4px" }}>
-            No jobs match "{query}".
-          </li>
-        )}
       </ul>
     </div>
   );
@@ -154,6 +260,19 @@ function Bubble({ message }: { message: Pick<JobbyMessage, "role" | "content"> }
   );
 }
 
+function Starters({ starters, onPick }: { starters: Starter[]; onPick: (text: string) => void }) {
+  return (
+    <div className="jobby-starters">
+      {starters.map((s) => (
+        <button key={s.label} className="jobby-starter" onClick={() => onPick(s.text)}>
+          <span className="jobby-starter-label">{s.label}</span>
+          <span className="muted small">{s.blurb}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function JobbyPage() {
   const [params, setParams] = useSearchParams();
   const jobParam = params.get("job");
@@ -161,13 +280,14 @@ export default function JobbyPage() {
   const chatParam = params.get("chat");
   const chatId = chatParam && /^\d+$/.test(chatParam) ? Number(chatParam) : null;
   const isNew = params.has("new");
-  const home = jobId === null && chatId === null && !isNew;
+  const picking = params.has("pick");
+  const inChat = jobId !== null || chatId !== null || isNew;
+  const home = !inChat && !picking;
+
   const [chats, setChats] = useState<JobbyChatSummary[] | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
   // A new chat that just got its id: the URL switches to ?chat=<id> without reloading it.
   const justCreated = useRef<number | null>(null);
-
-  const [apps, setApps] = useState<Application[]>([]);
+  const [apps, setApps] = useState<Application[] | null>(null);
   const [thread, setThread] = useState<JobbyThread | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -186,20 +306,26 @@ export default function JobbyPage() {
   // "Ask about this": the selected part of a reply and where to put its button.
   const [quote, setQuote] = useState<{ text: string; top: number; left: number } | null>(null);
 
-  useEffect(() => {
-    api.listApplications().then(setApps).catch(() => undefined);
+  const refreshChats = useCallback(() => {
+    api
+      .listJobbyChats()
+      .then(setChats)
+      .catch(() => setChats((c) => c ?? []));
   }, []);
+
+  useEffect(() => {
+    refreshChats();
+    api
+      .listApplications()
+      .then(setApps)
+      .catch(() => setApps([]));
+  }, [refreshChats]);
 
   useEffect(() => {
     setLoadError(null);
     setSendError(null);
-    if (home) {
+    if (!inChat) {
       setThread(null);
-      setConfirmDelete(null);
-      api
-        .listJobbyChats()
-        .then(setChats)
-        .catch((e) => setLoadError(e instanceof Error ? e.message : String(e)));
       return;
     }
     if (isNew) {
@@ -214,16 +340,18 @@ export default function JobbyPage() {
     (chatId !== null ? api.getJobbyChat(chatId) : api.getJobbyThread(jobId))
       .then(setThread)
       .catch((e) => setLoadError(e instanceof Error ? e.message : String(e)));
-  }, [home, isNew, chatId, jobId]);
+  }, [inChat, isNew, chatId, jobId]);
 
-  const openChat = (c: JobbyChatSummary) => setParams(c.job_id !== null ? { job: String(c.job_id) } : { chat: String(c.id) });
+  const openChat = (c: JobbyChatSummary) =>
+    setParams(c.job_id !== null ? { job: String(c.job_id) } : { chat: String(c.id) });
   const deleteChat = async (id: number) => {
     await api.deleteJobbyChat(id);
     setChats((cs) => (cs ? cs.filter((c) => c.id !== id) : cs));
-    setConfirmDelete(null);
+    // Deleting the chat that's open goes back to Jobby's home.
+    if (id === thread?.thread_id) setParams({});
   };
 
-  // The chat fills the window below its top edge, so the message box is always in view at the
+  // The panel fills the window below its top edge, so the message box is always in view at the
   // bottom and only the conversation scrolls (asked 2026-11-10: it could end up below the fold).
   useLayoutEffect(() => {
     const fit = () => {
@@ -243,22 +371,6 @@ export default function JobbyPage() {
     atBottom.current = true;
     setShowJump(false);
   }, []);
-
-  const onMessagesScroll = () => {
-    const el = messagesRef.current;
-    if (!el) return;
-    atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
-    if (atBottom.current) setShowJump(false);
-    placeQuote(); // the selection moved with the text: move its button too
-  };
-
-  // New text follows only a reader who's at the bottom; anyone who scrolled up stays put, with a
-  // "Jump to latest" button. Only the conversation box scrolls, never the page (scrollIntoView
-  // scrolled the whole page too, which made it jump).
-  useEffect(() => {
-    if (atBottom.current) scrollToEnd();
-    else setShowJump(true);
-  }, [thread?.messages.length, pending?.reply, pending?.status, scrollToEnd]);
 
   // Selecting text in one of Jobby's replies offers "Ask about this" next to it (asked 2026-11-10).
   const placeQuote = useCallback(() => {
@@ -293,6 +405,21 @@ export default function JobbyPage() {
     return () => document.removeEventListener("selectionchange", placeQuote);
   }, [placeQuote]);
 
+  const onMessagesScroll = () => {
+    const el = messagesRef.current;
+    if (!el) return;
+    atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+    if (atBottom.current) setShowJump(false);
+    placeQuote(); // the selection moved with the text: move its button too
+  };
+
+  // New text follows only a reader who's at the bottom; anyone who scrolled up stays put, with a
+  // "Jump to latest" button. Only the conversation box scrolls, never the page.
+  useEffect(() => {
+    if (atBottom.current) scrollToEnd();
+    else setShowJump(true);
+  }, [thread?.messages.length, pending?.reply, pending?.status, scrollToEnd]);
+
   const askAbout = () => {
     if (!quote) return;
     const quoted = quote.text
@@ -309,8 +436,6 @@ export default function JobbyPage() {
       box.setSelectionRange(box.value.length, box.value.length);
     });
   };
-
-  const selectJob = (id: number | null) => setParams(id === null ? { new: "1" } : { job: String(id) });
 
   const send = async (text: string) => {
     const content = text.trim();
@@ -333,11 +458,14 @@ export default function JobbyPage() {
             t ? { ...t, thread_id: event.thread_id, messages: [...t.messages, event.user, event.assistant] } : t,
           );
           setPending(null);
+          refreshChats();
           if (isNew) {
             // The new chat exists now: give it its own address, so Back and reloads find it.
             justCreated.current = event.thread_id;
             setParams({ chat: String(event.thread_id) }, { replace: true });
           }
+        } else if (event.type === "title") {
+          setChats((cs) => (cs ? cs.map((c) => (c.id === event.thread_id ? { ...c, title: event.title } : c)) : cs));
         } else if (event.type === "error") {
           throw new Error(event.message);
         }
@@ -354,6 +482,8 @@ export default function JobbyPage() {
   const messages = thread?.messages ?? [];
   const empty = messages.length === 0 && !pending;
   const job = thread?.job;
+  const starters = job || jobId !== null ? JOB_STARTERS : GENERAL_STARTERS;
+  const current = chats?.find((c) => c.id === thread?.thread_id);
 
   return (
     <div>
@@ -369,236 +499,177 @@ export default function JobbyPage() {
 
       <div className="jobby-layout">
         <aside>
-          <JobPicker apps={apps} selected={home ? -1 : jobId} onSelect={selectJob} disabled={!!pending} />
+          <ChatHistory
+            chats={chats}
+            activeId={thread?.thread_id ?? null}
+            activeJobId={jobId}
+            disabled={!!pending}
+            onOpen={openChat}
+            onNew={() => setParams({})}
+            onDelete={deleteChat}
+          />
         </aside>
 
         <section className="card jobby-chat" ref={chatRef} style={{ height: chatHeight }}>
-          {home ? (
-            <ChatList
-              chats={chats}
-              error={loadError}
-              confirmDelete={confirmDelete}
-              onOpen={openChat}
-              onNew={() => setParams({ new: "1" })}
-              onAskDelete={setConfirmDelete}
-              onDelete={deleteChat}
-            />
-          ) : (
-          <>
-          <div className="jobby-chat-head">
-            <button
-              className="ghost small jobby-back"
-              onClick={() => setParams({})}
-              disabled={!!pending}
-              title="Back to your chats. This one is saved."
-            >
-              ← Back
-            </button>
-            <div className="jobby-chat-title">
-              {job ? (
-                <>
-                  <div className="card-title">
-                    <Link to={`/jobs/${job.id}`}>{job.title}</Link>
-                  </div>
-                  <div className="muted small">{job.company}</div>
-                </>
-              ) : (
-                <>
-                  <div className="card-title">General interview help</div>
-                  <div className="muted small">Pick a job on the left for prep tailored to it.</div>
-                </>
-              )}
-            </div>
-          </div>
-
-          <div className="jobby-messages" ref={messagesRef} onScroll={onMessagesScroll}>
-            {loadError && <p className="error-text small">{loadError}</p>}
-            {!thread && !loadError && <Spinner label="Loading..." />}
-            {thread && empty && (
+          {home && (
+            <div className="jobby-messages jobby-home">
               <div className="jobby-welcome">
                 <JobbyLogo variant="full" size={180} title="Jobby at a laptop" />
                 <Bubble
                   message={{
                     role: "assistant",
-                    content: job
-                      ? `Hi! I'm **Jobby**. Let's get you ready for **${job.title}** at **${job.company}**. Pick a place to start, or ask me anything.`
-                      : "Hi! I'm **Jobby**, your interview-prep sidekick. Pick a job on the left for prep tailored to it, or start with something general.",
+                    content:
+                      "Hi! I'm **Jobby**, your job search sidekick. Want to talk through your search in general, or get ready for one of the jobs on your My Jobs list?",
                   }}
                 />
-                <div className="jobby-starters">
-                  {STARTERS.map((s) => (
-                    <button key={s.label} className="jobby-starter" onClick={() => send(s.text)}>
-                      <span className="jobby-starter-label">{s.label}</span>
-                      <span className="muted small">{s.blurb}</span>
-                    </button>
-                  ))}
+                <div className="jobby-home-actions">
+                  <button className="jobby-starter" onClick={() => setParams({ new: "1" })}>
+                    <span className="jobby-starter-label">Start a general chat</span>
+                    <span className="muted small">
+                      Finding organizations, your goals and strategy, resume and cover letter feedback...
+                    </span>
+                  </button>
+                  <button className="jobby-starter" onClick={() => setParams({ pick: "1" })}>
+                    <span className="jobby-starter-label">Choose from My Jobs</span>
+                    <span className="muted small">Interview prep and research for one job</span>
+                  </button>
                 </div>
               </div>
-            )}
-            {messages.map((m) => (
-              <Bubble key={m.id} message={m} />
-            ))}
-            {pending && (
-              <>
-                <Bubble message={{ role: "user", content: pending.user }} />
-                <div className="jobby-msg assistant">
-                  <JobbyLogo size={28} />
-                  <div className="jobby-msg-body">
-                    {pending.reply && <Markdown text={pending.reply} />}
-                    {(pending.status || !pending.reply) && (
-                      <Spinner label={pending.status ?? "Jobby is thinking..."} />
-                    )}
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-          {showJump && (
-            <button className="jobby-jump" onClick={scrollToEnd}>
-              Jump to latest ↓
-            </button>
-          )}
-          {quote && (
-            <button
-              className="jobby-quote-btn"
-              style={{ top: quote.top, left: quote.left }}
-              // Keep the selection: a mousedown would clear it before the click lands.
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={askAbout}
-            >
-              Ask about this
-            </button>
-          )}
-
-          {!empty && !pending && (
-            <div className="jobby-try">
-              <span className="muted small">Try:</span>
-              {STARTERS.map((s) => (
-                <button key={s.label} className="chip-toggle" onClick={() => send(s.text)}>
-                  {s.label}
-                </button>
-              ))}
             </div>
           )}
 
-          {sendError && <p className="error-text small">{sendError}</p>}
-          <div className="jobby-input">
-            <textarea
-              ref={inputRef}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  send(draft);
-                }
-              }}
-              rows={2}
-              placeholder={pending ? "Jobby is replying..." : "Ask Jobby anything — Enter to send, Shift+Enter for a new line"}
-              disabled={!!pending || !thread}
-            />
-            <button className="primary" onClick={() => send(draft)} disabled={!!pending || !draft.trim()}>
-              Send
-            </button>
-          </div>
-          </>
+          {picking && (
+            <>
+              <div className="jobby-chat-head">
+                <button className="ghost small jobby-back" onClick={() => setParams({})}>
+                  ← Back
+                </button>
+                <div className="jobby-chat-title">
+                  <div className="card-title">Which job are you prepping for?</div>
+                  <div className="muted small">From My Jobs; a job you've chatted about picks up where you left off.</div>
+                </div>
+              </div>
+              <div className="jobby-messages">
+                <JobChooser apps={apps} onPick={(id) => setParams({ job: String(id) })} />
+              </div>
+            </>
+          )}
+
+          {inChat && (
+            <>
+              <div className="jobby-chat-head">
+                <button
+                  className="ghost small jobby-back"
+                  onClick={() => setParams({})}
+                  disabled={!!pending}
+                  title="Back to Jobby's home. This chat is saved."
+                >
+                  ← Back
+                </button>
+                <div className="jobby-chat-title">
+                  {job ? (
+                    <>
+                      <div className="card-title">
+                        <Link to={`/jobs/${job.id}`}>{job.title}</Link>
+                      </div>
+                      <div className="muted small">{job.company}</div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="card-title">{current ? chatTitle(current) : "New chat"}</div>
+                      <div className="muted small">General chat</div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div className="jobby-messages" ref={messagesRef} onScroll={onMessagesScroll}>
+                {loadError && <p className="error-text small">{loadError}</p>}
+                {!thread && !loadError && <Spinner label="Loading..." />}
+                {thread && empty && (
+                  <div className="jobby-welcome">
+                    <JobbyLogo variant="full" size={180} title="Jobby at a laptop" />
+                    <Bubble
+                      message={{
+                        role: "assistant",
+                        content: job
+                          ? `Hi! I'm **Jobby**. Let's get you ready for **${job.title}** at **${job.company}**. Pick a place to start, or ask me anything.`
+                          : "Hi! I'm **Jobby**. What would help most with your search right now? Pick a place to start, or ask me anything.",
+                      }}
+                    />
+                    <Starters starters={starters} onPick={send} />
+                  </div>
+                )}
+                {messages.map((m) => (
+                  <Bubble key={m.id} message={m} />
+                ))}
+                {pending && (
+                  <>
+                    <Bubble message={{ role: "user", content: pending.user }} />
+                    <div className="jobby-msg assistant">
+                      <JobbyLogo size={28} />
+                      <div className="jobby-msg-body">
+                        {pending.reply && <Markdown text={pending.reply} />}
+                        {(pending.status || !pending.reply) && (
+                          <Spinner label={pending.status ?? "Jobby is thinking..."} />
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+              {showJump && (
+                <button className="jobby-jump" onClick={scrollToEnd}>
+                  Jump to latest ↓
+                </button>
+              )}
+              {quote && (
+                <button
+                  className="jobby-quote-btn"
+                  style={{ top: quote.top, left: quote.left }}
+                  // Keep the selection: a mousedown would clear it before the click lands.
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={askAbout}
+                >
+                  Ask about this
+                </button>
+              )}
+
+              {!empty && !pending && (
+                <div className="jobby-try">
+                  <span className="muted small">Try:</span>
+                  {starters.map((s) => (
+                    <button key={s.label} className="chip-toggle" onClick={() => send(s.text)}>
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {sendError && <p className="error-text small">{sendError}</p>}
+              <div className="jobby-input">
+                <textarea
+                  ref={inputRef}
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      send(draft);
+                    }
+                  }}
+                  rows={2}
+                  placeholder={pending ? "Jobby is replying..." : "Ask Jobby anything — Enter to send, Shift+Enter for a new line"}
+                  disabled={!!pending || !thread}
+                />
+                <button className="primary" onClick={() => send(draft)} disabled={!!pending || !draft.trim()}>
+                  Send
+                </button>
+              </div>
+            </>
           )}
         </section>
       </div>
     </div>
   );
 }
-
-
-const timeAgo = (iso: string) => {
-  const then = new Date(iso.replace(" ", "T") + (iso.endsWith("Z") ? "" : "Z")).getTime();
-  const minutes = Math.max(0, Math.round((Date.now() - then) / 60_000));
-  if (minutes < 60) return minutes <= 1 ? "just now" : `${minutes} minutes ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
-  const days = Math.round(hours / 24);
-  return `${days} day${days === 1 ? "" : "s"} ago`;
-};
-
-/** Jobby's home: past chats to reopen or delete, and a new general chat (asked 2026-11-10). */
-function ChatList({
-  chats,
-  error,
-  confirmDelete,
-  onOpen,
-  onNew,
-  onAskDelete,
-  onDelete,
-}: {
-  chats: JobbyChatSummary[] | null;
-  error: string | null;
-  confirmDelete: number | null;
-  onOpen: (c: JobbyChatSummary) => void;
-  onNew: () => void;
-  onAskDelete: (id: number | null) => void;
-  onDelete: (id: number) => void;
-}) {
-  return (
-    <>
-      <div className="jobby-chat-head">
-        <div className="jobby-chat-title">
-          <div className="card-title">Your chats</div>
-          <div className="muted small">Pick one up where you left off, or pick a job on the left.</div>
-        </div>
-        <button className="primary" onClick={onNew}>
-          New general chat
-        </button>
-      </div>
-      <div className="jobby-messages">
-        {error && <p className="error-text small">{error}</p>}
-        {!chats && !error && <Spinner label="Loading your chats..." />}
-        {chats && chats.length === 0 && (
-          <div className="jobby-welcome">
-            <JobbyLogo variant="full" size={180} title="Jobby at a laptop" />
-            <p className="muted" style={{ textAlign: "center" }}>
-              No chats yet. Pick a job on the left to prep for it, or start a general chat.
-            </p>
-          </div>
-        )}
-        {chats && chats.length > 0 && (
-          <ul className="jobby-chat-list">
-            {chats.map((c) => (
-              <li key={c.id} className="jobby-chat-item">
-                <button className="jobby-chat-open" onClick={() => onOpen(c)}>
-                  <span className="jobby-chat-item-title">
-                    {c.job_title ? `${c.job_title} — ${c.job_company}` : "General chat"}
-                    {c.application_status && (
-                      <span className={`pill pill-${c.application_status}`}>
-                        {APPLICATION_STATUS_LABELS[c.application_status]}
-                      </span>
-                    )}
-                  </span>
-                  <span className="jobby-chat-preview">{c.preview}</span>
-                  <span className="muted small">
-                    {c.message_count} message{c.message_count === 1 ? "" : "s"} · {timeAgo(c.updated_at)}
-                  </span>
-                </button>
-                {confirmDelete === c.id ? (
-                  <span className="jobby-chat-confirm small">
-                    Delete this chat?{" "}
-                    <button className="link small danger-link" onClick={() => onDelete(c.id)}>
-                      Delete
-                    </button>{" "}
-                    <button className="link small" onClick={() => onAskDelete(null)}>
-                      Cancel
-                    </button>
-                  </span>
-                ) : (
-                  <button className="link small danger-link" onClick={() => onAskDelete(c.id)} title="Delete this chat">
-                    Delete
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </>
-  );
-}
-

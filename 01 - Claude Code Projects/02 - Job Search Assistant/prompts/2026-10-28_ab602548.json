@@ -1068,8 +1068,16 @@
    "time": "2026-11-11T13:54:55.775Z",
    "kind": "prompt",
    "text": "Let's change Jobby's description from \"Your interview-prep sidekick. Jobby knows the job, your profile, and your documents.\" to \"Your job search sidekick. Jobby knows your profile, your documents, and the jobs you're interested in.\" Also the \"Start Over\" button in a Jobby chat makes it sound like you'll lose your chat history if you click it. Instead something like \"Back\" would be better to indicate it'll go back to the Jobby homepage without losing anything. There should also be a clear way to view and reenter past chats and to delete them",
-   "reply": null,
+   "reply": "Jobby has a home page of your past chats, and \"Start over\" is now \"← Back\". Both are pushed to the branch.\n\n- **New description:** \"Your job search sidekick. Jobby knows your profile, your documents, and the jobs you're interested in.\"\n- **← Back instead of Start over.** In a chat, ← Back returns to Jobby's home page and deletes nothing. (\"Start over\" really did delete the chat.)\n- **Jobby's home, \"Your chats\".** Opening Jobby now shows your past chats, most recently used first. Each shows:\n  - which job it's about (or \"General chat\") and that job's My Jobs status;\n  - a preview of the last message;\n  - how many messages it has, and when it was last used.\n\n  Click a chat to pick up where you left off.\n- **Deleting is deliberate.** Each chat has a Delete link that asks \"Delete this chat?\" before removing it.\n- **Several general chats.** \"New general chat\" starts a fresh conversation alongside your earlier ones; it no longer replaces them. Your existing general chat will show up in the list.\n- **Job chats work as before.** Picking a job on the left, or \"Prep with Jobby\" from My Jobs, opens that job's chat. There's still one chat per job; separate chats per job are possible later if you want them.\n\nI tested the flow in a browser with Jobby's replies faked: start a general chat, go Back, start a second, reopen the first with its messages, and delete the second. All 508 tests pass, including a new one for listing, reopening and deleting chats. It also checks that another person can't see or delete your chats.\n\nTo deploy:\n\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com\n```",
    "id": "ab602548-160",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-11T14:25:31.375Z",
+   "kind": "prompt",
+   "text": "[screenshot]\n\nThen, the Jobby UI should work as follows. First, going to the Jobby homepage should show the Jobby picture and the welcome message from Jobby and then have two buttons to start a general chat or to choose from My Jobs. If the user chooses from My Jobs, they should then pick the job and then the page should look how it does now (in the screenshot). If they choose a general chat, there should be new convo starter prompts (Help me find organizations, Help clarify my goals & strategy, resume feedback, cover letter feedback, anything else useful you can think of). The current lefthand tray should be replaced with chat history. For general chats, the title should be created based on the content of the conversation. Let me know if any of those requirements are unclear",
+   "reply": null,
+   "id": "ab602548-161",
    "session": "ab602548"
   }
  ]

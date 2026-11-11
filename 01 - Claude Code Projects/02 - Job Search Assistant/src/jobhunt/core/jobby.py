@@ -8,20 +8,34 @@ conversation re-reads it from cache instead of paying full price for it again. R
 search, e.g. for company research; a long server-tool turn that pauses (stop_reason
 "pause_turn") is resumed, same as discovery's run_web_search."""
 
+import logging
 import re
 from collections.abc import Iterator
 
-from jobhunt.core.llm import DEFAULT_MODEL, LLMError, cache_tokens, get_client, llm_error_boundary, log_call
+from jobhunt.core.llm import (
+    DEFAULT_MODEL,
+    LLMError,
+    cache_tokens,
+    get_client,
+    llm_error_boundary,
+    log_call,
+    response_text,
+)
 from jobhunt.core.preference import get_current_preference_profile
 from jobhunt.core.profile import get_current_candidate_profile
 from jobhunt.core.settings import get_setting, get_settings
 from jobhunt.db.connection import get_db
 from jobhunt.core.users import VISIBLE_JOB_SQL, current_user_id
 
-PERSONA = """You are Jobby, a friendly, sharp interview-prep coach inside a personal job-search \
-app. You're talking with the job seeker directly -- write to them in the second person ("you", \
-"your background"). You're warm and encouraging but practical and honest: concrete advice beats \
-pep talk, and if an answer they draft is weak, say so kindly and show how to make it stronger.
+PERSONA = """You are Jobby, a friendly, sharp job-search coach inside a personal job-search app. \
+With a job selected, you help them prepare for it: interview practice, likely questions, framing \
+their background, research. In a general chat, you help with the search itself: finding \
+organizations and roles worth pursuing, clarifying their goals and strategy, feedback on their \
+resume and cover letter, outreach to contacts, and planning their week. You're talking with the \
+job seeker directly -- always write to them in the second person ("you", "your background"), \
+never about them in the third person. You're warm and encouraging but practical and honest: \
+concrete advice beats pep talk, and if something they draft is weak, say so kindly and show how \
+to make it stronger.
 
 You have their context below: the job they're preparing for (if any), what they're looking for, \
 their candidate profile, what their marks and applications say they want, the jobs that score \
@@ -60,7 +74,7 @@ TAILORED_DOC_CHARS = 8_000
 # Cover letters skewed Jobby (asked 2026-11-10): not every application needs one and only some are
 # uploaded, so a partial set read as what matters most. Only the current one goes in, short, as a
 # writing sample; older ones are left out.
-COVER_LETTER_SAMPLE_CHARS = 3_000
+COVER_LETTER_SAMPLE_CHARS = 5_000  # room for a whole letter, for "Cover letter feedback"
 # The jobs that score highest for them, and why (asked 2026-11-10): what they're best suited to.
 TOP_JOBS = 8
 TOP_JOB_REASON_CHARS = 600
@@ -291,7 +305,7 @@ def list_threads() -> list[dict]:
     2026-11-10: a way to see and reopen past chats). One per job; any number of general ones."""
     with get_db() as conn:
         rows = conn.execute(
-            """SELECT t.id, t.job_id, t.updated_at, j.title AS job_title, j.company AS job_company,
+            """SELECT t.id, t.job_id, t.title, t.updated_at, j.title AS job_title, j.company AS job_company,
                       a.status AS application_status,
                       (SELECT COUNT(*) FROM jobby_messages m WHERE m.thread_id = t.id) AS message_count,
                       (SELECT content FROM jobby_messages m WHERE m.thread_id = t.id
@@ -310,12 +324,58 @@ def list_threads() -> list[dict]:
         preview = " ".join((r["last_message"] or "").split())
         threads.append(
             {
-                **{k: r[k] for k in ("id", "job_id", "updated_at", "job_title", "job_company",
+                **{k: r[k] for k in ("id", "job_id", "title", "updated_at", "job_title", "job_company",
                                        "application_status", "message_count")},
                 "preview": preview[:PREVIEW_CHARS] + ("…" if len(preview) > PREVIEW_CHARS else ""),
             }
         )  # fmt: skip
     return threads
+
+
+TITLE_PROMPT = (
+    "Write a short title for this conversation between a job seeker and their job-search assistant: "
+    '3 to 6 words, in title case, naming its topic (e.g. "Finding Civic Tech Organizations", '
+    '"Resume Feedback for Data Roles"). Reply with the title only: no quotes, no period.'
+)
+
+
+def _fallback_title(first_message: str) -> str:
+    words = " ".join(first_message.split()).split(" ")
+    return " ".join(words[:7]) + ("…" if len(words) > 7 else "")
+
+
+def make_title(first_message: str, reply: str) -> str:
+    """A general chat's title from its first exchange (asked 2026-11-10). One short call at low
+    effort; any failure (budget, API, an odd reply) falls back to the start of the first message."""
+    try:
+        client = get_client()
+        with llm_error_boundary("titling the chat"):
+            response = client.messages.create(
+                model=DEFAULT_MODEL,
+                max_tokens=200,
+                system=TITLE_PROMPT,
+                messages=[{"role": "user", "content": f"Job seeker: {_clip(first_message, 1500)}\n\n"
+                           f"Assistant: {_clip(reply, 1500)}"}],
+                output_config={"effort": "low"},
+            )  # fmt: skip
+        title = response_text(response, "titling the chat").strip().strip("\"'").rstrip(".")
+        # llm_calls' CHECK constraint can't take a new call_type without a table rebuild.
+        log_call(
+            call_type="generation",
+            model=DEFAULT_MODEL,
+            input_tokens=response.usage.input_tokens,
+            output_tokens=response.usage.output_tokens,
+            note="jobby chat title",
+        )
+    except Exception:  # noqa: BLE001 - a title is a nicety: never let it break the reply
+        logging.getLogger(__name__).exception("titling a Jobby chat failed")
+        return _fallback_title(first_message)
+    return title[:80] if title and "\n" not in title else _fallback_title(first_message)
+
+
+def _set_title(thread_id: int, title: str) -> None:
+    with get_db() as conn:
+        conn.execute("UPDATE jobby_threads SET title = ? WHERE id = ?", (title, thread_id))
 
 
 def thread_messages(thread_id: int) -> list[dict]:
@@ -474,6 +534,15 @@ def stream_reply(
     reply = "".join(reply_parts).strip() or "(Jobby didn't have anything to say -- try rephrasing.)"
     assistant_message = _add_message(thread_id, "assistant", reply)
     yield {"type": "done", "user": user_message, "assistant": assistant_message, "thread_id": thread_id}
+
+    # A general chat gets a title from its first exchange, sent as one more event after "done" (the
+    # reply is already on screen by then). Job chats are titled by the job.
+    if job_id is None:
+        thread = thread_by_id(thread_id)
+        if thread and not thread.get("title"):
+            title = make_title(content, reply)
+            _set_title(thread_id, title)
+            yield {"type": "title", "thread_id": thread_id, "title": title}
 
 
 def _delete_message(message_id: int) -> None:
