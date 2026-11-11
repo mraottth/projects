@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { type Location, Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { api, type Me } from "./api";
 import { JobbyLogo } from "./components/JobbyLogo";
@@ -18,6 +18,7 @@ import { MeContext } from "./me";
 import { JobModal } from "./components/JobModal";
 import { SessionExpiredBanner } from "./components/SessionExpiredBanner";
 import { DemoBanner } from "./components/DemoBanner";
+import { DemoTour } from "./components/DemoTour";
 import { DEMO } from "./demo";
 
 // Carries ~220 KB of prompts and commits, so it's only loaded when visited.
@@ -32,6 +33,29 @@ const NAV_LINKS = [
   { to: "/sources", label: "Manage Sources" },
   { to: "/profile", label: "Profile" },
 ];
+
+/**
+ * The top bar (plus, in the demo, its bar) as one sticky header. Its height goes to --head-h on the
+ * page, which the other sticky parts (the filter sidebar, My Jobs' table header, Jobby's history)
+ * sit under, so they never slide beneath a taller header.
+ */
+function AppHead({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const update = () => document.documentElement.style.setProperty("--head-h", `${el.offsetHeight}px`);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  return (
+    <div className="app-head" ref={ref}>
+      {children}
+    </div>
+  );
+}
 
 function GearIcon() {
   return (
@@ -162,6 +186,7 @@ export default function App() {
     <MeContext.Provider value={me}>
     <div className="app-shell">
       <SessionExpiredBanner />
+      <AppHead>
       <header className="topbar">
         <span className="brand">Job Search Assistant</span>
         {!inOnboarding && (
@@ -170,6 +195,7 @@ export default function App() {
               <NavLink
                 key={link.to}
                 to={link.to}
+                data-path={link.to}
                 end={link.end}
                 className={({ isActive }) => (isActive ? "active" : "")}
               >
@@ -201,6 +227,8 @@ export default function App() {
         )}
       </header>
       {DEMO && <DemoBanner />}
+      </AppHead>
+      {DEMO && needsOnboarding === false && <DemoTour />}
       {needsOnboarding !== null && (
         <AppMain
           needsOnboarding={needsOnboarding}

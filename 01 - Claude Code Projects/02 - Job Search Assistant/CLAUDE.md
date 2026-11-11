@@ -1289,6 +1289,17 @@ no Claude calls, nothing from `data/`.
 - **Read-only UI:** `DEMO &&`/`!DEMO &&` hide Jobby's message box, starters, "Ask about this", new
   chat and delete; "+ Add more", "Add a source manually" and "Check my sources now"; "Add a job"; and
   upload buttons. Everything else stays visible and is refused with the toast.
+- **Guided tour** (`components/DemoTour.tsx`, asked 2026-11-11): one step per tab, in nav order (the
+  gear last). Each opens its page and points a short note at its tab (found by the nav links'
+  `data-path`), with Back / Next / End tour. It starts on a first visit to the demo's home
+  (`localStorage` `jsa-demo-tour-done`), restarts from the bar's "Take the tour"
+  (`DEMO_TOUR_EVENT`), follows a tab clicked mid-tour, and ends on Esc. Under 760px it's a bottom
+  sheet. It doesn't cover the page, so visitors can still click around.
+- **Sticky header:** `App.tsx`'s `AppHead` wraps the top bar (and the demo bar) in one sticky
+  `.app-head` and writes its height to `--head-h`. The filter sidebar, My Jobs' table header and
+  toolbar (`useStickyOffsets`), "My documents" and Jobby's history sit under it. The demo bar keeps to
+  one line (the description is cut to fit; hidden on a phone), with a prominent "← Back to the
+  welcome page".
 - **Build and publish:** `make demo` (Timeline data, record, build, then `frontend/dist-site/` with
   `job-search/` and `jsa-demo/`). `.github/workflows/jsa-demo.yml` at the `projects` repo root runs it
   on every push to main that touches this folder and publishes `dist-site` with

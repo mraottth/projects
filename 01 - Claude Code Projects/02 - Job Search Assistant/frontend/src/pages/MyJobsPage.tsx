@@ -538,7 +538,8 @@ function Insights({ apps }: { apps: Application[] }) {
  * page: measures the top bar and toolbar and hands their heights to CSS. */
 function useStickyOffsets(toolbar: React.RefObject<HTMLDivElement | null>, card: React.RefObject<HTMLDivElement | null>) {
   useEffect(() => {
-    const topbar = document.querySelector<HTMLElement>(".topbar");
+    // The sticky header: the top bar, plus the demo bar in the demo (App.tsx's AppHead).
+    const topbar = document.querySelector<HTMLElement>(".app-head") ?? document.querySelector<HTMLElement>(".topbar");
     const update = () => {
       if (!card.current || !toolbar.current) return;
       const top = topbar?.offsetHeight ?? 0;

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { DEMO_READONLY_EVENT, DEMO_READONLY_MESSAGE } from "../demo";
+import { DEMO_TOUR_EVENT } from "./DemoTour";
 
 // Where "Request access" goes: the real app, set at build time (the GitHub workflow passes the repo
 // variable JSA_APP_URL). Without it the banner just says what the demo is.
@@ -24,14 +25,18 @@ export function DemoBanner() {
   return (
     <>
       <div className="demo-banner" role="note">
+        {/* The welcome page published next to the demo (demo/landing/, D-033). */}
+        <a className="demo-banner-home" href={`${import.meta.env.BASE_URL}../job-search/`}>
+          ← Back<span className="demo-banner-long"> to the welcome page</span>
+        </a>
         <strong>Demo</strong>
-        <span>
-          Everything here is fictional: Jordan Rivera's search, with made-up organizations and jobs. Look
-          around freely; nothing can be changed.
+        <span className="demo-banner-text" title="Everything here is fictional: Jordan Rivera's search, with made-up organizations and jobs. Look around freely; nothing can be changed.">
+          A fictional job seeker's search. Look around freely; nothing can be changed.
         </span>
         <span className="demo-banner-links">
-          {/* The welcome page published next to the demo (demo/landing/, D-033). */}
-          <a href={`${import.meta.env.BASE_URL}../job-search/`}>About the service</a>
+          <button className="demo-banner-tour" onClick={() => window.dispatchEvent(new Event(DEMO_TOUR_EVENT))}>
+            Take the tour
+          </button>
           {APP_URL && (
             <a className="demo-banner-cta" href={APP_URL}>
               Request access →

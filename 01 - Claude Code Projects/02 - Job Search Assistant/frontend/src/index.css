@@ -92,8 +92,9 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 
 /* ---------- layout / nav */
 .app-shell { display: flex; flex-direction: column; min-height: 100vh; }
+.app-head { position: sticky; top: 0; z-index: 20; }
 .topbar {
-  position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 20px;
+  position: relative; z-index: 20; display: flex; align-items: center; gap: 20px;
   padding: 12px 24px; background: rgba(252, 252, 251, 0.92); backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--ring);
 }
@@ -126,7 +127,7 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .list-sort { display: inline-flex; align-items: center; gap: 8px; color: var(--ink-2); }
 .list-sort select { padding-top: 6px; padding-bottom: 6px; }
 .list-side {
-  position: sticky; top: 76px; max-height: calc(100vh - 92px); overflow-y: auto;
+  position: sticky; top: calc(var(--head-h, 60px) + 16px); max-height: calc(100vh - var(--head-h, 60px) - 32px); overflow-y: auto;
   display: flex; flex-direction: column; gap: 14px;
 }
 .list-side .filters { display: flex; flex-direction: column; gap: 10px; margin-bottom: 0; padding: 14px 16px; }
@@ -842,7 +843,7 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 .profile-top { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: 16px; align-items: start; margin-bottom: 16px; }
 .profile-top > .card { margin: 0; }
 @media (max-width: 900px) { .profile-top { grid-template-columns: minmax(0, 1fr); } }
-.my-documents { position: sticky; top: 76px; }
+.my-documents { position: sticky; top: calc(var(--head-h, 60px) + 16px); }
 @media (max-width: 900px) { .my-documents { position: static; } }
 .doc-slot { padding: 12px 0; border-top: 1px solid var(--grid); }
 .doc-slot:first-of-type { border-top: none; padding-top: 4px; }
@@ -881,7 +882,7 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
    and the chat's Back button. */
 .jobby-chat-head .jobby-chat-title { flex: 1; min-width: 0; }
 .jobby-back { flex: none; }
-.jobby-history { position: sticky; top: 76px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+.jobby-history { position: sticky; top: calc(var(--head-h, 60px) + 16px); padding: 14px; display: flex; flex-direction: column; gap: 8px; }
 .jobby-history-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .jobby-history ul { list-style: none; margin: 0; padding: 0; max-height: 64vh; overflow-y: auto; display: flex;
   flex-direction: column; gap: 2px; }
@@ -928,7 +929,7 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
   background: color-mix(in srgb, var(--accent) 7%, var(--card)); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); line-height: 1.4; }
 /* The public demo (demo.ts, DemoBanner): a strip under the top bar, a toast for attempted changes, and
    the note where Jobby's message box would be. */
-.demo-banner { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 20px; font-size: 0.9rem;
+.demo-banner { display: flex; align-items: center; gap: 10px 12px; padding: 7px 20px; font-size: 0.9rem;
   background: color-mix(in srgb, var(--accent) 9%, var(--card)); border-bottom: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); }
 .demo-banner strong { padding: 1px 8px; border-radius: 999px; background: var(--accent); color: #fff; font-size: 0.78rem; letter-spacing: 0.03em; text-transform: uppercase; }
 .demo-banner-links { margin-left: auto; display: flex; gap: 16px; white-space: nowrap; }
@@ -936,3 +937,29 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 .demo-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 1000; padding: 10px 18px; border-radius: 10px;
   background: var(--ink); color: #fff; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2); font-size: 0.92rem; }
 .demo-note { margin: 0; padding: 10px 14px; border-radius: 10px; color: var(--muted); background: var(--page); border: 1px dashed var(--grid); text-align: center; font-size: 0.9rem; }
+/* The demo bar's way home and tour restart (DemoBanner), and the guided tour (DemoTour). */
+.demo-banner-home { padding: 6px 14px; border-radius: 999px; background: var(--accent); color: #fff; font-weight: 600;
+  text-decoration: none; white-space: nowrap; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15); }
+.demo-banner-home:hover, .demo-banner-home:focus-visible { background: var(--accent-ink); color: #fff; }
+.demo-banner-tour { padding: 5px 12px; border-radius: 999px; border: 1.5px solid var(--accent); background: var(--card);
+  color: var(--accent-ink); font-weight: 600; font-size: 0.86rem; }
+.demo-banner-tour:hover { background: color-mix(in srgb, var(--accent) 8%, var(--card)); }
+.demo-banner-links { align-items: center; }
+.demo-banner-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.demo-banner > strong, .demo-banner-home { flex: none; }
+@media (max-width: 640px) { .demo-banner { padding: 7px 12px; } .demo-banner-text, .demo-banner-long { display: none; } }
+.demo-tour { position: fixed; z-index: 60; background: var(--card); border: 1px solid var(--grid); border-radius: 14px;
+  padding: 16px 18px 14px; box-shadow: 0 14px 40px rgba(0, 0, 0, 0.18); }
+.demo-tour h3 { margin: 2px 0 6px; font-size: 1.05rem; }
+.demo-tour p { margin: 0 0 10px; color: var(--ink-2); font-size: 0.93rem; line-height: 1.45; }
+.demo-tour-count { font-size: 0.75rem; font-weight: 600; color: var(--accent-ink); letter-spacing: 0.03em; text-transform: uppercase; }
+.demo-tour-end { padding-top: 8px; border-top: 1px solid var(--grid); }
+.demo-tour-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.demo-tour-nav { display: flex; gap: 8px; }
+.demo-tour .primary.small { padding: 6px 16px; font-size: 0.88rem; }
+.demo-tour-arrow { position: absolute; top: -7px; width: 12px; height: 12px; margin-left: -6px; transform: rotate(45deg);
+  background: var(--card); border-left: 1px solid var(--grid); border-top: 1px solid var(--grid); }
+.demo-tour-ring { position: fixed; z-index: 55; border-radius: 999px; pointer-events: none;
+  box-shadow: 0 0 0 3px var(--accent), 0 0 0 7px color-mix(in srgb, var(--accent) 25%, transparent); }
+.demo-tour.sheet { left: 12px; right: 12px; bottom: 12px; top: auto; width: auto; }
+
