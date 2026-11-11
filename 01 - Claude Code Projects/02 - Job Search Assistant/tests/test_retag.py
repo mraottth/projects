@@ -28,6 +28,19 @@ def test_a_mismatched_answer_changes_nothing():
     assert retag.retag_rationale(already, "High", "Med", client=_client(["i"])) is None
 
 
+def test_two_tagged_highlights_count_as_tagged():
+    # The text between two tagged marks ("== fits, and ==") used to match as an untagged mark.
+    text = "Your ==f:campaign analytics== fits, and ==i:mission-driven civic tech== is what you want."
+    assert retag._untagged(text) == []
+    assert retag.retag_rationale(text, "High", "Med", client=_client(["i"])) is None
+
+
+def test_only_the_untagged_mark_among_tagged_ones_is_retagged():
+    text = "==i:Civic work== suits you, ==your SQL== is strong, and ==f:the team size== fits."
+    new = retag.retag_rationale(text, "High", "Med", client=_client(["f"]))
+    assert new == "==i:Civic work== suits you, ==f:your SQL== is strong, and ==f:the team size== fits."
+
+
 def _score(job_key, rationale):
     with get_db() as conn:
         job_id = (

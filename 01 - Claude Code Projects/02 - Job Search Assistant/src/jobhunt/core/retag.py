@@ -22,7 +22,24 @@ from jobhunt.core.users import carry, current_user_id
 
 logger = logging.getLogger(__name__)
 
-UNTAGGED = re.compile(r"==(?![if]:)([^=]+)==")
+# Every highlight, matched left to right so each pair of == is one mark. Looking for "== not
+# followed by i: or f:" instead matched the text *between* two tagged marks (one's closing == to
+# the next one's opening ==), so a fully tagged rationale counted as untagged, and retagging it would
+# have spliced tags into the wrong places (caught 2026-11-11, building the demo).
+MARK = re.compile(r"==([^=]+)==")
+
+
+def _untagged(text: str) -> list[str]:
+    return [m.group(1) for m in MARK.finditer(text) if not m.group(1).startswith(("i:", "f:"))]
+
+
+def _sub_untagged(text: str, replace) -> str:
+    """`text` with each untagged mark replaced by replace(phrase); tagged ones are left alone."""
+    return MARK.sub(
+        lambda m: m.group(0) if m.group(1).startswith(("i:", "f:")) else replace(m.group(1)), text
+    )
+
+
 CONCURRENCY = 4
 # Rough per-summary usage for the cost estimate shown before running: a short prompt plus the
 # summary in, a few letters out.
@@ -54,7 +71,7 @@ def _latest_untagged() -> list[dict]:
                  AND js.rationale_text LIKE '%==%'""",
             {"uid": current_user_id()},
         ).fetchall()
-    return [dict(r) for r in rows if UNTAGGED.search(r["rationale_text"] or "")]
+    return [dict(r) for r in rows if _untagged(r["rationale_text"] or "")]
 
 
 def pending_summary() -> dict:
@@ -65,11 +82,11 @@ def pending_summary() -> dict:
 
 def retag_rationale(text: str, interest: str | None, fit: str | None, client=None) -> str | None:
     """The rationale with each untagged highlight tagged, or None if Claude's answer didn't line up."""
-    phrases = UNTAGGED.findall(text)
+    phrases = _untagged(text)
     if not phrases:
         return None
     counter = iter(range(1, len(phrases) + 1))
-    numbered = UNTAGGED.sub(lambda m: f"[[{next(counter)}: {m.group(1)}]]", text)
+    numbered = _sub_untagged(text, lambda phrase: f"[[{next(counter)}: {phrase}]]")
     client = client or get_client()
     with llm_error_boundary("tagging highlights"):
         response = client.messages.parse(
@@ -96,7 +113,7 @@ def retag_rationale(text: str, interest: str | None, fit: str | None, client=Non
     if len(tags) != len(phrases):
         return None
     it = iter(tags)
-    return UNTAGGED.sub(lambda m: f"=={next(it)}:{m.group(1)}==", text)
+    return _sub_untagged(text, lambda phrase: f"=={next(it)}:{phrase}==")
 
 
 # One pass at a time; progress for the streaming route (api/settings.py) to report.
