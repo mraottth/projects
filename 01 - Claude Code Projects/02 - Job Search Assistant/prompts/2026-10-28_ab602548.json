@@ -1084,8 +1084,16 @@
    "time": "2026-11-11T14:34:45.914Z",
    "kind": "prompt",
    "text": "Can you make it a little clearer that the general chat / my jobs buttons are buttons? I want it to be clear to a first time user that they need to click one of those to get started. Also let's add a search bar to my sources (both organizations and job boards)",
-   "reply": null,
+   "reply": "Both changes are done and pushed to the branch.\n\n**Jobby's home**\n- A bold line, \"Choose one to get started:\", now sits above the two options.\n- The options look unmistakably like buttons: an icon (💬 / 💼), a blue outline and tint, and a solid \"Start →\" or \"Pick a job →\" label.\n- On hover they lift slightly, with a shadow and the pointer cursor.\n\n**Manage Sources**\n- Organizations and Job boards each have a search box at the top. It matches a source's name, employer, type and the web address or board it reads.\n- While you're searching, the count shows \"1 of 2\" and so on.\n- If nothing matches, the panel says so and offers \"Clear search\".\n\nI checked both in a browser on a local copy with sample data: the Jobby home is in the screenshot above, a search for \"greenhouse\" narrowed Organizations to 1 of 2, and a search with no matches showed the clear-search prompt. The frontend builds.\n\nTo deploy:\n\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com\n```",
    "id": "ab602548-162",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-11T14:50:53.883Z",
+   "kind": "prompt",
+   "text": "I still can't scroll while Jobby is writing. This is frustrating because for a long response I want to start reading while it writes, which requires scrolling at my own pace. Let me know if I'm not describing the issue clearly",
+   "reply": null,
+   "id": "ab602548-163",
    "session": "ab602548"
   }
  ]

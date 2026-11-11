@@ -803,9 +803,14 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
 - **Jobby's page** (asked 2026-11-10): the chat card's height is set from the window
   (`window.innerHeight` minus its top, min 420px), so the message box stays in view at the bottom
   and only `.jobby-messages` scrolls (it used to be `min-height: 70vh` under the page header, so
-  the box could sit below the fold). A streaming reply follows the reader only while they're at the
-  bottom (`atBottom`, set on scroll); scrolled up, they stay put and "Jump to latest ↓" appears,
-  and sending always returns to the bottom. It scrolls the message box itself: `scrollIntoView` on
+  the box could sit below the fold). A streaming reply pulls the view down only while `following`:
+  any upward gesture (wheel, touchmove, ArrowUp/PageUp/Home, a press on the scrollbar) stops it at
+  once, and only the reader's own scroll back to the very bottom (within 4px), sending, or "Jump to
+  latest ↓" resumes it. A first version decided from scroll position (within 40px of the bottom)
+  and still couldn't be scrolled live: a smooth scroll moves a few pixels a frame, so the next
+  chunk landed while it was still "near the bottom" and snapped it back. A browser test with 30px
+  wheel steps every 40ms and a chunk every 25ms reproduced it, and passes now. Our own scroll moves
+  set `selfScroll` so their scroll event isn't read as the reader's. It scrolls the message box itself: `scrollIntoView` on
   every chunk scrolled the whole page and fought anyone reading. Selecting text in a reply shows
   "Ask about this" (`selectionchange`, repositioned on scroll), which adds the passage to the
   message box as "> " lines; user bubbles show those lines as a quote (`UserText`).

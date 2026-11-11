@@ -299,9 +299,14 @@ export default function JobbyPage() {
   const chatRef = useRef<HTMLElement>(null);
   const messagesRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  // Whether the reader is at the bottom of the conversation: only then does a streaming reply
-  // pull the view along (asked 2026-11-10: following every chunk fought anyone scrolling up to read).
-  const atBottom = useRef(true);
+  // Whether a streaming reply pulls the view down with it. It stops the moment the reader scrolls
+  // up by any means (wheel, trackpad, touch, keys, the scrollbar), and resumes only when they come
+  // back to the very bottom themselves, send, or click "Jump to latest". Deciding it from the
+  // scroll position alone failed live (asked twice, 2026-11-10): a smooth scroll moves a few pixels
+  // a frame, the next chunk arrived while it was still "near the bottom", and snapped it back.
+  const following = useRef(true);
+  // Set while we move the scroll position ourselves, so that scroll event isn't read as the reader's.
+  const selfScroll = useRef(false);
   const [showJump, setShowJump] = useState(false);
   const [chatHeight, setChatHeight] = useState<number | undefined>(undefined);
   // "Ask about this": the selected part of a reply and where to put its button.
@@ -368,10 +373,43 @@ export default function JobbyPage() {
 
   const scrollToEnd = useCallback(() => {
     const el = messagesRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-    atBottom.current = true;
+    if (el && el.scrollHeight - el.scrollTop - el.clientHeight > 1) {
+      selfScroll.current = true;
+      el.scrollTop = el.scrollHeight;
+    }
+    following.current = true;
     setShowJump(false);
   }, []);
+
+  // The reader taking over: any upward scroll gesture stops the following at once, before the
+  // next chunk can land.
+  useEffect(() => {
+    const el = messagesRef.current;
+    if (!el) return;
+    const stop = () => {
+      following.current = false;
+    };
+    const onWheel = (e: WheelEvent) => {
+      if (e.deltaY < 0) stop();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (["ArrowUp", "PageUp", "Home"].includes(e.key)) stop();
+    };
+    // A drag on the scrollbar lands on the box itself, not on a message.
+    const onPointer = (e: PointerEvent) => {
+      if (e.target === el) stop();
+    };
+    el.addEventListener("wheel", onWheel, { passive: true });
+    el.addEventListener("touchmove", stop, { passive: true });
+    el.addEventListener("keydown", onKey);
+    el.addEventListener("pointerdown", onPointer);
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("touchmove", stop);
+      el.removeEventListener("keydown", onKey);
+      el.removeEventListener("pointerdown", onPointer);
+    };
+  }, [inChat, thread !== null]);
 
   // Selecting text in one of Jobby's replies offers "Ask about this" next to it (asked 2026-11-10).
   const placeQuote = useCallback(() => {
@@ -409,15 +447,21 @@ export default function JobbyPage() {
   const onMessagesScroll = () => {
     const el = messagesRef.current;
     if (!el) return;
-    atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
-    if (atBottom.current) setShowJump(false);
     placeQuote(); // the selection moved with the text: move its button too
+    if (selfScroll.current) {
+      selfScroll.current = false;
+      return;
+    }
+    // The reader's own scroll: back at the very bottom, follow again; anywhere else, stay put.
+    const atEnd = el.scrollHeight - el.scrollTop - el.clientHeight < 4;
+    following.current = atEnd;
+    if (atEnd) setShowJump(false);
   };
 
-  // New text follows only a reader who's at the bottom; anyone who scrolled up stays put, with a
-  // "Jump to latest" button. Only the conversation box scrolls, never the page.
+  // New text pulls the view down only while following; otherwise the reader stays where they are,
+  // with "Jump to latest". Only the conversation box scrolls, never the page.
   useEffect(() => {
-    if (atBottom.current) scrollToEnd();
+    if (following.current) scrollToEnd();
     else setShowJump(true);
   }, [thread?.messages.length, pending?.reply, pending?.status, scrollToEnd]);
 
@@ -443,7 +487,7 @@ export default function JobbyPage() {
     if (!content || pending) return;
     setDraft("");
     setQuote(null);
-    atBottom.current = true; // sending always brings the conversation back to the newest message
+    following.current = true; // sending always brings the conversation back to the newest message
     setSendError(null);
     setPending({ user: content, reply: "", status: null });
     const target: JobbyTarget =
@@ -595,7 +639,7 @@ export default function JobbyPage() {
                 </div>
               </div>
 
-              <div className="jobby-messages" ref={messagesRef} onScroll={onMessagesScroll}>
+              <div className="jobby-messages" ref={messagesRef} onScroll={onMessagesScroll} tabIndex={-1}>
                 {loadError && <p className="error-text small">{loadError}</p>}
                 {!thread && !loadError && <Spinner label="Loading..." />}
                 {thread && empty && (
