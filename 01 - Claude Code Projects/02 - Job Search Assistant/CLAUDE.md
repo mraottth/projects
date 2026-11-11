@@ -777,6 +777,15 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   way: flood fill from the edges, a slightly blurred alpha edge, cropped to the figure and padded
   square (128px avatar, 480px full). They're imported rather than put in
   `public/`: `api/main.py`'s SPA fallback answers every non-`/assets/` path with `index.html`.
+- **Jobby's page** (asked 2026-11-10): the chat card's height is set from the window
+  (`window.innerHeight` minus its top, min 420px), so the message box stays in view at the bottom
+  and only `.jobby-messages` scrolls (it used to be `min-height: 70vh` under the page header, so
+  the box could sit below the fold). A streaming reply follows the reader only while they're at the
+  bottom (`atBottom`, set on scroll); scrolled up, they stay put and "Jump to latest ↓" appears,
+  and sending always returns to the bottom. It scrolls the message box itself: `scrollIntoView` on
+  every chunk scrolled the whole page and fought anyone reading. Selecting text in a reply shows
+  "Ask about this" (`selectionchange`, repositioned on scroll), which adds the passage to the
+  message box as "> " lines; user bubbles show those lines as a quote (`UserText`).
 - `CandidateProfileCard`'s "Ask Claude to change it" is `POST /api/resumes/profile/revise`
   (`core/profile.py`'s `revise_candidate_profile()`): one call applying the user's plain-language
   change request to the current profile, inserted as a new row like every rebuild/edit.
