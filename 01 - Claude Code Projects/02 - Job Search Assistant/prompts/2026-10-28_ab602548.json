@@ -1060,8 +1060,16 @@
    "time": "2026-11-11T13:48:26.749Z",
    "kind": "prompt",
    "text": "[screenshot]\n\n3 Jobby improvements: 1) Jobby's chat box can end up below the fold, which is kind of confusing. Can we make sure it stays anchored to the bottom of the viewport? 2) can we add a feature to follow up on a specific part of a Jobby response by highlighting it to add to the next chat input? 3) scrolling while Jobby's response is posting is very glitchy. the user should be able to scroll smoothly so they can read while the Jobby response is in the process of posting",
-   "reply": null,
+   "reply": "All three Jobby improvements are in, pushed to the branch:\n\n1. **The message box stays on screen.** The chat panel now sizes itself to the window, so the message box is always at the bottom of the screen and only the conversation scrolls. Before, the panel was taller than the space left below Jobby's page header, which pushed the box below the fold.\n2. **\"Ask about this.\"** Select any part of a Jobby reply and an \"Ask about this\" button appears next to it. Clicking it adds the passage to your message box as a quote, with your cursor ready for the follow-up. In the sent message the quote shows as an indented passage above your question.\n3. **Smooth scrolling while Jobby replies.** The page used to jump to the newest text every few words, and it moved the whole browser page, not just the chat, so it fought you whenever you scrolled up. Now it only follows the reply while you're at the bottom. Scroll up to read and you stay put, with a \"Jump to latest ↓\" button to get back; sending a message always returns you to the bottom.\n\nI tested these in a browser with a fake Jobby that streams a long reply slowly:\n- the message box was fully in view in an 820-pixel-tall window;\n- scrolling up mid-reply held its position while text kept arriving, and the page itself didn't move;\n- \"Jump to latest\" returned to the bottom;\n- selecting text showed the button, and clicking it put the quote in the message box and focused it.\n\nThe frontend builds and the Jobby tests pass.\n\nOne thing I noticed in your screenshot: that reply talks about \"him\", \"Matt\" and \"you both\", rather than to you. If you'd asked Jobby to help someone else, that's expected. If not, it's slipping into the third person, and I can tighten its instructions.\n\nTo deploy:\n\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com\n```",
    "id": "ab602548-159",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-11T13:54:55.775Z",
+   "kind": "prompt",
+   "text": "Let's change Jobby's description from \"Your interview-prep sidekick. Jobby knows the job, your profile, and your documents.\" to \"Your job search sidekick. Jobby knows your profile, your documents, and the jobs you're interested in.\" Also the \"Start Over\" button in a Jobby chat makes it sound like you'll lose your chat history if you click it. Instead something like \"Back\" would be better to indicate it'll go back to the Jobby homepage without losing anything. There should also be a clear way to view and reenter past chats and to delete them",
+   "reply": null,
+   "id": "ab602548-160",
    "session": "ab602548"
   }
  ]

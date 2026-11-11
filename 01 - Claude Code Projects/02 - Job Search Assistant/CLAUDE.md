@@ -777,6 +777,18 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   way: flood fill from the edges, a slightly blurred alpha edge, cropped to the figure and padded
   square (128px avatar, 480px full). They're imported rather than put in
   `public/`: `api/main.py`'s SPA fallback answers every non-`/assets/` path with `index.html`.
+- **Jobby's home and chat history** (asked 2026-11-10; "Start over" sounded like it would lose the
+  chat, and it did delete it). `/jobby` is a home page, "Your chats" (`ChatList` in `JobbyPage.tsx`,
+  `GET /api/jobby/threads` → `jobby.list_threads()`): each chat with its job (or "General chat"), My
+  Jobs status, last-message preview, count and age, newest first (by latest message id; `updated_at`
+  has whole seconds only), with Delete (an inline "Delete this chat?", `DELETE
+  /api/jobby/threads/{id}`) and "New general chat". In a chat, "← Back" returns home and deletes
+  nothing. URLs: `?job=<id>` is that job's one chat (as before); `?chat=<id>` reopens any chat
+  (`GET /api/jobby/thread?thread_id=`); `?new=1` is a new general chat, created on its first message
+  (`POST .../messages?new=true`) whose `done` event carries `thread_id`, so the URL becomes
+  `?chat=<id>` without a reload. Any number of general chats (the UNIQUE on `(user_id, job_id)` allows
+  many NULLs); still one per job. The header reads "Your job search sidekick. Jobby knows your
+  profile, your documents, and the jobs you're interested in."
 - **Jobby's page** (asked 2026-11-10): the chat card's height is set from the window
   (`window.innerHeight` minus its top, min 420px), so the message box stays in view at the bottom
   and only `.jobby-messages` scrolls (it used to be `min-height: 70vh` under the page header, so

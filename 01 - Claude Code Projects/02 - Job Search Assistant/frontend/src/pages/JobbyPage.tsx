@@ -1,13 +1,22 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { api, Application, APPLICATION_STATUS_LABELS, JobbyMessage, JobbyThread } from "../api";
+import {
+  api,
+  Application,
+  APPLICATION_STATUS_LABELS,
+  JobbyChatSummary,
+  JobbyMessage,
+  JobbyTarget,
+  JobbyThread,
+} from "../api";
 import { JobbyLogo } from "../components/JobbyLogo";
 import { Markdown } from "../components/Markdown";
 import { Spinner } from "../components/Spinner";
 
-// Jobby, the interview-prep assistant. The job being prepped for lives in the URL (?job=42, or
-// none for general help) so My Jobs and the job page can link straight to a job's conversation.
-// Each job's conversation is saved server-side (core/jobby.py), so it survives reloads.
+// Jobby, the job-search sidekick. Where you are lives in the URL: /jobby is Jobby's home, with your
+// past chats (asked 2026-11-10); ?job=42 is that job's chat (My Jobs and the job page link
+// straight there); ?chat=7 reopens any chat; ?new=1 is a new general chat. Chats are saved
+// server-side (core/jobby.py), so they survive reloads, and are only deleted from the home list.
 
 const STARTERS: { label: string; blurb: string; text: string }[] = [
   {
@@ -70,7 +79,7 @@ function JobPicker({
             disabled={disabled}
           >
             <span className="jobby-pick-title">No specific job</span>
-            <span className="muted small">General interview help</span>
+            <span className="muted small">Start a new general chat</span>
           </button>
         </li>
         {shown.map((a) => (
@@ -149,6 +158,14 @@ export default function JobbyPage() {
   const [params, setParams] = useSearchParams();
   const jobParam = params.get("job");
   const jobId = jobParam && /^\d+$/.test(jobParam) ? Number(jobParam) : null;
+  const chatParam = params.get("chat");
+  const chatId = chatParam && /^\d+$/.test(chatParam) ? Number(chatParam) : null;
+  const isNew = params.has("new");
+  const home = jobId === null && chatId === null && !isNew;
+  const [chats, setChats] = useState<JobbyChatSummary[] | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
+  // A new chat that just got its id: the URL switches to ?chat=<id> without reloading it.
+  const justCreated = useRef<number | null>(null);
 
   const [apps, setApps] = useState<Application[]>([]);
   const [thread, setThread] = useState<JobbyThread | null>(null);
@@ -174,14 +191,37 @@ export default function JobbyPage() {
   }, []);
 
   useEffect(() => {
-    setThread(null);
     setLoadError(null);
     setSendError(null);
-    api
-      .getJobbyThread(jobId)
+    if (home) {
+      setThread(null);
+      setConfirmDelete(null);
+      api
+        .listJobbyChats()
+        .then(setChats)
+        .catch((e) => setLoadError(e instanceof Error ? e.message : String(e)));
+      return;
+    }
+    if (isNew) {
+      setThread({ thread_id: null, job: null, messages: [] });
+      return;
+    }
+    if (chatId !== null && justCreated.current === chatId) {
+      justCreated.current = null;
+      return;
+    }
+    setThread(null);
+    (chatId !== null ? api.getJobbyChat(chatId) : api.getJobbyThread(jobId))
       .then(setThread)
       .catch((e) => setLoadError(e instanceof Error ? e.message : String(e)));
-  }, [jobId]);
+  }, [home, isNew, chatId, jobId]);
+
+  const openChat = (c: JobbyChatSummary) => setParams(c.job_id !== null ? { job: String(c.job_id) } : { chat: String(c.id) });
+  const deleteChat = async (id: number) => {
+    await api.deleteJobbyChat(id);
+    setChats((cs) => (cs ? cs.filter((c) => c.id !== id) : cs));
+    setConfirmDelete(null);
+  };
 
   // The chat fills the window below its top edge, so the message box is always in view at the
   // bottom and only the conversation scrolls (asked 2026-11-10: it could end up below the fold).
@@ -270,7 +310,7 @@ export default function JobbyPage() {
     });
   };
 
-  const selectJob = (id: number | null) => setParams(id === null ? {} : { job: String(id) });
+  const selectJob = (id: number | null) => setParams(id === null ? { new: "1" } : { job: String(id) });
 
   const send = async (text: string) => {
     const content = text.trim();
@@ -280,15 +320,24 @@ export default function JobbyPage() {
     atBottom.current = true; // sending always brings the conversation back to the newest message
     setSendError(null);
     setPending({ user: content, reply: "", status: null });
+    const target: JobbyTarget =
+      thread?.thread_id != null ? { threadId: thread.thread_id } : jobId !== null ? { jobId } : { newChat: true };
     try {
-      await api.streamJobbyMessage(jobId, content, (event) => {
+      await api.streamJobbyMessage(target, content, (event) => {
         if (event.type === "delta") {
           setPending((p) => (p ? { ...p, reply: p.reply + event.text, status: null } : p));
         } else if (event.type === "status") {
           setPending((p) => (p ? { ...p, status: event.text } : p));
         } else if (event.type === "done") {
-          setThread((t) => (t ? { ...t, messages: [...t.messages, event.user, event.assistant] } : t));
+          setThread((t) =>
+            t ? { ...t, thread_id: event.thread_id, messages: [...t.messages, event.user, event.assistant] } : t,
+          );
           setPending(null);
+          if (isNew) {
+            // The new chat exists now: give it its own address, so Back and reloads find it.
+            justCreated.current = event.thread_id;
+            setParams({ chat: String(event.thread_id) }, { replace: true });
+          }
         } else if (event.type === "error") {
           throw new Error(event.message);
         }
@@ -302,11 +351,6 @@ export default function JobbyPage() {
     }
   };
 
-  const startOver = async () => {
-    await api.clearJobbyThread(jobId);
-    setThread((t) => (t ? { ...t, messages: [] } : t));
-  };
-
   const messages = thread?.messages ?? [];
   const empty = messages.length === 0 && !pending;
   const job = thread?.job;
@@ -318,19 +362,39 @@ export default function JobbyPage() {
         <div>
           <h1>Jobby</h1>
           <p className="muted" style={{ margin: 0 }}>
-            Your interview-prep sidekick. Jobby knows the job, your profile, and your documents.
+            Your job search sidekick. Jobby knows your profile, your documents, and the jobs you're interested in.
           </p>
         </div>
       </div>
 
       <div className="jobby-layout">
         <aside>
-          <JobPicker apps={apps} selected={jobId} onSelect={selectJob} disabled={!!pending} />
+          <JobPicker apps={apps} selected={home ? -1 : jobId} onSelect={selectJob} disabled={!!pending} />
         </aside>
 
         <section className="card jobby-chat" ref={chatRef} style={{ height: chatHeight }}>
+          {home ? (
+            <ChatList
+              chats={chats}
+              error={loadError}
+              confirmDelete={confirmDelete}
+              onOpen={openChat}
+              onNew={() => setParams({ new: "1" })}
+              onAskDelete={setConfirmDelete}
+              onDelete={deleteChat}
+            />
+          ) : (
+          <>
           <div className="jobby-chat-head">
-            <div>
+            <button
+              className="ghost small jobby-back"
+              onClick={() => setParams({})}
+              disabled={!!pending}
+              title="Back to your chats. This one is saved."
+            >
+              ← Back
+            </button>
+            <div className="jobby-chat-title">
               {job ? (
                 <>
                   <div className="card-title">
@@ -345,11 +409,6 @@ export default function JobbyPage() {
                 </>
               )}
             </div>
-            {messages.length > 0 && (
-              <button className="ghost small" onClick={startOver} disabled={!!pending}>
-                Start over
-              </button>
-            )}
           </div>
 
           <div className="jobby-messages" ref={messagesRef} onScroll={onMessagesScroll}>
@@ -442,8 +501,104 @@ export default function JobbyPage() {
               Send
             </button>
           </div>
+          </>
+          )}
         </section>
       </div>
     </div>
   );
 }
+
+
+const timeAgo = (iso: string) => {
+  const then = new Date(iso.replace(" ", "T") + (iso.endsWith("Z") ? "" : "Z")).getTime();
+  const minutes = Math.max(0, Math.round((Date.now() - then) / 60_000));
+  if (minutes < 60) return minutes <= 1 ? "just now" : `${minutes} minutes ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  const days = Math.round(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
+};
+
+/** Jobby's home: past chats to reopen or delete, and a new general chat (asked 2026-11-10). */
+function ChatList({
+  chats,
+  error,
+  confirmDelete,
+  onOpen,
+  onNew,
+  onAskDelete,
+  onDelete,
+}: {
+  chats: JobbyChatSummary[] | null;
+  error: string | null;
+  confirmDelete: number | null;
+  onOpen: (c: JobbyChatSummary) => void;
+  onNew: () => void;
+  onAskDelete: (id: number | null) => void;
+  onDelete: (id: number) => void;
+}) {
+  return (
+    <>
+      <div className="jobby-chat-head">
+        <div className="jobby-chat-title">
+          <div className="card-title">Your chats</div>
+          <div className="muted small">Pick one up where you left off, or pick a job on the left.</div>
+        </div>
+        <button className="primary" onClick={onNew}>
+          New general chat
+        </button>
+      </div>
+      <div className="jobby-messages">
+        {error && <p className="error-text small">{error}</p>}
+        {!chats && !error && <Spinner label="Loading your chats..." />}
+        {chats && chats.length === 0 && (
+          <div className="jobby-welcome">
+            <JobbyLogo variant="full" size={180} title="Jobby at a laptop" />
+            <p className="muted" style={{ textAlign: "center" }}>
+              No chats yet. Pick a job on the left to prep for it, or start a general chat.
+            </p>
+          </div>
+        )}
+        {chats && chats.length > 0 && (
+          <ul className="jobby-chat-list">
+            {chats.map((c) => (
+              <li key={c.id} className="jobby-chat-item">
+                <button className="jobby-chat-open" onClick={() => onOpen(c)}>
+                  <span className="jobby-chat-item-title">
+                    {c.job_title ? `${c.job_title} — ${c.job_company}` : "General chat"}
+                    {c.application_status && (
+                      <span className={`pill pill-${c.application_status}`}>
+                        {APPLICATION_STATUS_LABELS[c.application_status]}
+                      </span>
+                    )}
+                  </span>
+                  <span className="jobby-chat-preview">{c.preview}</span>
+                  <span className="muted small">
+                    {c.message_count} message{c.message_count === 1 ? "" : "s"} · {timeAgo(c.updated_at)}
+                  </span>
+                </button>
+                {confirmDelete === c.id ? (
+                  <span className="jobby-chat-confirm small">
+                    Delete this chat?{" "}
+                    <button className="link small danger-link" onClick={() => onDelete(c.id)}>
+                      Delete
+                    </button>{" "}
+                    <button className="link small" onClick={() => onAskDelete(null)}>
+                      Cancel
+                    </button>
+                  </span>
+                ) : (
+                  <button className="link small danger-link" onClick={() => onAskDelete(c.id)} title="Delete this chat">
+                    Delete
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </>
+  );
+}
+

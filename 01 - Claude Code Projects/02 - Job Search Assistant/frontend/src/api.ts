@@ -221,15 +221,32 @@ export interface JobbyMessage {
 }
 
 export interface JobbyThread {
+  // null until its first message is sent (a new chat)
+  thread_id: number | null;
   job: { id: number; title: string; company: string; status: ApplicationStatus | null } | null;
   messages: JobbyMessage[];
 }
+
+// One past chat on Jobby's home (GET /api/jobby/threads).
+export interface JobbyChatSummary {
+  id: number;
+  job_id: number | null;
+  job_title: string | null;
+  job_company: string | null;
+  application_status: ApplicationStatus | null;
+  message_count: number;
+  preview: string;
+  updated_at: string;
+}
+
+// Which conversation a message goes to: a chat reopened by id, a job's chat, or a new general one.
+export type JobbyTarget = { threadId: number } | { jobId: number } | { newChat: true };
 
 // One server-sent event from POST /api/jobby/thread/messages (see core/jobby.stream_reply).
 export type JobbyEvent =
   | { type: "delta"; text: string }
   | { type: "status"; text: string }
-  | { type: "done"; user: JobbyMessage; assistant: JobbyMessage }
+  | { type: "done"; user: JobbyMessage; assistant: JobbyMessage; thread_id: number }
   | { type: "error"; message: string };
 
 function jobbyQuery(jobId: number | null) {
@@ -939,14 +956,19 @@ export const api = {
   resumeDownloadUrl: (resumeId: number) => `/api/resumes/${resumeId}/download`,
 
   getJobbyThread: (jobId: number | null) => request<JobbyThread>(`/api/jobby/thread${jobbyQuery(jobId)}`),
+  getJobbyChat: (threadId: number) => request<JobbyThread>(`/api/jobby/thread?thread_id=${threadId}`),
+  listJobbyChats: () => request<JobbyChatSummary[]>("/api/jobby/threads"),
+  deleteJobbyChat: (threadId: number) => request<{ ok: true }>(`/api/jobby/threads/${threadId}`, { method: "DELETE" }),
 
   clearJobbyThread: (jobId: number | null) =>
     request<{ ok: true }>(`/api/jobby/thread${jobbyQuery(jobId)}`, { method: "DELETE" }),
 
   // Sends a message and calls onEvent for each streamed event as it arrives. The reply streams
   // as server-sent events over a POST, which EventSource can't do, so this reads the body directly.
-  streamJobbyMessage: async (jobId: number | null, content: string, onEvent: (e: JobbyEvent) => void) => {
-    const res = await apiFetch(`/api/jobby/thread/messages${jobbyQuery(jobId)}`, {
+  streamJobbyMessage: async (target: JobbyTarget, content: string, onEvent: (e: JobbyEvent) => void) => {
+    const query =
+      "threadId" in target ? `?thread_id=${target.threadId}` : "jobId" in target ? `?job_id=${target.jobId}` : "?new=true";
+    const res = await apiFetch(`/api/jobby/thread/messages${query}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ content }),

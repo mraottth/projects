@@ -299,3 +299,51 @@ def test_the_highest_scoring_jobs_and_preferences_are_in_context():
     for absent in ["Low Fit Role", "Dismissed Role", "Current Role"]:
         assert absent not in top, absent
     assert "Prefers civic tech." in context
+
+
+def test_past_chats_can_be_listed_reopened_and_deleted(monkeypatch):
+    """Jobby's home (asked 2026-11-10): past chats are listed, reopen where they left off, and are
+    deleted only on purpose. A new general chat doesn't replace the earlier one."""
+    from jobhunt.core import users
+
+    job = _insert_job("Analytics Director", "Nava PBC")
+    client = FakeStreamingClient(*(FakeStream([f"reply {i}"]) for i in range(5)))
+    monkeypatch.setattr(jobby, "get_client", lambda: client)
+
+    with TestClient(app) as http:
+        first = _events(http.post("/api/jobby/thread/messages?new=true", json={"content": "general one"}))[-1]
+        job_chat = _events(
+            http.post(f"/api/jobby/thread/messages?job_id={job}", json={"content": "about the job"})
+        )[-1]
+        second = _events(http.post("/api/jobby/thread/messages?new=true", json={"content": "general two"}))[
+            -1
+        ]
+        assert len({first["thread_id"], second["thread_id"], job_chat["thread_id"]}) == 3
+
+        # Reopened by id, a general chat carries on in the same conversation.
+        _events(
+            http.post(f"/api/jobby/thread/messages?thread_id={first['thread_id']}", json={"content": "more"})
+        )
+        reopened = http.get(f"/api/jobby/thread?thread_id={first['thread_id']}").json()
+        assert [m["content"] for m in reopened["messages"]] == ["general one", "reply 0", "more", "reply 3"]
+        assert reopened["job"] is None
+
+        chats = http.get("/api/jobby/threads").json()
+        assert [c["id"] for c in chats][0] == first["thread_id"]  # most recently active first
+        by_id = {c["id"]: c for c in chats}
+        assert by_id[job_chat["thread_id"]]["job_title"] == "Analytics Director"
+        assert by_id[first["thread_id"]]["message_count"] == 4
+        assert by_id[first["thread_id"]]["preview"] == "reply 3"
+
+        assert http.delete(f"/api/jobby/threads/{second['thread_id']}").status_code == 200
+        assert second["thread_id"] not in {c["id"] for c in http.get("/api/jobby/threads").json()}
+        assert http.get(f"/api/jobby/thread?thread_id={second['thread_id']}").status_code == 404
+
+        # Someone else's chat is out of reach.
+        users.create_user("bea@example.com", "Bea", status="approved")
+        as_bea = {"X-Dev-User": "bea@example.com"}
+        assert http.get("/api/jobby/threads", headers=as_bea).json() == []
+        assert (
+            http.get(f"/api/jobby/thread?thread_id={first['thread_id']}", headers=as_bea).status_code == 404
+        )
+        assert http.delete(f"/api/jobby/threads/{first['thread_id']}", headers=as_bea).status_code == 404

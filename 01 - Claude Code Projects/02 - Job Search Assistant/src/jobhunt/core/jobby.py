@@ -273,10 +273,77 @@ def get_thread(job_id: int | None) -> dict | None:
     return dict(row) if row else None
 
 
+def thread_by_id(thread_id: int) -> dict | None:
+    """One of this person's conversations, or None."""
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT * FROM jobby_threads WHERE id = ? AND user_id = ?", (thread_id, current_user_id())
+        ).fetchone()
+    return dict(row) if row else None
+
+
+PREVIEW_CHARS = 160
+
+
+def list_threads() -> list[dict]:
+    """This person's conversations that have messages, most recently active first: the job (if
+    any) and its My Jobs status, how many messages, and the start of the last one (asked
+    2026-11-10: a way to see and reopen past chats). One per job; any number of general ones."""
+    with get_db() as conn:
+        rows = conn.execute(
+            """SELECT t.id, t.job_id, t.updated_at, j.title AS job_title, j.company AS job_company,
+                      a.status AS application_status,
+                      (SELECT COUNT(*) FROM jobby_messages m WHERE m.thread_id = t.id) AS message_count,
+                      (SELECT content FROM jobby_messages m WHERE m.thread_id = t.id
+                       ORDER BY m.id DESC LIMIT 1) AS last_message
+               FROM jobby_threads t
+               LEFT JOIN jobs j ON j.id = t.job_id
+               LEFT JOIN applications a ON a.job_id = t.job_id AND a.user_id = t.user_id
+               WHERE t.user_id = ?
+                 AND EXISTS (SELECT 1 FROM jobby_messages m WHERE m.thread_id = t.id)
+               -- Newest message first (ids always increase; updated_at only has whole seconds).
+               ORDER BY (SELECT MAX(m.id) FROM jobby_messages m WHERE m.thread_id = t.id) DESC""",
+            (current_user_id(),),
+        ).fetchall()
+    threads = []
+    for r in rows:
+        preview = " ".join((r["last_message"] or "").split())
+        threads.append(
+            {
+                **{k: r[k] for k in ("id", "job_id", "updated_at", "job_title", "job_company",
+                                       "application_status", "message_count")},
+                "preview": preview[:PREVIEW_CHARS] + ("…" if len(preview) > PREVIEW_CHARS else ""),
+            }
+        )  # fmt: skip
+    return threads
+
+
+def thread_messages(thread_id: int) -> list[dict]:
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT id, role, content, created_at FROM jobby_messages WHERE thread_id = ? ORDER BY id",
+            (thread_id,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def delete_thread(thread_id: int) -> bool:
+    """Deletes one of this person's conversations and its messages. False if it isn't theirs."""
+    thread = thread_by_id(thread_id)
+    if thread is None:
+        return False
+    with get_db() as conn:
+        conn.execute("DELETE FROM jobby_messages WHERE thread_id = ?", (thread_id,))
+        conn.execute("DELETE FROM jobby_threads WHERE id = ?", (thread_id,))
+    return True
+
+
 def _get_or_create_thread(job_id: int | None) -> int:
     thread = get_thread(job_id)
-    if thread:
-        return thread["id"]
+    return thread["id"] if thread else _create_thread(job_id)
+
+
+def _create_thread(job_id: int | None) -> int:
     with get_db() as conn:
         return conn.execute(
             "INSERT INTO jobby_threads (user_id, job_id) VALUES (?, ?)", (current_user_id(), job_id)
@@ -285,14 +352,7 @@ def _get_or_create_thread(job_id: int | None) -> int:
 
 def list_messages(job_id: int | None) -> list[dict]:
     thread = get_thread(job_id)
-    if thread is None:
-        return []
-    with get_db() as conn:
-        rows = conn.execute(
-            "SELECT id, role, content, created_at FROM jobby_messages WHERE thread_id = ? ORDER BY id",
-            (thread["id"],),
-        ).fetchall()
-    return [dict(r) for r in rows]
+    return thread_messages(thread["id"]) if thread else []
 
 
 def clear_thread(job_id: int | None) -> None:
@@ -333,7 +393,9 @@ def _history(thread_id: int) -> list[dict]:
 # ---------- replies
 
 
-def stream_reply(job_id: int | None, content: str) -> Iterator[dict]:
+def stream_reply(
+    job_id: int | None, content: str, thread_id: int | None = None, new: bool = False
+) -> Iterator[dict]:
     """Saves the user's message, streams Jobby's reply, and saves that too. Yields events:
     {"type": "delta", "text"} as text arrives, {"type": "status", "text"} while searching the web,
     then {"type": "done", "user": message, "assistant": message} -- or {"type": "error",
@@ -348,7 +410,10 @@ def stream_reply(job_id: int | None, content: str) -> Iterator[dict]:
         yield {"type": "error", "message": str(exc)}
         return
 
-    thread_id = _get_or_create_thread(job_id)
+    # A chat reopened by id keeps going; a new general chat starts a fresh conversation (any
+    # number of those); otherwise it's the job's one conversation (or the first general one).
+    if thread_id is None:
+        thread_id = _create_thread(None) if new and job_id is None else _get_or_create_thread(job_id)
     user_message = _add_message(thread_id, "user", content)
     messages = _history(thread_id)
     system = [
@@ -408,7 +473,7 @@ def stream_reply(job_id: int | None, content: str) -> Iterator[dict]:
 
     reply = "".join(reply_parts).strip() or "(Jobby didn't have anything to say -- try rephrasing.)"
     assistant_message = _add_message(thread_id, "assistant", reply)
-    yield {"type": "done", "user": user_message, "assistant": assistant_message}
+    yield {"type": "done", "user": user_message, "assistant": assistant_message, "thread_id": thread_id}
 
 
 def _delete_message(message_id: int) -> None:
