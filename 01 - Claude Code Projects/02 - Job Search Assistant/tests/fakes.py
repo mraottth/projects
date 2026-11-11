@@ -29,11 +29,13 @@ class FakeMessages:
     def __init__(self, parse_result=None, create_result=None):
         self._parse_result = parse_result
         self._create_result = create_result
+        self.create_calls: list[dict] = []
 
     def parse(self, **kwargs):
         return self._parse_result
 
     def create(self, **kwargs):
+        self.create_calls.append(kwargs)
         return self._create_result
 
 

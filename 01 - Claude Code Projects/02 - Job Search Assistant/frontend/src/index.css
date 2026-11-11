@@ -923,4 +923,6 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 .job-modal-body { overflow-y: auto; overscroll-behavior: contain; padding: 20px 24px 8px; }
 .job-modal-body > div > h1:first-child { margin-top: 0; padding-right: 40px; font-size: 1.5rem; }
 .job-modal-close { position: absolute; top: 10px; right: 12px; z-index: 2; background: var(--card); }
-
+/* Profile: a current document that isn't a .docx can't be tailored in place (ProfilePage CurrentDoc). */
+.doc-hint { margin: 4px 0 6px; padding: 6px 10px; border-radius: 8px; color: var(--ink);
+  background: color-mix(in srgb, var(--accent) 7%, var(--card)); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); line-height: 1.4; }

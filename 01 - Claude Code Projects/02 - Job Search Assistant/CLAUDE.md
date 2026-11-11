@@ -674,6 +674,16 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   `components/SessionExpiredBanner.tsx` (in `App`) shows "You've been signed out after some time
   away... your data is safe" with Reload, fixed at the bottom. Back on the tab after 5+ minutes
   hidden, it checks `/api/me` at once, so the banner can show before a page comes up empty.
+- **Only PDFs (or text) on file** (asked 2026-11-11). Tailoring in place needs a `.docx`, so from a
+  PDF the resume and cover letter are written as Markdown (`_generate_*_plain`). Three things soften
+  that:
+  - The plain cover letter gets the current letter's text (up to `COVER_LETTER_SAMPLE_CHARS`) as a
+    writing sample: match its voice and shape, reuse none of its job-specific content.
+  - `GET /api/generate/documents/{id}/download` builds a plain Word file from the Markdown
+    (`core/markdown_docx.py`: headings, bullets, numbered lists, bold/italic, no Claude call), and
+    serves the `.md` only if that fails.
+  - Profile's "My documents" shows a hint under a current document that isn't a `.docx`
+    (`.doc-hint`), saying the Word version gets edits in their own layout.
 - **Settings is a gear icon** (`.settings-gear`, right end of the top bar), not a nav tab.
 - **A job opens in a card over its list** (asked 2026-11-10; `components/JobLink.tsx`,
   `components/JobModal.tsx`). Every link to a job (New & Noteworthy, All Jobs, My Jobs, Jobby,

@@ -1,7 +1,7 @@
 {
  "session": "ab602548-13cf-5dd6-933c-6e698e563853",
  "omitted_api_errors": 0,
- "omitted": 58,
+ "omitted": 60,
  "entries": [
   {
    "time": "2026-10-28T14:37:31.396Z",
@@ -1100,8 +1100,24 @@
    "time": "2026-11-11T15:02:10.479Z",
    "kind": "prompt",
    "text": "Instead of going to a new page when a user clicks a job (from My Jobs, All Jobs, or New & Noteworthy) let's have a card open up over the main screen. Alternatively, we could keep the current experience but add a 'Back' button on the top left of the job's page. Let me know if the 2nd option would be preferable for any reason. If not, proceed with the first",
-   "reply": null,
+   "reply": "Jobs now open in a card over the page you clicked from, and it's pushed to `claude/move-job-search-assistant`.\n\nI went with the card. The Back-button version had no advantage: it would reload the list when you came back, and could lose your filters, sort and scroll position. With the card, the list stays where it was underneath.\n\n**How it works:**\n- It works from New & Noteworthy, All Jobs, My Jobs, Jobby and Profile's generated documents.\n- The card is the full job page: scoring, description, and the Pursuing this one? section with Track application, both Tailor buttons and Prep with Jobby.\n- You can close it with ×, Esc, a click outside the card, or the browser's Back button. You land on the list exactly as you left it.\n- The address still changes to the job's link while it's open. A link to a job opened directly (from the daily email, or a reload) still shows the full page.\n\n**Tested in a browser:**\n- From All Jobs, opening and closing a job kept the scroll position and the filtered count.\n- Back and Esc closed it on All Jobs, and a click outside closed it on My Jobs.\n- Opening a job's link directly showed the full page.\n\nAll 510 tests pass and the frontend builds.\n\nTo deploy:\n\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com\n```",
    "id": "ab602548-164",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-11T16:39:45.565Z",
+   "kind": "prompt",
+   "text": "How do we handle a user with only PDF resumes/cover letters?",
+   "reply": "A user with only PDFs can do everything except get a formatted Word file back. Tailored resumes and cover letters come back as plain text, and they download as a `.md` file.\n\n**What works the same as with Word files**\n- **Upload and text extraction.** Both upload pickers accept `.pdf`, `.docx`, `.md` and `.txt`. The PDF's text is read out with pypdf (`core/resume_parse.py`), and only that text is used everywhere else.\n- **Everything built from that text:**\n  - the candidate profile;\n  - scoring;\n  - discovery;\n  - Jobby, which gets the documents' text in its context.\n\n**What's different: tailoring** (`core/generate.py`)\n- **Resume.** A `.docx` resume gets your exact edits written into your own file as Word tracked changes, so the formatting is untouched. That's impossible with a PDF: `_usable_template_path()` returns nothing for a non-`.docx` file. So `_generate_resume_plain()` instead asks Claude to rewrite the whole resume as Markdown, from the PDF's text plus the profile.\n- **Cover letter.** Without a `.docx` cover letter, `_generate_cover_letter_plain()` writes a fresh letter from the profile and the job only. It never sees the person's own past letter, so it can't match their voice or structure.\n- **Download.** No Word file is saved. The download serves the Markdown text as a `.md` file (`api/generate.py`), and the job page says \"Not saved as a formatted file (no usable .docx template found…)\".\n\n**What the user is told**\n- **Onboarding** says up front that a Word file works best and that with a PDF they'd only get plain text back.\n- **The Profile page** doesn't repeat that warning, so someone who uploads later only finds out after tailoring.\n\n**Gaps worth fixing, if you want them**\n1. **Use the PDF cover letter as a sample.** The plain path could include the existing letter's text as a style and voice reference. That's a small prompt change.\n2. **Better downloads.** A `.md` file is awkward for most people. We could build a simple, cleanly formatted `.docx` from the Markdown (no Claude call) so they still get a Word file, just not in their own layout.\n3. **A hint on the Profile page.** When the current resume or cover letter is a PDF, say that uploading the Word version gets tailored edits in your own formatting.\n4. **Scanned PDFs.** A PDF that's just page images has no text, so the profile would be built from almost nothing, with no warning. We should flag uploads that come back with very little text and ask for another format.\n\nI'd do 1 to 3 together; they're cheap. Want me to go ahead?",
+   "id": "ab602548-167",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-11T16:45:17.274Z",
+   "kind": "prompt",
+   "text": "let's do 1 to 3",
+   "reply": null,
+   "id": "ab602548-168",
    "session": "ab602548"
   }
  ]

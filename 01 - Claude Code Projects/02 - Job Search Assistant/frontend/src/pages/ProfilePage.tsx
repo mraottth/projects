@@ -84,6 +84,14 @@ function CurrentDoc({
           None yet.
         </p>
       )}
+      {doc && doc.file_type !== "docx" && (
+        // Only a .docx can be tailored in place (asked 2026-11-11: say so where the file is).
+        <p className="doc-hint small">
+          {kind === "resume"
+            ? "Tailored resumes keep your own layout only from a Word file. Upload the .docx version to get edits made right in it; from this one you get a plain Word file instead."
+            : "Tailored cover letters keep your own layout only from a Word file. Upload the .docx version to get one written into it; for now this letter is used as a sample of how you write."}
+        </p>
+      )}
       <div className="doc-actions">
         {doc && (
           <a className="link small doc-download" href={api.resumeDownloadUrl(doc.id)} download>

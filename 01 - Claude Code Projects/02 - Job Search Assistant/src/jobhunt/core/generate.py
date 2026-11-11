@@ -97,7 +97,12 @@ using a parenthetical preferred first name if the profile gives one, like "Matt 
 
 COVER_LETTER_PLAIN_SYSTEM_PROMPT = """You write a cover letter for a job seeker applying to a \
 specific posting. You'll be given their candidate profile (career-progression summary) and the job \
-posting.
+posting, and sometimes a cover letter they wrote themselves for another job.
+
+If their own letter is given, it's a sample of how they write: match its voice, tone, level of \
+formality, length and structure (how it opens, how it's paragraphed, how it signs off), so the new \
+letter reads like theirs. Don't copy its sentences, and don't carry over anything specific to the \
+job it was written for (that organization, role or reasons).
 
 Write a concise, specific cover letter (markdown, 250-400 words) that connects their actual \
 background to what this posting is asking for -- avoid generic enthusiasm ("I'm excited about...") \
@@ -327,7 +332,9 @@ def generate_cover_letter(job: dict, candidate_profile: str | None) -> dict:
     cover_letter = _pick_resume("cover_letter", None)
     template_path = _usable_template_path(cover_letter) if cover_letter else None
     if template_path is None:
-        text = _generate_cover_letter_plain(job, candidate_profile)
+        # No .docx to fill in (e.g. a PDF): their own letter's text is still a writing sample.
+        sample = (cover_letter or {}).get("raw_text") or ""
+        text = _generate_cover_letter_plain(job, candidate_profile, sample)
         return {"content_text": text, "file_path": None}
 
     slot_count = count_cover_letter_slots(template_path)
@@ -371,10 +378,22 @@ def generate_cover_letter(job: dict, candidate_profile: str | None) -> dict:
     return {"content_text": "\n\n".join(content.paragraphs), "file_path": file_path}
 
 
-def _generate_cover_letter_plain(job: dict, candidate_profile: str | None) -> str:
-    user_content = (
-        f"## Candidate profile\n{candidate_profile or '(not available)'}\n\n## Job posting\n{_job_text(job)}"
-    )
+# Enough of a past letter to read its voice and shape; letters are rarely longer.
+COVER_LETTER_SAMPLE_CHARS = 6_000
+
+
+def _generate_cover_letter_plain(job: dict, candidate_profile: str | None, sample: str = "") -> str:
+    """A cover letter as Markdown. `sample` is the text of a letter they wrote (their current one,
+    when it isn't a usable .docx), used as a writing sample (asked 2026-11-11: before this, someone
+    with only a PDF got a letter that never saw how they write)."""
+    user_content = f"## Candidate profile\n{candidate_profile or '(not available)'}\n\n"
+    sample = sample.strip()
+    if sample:
+        user_content += (
+            "## A cover letter they wrote for another job (a writing sample, not content to reuse)\n"
+            f"{sample[:COVER_LETTER_SAMPLE_CHARS]}\n\n"
+        )
+    user_content += f"## Job posting\n{_job_text(job)}"
     client = get_client()
     with llm_error_boundary("generating a cover letter"):
         response = client.messages.create(

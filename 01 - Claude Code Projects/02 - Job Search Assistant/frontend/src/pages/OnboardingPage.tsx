@@ -113,7 +113,7 @@ function ResumeStep({ current, onUploaded }: { current?: ResumeSummary; onUpload
       <p className="muted small">
         Everything else builds on this: job scoring, company suggestions, and tailored resumes. A
         Word file (<code>.docx</code>) works best. Tailored resumes are written as tracked changes
-        to your own <code>.docx</code>, so with a PDF you'd only get plain text back.
+        to your own <code>.docx</code>. From a PDF you'd get them in a plain layout instead.
       </p>
       <DocUploader kind="resume" current={current} onUploaded={onUploaded} />
     </div>

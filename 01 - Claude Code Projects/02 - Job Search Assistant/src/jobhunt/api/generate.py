@@ -1,3 +1,4 @@
+import logging
 import sqlite3
 from pathlib import Path
 
@@ -8,9 +9,12 @@ from pydantic import BaseModel, ValidationError
 from jobhunt.core.docx_writer import AmbiguousAnchorError, AnchorNotFoundError, DisallowedAnchorError
 from jobhunt.core.generate import generate_cover_letter, generate_resume
 from jobhunt.core.llm import LLMError
+from jobhunt.core.markdown_docx import markdown_to_docx
 from jobhunt.core.profile import get_current_candidate_profile
 from jobhunt.db.connection import get_db
 from jobhunt.core.users import VISIBLE_JOB_SQL, current_user_id
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/generate", tags=["generate"])
 
@@ -186,8 +190,19 @@ def download_generated_document(doc_id: int):
     if file_path is not None and file_path.exists():
         return FileResponse(file_path, filename=f"{safe_name}{file_path.suffix}", media_type=DOCX_MEDIA_TYPE)
 
-    # No docx on disk (plain-text fallback generation, or the file's since been moved/deleted) --
-    # the markdown content is still downloadable, just not as a formatted .docx.
+    # No docx on disk: written as Markdown (their current document isn't a .docx, e.g. a PDF), or
+    # the file's since been moved. It's turned into a plain Word file (asked 2026-11-11: a .md
+    # download was awkward), and only falls back to the Markdown itself if that fails.
+    try:
+        content = markdown_to_docx(doc["content_text"] or "")
+    except Exception:
+        logger.exception("couldn't build a .docx for generated document %s", doc_id)
+    else:
+        return Response(
+            content=content,
+            media_type=DOCX_MEDIA_TYPE,
+            headers={"Content-Disposition": f'attachment; filename="{safe_name}.docx"'},
+        )
     return Response(
         content=doc["content_text"],
         media_type="text/markdown",

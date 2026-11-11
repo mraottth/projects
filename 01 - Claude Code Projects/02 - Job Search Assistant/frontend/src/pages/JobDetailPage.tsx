@@ -167,8 +167,8 @@ export default function JobDetailPage({ jobId: shownId }: { jobId?: number } = {
             </p>
           ) : (
             <p className="muted small">
-              Not saved as a formatted file (no usable .docx template found — generated as plain
-              text instead).
+              Written in a plain layout, since your current document isn't a Word file. It downloads as
+              a simple .docx; upload a .docx version on the Profile page to have it written in your own.
             </p>
           )}
           <div className="card-section">

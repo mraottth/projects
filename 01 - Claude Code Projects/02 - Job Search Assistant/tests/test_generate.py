@@ -379,20 +379,60 @@ def test_all_generated_documents_lists_across_jobs_with_job_info(monkeypatch):
         assert by_company["Beta"]["kind"] == "cover_letter"
 
 
-def test_download_text_only_document_returns_markdown(monkeypatch):
+def test_download_text_only_document_is_a_word_file(monkeypatch):
+    # Written as Markdown (no .docx template), downloaded as a plain Word file built from it.
     job_id = _insert_job()
     _insert_resume()
-    fake_response = FakeCreateResponse("tailored content")
+    md = (
+        "# Pat Doe\n\n## Experience\n\n- Led **data** work at *Acme*\n- Built things\n\n"
+        "A closing line\nthat wraps."
+    )
+    fake_response = FakeCreateResponse(md)
     monkeypatch.setattr(generate, "get_client", lambda: FakeAnthropicClient(create_result=fake_response))
 
     with TestClient(app) as client:
         doc_id = client.post("/api/generate/resume", json={"job_id": job_id}).json()["id"]
         resp = client.get(f"/api/generate/documents/{doc_id}/download")
         assert resp.status_code == 200
-        assert resp.text == "tailored content"
-        assert resp.headers["content-type"].startswith("text/markdown")
+        assert resp.headers["content-type"].startswith(
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
+        assert ".docx" in resp.headers["content-disposition"]
         assert "attachment" in resp.headers["content-disposition"]
-        assert ".md" in resp.headers["content-disposition"]
+
+    import io
+
+    paragraphs = [(p.style.name, p.text) for p in Document(io.BytesIO(resp.content)).paragraphs]
+    assert paragraphs == [
+        ("Heading 1", "Pat Doe"),
+        ("Heading 2", "Experience"),
+        ("List Bullet", "Led data work at Acme"),
+        ("List Bullet", "Built things"),
+        ("Normal", "A closing line that wraps."),
+    ]
+    bold = [r.text for p in Document(io.BytesIO(resp.content)).paragraphs for r in p.runs if r.bold]
+    assert bold == ["data"]
+
+
+def test_plain_cover_letter_uses_a_pdf_letter_as_a_writing_sample(monkeypatch):
+    # A current cover letter that's a PDF can't be filled in, but its text shows how they write.
+    job_id = _insert_job()
+    _insert_resume()
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO resumes (user_id, kind, file_name, file_type, stored_path, raw_text, is_template) "
+            "VALUES (1, 'cover_letter', 'cl.pdf', 'pdf', '/tmp/cl.pdf', 'Dear team, I write plainly.', 1)"
+        )
+    fake = FakeAnthropicClient(create_result=FakeCreateResponse("letter"))
+    monkeypatch.setattr(generate, "get_client", lambda: fake)
+
+    with TestClient(app) as client:
+        resp = client.post("/api/generate/cover-letter", json={"job_id": job_id})
+        assert resp.status_code == 200
+    sent = fake.messages.create_calls[-1]
+    assert "Dear team, I write plainly." in sent["messages"][0]["content"]
+    assert "writing sample" in sent["messages"][0]["content"]
+    assert "voice" in sent["system"]
 
 
 def test_download_docx_document_returns_the_file(tmp_path, monkeypatch):
