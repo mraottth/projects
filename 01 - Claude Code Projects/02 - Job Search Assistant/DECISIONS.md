@@ -543,3 +543,23 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 - Free to host, no keys, and nothing near the real app's infrastructure or data.
 - Building it found a real bug: a rationale with two tagged highlights counted as untagged (3ddb3da).
 
+## D-033 · A public welcome page on GitHub Pages, since the app's own address can't have one
+- **Date:** 2026-11-11
+- **Category:** infra
+- **Prompts:** ab602548-172, ab602548-173
+
+**Decision.**
+- A welcome page next to the demo on GitHub Pages (`demo/landing/`, published at `/job-search/`), with what the service does, how to start, the privacy note, and "View the demo" or "Sign in or request access". It's the link to share.
+- The app's address comes from a repo variable at build time, not the repo.
+- The app's request-access and waiting pages link to the demo, for people who arrive at the app first.
+
+**Context.** The owner wanted a new person going to the app's address (e.g. /all-jobs) to be able to choose the demo before reaching Google sign-in, with a little information about the service first.
+
+**Alternatives considered.**
+- **Replace IAP with Google sign-in inside the app,** so the app's own address could show the welcome page: exactly what was asked, but the server would be public and the app's own session code the only lock on everyone's data. Several days of security-sensitive work.
+- **A custom domain and load balancer** with a public `/` and IAP on the rest: about $18 a month plus a domain, and a link straight to /all-jobs would still go to sign-in first.
+
+**Why.**
+- IAP answers every path of a Cloud Run service before the app sees the request and can't exempt any, so nothing on the app's address can come before sign-in while IAP guards it.
+- A separate page keeps the app exactly as locked down as it was, costs nothing, and was a day's work.
+

@@ -19,8 +19,9 @@ applications. It's a personal project, shared with a few people the owner approv
 * **Built in conversation with Claude Code:** the in-app Timeline shows every prompt, commit and
   decision (`prompts/`, `DECISIONS.md`).
 
-The app itself is private (behind IAP and an approval step); this folder is its code. **[Try the demo](https://mraottth.github.io/projects/jsa-demo/)**: a
-read-only copy with a fictional job seeker's data, no sign-in needed (`demo/`, `make demo`). See
+The app itself is private (behind IAP and an approval step); this folder is its code. **[Take a look](https://mraottth.github.io/projects/job-search/)**: a
+welcome page with a read-only demo (fictional data, no sign-in) and the way to request an account (`demo/`,
+`make demo`). See
 [`CLAUDE.md`](CLAUDE.md) for architecture, commands and deployment.
 
 **Filetree:**

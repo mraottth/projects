@@ -29,11 +29,15 @@ export function DemoBanner() {
           Everything here is fictional: Jordan Rivera's search, with made-up organizations and jobs. Look
           around freely; nothing can be changed.
         </span>
-        {APP_URL && (
-          <a className="demo-banner-cta" href={APP_URL}>
-            Request access →
-          </a>
-        )}
+        <span className="demo-banner-links">
+          {/* The welcome page published next to the demo (demo/landing/, D-033). */}
+          <a href={`${import.meta.env.BASE_URL}../job-search/`}>About the service</a>
+          {APP_URL && (
+            <a className="demo-banner-cta" href={APP_URL}>
+              Request access →
+            </a>
+          )}
+        </span>
       </div>
       {toast && (
         <div className="demo-toast" role="status">

@@ -1247,7 +1247,21 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   pattern Shelf Life's own filter sidebar already uses for its mobile collapse, so it's consistent
   with the house style this app follows, not a one-off.
 
-## Public demo (D-032, asked 2026-11-11)
+## Public welcome page and demo (D-032, D-033, asked 2026-11-11)
+
+**The welcome page** (`demo/landing/index.html`, D-033) is the link to share with someone new:
+`https://mraottth.github.io/projects/job-search/`. It has what the service does, how to start, the
+privacy note, and two buttons: "View the demo" (`../jsa-demo/`) and "Sign in or request access" (the
+app). The app's own address can't show anything before Google sign-in: IAP answers every path
+before the app runs and can't leave any open. It's plain HTML (no build step); `make demo` copies it
+and Jobby's art into `frontend/dist-site/job-search/` and swaps `__APP_URL__` for `JSA_APP_URL` (the
+repo variable in the workflow), so the app's address isn't in the repo. Without it the sign-in links
+hide and a line says accounts are by invitation. On a phone Jobby's big picture is hidden so both
+buttons are above the fold. The demo banner links back ("About the service"), and the request-access
+and waiting pages in the app link to the demo. `scripts/redact.py` strips the app's run.app address
+and the GCP project number from the prompt log.
+
+### The demo
 
 A static, read-only copy of the app with fictional data, on GitHub Pages
 (`https://mraottth.github.io/projects/jsa-demo/`), so people can try it without signing in. No server,
@@ -1275,9 +1289,10 @@ no Claude calls, nothing from `data/`.
 - **Read-only UI:** `DEMO &&`/`!DEMO &&` hide Jobby's message box, starters, "Ask about this", new
   chat and delete; "+ Add more", "Add a source manually" and "Check my sources now"; "Add a job"; and
   upload buttons. Everything else stays visible and is refused with the toast.
-- **Build and publish:** `make demo` (Timeline data, record, build). `.github/workflows/jsa-demo.yml`
-  at the `projects` repo root runs it on every push to main that touches this folder and publishes it
-  with `actions/deploy-pages`. Pages must be set to "GitHub Actions" once (repo Settings → Pages).
+- **Build and publish:** `make demo` (Timeline data, record, build, then `frontend/dist-site/` with
+  `job-search/` and `jsa-demo/`). `.github/workflows/jsa-demo.yml` at the `projects` repo root runs it
+  on every push to main that touches this folder and publishes `dist-site` with
+  `actions/deploy-pages`. Pages must be set to "GitHub Actions" once (repo Settings → Pages).
   The optional repo variable `JSA_APP_URL` adds "Request access →" to the banner.
 - The demo's Timeline is the same public prompt log as `prompts/` in this repo.
 

@@ -1116,7 +1116,7 @@
    "time": "2026-11-11T16:45:17.274Z",
    "kind": "prompt",
    "text": "let's do 1 to 3",
-   "reply": "All three are done and pushed:\n\n1. **Cover letters use the person's own letter.** When their current cover letter is a PDF, its text now goes to Claude as a sample of how they write. The new letter matches their voice, tone, length and structure, and takes nothing from the old letter's job, organization or reasons. Before this, the letter only ever saw the profile and the posting.\n2. **Downloads are Word files.** A tailored resume or cover letter written from a PDF now downloads as a `.docx` instead of a `.md` file. It keeps the headings, bullets, numbered lists, bold and italics. It's a clean, simple layout, not their own, and building it costs no Claude call.\n3. **The Profile page says so.** Under a current resume or cover letter that isn't a Word file, a short note explains that uploading the `.docx` version gets edits made right in their own layout. For the cover letter, it adds that the current one is being used as a writing sample. The note on the job page and the onboarding wording now say the same.\n\nAll 511 tests pass, including new ones for the writing sample and for the Word download's headings, bullets and bold.\n\nThe two troubleshooting prompts from the sign-in problem are left out of the Timeline, since one contained your GCP project number and this repo is public.\n\nTo deploy (the `IAP_AUDIENCE` part is only needed if you haven't run the sign-in fix deploy yet; it does no harm either way):\n\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com IAP_AUDIENCE=/projects/882601067842/locations/us-central1/services/jobhunt\n```",
+   "reply": "All three are done and pushed:\n\n1. **Cover letters use the person's own letter.** When their current cover letter is a PDF, its text now goes to Claude as a sample of how they write. The new letter matches their voice, tone, length and structure, and takes nothing from the old letter's job, organization or reasons. Before this, the letter only ever saw the profile and the posting.\n2. **Downloads are Word files.** A tailored resume or cover letter written from a PDF now downloads as a `.docx` instead of a `.md` file. It keeps the headings, bullets, numbered lists, bold and italics. It's a clean, simple layout, not their own, and building it costs no Claude call.\n3. **The Profile page says so.** Under a current resume or cover letter that isn't a Word file, a short note explains that uploading the `.docx` version gets edits made right in their own layout. For the cover letter, it adds that the current one is being used as a writing sample. The note on the job page and the onboarding wording now say the same.\n\nAll 511 tests pass, including new ones for the writing sample and for the Word download's headings, bullets and bold.\n\nThe two troubleshooting prompts from the sign-in problem are left out of the Timeline, since one contained your GCP project number and this repo is public.\n\nTo deploy (the `IAP_AUDIENCE` part is only needed if you haven't run the sign-in fix deploy yet; it does no harm either way):\n\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com IAP_AUDIENCE=/projects/<project number>/locations/us-central1/services/jobhunt\n```",
    "id": "ab602548-168",
    "session": "ab602548"
   },
@@ -1181,8 +1181,34 @@
    "time": "2026-11-11T17:19:42.258Z",
    "kind": "answer",
    "text": "\"Where should the static demo be hosted? It's plain files (HTML, JS, JSON and a few .docx), all fictional, so any public static host works.\"=\"GitHub Pages (Recommended)\".",
-   "reply": null,
+   "reply": "The demo is built and pushed to `claude/move-job-search-assistant`. It goes live at **https://mraottth.github.io/projects/jsa-demo/** once you merge and do the one GitHub setting below.\n\n**What visitors get**\n- **The persona:** a fictional job seeker, \"Jordan Rivera\", an analytics leader looking at civic tech and public health. Every organization, posting, link and email address is made up.\n- **The data, on every page of the app:**\n  - a resume, a cover letter and two older versions, each a real Word file you can download;\n  - 14 sources and about 35 scored jobs with highlighted reasons;\n  - New & Noteworthy for today and yesterday;\n  - My Jobs in every status, including the Jobby insights card;\n  - 2 tailored resumes with real tracked changes;\n  - 4 Jobby conversations, a usage log, and the Product Timeline.\n- **Read-only:** a banner says the data is fictional. Anything that would change something shows a \"read-only demo\" notice. Jobby's message box, adding sources or jobs, and uploads are hidden.\n- **Always current:** dates move forward to the day someone visits, so it always reads as \"today\" and \"last updated 3 hours ago\".\n\n**How it works**\n- I didn't hand-write the fake data in the frontend. A script fills a throwaway database with the fictional content using the app's own code, runs the real app on it, and records its answer to every page request. The published site plays those answers back in the browser.\n- The demo always matches how the real app behaves. A test fails if a page asks for something the recording doesn't cover.\n- The real app's bundle contains none of the demo.\n\n**Checked:**\n- A browser walk-through of every page, served from the same sub-path GitHub Pages will use: job cards open over the list, the read-only notice appears, downloads are valid, and deep links load.\n- A full build from a fresh clone, as GitHub's runner will do it.\n- All 517 tests pass.\n\n**Found along the way: a bug in the live app.** Any rationale with two or more tagged highlights counted as \"untagged\". Settings' \"Color older highlights\" would have kept offering to fix them, and running it would have put tags in the wrong places. That's fixed, with tests.\n\n**What you need to do**\n1. Merge the branch to main. The real app hasn't changed apart from that fix, so deploying is optional:\n   ```bash\n   cd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com IAP_AUDIENCE=/projects/<project number>/locations/us-central1/services/jobhunt\n   ```\n2. On GitHub, in the `projects` repo, go to **Settings → Pages → Source** and choose **GitHub Actions**. Then run the \"Job Search Assistant demo\" workflow once from the Actions tab, or push to main.\n3. Optional: to add a \"Request access →\" link to the banner, add a repo variable `JSA_APP_URL` (Settings → Secrets and variables → Actions → Variables) set to your app's address. I left it off because that address isn't recorded anywhere in the repo.\n\n**Decision for you:** the demo includes the Product Timeline. It's the same prompt log that's already public in the repo, but publishing it on a site puts it in front of more people. It names the GCP project and bucket and includes your deploy commands with the email replaced. If you'd rather leave the Timeline out of the demo, it's a small change.\n\nBoth READMEs now link to the demo.",
    "id": "ab602548-171",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-11T17:52:34.984Z",
+   "kind": "prompt",
+   "text": "I need a new user to be able to choose to see the demo before they get to the gmail screen when going to <app URL>/all-jobs Ideally they homepage for somebody without a preexisting account would give them a little information about the service and then the option to view a demo or create an account",
+   "reply": null,
+   "asked": [
+    {
+     "question": "That address can't show anything before Google sign-in as long as Google's sign-in gate (IAP) guards it: IAP answers every request, for every path, before the app sees it, and it has no way to leave some pages open. So it's one of these. Which do you want?",
+     "options": [
+      "Public front page elsewhere (Recommended)",
+      "Replace IAP with sign-in inside the app",
+      "Custom domain + load balancer"
+     ]
+    }
+   ],
+   "id": "ab602548-172",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-11T17:54:37.183Z",
+   "kind": "answer",
+   "text": "\"That address can't show anything before Google sign-in as long as Google's sign-in gate (IAP) guards it: IAP answers every request, for every path, before the app sees it, and it has no way to leave some pages open. So it's one of these. Which do you want?\"=\"Public front page elsewhere (Recommended)\".",
+   "reply": null,
+   "id": "ab602548-173",
    "session": "ab602548"
   }
  ]

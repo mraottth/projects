@@ -29,3 +29,4 @@ frontend/src/changelog.json
 # The public demo (demo/record.py, npm run build:demo): rebuilt from code, never committed.
 frontend/demo-build/
 frontend/dist-demo/
+frontend/dist-site/

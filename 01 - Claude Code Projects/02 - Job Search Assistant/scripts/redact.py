@@ -28,6 +28,10 @@ BUILTIN = [
     (re.compile(r"\b(?!you@gmail\.com\b)[A-Za-z0-9._%+-]+@(?!(?:[a-z0-9-]+\.)*(?:example\.(?:com|org|net)|"
                 r"anthropic\.com|github\.com)\b)[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}\b"),
      "you@example.com"),
+    # The live app's address and its GCP project number (in Cloud Run URLs and the IAP audience).
+    # IAP still guards it, but there's no reason to publish where it is (2026-11-11).
+    (re.compile(r"https://[a-z0-9-]+-\d{6,}\.[a-z0-9-]+\.run\.app"), "<app URL>"),
+    (re.compile(r"/projects/\d{6,}/"), "/projects/<project number>/"),
 ]
 
 _local: list[tuple[str, str]] | None = None

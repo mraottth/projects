@@ -35,10 +35,20 @@ test:
 
 # The public, read-only demo (demo/, frontend/src/demo.ts): fictional data recorded from the real app,
 # built as static files for GitHub Pages. No server, no Claude calls, nothing from data/.
-demo:         ## record the demo's data, then build frontend/dist-demo (DEMO_BASE overrides the sub-path)
+# `make demo` lays out the whole public site in frontend/dist-site/: the welcome page (demo/landing/,
+# D-033) at job-search/ and the demo at jsa-demo/. JSA_APP_URL (the app's address, kept out of the
+# repo) fills the welcome page's sign-in links and the demo banner's "Request access"; without it
+# they're hidden.
+JSA_APP_URL ?=
+demo:         ## record the demo's data, build it, and lay out frontend/dist-site (welcome page + demo)
 	python3 scripts/build_changelog.py
 	PYTHONPATH=src:. uv run python -m demo.record
-	cd frontend && npm install && npx tsc -b && npx vite build --mode demo $(if $(DEMO_BASE),--base $(DEMO_BASE))
+	cd frontend && npm install && npx tsc -b && \
+	  VITE_DEMO_APP_URL="$(JSA_APP_URL)" npx vite build --mode demo $(if $(DEMO_BASE),--base $(DEMO_BASE))
+	rm -rf frontend/dist-site && mkdir -p frontend/dist-site/job-search
+	cp -r frontend/dist-demo frontend/dist-site/jsa-demo
+	cp frontend/src/assets/jobby-avatar.png frontend/src/assets/jobby-full.png frontend/dist-site/job-search/
+	$(if $(JSA_APP_URL),sed 's#__APP_URL__#$(JSA_APP_URL)#g',cat) demo/landing/index.html > frontend/dist-site/job-search/index.html
 
 ingest-resumes:  ## re-runnable recursive bulk import: make ingest-resumes DIR=~/Documents/Resumes
 	$(PY) jobhunt.cli.ingest_resumes $(DIR)

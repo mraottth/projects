@@ -1,7 +1,7 @@
-# The Job Search Assistant's public demo (asked 2026-11-11): fictional data recorded from the real
-# app, built as a static, read-only site and published to GitHub Pages at <pages url>/jsa-demo/.
-# No secrets: it makes no Claude calls and never touches the real app or its data. The optional repo
-# variable JSA_APP_URL adds a "Request access" link to the demo's banner.
+# The Job Search Assistant's public site on GitHub Pages (asked 2026-11-11): a welcome page at
+# <pages url>/job-search/ (D-033) and a read-only demo with fictional data at <pages url>/jsa-demo/
+# (D-032). No secrets: it makes no Claude calls and never touches the real app or its data. The repo
+# variable JSA_APP_URL (the app's address) fills the sign-in links; without it they're hidden.
 name: Job Search Assistant demo
 
 on:
@@ -35,22 +35,20 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Record the demo and build it
-        run: make demo
+      - name: Record the demo and build the site
+        run: make demo JSA_APP_URL="$JSA_APP_URL"
         env:
-          VITE_DEMO_APP_URL: ${{ vars.JSA_APP_URL }}
-      - name: Lay out the site
-        run: mkdir -p "$GITHUB_WORKSPACE/_site" && cp -r frontend/dist-demo "$GITHUB_WORKSPACE/_site/jsa-demo"
+          JSA_APP_URL: ${{ vars.JSA_APP_URL }}
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: _site
+          path: "01 - Claude Code Projects/02 - Job Search Assistant/frontend/dist-site"
 
   deploy:
     needs: build
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}jsa-demo/
+      url: ${{ steps.deployment.outputs.page_url }}job-search/
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4

@@ -500,19 +500,22 @@
   "date": "2026-11-11",
   "icon": "🪟",
   "category": "infra",
-  "title": "A demo anyone can try",
-  "summary": "A read-only copy of the app with a fictional job seeker's search, published on GitHub Pages with no sign-in. It's recorded from the real app running on made-up data, so every page looks and works as it does for real, but nothing can be changed and nothing calls Claude.",
+  "title": "A welcome page and a demo anyone can try",
+  "summary": "A public welcome page says what the service does and offers a read-only demo of a fictional job seeker's search, or the way to request an account, all before any sign-in. The demo is recorded from the real app running on made-up data, so every page looks as it does for real, but nothing can be changed and nothing calls Claude.",
   "prompts": [
    "ab602548-169",
    "ab602548-170",
-   "ab602548-171"
+   "ab602548-171",
+   "ab602548-172",
+   "ab602548-173"
   ],
   "commits": [
    "3ddb3da",
    "1b02608"
   ],
   "decisions": [
-   "D-032"
+   "D-032",
+   "D-033"
   ]
  }
 ]

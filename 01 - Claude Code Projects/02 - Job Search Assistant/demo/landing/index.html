@@ -1,0 +1,204 @@
+<!doctype html>
+<!--
+  The Job Search Assistant's public welcome page (asked 2026-11-11, D-033): what the service is,
+  then "View the demo" or "Sign in". The app itself sits behind Google sign-in (IAP), which guards
+  every one of its paths, so this page lives on GitHub Pages next to the demo and is the link to
+  share. .github/workflows/jsa-demo.yml publishes it to <pages>/job-search/ and swaps __APP_URL__
+  for the repo variable JSA_APP_URL. With no variable, the sign-in button is hidden.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Job Search Assistant</title>
+  <meta name="description" content="Daily job matches from the organizations you choose, rated for interest and fit, with tailored resumes and an interview-prep chat." />
+  <link rel="icon" type="image/png" href="jobby-avatar.png" />
+  <style>
+    :root {
+      color-scheme: light;
+      --page: #f9f9f7;
+      --card: #ffffff;
+      --ink: #0b0b0b;
+      --ink-2: #52514e;
+      --muted: #898781;
+      --grid: #e1e0d9;
+      --accent: #2a78d6;
+      --accent-ink: #1c5cab;
+      --good: #1d7a3c;
+      --good-bg: rgba(29, 122, 60, 0.1);
+      --warn: #9a6b00;
+      --warn-bg: rgba(184, 134, 11, 0.13);
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.05);
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: var(--page);
+      line-height: 1.5;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--page); }
+    a { color: var(--accent-ink); }
+    .wrap { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
+    header.top { border-bottom: 1px solid var(--grid); background: #fcfcfb; }
+    header.top .wrap { display: flex; align-items: center; gap: 10px; height: 60px; }
+    .brand { font-weight: 700; font-size: 1.05rem; }
+    header.top .signin-link { margin-left: auto; font-weight: 600; text-decoration: none; }
+
+    .hero { display: grid; grid-template-columns: 1.3fr 1fr; gap: 40px; align-items: center; padding: 56px 0 40px; }
+    .hero h1 { font-size: clamp(2rem, 4.5vw, 2.8rem); line-height: 1.12; letter-spacing: -0.02em; margin: 0 0 16px; }
+    .hero p.lede { font-size: 1.12rem; color: var(--ink-2); margin: 0 0 26px; max-width: 34em; }
+    .hero img { width: 100%; max-width: 340px; justify-self: center; }
+    .ctas { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+    .btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 22px; border-radius: 999px;
+      font-weight: 600; font-size: 1rem; text-decoration: none; transition: transform 0.12s ease, box-shadow 0.12s ease; }
+    .btn:hover, .btn:focus-visible { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(42, 120, 214, 0.2); outline: none; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-secondary { background: var(--card); color: var(--ink); border: 1.5px solid var(--grid); }
+    .note { margin: 14px 0 0; color: var(--muted); font-size: 0.9rem; }
+
+    section { padding: 36px 0; }
+    section h2 { font-size: 1.4rem; margin: 0 0 6px; letter-spacing: -0.01em; }
+    section .sub { color: var(--muted); margin: 0 0 22px; }
+    .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+    .card { background: var(--card); border: 1px solid var(--grid); border-radius: 12px; padding: 18px 20px; box-shadow: var(--shadow); }
+    .card h3 { margin: 0 0 6px; font-size: 1.02rem; }
+    .card p { margin: 0; color: var(--ink-2); font-size: 0.95rem; }
+    .icon { font-size: 1.5rem; display: block; margin-bottom: 8px; }
+    .chips { display: flex; gap: 6px; margin: 8px 0 0; flex-wrap: wrap; }
+    .chip { font-size: 0.78rem; font-weight: 600; padding: 2px 9px; border-radius: 999px; }
+    .chip-high { background: var(--good-bg); color: var(--good); }
+    .chip-med { background: var(--warn-bg); color: var(--warn); }
+
+    ol.steps { list-style: none; counter-reset: step; padding: 0; margin: 0; display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+    ol.steps li { counter-increment: step; position: relative; padding-left: 46px; }
+    ol.steps li::before { content: counter(step); position: absolute; left: 0; top: 0; width: 32px; height: 32px;
+      border-radius: 50%; background: var(--accent); color: #fff; font-weight: 700; display: grid; place-items: center; }
+    ol.steps strong { display: block; margin-bottom: 2px; }
+    ol.steps span { color: var(--ink-2); font-size: 0.95rem; }
+
+    .privacy ul { margin: 0; padding-left: 20px; color: var(--ink-2); }
+    .privacy li { margin-bottom: 6px; }
+
+    .closing { text-align: center; padding: 44px 0 56px; }
+    .closing .ctas { justify-content: center; }
+    footer { border-top: 1px solid var(--grid); color: var(--muted); font-size: 0.88rem; padding: 18px 0 28px; }
+    footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 18px; justify-content: space-between; }
+
+    @media (max-width: 760px) {
+      .hero { grid-template-columns: 1fr; padding: 32px 0 16px; gap: 20px; }
+      .hero img { display: none; } /* keeps the buttons above the fold; Jobby is in the top bar */
+      .btn { flex: 1 1 auto; justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <img src="jobby-avatar.png" alt="" width="30" height="30" />
+      <span class="brand">Job Search Assistant</span>
+      <a class="signin-link app-link" href="__APP_URL__">Sign in</a>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="hero">
+      <div>
+        <h1>Your job search, read and ranked for you every day.</h1>
+        <p class="lede">
+          Pick the organizations and job boards you care about. Each day, Job Search Assistant reads them, rates every
+          new posting for how much you'd want it and how strong a candidate you'd be, and helps you apply to the best ones.
+        </p>
+        <div class="ctas">
+          <a class="btn btn-primary" href="../jsa-demo/">View the demo →</a>
+          <a class="btn btn-secondary app-link" href="__APP_URL__">Sign in or request access</a>
+        </div>
+        <p class="note app-link-note">
+          The demo is a read-only copy with a made-up job seeker's search. No sign-in needed.
+        </p>
+        <p class="note invite-note" hidden>
+          The demo is a read-only copy with a made-up job seeker's search. Accounts are by invitation.
+        </p>
+      </div>
+      <img src="jobby-full.png" alt="Jobby, the app's mascot, at a laptop" width="340" height="340" />
+    </div>
+
+    <section>
+      <h2>What it does</h2>
+      <p class="sub">Five things that take the busywork out of a job search.</p>
+      <div class="features">
+        <div class="card">
+          <span class="icon" aria-hidden="true">📬</span>
+          <h3>Daily matches</h3>
+          <p>New postings from your chosen organizations and boards, every day, with the best in a short daily email.</p>
+        </div>
+        <div class="card">
+          <span class="icon" aria-hidden="true">🎯</span>
+          <h3>Rated for you, with reasons</h3>
+          <p>Each job gets an interest and a fit rating, with the phrases that decided them highlighted.</p>
+          <div class="chips"><span class="chip chip-high">Interest: High</span><span class="chip chip-med">Fit: Med</span></div>
+        </div>
+        <div class="card">
+          <span class="icon" aria-hidden="true">📝</span>
+          <h3>Tailored resumes</h3>
+          <p>Your own Word resume, edited for a job as tracked changes, so every change is yours to accept or reject.</p>
+        </div>
+        <div class="card">
+          <span class="icon" aria-hidden="true">💬</span>
+          <h3>Jobby, your prep partner</h3>
+          <p>A chat that knows the job and your background: mock interviews, likely questions, strategy.</p>
+        </div>
+        <div class="card">
+          <span class="icon" aria-hidden="true">📋</span>
+          <h3>One place to track it all</h3>
+          <p>Every application from draft to offer, with how your search is going and what's working.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>How to start</h2>
+      <p class="sub">It's a personal project shared with a small group, so accounts are approved one at a time.</p>
+      <ol class="steps">
+        <li><strong>Sign in with Google</strong><span>and send a short request. Nothing is shared with anyone yet.</span></li>
+        <li><strong>Get approved</strong><span>by the owner. You'll get an email when you're in.</span></li>
+        <li><strong>Set up in a few minutes</strong><span>Upload your resume, say what you're looking for, and pick sources to follow.</span></li>
+      </ol>
+    </section>
+
+    <section class="privacy">
+      <h2>Your information</h2>
+      <div class="card">
+        <ul>
+          <li>The app keeps what you give it: your resumes and cover letters, profile and preferences, and the jobs you track. Only you can see them in the app.</li>
+          <li>To rate jobs, tailor documents and chat with Jobby, it sends the relevant parts to Anthropic's Claude API, which by default doesn't use API data to train its models.</li>
+          <li>The app's owner runs it and can reach the stored data, including backups. You can clear everything, or delete your account, at any time.</li>
+        </ul>
+      </div>
+    </section>
+
+    <div class="closing">
+      <h2>See it for yourself</h2>
+      <p class="sub">Walk through a full example search, then decide.</p>
+      <div class="ctas">
+        <a class="btn btn-primary" href="../jsa-demo/">View the demo →</a>
+        <a class="btn btn-secondary app-link" href="__APP_URL__">Sign in or request access</a>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>Job Search Assistant · a personal project, built with Claude Code</span>
+      <a href="https://github.com/mraottth/projects/tree/main/01%20-%20Claude%20Code%20Projects/02%20-%20Job%20Search%20Assistant">See the code</a>
+    </div>
+  </footer>
+
+  <script>
+    // Built without an app address (no JSA_APP_URL): hide the sign-in links rather than leave dead ones.
+    if (document.querySelector(".app-link").getAttribute("href").indexOf("__APP") === 0) {
+      document.querySelectorAll(".app-link, .app-link-note").forEach(function (el) { el.hidden = true; el.style.display = "none"; });
+      document.querySelector(".invite-note").hidden = false;
+    }
+  </script>
+</body>
+</html>

@@ -35,7 +35,7 @@ ___
 **Description:**
 A web app that finds postings at the organizations and job boards you choose, has Claude rate each one for how interested you'd be and how strong a candidate you are, tailors your resume and cover letter to the ones you pursue, and tracks your applications. It's a personal tool shared with a few approved people, so the app itself sits behind Google sign-in; the code and its whole build history are here.
 
-**[Try the demo →](https://mraottth.github.io/projects/jsa-demo/)** A read-only copy with a fictional job seeker's data, no sign-in needed.
+**[Take a look →](https://mraottth.github.io/projects/job-search/)** What it does, a read-only demo with a fictional job seeker's data (no sign-in needed), and the way to request an account.
 
 * **Daily pipeline:** reads every followed source once a day (Greenhouse, Lever and Ashby APIs; Claude extraction for any other careers page or board, with a headless-browser fallback), runs a free rule-based pre-filter, then scores the most promising postings within each person's daily cap and monthly budget. Unchanged board pages aren't paid for twice.
 * **New & Noteworthy and a daily email:** each day's best matches with highlighted reasons, opt-in location and salary dealbreakers that only hide what they're sure about, and feedback that teaches it your preferences.

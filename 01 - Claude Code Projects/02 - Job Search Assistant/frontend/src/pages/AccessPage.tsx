@@ -7,6 +7,9 @@ import { Spinner } from "../components/Spinner";
  * "waiting for approval", or a plain no-access message. Nothing else in the app is reachable
  * until the admin approves them.
  */
+// The public, read-only demo (D-032), for someone who signed in to look before asking for an account.
+const DEMO_URL = "https://mraottth.github.io/projects/jsa-demo/";
+
 export default function AccessPage({ me, onChange }: { me: Me; onChange: (status: Me["status"]) => void }) {
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -47,6 +50,13 @@ export default function AccessPage({ me, onChange }: { me: Me; onChange: (status
               </button>
               {error && <p className="error">{error}</p>}
             </form>
+            <p className="muted small access-demo">
+              Not sure yet?{" "}
+              <a href={DEMO_URL} target="_blank" rel="noreferrer">
+                Look around the demo first
+              </a>
+              : a read-only copy with a made-up job seeker's search.
+            </p>
             <PrivacyNote />
           </>
         )}
@@ -55,7 +65,11 @@ export default function AccessPage({ me, onChange }: { me: Me; onChange: (status
             <h1>Waiting for approval</h1>
             <p>
               Your request is in. You'll get an email at <strong>{me.email}</strong> once it's approved, and
-              then this page will open the app.
+              then this page will open the app. Meanwhile, you can{" "}
+              <a href={DEMO_URL} target="_blank" rel="noreferrer">
+                look around the demo
+              </a>
+              .
             </p>
           </>
         )}
