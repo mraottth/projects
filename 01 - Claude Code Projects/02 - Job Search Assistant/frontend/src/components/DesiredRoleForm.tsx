@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, type LocationCheck, type SalaryCheck, Settings } from "../api";
 import { TagInput } from "./TagInput";
+import { DEMO } from "../demo";
 
 // The "What are you looking for?" card -- shared by the Profile page and onboarding's second step.
 // Every field saves itself on change/blur, so there's no separate submit.
@@ -11,9 +12,19 @@ export function DesiredRoleForm() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [checkVersion, setCheckVersion] = useState(0);
+  // Sector ideas from their resume, shown as chips in the hint; clicking one adds it. Never
+  // pre-filled (asked 2026-11-12: a tester didn't know what "sector" meant here).
+  const [ideas, setIdeas] = useState<string[]>([]);
 
   useEffect(() => {
     api.getSettings().then(setSettings);
+    if (!DEMO) {
+      // A POST (it may make a small paid call), which the read-only demo would refuse with a notice.
+      api
+        .getSectorSuggestions()
+        .then((r) => setIdeas(r.sectors))
+        .catch(() => setIdeas([]));
+    }
   }, []);
 
   if (!settings) return <p className="muted">Loading...</p>;
@@ -63,6 +74,30 @@ export function DesiredRoleForm() {
 
       <div className="fsection">
         <span className="flabel">Desired sectors</span>
+        <p className="muted small" style={{ marginTop: 0 }}>
+          The kind of work or organization: for example civic tech, political data and campaigns,
+          public health, education, climate, fintech, nonprofit or government.
+          {ideas.filter((i) => !settings.prefilter_sectors.some((s) => s.toLowerCase() === i.toLowerCase()))
+            .length > 0 && (
+            <>
+              {" "}
+              From your resume:{" "}
+              {ideas
+                .filter((i) => !settings.prefilter_sectors.some((s) => s.toLowerCase() === i.toLowerCase()))
+                .map((idea) => (
+                  <button
+                    key={idea}
+                    type="button"
+                    className="sector-idea"
+                    title={`Add "${idea}"`}
+                    onClick={() => save({ prefilter_sectors: [...settings.prefilter_sectors, idea] })}
+                  >
+                    + {idea}
+                  </button>
+                ))}
+            </>
+          )}
+        </p>
         <TagInput
           value={settings.prefilter_sectors}
           onChange={(tags) => save({ prefilter_sectors: tags })}

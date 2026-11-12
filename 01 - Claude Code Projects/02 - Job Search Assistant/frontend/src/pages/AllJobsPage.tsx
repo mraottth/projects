@@ -66,10 +66,20 @@ export default function AllJobsPage() {
   return (
     <div>
       <h1>All Jobs</h1>
-      <p className="muted" style={{ marginBottom: "18px" }}>
+      <p className="muted" style={{ marginBottom: "12px" }}>
         Every active posting from the companies and job boards you follow, ranked by interest and
         candidate fit first — not just what made today's New &amp; Noteworthy list.
       </p>
+      {/* Say what the default filters hide, and how to see it (asked 2026-11-12). */}
+      {isStrongestOnly(filters) && (
+        <p className="defaults-note">
+          Showing your strongest matches: jobs rated High or Medium for both interest and fit, plus any
+          not rated yet. The filters on the right show the rest.{" "}
+          <button className="link" onClick={() => setFilters({ ...NO_JOB_FILTERS, sort: filters.sort })}>
+            Show everything
+          </button>
+        </p>
+      )}
 
       {loading && <p className="muted">Loading...</p>}
       {!loading && jobs.length === 0 && (
@@ -117,3 +127,10 @@ export default function AllJobsPage() {
     </div>
   );
 }
+
+/** The default view: High and Med only on both ratings (Low hidden). */
+function isStrongestOnly(f: JobFilterState): boolean {
+  const strongest = (v: string[]) => v.length === 2 && v.includes("High") && v.includes("Med");
+  return strongest(f.interestFilter) && strongest(f.candidateFilter);
+}
+

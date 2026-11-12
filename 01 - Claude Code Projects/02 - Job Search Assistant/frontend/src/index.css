@@ -990,4 +990,24 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 .screen-recent { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; }
 .screen-recent li { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 6px 0; border-top: 1px solid var(--grid); }
 .screen-recent-title { min-width: 0; }
+.discover-added { color: var(--good); font-weight: 600; }
+/* Manage Sources' advanced manual-add section, collapsed (asked 2026-11-12). */
+.manual-source > summary { cursor: pointer; list-style: revert; }
+.manual-source > summary h2 { display: inline; margin: 0; font-size: 1rem; color: var(--ink-2); }
+.manual-source[open] > summary { margin-bottom: 10px; }
+/* Sector ideas from the resume, inline in the hint (DesiredRoleForm, asked 2026-11-12). */
+.sector-idea { display: inline-block; margin: 3px 4px 0 0; padding: 1px 9px; border-radius: 999px; font-size: 0.8rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); background: color-mix(in srgb, var(--accent) 7%, var(--card));
+  color: var(--accent-ink); cursor: pointer; }
+.sector-idea:hover { background: color-mix(in srgb, var(--accent) 15%, var(--card)); }
+/* All Jobs: the default-filters note and the explained checkboxes (asked 2026-11-12). */
+.defaults-note { margin: 0 0 16px; padding: 8px 12px; border-radius: 10px; font-size: 0.9rem; color: var(--ink-2);
+  background: color-mix(in srgb, var(--accent) 6%, var(--card)); border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent); }
+.defaults-note .link { font-size: inherit; }
+.filter-checks { display: flex; flex-direction: column; gap: 8px; }
+.filter-check { display: flex; gap: 8px; align-items: flex-start; font-size: 0.88rem; color: var(--ink); cursor: pointer; }
+.filter-check input { margin-top: 3px; }
+.filter-check-hint { display: block; color: var(--muted); font-size: 0.78rem; line-height: 1.35; margin-top: 1px; }
+/* Profile's "Tailor for a job" (asked 2026-11-12). */
+.tailor-for-job select { width: 100%; margin-bottom: 6px; }
 

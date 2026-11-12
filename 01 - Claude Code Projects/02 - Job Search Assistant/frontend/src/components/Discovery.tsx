@@ -82,14 +82,14 @@ function monitorCompany(s: CompanySuggestion) {
   });
 }
 
-// Per-suggestion "Monitor" state, keyed by name/URL: working, added, or an error message.
+// Per-suggestion "Add" state, keyed by name/URL: working, added, or an error message.
 function useApprovals(onAdded?: () => void) {
   const [status, setStatus] = useState<Record<string, string>>({});
   const approve = async (key: string, action: () => Promise<unknown>) => {
     setStatus((s) => ({ ...s, [key]: "Adding..." }));
     try {
       await action();
-      setStatus((s) => ({ ...s, [key]: "✓ Monitoring" }));
+      setStatus((s) => ({ ...s, [key]: "✓ Added" }));
       onAdded?.();
     } catch (e) {
       setStatus((s) => ({ ...s, [key]: errorText(e) }));
@@ -111,11 +111,13 @@ function SuggestionActions({
 }) {
   return (
     <div className="form-actions" style={{ marginTop: 0 }}>
+      {/* "+ Add", blue (2026-11-12: "Monitor" as a quiet ghost button wasn't obviously the step
+          that matters; a tester went on without adding any). */}
       {status ? (
-        <span className="muted small">{status}</span>
+        <span className={`small ${status.startsWith("✓") ? "discover-added" : "muted"}`}>{status}</span>
       ) : (
-        <button className="ghost small" onClick={onMonitor}>
-          Monitor
+        <button className="primary small" onClick={onMonitor}>
+          + Add
         </button>
       )}
       <button className="link small" onClick={onMoreLikeThis} disabled={busy}>
@@ -208,8 +210,8 @@ export function DiscoverCompaniesSection({
       {!bare && <h2>Discover organizations</h2>}
       <p className="muted small">
         Uses your candidate profile and what you're looking for, plus a web search, to suggest
-        organizations worth monitoring. Monitoring one checks its job board for new postings every
-        day. Nothing is added until you click Monitor.
+        organizations worth following. Adding one checks its job board for new postings every day.
+        Nothing is added until you click Add.
       </p>
       <DiscoveryControls
         noun="organizations"
@@ -261,9 +263,9 @@ export function DiscoverJobBoardsSection({
     <div className={bare ? "discover-bare" : "card"} id="discover-job-boards">
       {!bare && <h2>Discover job boards</h2>}
       <p className="muted small">
-        Suggests multi-employer boards worth monitoring — broader reach than tracking one
-        organization at a time. Monitoring one checks it for new postings every day. Nothing is
-        added until you click Monitor.
+        Suggests multi-employer boards worth following — broader reach than tracking one
+        organization at a time. Adding one checks it for new postings every day. Nothing is added
+        until you click Add.
       </p>
       <DiscoveryControls
         noun="job boards"

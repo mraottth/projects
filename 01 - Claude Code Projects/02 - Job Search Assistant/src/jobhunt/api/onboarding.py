@@ -4,6 +4,7 @@ from pydantic import ValidationError
 from jobhunt.core.generate import generate_starter_cover_letter
 from jobhunt.core.llm import LLMError
 from jobhunt.core.profile import get_current_candidate_profile
+from jobhunt.core import sector_suggest
 from jobhunt.core.settings import get_settings
 from jobhunt.db.connection import get_db
 from jobhunt.core.users import current_user_id
@@ -33,6 +34,17 @@ def onboarding_status():
         "has_cover_letter": counts.get("cover_letter", 0) > 0,
         "has_profile": get_current_candidate_profile() is not None,
     }
+
+
+@router.post("/sector-suggestions")
+def sector_suggestions():
+    """A few sector names from the current resume, for the hint under "Desired sectors" (one cheap
+    call, then kept until the resume changes; core/sector_suggest.py). Nothing is saved to their
+    sectors: the person clicks the ones they want."""
+    try:
+        return {"sectors": sector_suggest.suggestions()}
+    except LLMError as exc:
+        raise HTTPException(502, str(exc)) from exc
 
 
 @router.post("/generate-cover-letter")

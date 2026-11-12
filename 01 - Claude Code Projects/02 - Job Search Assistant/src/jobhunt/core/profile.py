@@ -21,8 +21,11 @@ Write a concise narrative profile (think "briefing note", 300-500 words) coverin
 - Core competencies: skills, tools, and domains they have real depth in (vs. just mentioned once).
 - Apparent interests: the kinds of problems, industries, or company stages they gravitate toward, \
 based on patterns across documents (weighted toward the most recent ones, not a single old job).
-- Anything distinctive worth a scoring model knowing (career changes, specializations, gaps explained \
-in a cover letter, etc).
+- Other things worth knowing (career changes, specializations, gaps explained in a cover letter, etc).
+
+Use short, plain section headings a job seeker would understand, like "Career progression", "Core \
+skills", "What they're drawn to" and "Worth knowing". Never mention scoring, models or this system in \
+a heading or in the text (2026-11-12: a heading "Distinctive notes for scoring" confused a tester).
 
 Write in third person, as a reference document, not addressed to the candidate. Refer to the \
 candidate by their first name -- the preferred one if the documents give one (e.g. "Matt" for \

@@ -83,12 +83,17 @@ function AddSourceForm({ onAdded }: { onAdded: (source: Source) => void }) {
     }
   };
 
+  // Collapsed at the bottom (2026-11-12: a tester couldn't tell it from "+ Add more", and it's
+  // rarely needed): keyword searches on Adzuna/RemoteOK, or a source set up by hand.
   return (
-    <div className="card">
-      <h2>Add a source manually</h2>
+    <details className="card manual-source">
+      <summary>
+        <h2>Advanced: keyword searches and manual setup</h2>
+      </summary>
       <p className="muted small">
-        For anything "Add more" doesn't cover — like a keyword search on Adzuna or RemoteOK — or to
-        set a source's details by hand. New postings feed into All Jobs and the daily digest.
+        Most sources are easiest to add with "+ Add more" above. Use this for a keyword search on
+        Adzuna or RemoteOK, or to set a source's details by hand. New postings feed into All Jobs
+        and the daily digest.
       </p>
       <div className="fsection">
         <span className="flabel">Kind</span>
@@ -149,7 +154,7 @@ function AddSourceForm({ onAdded }: { onAdded: (source: Source) => void }) {
         </button>
       </div>
       {error && <p className="error-text small">{error}</p>}
-    </div>
+    </details>
   );
 }
 
@@ -635,9 +640,6 @@ export default function ManageSourcesPage() {
         onAdded={refresh}
       />
 
-      {/* The demo is read-only (demo.ts): nothing to add or run. */}
-      {!DEMO && <AddSourceForm onAdded={() => refresh()} />}
-
       {!DEMO && (
       <div className="card">
         {/* The admin's run is everyone's (like the scheduled one); anyone else's is just their own. */}
@@ -657,6 +659,9 @@ export default function ManageSourcesPage() {
         )}
       </div>
       )}
+
+      {/* The demo is read-only (demo.ts): nothing to add or run. */}
+      {!DEMO && <AddSourceForm onAdded={() => refresh()} />}
     </div>
   );
 }

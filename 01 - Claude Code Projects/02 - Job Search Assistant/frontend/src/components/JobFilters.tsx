@@ -302,13 +302,13 @@ function AppliedFilters({
   if (filters.onlyScreenedOut) {
     chips.push({
       key: "only-screened",
-      label: "Only set-aside jobs",
+      label: "Only low-relevance jobs",
       clear: () => set({ onlyScreenedOut: false, includeScreenedOut: false }),
     });
   } else if (filters.includeScreenedOut) {
     chips.push({
       key: "screened",
-      label: "Showing set-aside jobs",
+      label: "Showing low-relevance jobs",
       clear: () => set({ includeScreenedOut: false }),
     });
   }
@@ -429,37 +429,48 @@ export function JobFilterBar({
         onChange={(v) => set("candidateFilter", v)}
       />
 
-      <div className="fsection">
-        <label className="small" style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+      {/* Plain labels, each with what it means (2026-11-12: a tester didn't know what "scoring" or
+          "the title screen" were). */}
+      <div className="fsection filter-checks">
+        <label className="filter-check">
           <input
             type="checkbox"
             checked={filters.includeUnscored}
             onChange={(e) => set("includeUnscored", e.target.checked)}
           />
-          Include jobs not yet scored
+          <span>
+            Include jobs not rated yet
+            <span className="filter-check-hint">
+              Each job is rated for interest and fit once; new ones wait for the next daily check.
+            </span>
+          </span>
         </label>
         {ruledOut > 0 && (
-          <label className="small" style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "6px" }}>
+          <label className="filter-check">
             <input
               type="checkbox"
               checked={filters.includeDealbreakers}
               onChange={(e) => set("includeDealbreakers", e.target.checked)}
             />
-            Show {ruledOut} job{ruledOut === 1 ? "" : "s"} your dealbreakers hide
+            <span>
+              Show {ruledOut} job{ruledOut === 1 ? "" : "s"} outside your locations or pay floor
+              <span className="filter-check-hint">Your dealbreakers, set on the Profile page.</span>
+            </span>
           </label>
         )}
         {setAside > 0 && (
-          <label
-            className="small"
-            style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "6px" }}
-            title="Jobs whose title alone showed they're clearly not a fit, so they weren't scored"
-          >
+          <label className="filter-check">
             <input
               type="checkbox"
               checked={filters.includeScreenedOut}
               onChange={(e) => set("includeScreenedOut", e.target.checked)}
             />
-            Show {setAside} job{setAside === 1 ? "" : "s"} set aside by title
+            <span>
+              Show {setAside} low-relevance job{setAside === 1 ? "" : "s"}
+              <span className="filter-check-hint">
+                A quick check of their titles set these aside as clearly not what you're looking for.
+              </span>
+            </span>
           </label>
         )}
       </div>
