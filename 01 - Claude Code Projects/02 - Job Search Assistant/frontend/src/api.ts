@@ -103,6 +103,8 @@ export interface Job {
   posted_at: string | null;
   first_seen_at: string;
   needs_review: 0 | 1;
+  // Pasting a job one of your sources already has tracks that job instead of adding a copy.
+  already_in_sources?: boolean;
 }
 
 export type ApplicationStatus =

@@ -27,6 +27,7 @@ from jobhunt.api import (
     sources,
 )
 from jobhunt.api.auth import AuthMiddleware
+from jobhunt.core import job_merge
 from jobhunt.db.connection import init_db
 from jobhunt.pipeline.daily_run import backfill_salaries
 
@@ -39,6 +40,11 @@ def _backfill_salaries_safely() -> None:
         backfill_salaries()
     except Exception:  # noqa: BLE001 - never let this take the app down
         logging.getLogger(__name__).exception("salary backfill at startup failed")
+    try:
+        # Pasted jobs a source has since found too, merged into the source's copy (D-035). Free.
+        job_merge.merge_existing_duplicates()
+    except Exception:  # noqa: BLE001
+        logging.getLogger(__name__).exception("merging duplicate jobs at startup failed")
 
 
 async def lifespan(app: FastAPI):
