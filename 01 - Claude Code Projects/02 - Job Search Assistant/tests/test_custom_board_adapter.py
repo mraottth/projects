@@ -255,3 +255,65 @@ def test_linked_hosted_board_is_read_when_the_page_has_too_few(monkeypatch):
     assert [p["title"] for p in postings] == list("ABCD")
     assert opened[-1] == ("https://apply.workable.com/bsd/", False)
     assert steps[-1] == "read its job board https://apply.workable.com/bsd/: 4"
+
+
+def test_an_embedded_board_is_remembered_and_read_directly_next_time(monkeypatch):
+    # Harvey's careers page (2026-11-12): only a browser render showed its Ashby board, and the
+    # daily run's renders didn't always get there, so the board's jobs were never updated.
+    import json
+
+    from jobhunt.db.connection import get_db
+
+    with get_db() as conn:
+        source_id = conn.execute(
+            "INSERT INTO sources (kind, name, company_name, config_json) VALUES ('custom_board', 'Harvey', "
+            "'Harvey AI', ?)",
+            (json.dumps({"url": "https://harvey.example/careers"}),),
+        ).lastrowid
+    html = '<script src="https://jobs.ashbyhq.com/harvey/embed"></script>'
+    monkeypatch.setattr(
+        custom_board, "detect_embedded_ats", lambda *a, **k: ("ats_ashby", {"board_name": "harvey"})
+    )
+    monkeypatch.setattr(custom_board, "fetch_page", lambda *a, **k: _page("Careers", html))
+    monkeypatch.setitem(custom_board.ATS_ADAPTERS, "ats_ashby", lambda source: [{"title": "Analyst"}])
+    source = {
+        "id": source_id,
+        "config": {"url": "https://harvey.example/careers"},
+        "company_name": "Harvey AI",
+    }
+    postings, _ = custom_board.fetch_with_report(source)
+    assert postings == [{"title": "Analyst"}] and source["read_complete"]
+    with get_db() as conn:
+        saved = json.loads(
+            conn.execute("SELECT config_json FROM sources WHERE id = ?", (source_id,)).fetchone()[0]
+        )
+    assert saved["embedded_ats"] == {"kind": "ats_ashby", "config": {"board_name": "harvey"}}
+
+    # Next time: straight to the board, no page fetch, no render, no Claude.
+    def no_page(*a, **k):
+        raise AssertionError("a remembered board shouldn't need the page")
+
+    monkeypatch.setattr(custom_board, "fetch_page", no_page)
+    again = {"id": source_id, "config": saved, "company_name": "Harvey AI"}
+    postings, steps = custom_board.fetch_with_report(again)
+    assert postings == [{"title": "Analyst"}]
+    assert steps == ["read its Ashby board 'harvey' (remembered): 1"]
+
+
+def test_a_remembered_board_that_lists_nothing_falls_back_to_the_page(monkeypatch):
+    monkeypatch.setitem(custom_board.ATS_ADAPTERS, "ats_ashby", lambda source: [])
+    monkeypatch.setattr(custom_board, "detect_embedded_ats", lambda *a, **k: None)
+    monkeypatch.setattr(
+        custom_board, "wp_job_manager", type("W", (), {"fetch": staticmethod(lambda *a: None)})
+    )
+    monkeypatch.setattr(custom_board, "_extract_postings", lambda *a, **k: [{"title": "From the page"}] * 3)
+    monkeypatch.setattr(custom_board, "fetch_page", lambda *a, **k: _page("Jobs: Analyst"))
+    source = {
+        "config": {
+            "url": "https://x.org/jobs",
+            "embedded_ats": {"kind": "ats_ashby", "config": {"board_name": "gone"}},
+        }
+    }
+    postings, steps = custom_board.fetch_with_report(source)
+    assert len(postings) == 3
+    assert steps[0] == "its Ashby board 'gone' listed nothing; reading the page instead"

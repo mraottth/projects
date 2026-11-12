@@ -423,6 +423,18 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   default, and bot-check pages are full of captcha frames. Now `browser_fetch` sets a 5 s default
   for every wait after loading (`STEP_TIMEOUT_MS`) and reads at most `MAX_FRAMES` (8) frames, and
   the "too little text" error includes each thin page's `<title>`, to show what the site sent.
+  **A found board is remembered** (2026-11-12): once a page's embedded Greenhouse/Lever/Ashby board
+  is read, it's saved in the source's config (`embedded_ats`) and read through that ATS's API
+  directly next time (`_fetch_remembered_ats`): no page fetch, render or Claude call. Harvey's
+  careers page showed its Ashby board only after a browser render, which the daily run's six-at-once
+  renders didn't always finish, so its reads quietly found nothing. A remembered board that fails or
+  lists nothing falls back to reading the page.
+  **Closed postings close** (`_poll_sources`, same day): a read through an ATS API lists every open
+  posting (`COMPLETE_KINDS`, or a custom board read via its embedded board, `read_complete`), so the
+  source's active jobs it didn't list are marked `expired` (`_close_unlisted`); seen again, they
+  reopen. Claude-read pages never close anything (they can list only some) and age out after
+  `STALE_AFTER_DAYS`. A source with active jobs whose read finds none is recorded as an error, not a
+  success, and its jobs are left alone.
   **Unchanged pages aren't paid for twice** (D-025): `_extract_postings()` fingerprints the page
   text (sha256, with relative dates like "3 days ago"/"today" blanked by `RELATIVE_DATE`) and, when
   the shared `page_extractions` table has that URL + fingerprint, rebuilds the postings from the

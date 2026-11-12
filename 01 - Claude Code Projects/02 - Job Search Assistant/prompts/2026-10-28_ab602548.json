@@ -1,7 +1,7 @@
 {
  "session": "ab602548-13cf-5dd6-933c-6e698e563853",
  "omitted_api_errors": 0,
- "omitted": 65,
+ "omitted": 68,
  "entries": [
   {
    "time": "2026-10-28T14:37:31.396Z",
@@ -1299,8 +1299,16 @@
    "time": "2026-11-12T14:29:06.407Z",
    "kind": "prompt",
    "text": "[screenshot]\n\nI deployed and reran check sources and I'm still seeing some postings that should be filtered out e.g. https://jobs.ashbyhq.com/harvey/cb89e7ec-6643-4cfa-b4d6-ce34b345f46a and https://job-boards.greenhouse.io/anthropic/jobs/5475136008",
-   "reply": null,
+   "reply": "**Anthropic's \"Dublin, IE\" job is fixed** and pushed (`46d1da2`). The reader didn't know \"IE\" is Ireland's country code: it split it off as a second, unknown place, and kept the job as a multi-location listing. Two-letter country codes after a comma (\"London, GB\", \"Berlin, DE\", \"Tokyo, JP\") now count as that country. Codes that are also US states still mean the state, so \"Wilmington, DE\" is Delaware. All 557 tests pass.\n\n**The Harvey jobs (\"New York\", \"San Francisco\") I can't fix blind.** Both are correctly read as not DC unless the job is stored as remote, so these two are still flagged remote after your re-check. That means Harvey's feed probably says remote for them outright: `isRemote: true` with no `workplaceType`, or `workplaceType: \"Remote\"`. If so, the board itself calls them \"remote, based in New York\". The dealbreaker keeps those on purpose, because a US remote job can be done from DC. This command shows what the feed says for that job, plus a summary of all Harvey's postings:\n\n```bash\ncurl -s \"https://api.ashbyhq.com/posting-api/job-board/harvey\" | python3 -c \"\nimport json,sys,collections; jobs=json.load(sys.stdin)['jobs']\nj=[x for x in jobs if x['id']=='cb89e7ec-6643-4cfa-b4d6-ce34b345f46a'][0]\nprint(json.dumps({k:j.get(k) for k in ['title','location','secondaryLocations','isRemote','workplaceType']}, indent=1))\nprint(collections.Counter((x.get('isRemote'), x.get('workplaceType')) for x in jobs))\"\n```\n\nPaste the output, and tell me which you'd want. If Harvey really labels these remote:\n- **Keep them (current behavior):** remote US jobs stay, even when tied to an office elsewhere.\n- **Hide them:** a remote job tied to a specific city outside DC counts as that city. \"Remote\" alone and \"Remote - US\" would still stay.\n\nYou can deploy the Dublin fix now or together with whatever comes next:\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge --no-edit origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com IAP_AUDIENCE=/projects/<project number>/locations/us-central1/services/jobhunt\n```",
    "id": "ab602548-186",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-12T14:41:06.165Z",
+   "kind": "prompt",
+   "text": "Found 381 posting(s), e.g. \"Legal Engineering Manager (Law Firm, Litigation/Regulatory)\". How: read the page as plain HTML: 0; read its Ashby board 'harvey': 381.",
+   "reply": null,
+   "id": "ab602548-190",
    "session": "ab602548"
   }
  ]
