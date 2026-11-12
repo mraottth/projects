@@ -1,7 +1,7 @@
 {
  "session": "ab602548-13cf-5dd6-933c-6e698e563853",
  "omitted_api_errors": 0,
- "omitted": 63,
+ "omitted": 65,
  "entries": [
   {
    "time": "2026-10-28T14:37:31.396Z",
@@ -1267,8 +1267,32 @@
    "time": "2026-11-12T04:50:50.109Z",
    "kind": "prompt",
    "text": "My location preferences are Washington DC & remote and I have the dealbreaker box checked, but I'm seeing a lot of non-DC/non-remote jobs in All Jobs with \"Show 770 jobs your dealbreakers hide\" unchecked. Note - I think most/all of these are unsecured (not sure if that's relevant). Can you look into it?",
-   "reply": null,
+   "reply": "I found a gap in how the location dealbreaker reads place names and fixed it, but I can't promise it's the whole story until you deploy and look at the new list on your Profile page. The fix is pushed to `claude/move-job-search-assistant`.\n\n**Your setting was fine.** \"Washington DC\" is read as the DC metro, and \"Remote\" as remote. Jobs in \"San Francisco, CA\", \"New York, NY\", \"Seattle, WA\" or \"London, UK\" were already being hidden.\n\n**The gap:** the dealbreaker only hides a job when it's sure the job is elsewhere, and a city named on its own never counted as sure. So locations written as just \"London\", \"Paris\", \"Palo Alto\", \"Sunnyvale\", \"Jersey City\", \"Hoboken\", \"Brooklyn\", \"Zürich\" or \"Washington State\" were kept on All Jobs.\n\n**What changed:** a place named on its own now counts when none of its possible meanings is near you. \"London\" could be England, Ontario or Kentucky, none of which is near DC, so it's hidden. Names that could be in your area still stay: \"Richmond\" (Virginia), \"Springfield\" and \"Columbia\" (DC suburbs), and \"Washington\" (DC or the state). Accents no longer matter (\"Zürich\").\n\n**Why most were unscored:** jobs the dealbreaker hides are never scored, so jobs it wrongly kept that weren't top priority sat unscored on All Jobs.\n\n**A new list on your Profile page.** I can't see your production data from here, so there may be location formats I haven't caught. In \"What are you looking for?\", under the dealbreaker, there's now a line listing every location it keeps because it can't tell where it is, with counts, such as \"Hybrid (12) · Richmond (3) · …\". After deploying, if you see entries there that are clearly not DC or remote, paste them to me and I'll teach the reader those too.\n\nAll 532 tests pass, including new ones for these places and for the list. It's recorded as an amendment to decision D-026.\n\nTo deploy:\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com IAP_AUDIENCE=/projects/<project number>/locations/us-central1/services/jobhunt\n```",
    "id": "ab602548-181",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-12T05:08:58.013Z",
+   "kind": "prompt",
+   "text": "[screenshot]\n\nI'm still seeing some that should be filtered (see screenshot)",
+   "reply": "Those three slipped through because they're marked remote. The dealbreaker kept every remote job no matter where it was, and Harvey AI's job board (almost certainly Ashby) marks a posting remote when it means \"remote within Japan\". So the Tokyo, Singapore and Sydney jobs were kept as remote even though the reader knew those places weren't DC.\n\nI've pushed a fix to `claude/move-job-search-assistant`. A remote job is now hidden when every place it names is outside the US and isn't one you asked for.\n\n- **Now hidden:**\n  - Harvey's Tokyo, Singapore and Sydney jobs;\n  - \"Remote (Canada)\", \"Remote, UK\", \"Anywhere in Europe\";\n  - regions like \"Remote - EMEA\" or APAC.\n- **Still kept:**\n  - \"Remote\" on its own and \"Remote - US\";\n  - \"Denver, CO / Remote\", and a US office that allows remote work, such as \"New York, NY\" marked remote;\n  - anything that might include the US, such as \"Remote - Canada or US\" or \"Remote, Americas\".\n- **Someone who asked for Japan or the UK** still gets those remote jobs.\n\nAll 548 tests pass, including new ones for each of these cases. It's recorded with the earlier location fix under decision D-026.\n\nTo deploy, now that Cloud Shell has your git identity:\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge --no-edit origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com IAP_AUDIENCE=/projects/<project number>/locations/us-central1/services/jobhunt\n```\n\nAfter that, the \"Show N jobs your dealbreakers hide\" count should go up. If anything else gets through, Profile → \"What are you looking for?\" now lists every location it keeps because it can't tell where the job is. Send me any that look wrong. One kind it won't list: remote jobs whose location is a US place outside DC. Those are kept on purpose, so tell me if you'd rather they were hidden.",
+   "id": "ab602548-183",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-12T05:12:05.486Z",
+   "kind": "prompt",
+   "text": "I'm seeing this one in my list, which looks like it should be filtered https://jobs.ashbyhq.com/harvey/239a5672-24da-4a1d-946f-f69bcaaef81b",
+   "reply": "Neither I nor a helper can reach Ashby from this sandbox, because its network blocks that site. So I can't see what this posting says. Two things will tell us:\n\n1. **Did the last fix get deployed?** It's the one that hides \"remote but in another country\" jobs (commit `3eadc9e`). If you haven't run the deploy since my last message, this job may already be handled by it.\n2. **What Ashby says about this job.** Run this in Cloud Shell. It reads Harvey's public job feed, the same one the app reads, and prints just this posting's location fields:\n\n```bash\ncurl -s \"https://api.ashbyhq.com/posting-api/job-board/harvey\" | python3 -c \"import json,sys; j=[x for x in json.load(sys.stdin)['jobs'] if x['id']=='239a5672-24da-4a1d-946f-f69bcaaef81b'][0]; print(json.dumps({k:j.get(k) for k in ['title','location','secondaryLocations','isRemote','workplaceType','address']}, indent=1))\"\n```\n\nPaste the output here. My guess at the likeliest cause: Ashby keeps a posting's other locations in a separate \"secondaryLocations\" list, and the app only reads the main \"location\". So a job listed as \"Remote\" with secondary locations in, say, London and Tokyo shows up as plain \"Remote\", which the dealbreaker always keeps. If that's the case, the fix is to read those extra locations too, and it would apply to every Ashby board you follow.",
+   "id": "ab602548-184",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-12T05:12:59.628Z",
+   "kind": "prompt",
+   "text": "matthew_adam_roth@cloudshell:~/projects/01 - Claude Code Projects/02 - Job Search Assistant (job-searcher-512814)$ curl -s \"https://api.ashbyhq.com/posting-api/job-board/harvey\" | python3 -c \"import json,sys; j=[x for x in json.load(sys.stdin)['jobs'] if x['id']=='239a5672-24da-4a1d-946f-f69bcaaef81b'][0]; print(json.dumps({k:j.get(k) for k in ['title','location','secondaryLocations','isRemote','workplaceType','address']}, indent=1))\"\n{\n \"title\": \"Employee Relations Business Partner\",\n \"location\": \"New York\",\n \"secondaryLocations\": [\n  {\n   \"location\": \"San Francisco\",\n   \"address\": {\n    \"postalAddress\": {\n     \"addressRegion\": \"California\",\n     \"addressCountry\": \"USA\",\n     \"addressLocality\": \"San Francisco\"\n    }\n   }\n  }\n ],\n \"isRemote\": true,\n \"workplaceType\": \"Hybrid\",\n \"address\": {\n  \"postalAddress\": {\n   \"addressRegion\": \"New York\",\n   \"addressCountry\": \"USA\",\n   \"addressLocality\": \"New York\"\n  }\n }\n}",
+   "reply": null,
+   "id": "ab602548-185",
    "session": "ab602548"
   }
  ]

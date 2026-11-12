@@ -291,6 +291,20 @@ def _upsert_job(source_id: int, posting: dict) -> int:
                     "UPDATE jobs SET description_text = ? WHERE id = ? AND description_text IS NOT ?",
                     (posting["description_text"], existing["id"], posting["description_text"]),
                 )
+            if posting.get("location"):
+                # Keep where it is current too: an adapter fix (Ashby's secondaryLocations and
+                # workplaceType, 2026-11-12) reaches jobs saved before it on their next check.
+                conn.execute(
+                    "UPDATE jobs SET location = ?, remote_type = ? "
+                    "WHERE id = ? AND (location IS NOT ? OR remote_type IS NOT ?)",
+                    (
+                        posting["location"],
+                        posting.get("remote_type"),
+                        existing["id"],
+                        posting["location"],
+                        posting.get("remote_type"),
+                    ),
+                )
             if posting.get("salary_min") or posting.get("salary_max"):
                 # Fill a salary the job was first saved without; never overwrite one it has.
                 conn.execute(

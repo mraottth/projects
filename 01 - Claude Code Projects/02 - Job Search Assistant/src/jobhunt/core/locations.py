@@ -209,6 +209,12 @@ COUNTRIES = {
     "costa rica": ["costa rica"],
     "pakistan": ["pakistan", "karachi", "lahore"],
     "egypt": ["egypt", "cairo"],
+    # Regions a remote posting is often limited to ("Remote, EMEA", "Anywhere in Europe").
+    "europe": ["europe", "emea", "eu"],
+    "asia pacific": ["apac", "asia pacific", "asia", "anz"],
+    "latin america": ["latam", "latin america", "south america"],
+    "middle east": ["middle east", "mena"],
+    "africa": ["africa"],
 }  # fmt: skip
 
 # Cities and suburbs that, written alone, can only mean one place, so they're enough to say where a job
@@ -487,17 +493,28 @@ def verdict(location: str | None, remote_type: str | None, entries: list[str]) -
     return _verdict(location, remote_type, tuple(entries))
 
 
+def _remote_abroad(location: str, places: list[Place]) -> bool:
+    """A remote job tied to another country or region ("Tokyo" flagged remote, "Remote (Canada)",
+    "Anywhere in Europe"): every place it names is outside the US, and none is one that's wanted."""
+    pieces = [read_job_location(piece) for piece in split_places(location) or [location]]
+    if not all(job.countries and not job.states and not job.us for job in pieces):
+        return False
+    return not any(_place_matches(p, job) for p in places for job in pieces)
+
+
 @functools.lru_cache(maxsize=8192)
 def _verdict(location: str | None, remote_type: str | None, entries: tuple[str, ...]) -> str:
-    if remote_type == "remote":
+    wanted = [resolve_entry(e) for e in entries if e.strip()]
+    places = [p for w in wanted for p in w.places]
+    norm = normalize(location or "")
+    if remote_type == "remote" or any(_has(norm, w) for w in REMOTE_WORDS):
+        # Remote stays, unless it's remote within another country (asked 2026-11-12: Harvey AI's
+        # "Tokyo", "Singapore" and "Sydney" postings, flagged remote by its board, stayed on All Jobs).
+        if location and location.strip() and places and _remote_abroad(location, places):
+            return "elsewhere"
         return "remote"
     if not location or not location.strip():
         return "unknown"
-    norm = normalize(location)
-    if any(_has(norm, w) for w in REMOTE_WORDS):
-        return "remote"
-    wanted = [resolve_entry(e) for e in entries if e.strip()]
-    places = [p for w in wanted for p in w.places]
     if not places:
         return "unknown"
     outcomes = []

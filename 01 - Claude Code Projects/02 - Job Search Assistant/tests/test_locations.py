@@ -90,6 +90,46 @@ def test_a_place_that_can_only_be_elsewhere_is_hidden(location):
     assert locations.verdict(location, None, ["Washington DC", "Remote"]) == "elsewhere"
 
 
+@pytest.mark.parametrize(
+    "location, remote_type",
+    [
+        # Remote, but only within another country or region (asked 2026-11-12: Harvey AI's
+        # Tokyo/Singapore/Sydney postings, flagged remote by its board, stayed on All Jobs).
+        ("Tokyo", "remote"),
+        ("Singapore", "remote"),
+        ("Sydney", "remote"),
+        ("Remote (Canada)", None),
+        ("Remote, UK", None),
+        ("Anywhere in Europe", None),
+        ("Remote - EMEA", None),
+    ],
+)
+def test_remote_within_another_country_is_hidden(location, remote_type):
+    assert locations.verdict(location, remote_type, ["Washington DC", "Remote"]) == "elsewhere"
+
+
+@pytest.mark.parametrize(
+    "location, remote_type",
+    [
+        ("Remote", None),
+        (None, "remote"),
+        ("United States", "remote"),
+        ("New York, NY", "remote"),  # a US office, remote allowed: could be done from DC
+        ("Denver, CO / Remote", None),
+        ("London | Remote US", None),
+        ("Remote - Canada or US", None),
+        ("Remote, Americas", None),
+    ],
+)
+def test_remote_that_could_include_the_us_stays(location, remote_type):
+    assert locations.verdict(location, remote_type, ["Washington DC", "Remote"]) == "remote"
+
+
+def test_remote_abroad_stays_when_that_country_is_wanted():
+    assert locations.verdict("Tokyo", "remote", ["Japan"]) == "remote"
+    assert locations.verdict("Remote, UK", None, ["United Kingdom"]) == "remote"
+
+
 def test_a_distinct_place_still_matches_its_own_area():
     assert locations.verdict("Palo Alto", None, ["California"]) == "match"
     assert locations.verdict("Sunnyvale", None, ["San Francisco"]) == "match"

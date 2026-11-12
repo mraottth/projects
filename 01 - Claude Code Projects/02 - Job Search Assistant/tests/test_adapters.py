@@ -105,6 +105,41 @@ def test_ashby_adapter_normalizes_fields(monkeypatch):
     assert postings[0]["remote_type"] == "remote"
 
 
+def test_ashby_hybrid_job_flagged_remote_lists_every_location(monkeypatch):
+    # Harvey's board, as fetched 2026-11-12: isRemote true but workplaceType "Hybrid", with a second
+    # office in secondaryLocations. It was stored as a remote "New York" job, so the location
+    # dealbreaker kept it for a DC + Remote search.
+    from jobhunt.core import locations
+
+    job = {
+        "id": "239a5672",
+        "title": "Employee Relations Business Partner",
+        "location": "New York",
+        "secondaryLocations": [
+            {"location": "San Francisco", "address": {"postalAddress": {"addressRegion": "California"}}}
+        ],
+        "isRemote": True,
+        "workplaceType": "Hybrid",
+        "jobUrl": "https://jobs.ashbyhq.com/harvey/239a5672",
+    }
+    monkeypatch.setattr(ashby.httpx, "get", lambda *a, **k: FakeResponse({"jobs": [job]}))
+    posting = ashby.fetch({"config": {"board_name": "harvey"}, "company_name": "Harvey AI"})[0]
+    assert posting["remote_type"] == "hybrid"
+    assert posting["location"] == "New York | San Francisco"
+    assert locations.verdict(posting["location"], posting["remote_type"], ["Washington DC", "Remote"]) == (
+        "elsewhere"
+    )
+
+
+def test_ashby_is_remote_counts_only_without_a_workplace_type():
+    assert ashby._remote_type({"isRemote": True}) == "remote"
+    assert ashby._remote_type({"isRemote": True, "workplaceType": "Remote"}) == "remote"
+    assert ashby._remote_type({"isRemote": True, "workplaceType": "OnSite"}) == "onsite"
+    assert ashby._remote_type({"isRemote": False}) is None
+    assert ashby._location({"location": "Remote", "secondaryLocations": [{"location": "Remote"}]}) == "Remote"
+    assert ashby._location({}) is None
+
+
 def test_remoteok_adapter_skips_legal_notice_and_filters_tags(monkeypatch):
     monkeypatch.setattr(
         remoteok.httpx,
