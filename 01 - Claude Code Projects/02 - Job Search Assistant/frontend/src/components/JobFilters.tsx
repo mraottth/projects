@@ -19,6 +19,9 @@ export interface JobFilterState {
   // Jobs your dealbreakers (location, salary) hide on All Jobs. A setting, not a filter, so
   // "Clear all" leaves it off.
   includeDealbreakers: boolean;
+  // Jobs the title screen set aside as clear mismatches (core/screening.py): never scored, hidden
+  // unless asked for. A setting like the dealbreakers one.
+  includeScreenedOut: boolean;
   sort: SortKey;
 }
 
@@ -44,6 +47,7 @@ export const DEFAULT_JOB_FILTERS: JobFilterState = {
   includeUnscored: true,
   organization: [],
   includeDealbreakers: false,
+  includeScreenedOut: false,
   sort: "best",
 };
 
@@ -59,6 +63,7 @@ export const NO_JOB_FILTERS: JobFilterState = {
   includeUnscored: true,
   organization: [],
   includeDealbreakers: false,
+  includeScreenedOut: false,
   sort: "best",
 };
 
@@ -147,6 +152,7 @@ export function filterJobs(jobs: ScoredJob[], f: JobFilterState): ScoredJob[] {
 
   const filtered = jobs.filter((job) => {
     if (job.dealbreakers?.length && !f.includeDealbreakers) return false;
+    if (job.screened_out && !f.includeScreenedOut) return false;
     if (!job.interest_fit && !job.candidate_fit) {
       if (!f.includeUnscored) return false;
     } else {
@@ -290,6 +296,13 @@ function AppliedFilters({
       clear: () => set({ includeDealbreakers: false }),
     });
   }
+  if (filters.includeScreenedOut) {
+    chips.push({
+      key: "screened",
+      label: "Showing set-aside jobs",
+      clear: () => set({ includeScreenedOut: false }),
+    });
+  }
   if (chips.length === 0) return null;
   return (
     <div className="applied-filters" aria-label="Applied filters">
@@ -358,6 +371,7 @@ export function JobFilterBar({
     new Set(jobs.map((j) => j.source_name).filter((s): s is string => !!s)),
   ).sort();
   const ruledOut = jobs.filter((j) => j.dealbreakers?.length).length;
+  const setAside = jobs.filter((j) => j.screened_out).length;
   const organizations = Array.from(new Set(jobs.map((j) => j.company).filter(Boolean))).sort();
   const locations = Array.from(
     new Set(jobs.map((j) => j.location).filter((l): l is string => !!l)),
@@ -423,6 +437,20 @@ export function JobFilterBar({
               onChange={(e) => set("includeDealbreakers", e.target.checked)}
             />
             Show {ruledOut} job{ruledOut === 1 ? "" : "s"} your dealbreakers hide
+          </label>
+        )}
+        {setAside > 0 && (
+          <label
+            className="small"
+            style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "6px" }}
+            title="Jobs whose title alone showed they're clearly not a fit, so they weren't scored"
+          >
+            <input
+              type="checkbox"
+              checked={filters.includeScreenedOut}
+              onChange={(e) => set("includeScreenedOut", e.target.checked)}
+            />
+            Show {setAside} job{setAside === 1 ? "" : "s"} set aside by title
           </label>
         )}
       </div>

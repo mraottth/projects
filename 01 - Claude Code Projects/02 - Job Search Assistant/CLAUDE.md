@@ -306,6 +306,27 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   start; 429 with the hours left). My Jobs is every tracked job (pasted ones included); All Jobs
   is the same set as `GET /api/jobs/ranked`. Generic postings are skipped. The button asks for
   confirmation, naming the estimate and, when it's more than the budget left, that it will stop.
+- **Cheaper scoring** (D-034, asked 2026-11-12; a score costs ~0.9¢: half the posting as input,
+  ~40% Claude's answer, ~10% the cached profile):
+  - **Title screen** (`core/screening.py`): before a run scores, the person's waiting, unscreened jobs
+    (dealbreaker-hidden ones skipped, up to `MAX_PER_RUN`) go to Claude Haiku 5.5 (`SCREEN_MODEL`,
+    $0.10/$0.50 per MTok) as numbered "title | organization | location" lines, `CHUNK` (150) per
+    call, the person's context cached. It lists only clear mismatches (another line of work, far
+    off in seniority; never location, pay or organization). `scoring_queue.screen` becomes 'drop'
+    or 'keep' (a MIGRATIONS ALTER); `queue.select_batch` skips 'drop', so the cap goes to plausible
+    jobs. A failed or refused call leaves jobs unscreened. All Jobs gets `screened_out` and hides
+    them behind "Show N jobs set aside by title" (`includeScreenedOut`). Runs in `_run_for_person`
+    and `_refresh_sources`. Logs as `parsing`, note "title screen (N jobs)" (Usage log: Title
+    screen).
+  - **Batch scoring** (`scoring.score_jobs_batch`): the everyone run (2pm, or "Check every source
+    now") sends each person's batch through the Message Batches API at half price
+    (`llm.BATCH_DISCOUNT`, `log_call(batch=True)`, note "scoring (batch)"), same prompt, schema
+    (`anthropic.transform_schema(ScoredPosting)`, imported lazily: the app starts without the SDK)
+    and caching as a live score. All of a run's batches share `BATCH_TIME_BUDGET_SECONDS` (18 min,
+    inside the scheduler's 30-minute deadline); a batch still going then is canceled, its finished
+    results kept, and the rest scored live, as are errored results and batches under
+    `BATCH_MIN_JOBS`. Someone's own check and Refresh score live. `conftest.py` turns the screen and
+    batches off for every test except `tests/test_scoring_costs.py`.
 - Desired sectors (`settings.prefilter_sectors`, edited on the Profile page's "What are you looking
   for?" card) feed three places: `core/prefilter.py`'s rule-based scorer (boost on a text match,
   penalty on a clear miss -- unlike titles, sector is treated as a harder constraint per the user's

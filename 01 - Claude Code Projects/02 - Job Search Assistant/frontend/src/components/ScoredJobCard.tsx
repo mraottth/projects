@@ -270,7 +270,13 @@ export function ScoredJobCard({
       <div className="badge-row">
         <FitBadge label="Interest" value={job.interest_fit} />
         <FitBadge label="Fit" value={job.candidate_fit} />
-        {!job.interest_fit && !job.candidate_fit && <span className="muted small">Not yet scored</span>}
+        {!job.interest_fit && !job.candidate_fit && (
+          <span className="muted small">
+            {"screened_out" in job && job.screened_out
+              ? "Not scored: its title looked like a clear mismatch"
+              : "Not yet scored"}
+          </span>
+        )}
       </div>
 
       {job.rationale_text && (

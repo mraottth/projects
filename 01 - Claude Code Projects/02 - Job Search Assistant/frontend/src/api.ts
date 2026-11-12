@@ -173,6 +173,8 @@ export interface Application {
 export interface ScoredJob extends Job {
   // All Jobs only: which dealbreakers rule this job out ("location", "salary"); hidden unless asked.
   dealbreakers?: string[];
+  // All Jobs only: the title screen set it aside as a clear mismatch, so it isn't scored.
+  screened_out?: boolean;
   interest_fit: "High" | "Med" | "Low" | null;
   interest_score: number | null;
   candidate_fit: "High" | "Med" | "Low" | null;

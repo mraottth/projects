@@ -1,16 +1,20 @@
 import json
+import logging
+import time
 from dataclasses import dataclass
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from jobhunt.core.llm import (
     DEFAULT_MODEL,
+    LLMError,
     cache_tokens,
     estimate_cost_usd,
     get_client,
     llm_error_boundary,
     log_call,
+    response_text,
 )
 from jobhunt.db.connection import get_db
 from jobhunt.core.users import current_user_id
@@ -166,6 +170,54 @@ def score_job_with(
     note: str | None = None,
 ) -> tuple[ScoredPosting, float | None, int]:
     """Scores one job with the given settings. Returns (score, estimated cost, output tokens)."""
+    system, messages = _request_parts(
+        job,
+        candidate_profile,
+        preference_profile,
+        desired_sectors,
+        desired_titles,
+        salary_floor,
+        looking_for_notes,
+        settings,
+    )
+    client = get_client()
+    with llm_error_boundary("scoring the job"):
+        response = client.messages.parse(
+            model=DEFAULT_MODEL,
+            max_tokens=MAX_TOKENS,
+            system=system,
+            messages=messages,
+            output_format=ScoredPosting,
+            output_config={"effort": settings.effort},
+        )
+    usage = response.usage
+    log_call(
+        call_type="scoring",
+        model=DEFAULT_MODEL,
+        input_tokens=usage.input_tokens,
+        output_tokens=usage.output_tokens,
+        job_id=job.get("id"),
+        note=note,
+        **cache_tokens(usage),
+    )
+    cost = estimate_cost_usd(DEFAULT_MODEL, usage.input_tokens, usage.output_tokens, **cache_tokens(usage))
+    return response.parsed_output, cost, usage.output_tokens
+
+
+MAX_TOKENS = 3000
+
+
+def _request_parts(
+    job: dict,
+    candidate_profile: str | None,
+    preference_profile: str | None,
+    desired_sectors: list[str] | None,
+    desired_titles: list[str] | None,
+    salary_floor: float | None,
+    looking_for_notes: str | None,
+    settings: ScoringSettings = CURRENT,
+) -> tuple[list[dict], list[dict]]:
+    """The system blocks and messages of a scoring request, the same live or in a batch."""
     description = job.get("description_text") or ""
     if settings.max_posting_chars and len(description) > settings.max_posting_chars:
         description = description[: settings.max_posting_chars].rstrip() + "\n\n...(truncated)"
@@ -198,29 +250,104 @@ def score_job_with(
         {"type": "text", "text": SYSTEM_PROMPT + (SHORT_RATIONALE if settings.short_rationale else "")},
         {"type": "text", "text": candidate_context, "cache_control": {"type": "ephemeral"}},
     ]
+    return system, [{"role": "user", "content": f"## Job posting to score\n{posting_text}"}]
 
+
+# ---------------------------------------------------------------------------------------------
+# Batch scoring (asked 2026-11-12, to cut the cost of scoring): the 2pm run sends its jobs through
+# the Message Batches API, which bills every token at half price and usually finishes in minutes.
+# The prompt, schema and caching are the same as a live score. A batch still going when its time is
+# up is canceled; what finished is kept and the caller scores the rest live.
+
+BATCH_POLL_SECONDS = 15
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class BatchOutcome:
+    scores: dict[int, "ScoredPosting"]  # job id -> score
+    unfinished: list[int]  # job ids to score live (errored, expired, canceled or unreadable)
+    errors: list[str]
+
+
+def score_jobs_batch(jobs: list[dict], score_args: tuple, deadline: float, on_progress=None) -> BatchOutcome:
+    """Scores `jobs` (each with an id) in one batch, waiting until time.monotonic() reaches
+    `deadline`. `score_args` is what score_job takes after the job."""
+    from anthropic import transform_schema  # here, not at import: the app starts without the SDK
+
+    params_by_id = {}
+    for job in jobs:
+        system, messages = _request_parts(job, *score_args)
+        params_by_id[f"job-{job['id']}"] = {
+            "model": DEFAULT_MODEL,
+            "max_tokens": MAX_TOKENS,
+            "system": system,
+            "messages": messages,
+            "output_config": {
+                "effort": CURRENT.effort,
+                "format": {"type": "json_schema", "schema": transform_schema(ScoredPosting)},
+            },
+        }
     client = get_client()
-    with llm_error_boundary("scoring the job"):
-        response = client.messages.parse(
-            model=DEFAULT_MODEL,
-            max_tokens=3000,
-            system=system,
-            messages=[{"role": "user", "content": f"## Job posting to score\n{posting_text}"}],
-            output_format=ScoredPosting,
-            output_config={"effort": settings.effort},
+    with llm_error_boundary("sending the scoring batch"):
+        batch = client.messages.batches.create(
+            requests=[{"custom_id": cid, "params": params} for cid, params in params_by_id.items()]
         )
-    usage = response.usage
-    log_call(
-        call_type="scoring",
-        model=DEFAULT_MODEL,
-        input_tokens=usage.input_tokens,
-        output_tokens=usage.output_tokens,
-        job_id=job.get("id"),
-        note=note,
-        **cache_tokens(usage),
-    )
-    cost = estimate_cost_usd(DEFAULT_MODEL, usage.input_tokens, usage.output_tokens, **cache_tokens(usage))
-    return response.parsed_output, cost, usage.output_tokens
+    try:
+        batch = _wait_for(client, batch, deadline, on_progress)
+    except Exception as exc:  # noqa: BLE001 - a lost batch means scoring live, never a failed run
+        logger.exception("waiting on scoring batch %s failed", batch.id)
+        return BatchOutcome({}, [job["id"] for job in jobs], [f"scoring batch: {exc}"])
+
+    scores: dict[int, ScoredPosting] = {}
+    errors: list[str] = []
+    try:
+        results = list(client.messages.batches.results(batch.id))
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("reading scoring batch %s failed", batch.id)
+        results = []
+        errors.append(f"scoring batch results: {exc}")
+    for result in results:
+        job_id = int(result.custom_id.removeprefix("job-"))
+        if result.result.type != "succeeded":
+            continue  # scored live by the caller
+        message = result.result.message
+        usage = message.usage
+        log_call(
+            call_type="scoring",
+            model=DEFAULT_MODEL,
+            input_tokens=usage.input_tokens,
+            output_tokens=usage.output_tokens,
+            job_id=job_id,
+            note="scoring (batch)",
+            batch=True,
+            **cache_tokens(usage),
+        )
+        try:
+            scores[job_id] = ScoredPosting.model_validate_json(response_text(message, "scoring the job"))
+        except (LLMError, ValidationError) as exc:
+            errors.append(f"job {job_id}: {exc}")
+    unfinished = [job["id"] for job in jobs if job["id"] not in scores]
+    return BatchOutcome(scores, unfinished, errors)
+
+
+def _wait_for(client, batch, deadline: float, on_progress):
+    """Polls until the batch ends. Past the deadline it's canceled (what finished is kept), and the
+    cancel is waited on for a short while too."""
+    canceled = False
+    while batch.processing_status != "ended":
+        if on_progress is not None:
+            counts = batch.request_counts
+            on_progress(counts.succeeded + counts.errored + counts.canceled + counts.expired)
+        if not canceled and time.monotonic() >= deadline:
+            client.messages.batches.cancel(batch.id)
+            canceled = True
+            deadline = time.monotonic() + 120
+        elif canceled and time.monotonic() >= deadline:
+            raise TimeoutError(f"batch {batch.id} didn't finish canceling")
+        time.sleep(BATCH_POLL_SECONDS)
+        batch = client.messages.batches.retrieve(batch.id)
+    return batch
 
 
 def store_score(job_id: int, score: JobScore) -> int:

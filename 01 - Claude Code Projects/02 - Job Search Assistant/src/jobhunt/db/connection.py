@@ -41,6 +41,9 @@ MIGRATIONS = [
     "ALTER TABLE runs ADD COLUMN status TEXT",
     "ALTER TABLE runs ADD COLUMN started_by TEXT",
     "ALTER TABLE runs ADD COLUMN error TEXT",
+    # The title screen's verdict on a waiting job (core/screening.py): NULL, 'keep' or 'drop'.
+    "ALTER TABLE scoring_queue ADD COLUMN screen TEXT",
+    "ALTER TABLE scoring_queue ADD COLUMN screened_at TEXT",
 ]
 
 
