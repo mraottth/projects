@@ -527,5 +527,23 @@
    "D-032",
    "D-033"
   ]
+ },
+ {
+  "id": "M25",
+  "date": "2026-11-12",
+  "icon": "💸",
+  "category": "ai",
+  "title": "Scoring costs less",
+  "summary": "A score cost about 0.9 cents, and the daily cap was used up every day, much of it on jobs that were obviously not a fit. Now a quick, very cheap read of the waiting jobs' titles sets aside the clear mismatches first, and the daily 2pm check scores the rest through Anthropic's batch API at half price.",
+  "prompts": [
+   "ab602548-193",
+   "ab602548-194"
+  ],
+  "commits": [
+   "003dc27"
+  ],
+  "decisions": [
+   "D-034"
+  ]
  }
 ]

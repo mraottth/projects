@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { JobLink } from "./JobLink";
 import { api, ApiError, APPLICATION_STATUS_LABELS, ApplicationStatus, ScoredJob } from "../api";
 import { Markdown } from "./Markdown";
+import { Spinner } from "./Spinner";
+import { DEMO } from "../demo";
 
 function daysAgo(iso: string): string {
   const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
@@ -210,8 +212,45 @@ function FilterChip({
   );
 }
 
+/** "Score this job": one live score, about a cent (POST /api/jobs/{id}/score). */
+export function ScoreButton({
+  jobId,
+  onScored,
+  label = "Score this job",
+}: {
+  jobId: number;
+  onScored: (score: Partial<ScoredJob>) => void;
+  label?: string;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <>
+      <button
+        className="ghost small score-now"
+        disabled={busy}
+        title="Has Claude rate this job now (about a cent)"
+        onClick={async () => {
+          setBusy(true);
+          setError(null);
+          try {
+            onScored(await api.scoreJob(jobId));
+          } catch (e) {
+            setError(e instanceof Error ? e.message : String(e));
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        {busy ? <Spinner label="Scoring..." /> : label}
+      </button>
+      {error && <span className="error-text small">{error}</span>}
+    </>
+  );
+}
+
 export function ScoredJobCard({
-  job,
+  job: given,
   onDismissed,
   onFilter,
   activeFilters,
@@ -222,7 +261,10 @@ export function ScoredJobCard({
   activeFilters?: { location: string[]; organization: string[] };
 }) {
   // Where it stands on My Jobs (asked 2026-11-10); marking it Interested here adds it as Drafting.
-  const [status, setStatus] = useState<ApplicationStatus | null>(job.application_status ?? null);
+  const [status, setStatus] = useState<ApplicationStatus | null>(given.application_status ?? null);
+  // A score asked for from this card ("Score this job", asked 2026-11-12) shows here at once.
+  const [score, setScore] = useState<Partial<ScoredJob> | null>(null);
+  const job = score ? { ...given, ...score } : given;
   return (
     <div className="card">
       <div className="card-header">
@@ -270,7 +312,16 @@ export function ScoredJobCard({
       <div className="badge-row">
         <FitBadge label="Interest" value={job.interest_fit} />
         <FitBadge label="Fit" value={job.candidate_fit} />
-        {!job.interest_fit && !job.candidate_fit && <span className="muted small">Not yet scored</span>}
+        {!job.interest_fit && !job.candidate_fit && (
+          <>
+            <span className="muted small">
+              {"screened_out" in job && job.screened_out
+                ? "Not scored: its title looked like a clear mismatch"
+                : "Not yet scored"}
+            </span>
+            {!DEMO && <ScoreButton jobId={job.id} onScored={setScore} />}
+          </>
+        )}
       </div>
 
       {job.rationale_text && (

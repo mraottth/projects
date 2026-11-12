@@ -45,7 +45,11 @@ PRICING_PER_MTOK = {
     "claude-sonnet-5": (2.00, 10.00),
     "claude-sonnet-4-6": (3.00, 15.00),
     "claude-haiku-4-5": (1.00, 5.00),
+    "claude-haiku-5-5": (0.10, 0.50),  # the title screen (core/screening.py)
 }
+
+# The Message Batches API bills every token at half price (the 2pm run's scoring, core/scoring.py).
+BATCH_DISCOUNT = 0.5
 
 _client: anthropic.Anthropic | None = None
 
@@ -150,8 +154,11 @@ def log_call(
     note: str | None = None,
     cache_read_tokens: int = 0,
     cache_write_tokens: int = 0,
+    batch: bool = False,
 ) -> None:
     cost = estimate_cost_usd(model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens)
+    if batch and cost is not None:
+        cost *= BATCH_DISCOUNT
     with get_db() as conn:
         conn.execute(
             """INSERT INTO llm_calls

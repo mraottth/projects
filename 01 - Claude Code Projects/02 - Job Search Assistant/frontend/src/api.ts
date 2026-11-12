@@ -173,6 +173,8 @@ export interface Application {
 export interface ScoredJob extends Job {
   // All Jobs only: which dealbreakers rule this job out ("location", "salary"); hidden unless asked.
   dealbreakers?: string[];
+  // All Jobs only: the title screen set it aside as a clear mismatch, so it isn't scored.
+  screened_out?: boolean;
   interest_fit: "High" | "Med" | "Low" | null;
   interest_score: number | null;
   candidate_fit: "High" | "Med" | "Low" | null;
@@ -719,6 +721,15 @@ export const api = {
     }),
 
   confirmJob: (id: number) => request<Job>(`/api/jobs/${id}/confirm`, { method: "POST" }),
+
+  // Scores one job now (about a cent; outside the daily cap, inside the monthly budget).
+  scoreJob: (id: number) =>
+    request<
+      Pick<
+        ScoredJob,
+        "interest_fit" | "interest_score" | "candidate_fit" | "candidate_fit_score" | "summary_text" | "rationale_text"
+      >
+    >(`/api/jobs/${id}/score`, { method: "POST" }),
 
   getRankedJobs: () => request<RankedJob[]>("/api/jobs/ranked"),
   // {job id: description}, loaded after the list for All Jobs' search box.

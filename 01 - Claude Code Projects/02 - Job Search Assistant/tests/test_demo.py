@@ -21,6 +21,7 @@ NOT_RECORDED = {
     "/api/admin/users/{}",
     "/api/jobs/manual",
     "/api/jobs/{}/confirm",
+    "/api/jobs/{}/score",
     "/api/jobs/{}/feedback",
     "/api/applications/{}",
     "/api/settings/preference-profile/rebuild",

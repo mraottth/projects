@@ -69,6 +69,8 @@ def select_batch(cap: int, source_ids: list[int] | None = None) -> list[int]:
                           ) AS source_rank
                      FROM scoring_queue q JOIN jobs j ON j.id = q.job_id
                     WHERE q.user_id = ? AND q.status = 'pending' {only_sources}
+                      -- The title screen set it aside (core/screening.py): never scored.
+                      AND (q.screen IS NULL OR q.screen != 'drop')
                )
                ORDER BY source_rank, priority DESC, id
                LIMIT ?""",

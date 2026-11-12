@@ -87,7 +87,8 @@ def list_ranked_jobs(status: str = "active"):
                        js.interest_fit, js.interest_score, js.candidate_fit, js.candidate_fit_score,
                        js.summary_text, js.rationale_text, s.name AS source_name,
                        {SOURCE_IS_BOARD_SQL} AS source_is_board,
-                       a.status AS application_status
+                       a.status AS application_status,
+                       q.screen = 'drop' AS screened_out
                 FROM jobs j
                 LEFT JOIN job_scores js ON js.id = (
                     SELECT id FROM job_scores WHERE user_id = :uid AND job_id = j.id ORDER BY id DESC LIMIT 1
@@ -95,6 +96,8 @@ def list_ranked_jobs(status: str = "active"):
                 LEFT JOIN sources s ON s.id = j.source_id
                 -- Its status on the person's My Jobs, if it's there (the card shows it; asked 2026-11-10).
                 LEFT JOIN applications a ON a.job_id = j.id AND a.user_id = :uid
+                -- Set aside by the title screen (core/screening.py): hidden unless asked for.
+                LEFT JOIN scoring_queue q ON q.job_id = j.id AND q.user_id = :uid AND q.status = 'pending'
                 WHERE {RANKED_WHERE}
                 ORDER BY (COALESCE(js.interest_score, 0) + COALESCE(js.candidate_fit_score, 0)) DESC,
                          COALESCE(j.posted_at, j.first_seen_at) DESC,
@@ -107,6 +110,7 @@ def list_ranked_jobs(status: str = "active"):
     jobs = [_row_to_dict(r) for r in rows if not is_generic_posting(r["title"])]
     for job in jobs:
         job["dealbreakers"] = dealbreakers.reasons(job, settings)
+        job["screened_out"] = bool(job.get("screened_out"))
         job["description_text"] = None  # sent by /ranked/descriptions, after the list
     return jobs
 
@@ -243,6 +247,44 @@ def confirm_job(job_id: int):
             raise
 
     return get_job(job_id)
+
+
+@router.post("/{job_id}/score")
+def score_one_job(job_id: int):
+    """Scores one job now, on request (asked 2026-11-12: a "Score this job" button on a card).
+    Live, about a cent, and outside the daily cap, like a rescore: it's an explicit ask. The
+    monthly budget still applies (get_client raises BudgetExceeded, an LLMError: a 502 here). Works
+    on a job the title screen set aside too, and on one already scored (a fresh score)."""
+    from jobhunt.core import queue
+    from jobhunt.pipeline.daily_run import _backfill_description
+
+    if not job_is_visible(job_id):
+        raise HTTPException(404, "job not found")
+    with get_db() as conn:
+        job = _row_to_dict(conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone())
+    job = _backfill_description(job)  # a web-board job's posting is fetched before its first score
+    try:
+        score = score_job(
+            job,
+            get_current_candidate_profile(),
+            get_current_preference_profile(),
+            get_setting("prefilter_sectors", []),
+            get_setting("prefilter_titles_include", []),
+            get_setting("salary_floor", None),
+            get_setting("looking_for_notes", ""),
+        )
+    except LLMError as exc:
+        raise HTTPException(502, str(exc)) from exc
+    store_score(job_id, score)
+    queue.mark_scored(job_id)
+    return {
+        "interest_fit": score.interest_fit,
+        "interest_score": score.interest_score,
+        "candidate_fit": score.candidate_fit,
+        "candidate_fit_score": score.candidate_fit_score,
+        "summary_text": score.summary_text,
+        "rationale_text": score.rationale_text,
+    }
 
 
 @router.post("/{job_id}/feedback")

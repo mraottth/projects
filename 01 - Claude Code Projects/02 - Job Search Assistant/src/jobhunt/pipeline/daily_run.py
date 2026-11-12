@@ -28,7 +28,8 @@ from jobhunt.core.page_fetch import PageFetchError, fetch_page
 from jobhunt.core.preference import get_current_preference_profile, rebuild_preference_profile
 from jobhunt.core.profile import get_current_candidate_profile
 from jobhunt.core.salary_extract import extract_salary
-from jobhunt.core.scoring import score_job, store_score
+from jobhunt.core.scoring import score_job, score_jobs_batch, store_score
+from jobhunt.core.screening import screen_pending
 from jobhunt.core.users import (
     acting_as,
     active_user_ids,
@@ -527,7 +528,39 @@ def _score_args() -> tuple:
     )
 
 
-def _score_and_digest(batch: list[int]) -> tuple[int, list[str]]:
+# The 2pm run scores through the Message Batches API at half price (core/scoring.py), within this
+# much of the run's time in all (every person's batch shares it), so the run still ends well inside
+# Cloud Scheduler's 30-minute deadline. Past it, or for a handful of jobs, scoring is live.
+BATCH_TIME_BUDGET_SECONDS = 18 * 60
+BATCH_MIN_JOBS = 5
+
+
+def _score_batch(
+    batch: list[int], score_args: tuple, deadline: float
+) -> tuple[list[int], list[int], list[str]]:
+    """Scores what it can of `batch` in one Message Batch. Returns (scored ids, ids left to
+    score live, errors)."""
+    with get_db() as conn:
+        rows = conn.execute(
+            f"SELECT * FROM jobs WHERE id IN ({','.join('?' * len(batch))})", batch
+        ).fetchall()
+    with ThreadPoolExecutor(max_workers=SCORING_CONCURRENCY) as pool:
+        jobs = _map_in_context(pool, lambda row: _backfill_description(dict(row)), rows)
+    try:
+        outcome = score_jobs_batch(
+            jobs, score_args, deadline, on_progress=lambda done: _set_progress(jobs_done=done)
+        )
+    except LLMError as exc:
+        return [], list(batch), [f"scoring batch: {exc}"]
+    scored = []
+    for job_id, score in outcome.scores.items():
+        store_score(job_id, score)
+        queue.mark_scored(job_id)
+        scored.append(job_id)
+    return scored, outcome.unfinished, outcome.errors
+
+
+def _score_and_digest(batch: list[int], batch_deadline: float | None = None) -> tuple[int, list[str]]:
     """Scores the batch for the current person concurrently, then adds each scored job to their
     digest for today. Returns (scored count, errors). One person's jobs are scored together, so
     their (identical) candidate context stays in Claude's prompt cache across the batch."""
@@ -545,6 +578,8 @@ def _score_and_digest(batch: list[int]) -> tuple[int, list[str]]:
     score_args = _score_args()
     scoring_errors = []
     scored_ids = []
+    if batch_deadline is not None and len(batch) >= BATCH_MIN_JOBS and time.monotonic() < batch_deadline:
+        scored_ids, batch, scoring_errors = _score_batch(batch, score_args, batch_deadline)
     if batch:
         with ThreadPoolExecutor(max_workers=min(SCORING_CONCURRENCY, len(batch))) as pool:
             results = _map_in_context(pool, lambda job_id: _score_one(job_id, score_args), batch)
@@ -610,7 +645,12 @@ def _record_run(summary: dict) -> None:
 
 
 def _run_for_person(
-    user_id: int, poll_result: dict, started_at: str, cap: int | None, email: bool = True
+    user_id: int,
+    poll_result: dict,
+    started_at: str,
+    cap: int | None,
+    email: bool = True,
+    batch_deadline: float | None = None,
 ) -> dict:
     """Everything after polling, for one person: queue the new jobs from sources they follow,
     score up to what's left of their daily cap, build their New & Noteworthy, refresh their
@@ -634,9 +674,14 @@ def _run_for_person(
             # This month's budget is used up: skip the batch rather than fail job by job.
             allowed = 0
             scoring_errors.append(budget.exceeded_message(budget.status(user_id)["monthly_budget_usd"]))
+        screened = None
         if allowed:
+            # Set aside clear title mismatches first, so the cap goes to plausible jobs.
+            screened = screen_pending(sorted(followed))
+            scoring_errors.extend(screened["errors"])
             batch = queue.select_batch(allowed, source_ids=sorted(followed) or [-1])
-            scored_count, scoring_errors = _score_and_digest(batch)
+            scored_count, errors = _score_and_digest(batch, batch_deadline)
+            scoring_errors.extend(errors)
         try:
             preference_rebuilt = _maybe_rebuild_preference_profile()
         except Exception as exc:  # noqa: BLE001 - an optional step; the run carries on without it
@@ -669,6 +714,7 @@ def _run_for_person(
             "carried_over_count": queue.pending_count(),
             "errors": scoring_errors,
             "preference_profile_rebuilt": preference_rebuilt,
+            "screened": screened,
             "email": email_result,
             # Today's cap is used up: New & Noteworthy says scoring resumes tomorrow.
             "cap_reached": remaining_cap() == 0,
@@ -830,8 +876,10 @@ def _refresh_sources(source_ids: list[int], cap: int) -> dict:
             and get_current_candidate_profile() is not None
             and not budget.status(current_user_id())["over"]
         ):
+            scoring_errors.extend(screen_pending(source_ids)["errors"])
             batch = queue.select_batch(allowed, source_ids=source_ids)
-            scored, scoring_errors = _score_and_digest(batch)
+            scored, errors = _score_and_digest(batch)
+            scoring_errors.extend(errors)
         _set_progress(stage="done")
     return {
         "sources_polled": poll_result["sources_polled"],
@@ -862,7 +910,12 @@ def _run_daily(
         _expire_stale_jobs()
         backfill_salaries()
 
-    per_person = [_run_for_person_safely(user_id, poll_result, started_at, cap) for user_id in people]
+    # The everyone run (the 2pm one) scores in batches at half price; its batches share one time
+    # budget. Someone's own check, waiting on the page, scores live.
+    batch_deadline = time.monotonic() + BATCH_TIME_BUDGET_SECONDS if everyone else None
+    per_person = [
+        _run_for_person_safely(user_id, poll_result, started_at, cap, batch_deadline) for user_id in people
+    ]
 
     summary = {
         "started_at": started_at,
@@ -954,13 +1007,15 @@ def describe_error(exc: BaseException) -> str:
     return text
 
 
-def _run_for_person_safely(user_id: int, poll_result: dict, started_at: str, cap: int | None) -> dict:
+def _run_for_person_safely(
+    user_id: int, poll_result: dict, started_at: str, cap: int | None, batch_deadline: float | None = None
+) -> dict:
     """One person's part of the run. If it fails, the error goes into the run's summary (and so
     onto the Admin page's Daily check card) and the run moves on to the next person, rather than
     one person's problem taking down everyone's run. No `runs` row is written for them: their
     "Last updated" must not claim a check that didn't happen."""
     try:
-        return _run_for_person(user_id, poll_result, started_at, cap)
+        return _run_for_person(user_id, poll_result, started_at, cap, batch_deadline=batch_deadline)
     except Exception as exc:  # noqa: BLE001
         logger.exception("daily run for user %s failed", user_id)
         error = f"user {user_id}: {describe_error(exc)}"

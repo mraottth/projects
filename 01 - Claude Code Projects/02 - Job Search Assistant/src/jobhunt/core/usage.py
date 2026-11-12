@@ -29,6 +29,7 @@ CATEGORIES = {
     c.key: c
     for c in [
         Category("scoring", "Job scoring", "job", "Scored {n}"),
+        Category("screen", "Title screen", "job", "Screened {n}"),
         Category("boards", "Reading job boards", "page", "Read {n}"),
         Category("jobby", "Jobby", "message", "Jobby: {n}"),
         Category("documents", "Tailored documents", "document", "Wrote {n}"),
@@ -54,6 +55,8 @@ def categorize(call_type: str, note: str | None) -> str:
             return "boards"
         if note.startswith(("discovery", "resolve_company")):
             return "discovery"
+        if note.startswith("title screen"):
+            return "screen"
         if note.startswith("retag"):
             return "upkeep"
         return "adding"  # manual job paste-in logs with no note
@@ -66,6 +69,8 @@ def _units(category: str, calls: list[dict]) -> int:
         return len({c["job_id"] for c in calls if c["job_id"]}) or len(calls)
     if category == "boards":
         return len({c["note"] for c in calls})
+    if category == "screen":  # "title screen (150 jobs)"
+        return sum(int(c["note"].split("(")[1].split()[0]) for c in calls if "(" in (c["note"] or ""))
     if category == "jobby":
         return sum(1 for c in calls if not (c["note"] or "").startswith("jobby chat title"))
     return len(calls)

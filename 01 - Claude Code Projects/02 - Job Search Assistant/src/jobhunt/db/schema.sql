@@ -81,6 +81,8 @@ CREATE TABLE IF NOT EXISTS scoring_queue (
     status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'in_progress', 'scored', 'skipped')),
     queued_at TEXT NOT NULL DEFAULT (datetime('now')),
     scored_at TEXT,
+    screen TEXT,        -- the title screen (core/screening.py): NULL not yet, 'keep' or 'drop'
+    screened_at TEXT,
     UNIQUE(user_id, job_id)
 );
 CREATE INDEX IF NOT EXISTS idx_scoring_queue_status ON scoring_queue(status, priority DESC);
