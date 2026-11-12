@@ -98,7 +98,7 @@ def test_the_lists(monkeypatch):
     _track(pasted)
     _track(unfollowed)  # tracked from a source no longer followed: still on My Jobs
     assert sorted(rescore.job_ids("my_jobs")) == sorted([a, pasted, unfollowed])
-    assert sorted(rescore.job_ids("all_jobs")) == sorted([a, b])
+    assert sorted(rescore.job_ids("all_jobs")) == [b]  # A is applied to: on My Jobs only (2026-11-12)
 
 
 def test_rescoring_my_jobs_scores_each_job_again(monkeypatch):

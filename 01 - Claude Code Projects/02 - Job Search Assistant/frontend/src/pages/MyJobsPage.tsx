@@ -18,19 +18,27 @@ import { Modal } from "../components/Modal";
 import { FitBadge, salaryText, salaryValue } from "../components/ScoredJobCard";
 import { Spinner } from "../components/Spinner";
 
-function AddJobForm({ onAdded }: { onAdded: (job: Job) => void }) {
+function AddJobForm({ onAdded, onTracked }: { onAdded: (job: Job) => void; onTracked: () => void }) {
   const [mode, setMode] = useState<"url" | "text">("url");
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const submit = async () => {
     if (!value.trim()) return;
     setBusy(true);
     setError(null);
+    setNotice(null);
     try {
       const job = await api.createManualJob(mode === "url" ? { url: value } : { raw_text: value });
       setValue("");
+      if (job.already_in_sources) {
+        // A source already found it: that job is now on My Jobs, with no second copy (D-035).
+        setNotice(`Already in your sources: added "${job.title}" to My Jobs.`);
+        onTracked();
+        return;
+      }
       onAdded(job);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -74,6 +82,7 @@ function AddJobForm({ onAdded }: { onAdded: (job: Job) => void }) {
         {mode === "url" ? "Paste the full text instead" : "Use a URL instead"}
       </button>
       {error && <p className="error-text small">{error}</p>}
+      {notice && <p className="muted small">{notice}</p>}
     </div>
   );
 }
@@ -628,7 +637,7 @@ export default function MyJobsPage() {
 
       <div className={`myjobs-top${apps.length > 0 && !DEMO ? "" : " single"}`}>
         {apps.length > 0 && <Insights apps={apps} />}
-        {!DEMO && <AddJobForm onAdded={(job) => setPending((p) => [...p, job])} />}
+        {!DEMO && <AddJobForm onAdded={(job) => setPending((p) => [...p, job])} onTracked={refresh} />}
       </div>
 
       {pending.map((job) => (

@@ -136,7 +136,9 @@ def load_prompts(folder: Path) -> list[dict]:
             if e["id"] in omit:
                 continue
             e = dict(e, text=cuts.get(e["id"], e["text"]))
-            e["categories"] = labels.get(e["id"], ["uncategorized"])
+            label = labels.get(e["id"], ["uncategorized"])
+            # A bare "ui" instead of ["ui"] crashed the Timeline page (2026-11-12).
+            e["categories"] = [label] if isinstance(label, str) else label
             prompts.append(e)
     return sorted(prompts, key=lambda e: e["time"] or "")
 

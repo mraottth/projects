@@ -15,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from datetime import UTC, date, datetime
 
-from jobhunt.core import backup, budget, prefilter, queue
+from jobhunt.core import backup, budget, job_merge, prefilter, queue
 from jobhunt.core import settings as settings_module
 from jobhunt.core.dedupe import compute_dedupe_key
 from jobhunt.core.digest import add_to_digest
@@ -360,7 +360,13 @@ def _upsert_job(source_id: int, posting: dict) -> int:
                 posting.get("posted_at"),
             ),
         )
-        return cursor.lastrowid
+        new_id = cursor.lastrowid
+    # A follower who pasted this job in by hand gets the two merged into this one (core/job_merge.py).
+    try:
+        job_merge.merge_for_new_source_job(new_id)
+    except Exception:  # noqa: BLE001 - never fail a read over this
+        logger.exception("merging a pasted copy of job %s failed", new_id)
+    return new_id
 
 
 # Sources read from an ATS's API, which lists every open posting: a job missing from a read of one

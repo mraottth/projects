@@ -552,5 +552,24 @@
   "decisions": [
    "D-034"
   ]
+ },
+ {
+  "id": "M26",
+  "date": "2026-11-12",
+  "icon": "🔗",
+  "category": "pipeline",
+  "title": "One job, not two",
+  "summary": "A job pasted into My Jobs and the same job found later by a followed source used to be two separate entries, so All Jobs showed it as untracked. Now they're merged onto the source's copy, with the application, notes, scores, documents and Jobby chat carried over, and pasting a job a source already has just tracks it.",
+  "prompts": [
+   "ab602548-207",
+   "ab602548-208",
+   "ab602548-209"
+  ],
+  "commits": [
+   "de2f304"
+  ],
+  "decisions": [
+   "D-035"
+  ]
  }
 ]

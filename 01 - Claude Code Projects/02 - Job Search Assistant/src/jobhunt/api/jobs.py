@@ -6,7 +6,7 @@ from jobhunt.core.llm import LLMError
 from jobhunt.core.preference import get_current_preference_profile
 from jobhunt.core.profile import get_current_candidate_profile
 from jobhunt.core.scoring import score_job, store_score
-from jobhunt.core import dealbreakers
+from jobhunt.core import dealbreakers, job_merge
 from jobhunt.core.digest import SOURCE_IS_BOARD_SQL
 from jobhunt.core.settings import get_setting, get_settings
 from jobhunt.db.connection import get_db
@@ -68,7 +68,11 @@ RANKED_JOB_COLUMNS = ", ".join(
 )  # fmt: skip
 RANKED_WHERE = (
     "j.status = :status AND j.source_id IS NOT NULL "
-    "AND j.source_id IN (SELECT source_id FROM source_follows WHERE user_id = :uid)"
+    "AND j.source_id IN (SELECT source_id FROM source_follows WHERE user_id = :uid) "
+    # A job you've applied to lives on My Jobs only (asked 2026-11-12); one still in Drafting stays
+    # here, and removing it from My Jobs brings it back.
+    "AND NOT EXISTS (SELECT 1 FROM applications ap WHERE ap.user_id = :uid AND ap.job_id = j.id "
+    "AND ap.status != 'saved')"
 )
 
 
@@ -146,10 +150,30 @@ def get_job(job_id: int):
     return job
 
 
+def _track_existing(job_id: int) -> dict:
+    """A pasted job one of your sources already has (D-035): that job goes on My Jobs instead of a
+    second copy, and the reply says so (`already_in_sources`)."""
+    try:
+        create_application(CreateApplicationRequest(job_id=job_id))
+    except HTTPException as exc:
+        if exc.status_code != 409:
+            raise
+    return {**get_job(job_id), "already_in_sources": True}
+
+
 @router.post("/manual")
 def create_manual_job(payload: ManualImportRequest):
     if not payload.url and not payload.raw_text:
         raise HTTPException(400, "provide url or raw_text")
+    user_id = current_user_id()
+    if payload.url:
+        # Checked before the paid read: the address alone can show it's a job we already have.
+        with get_db() as conn:
+            identity = job_merge.posting_identity(payload.url)
+            same = [j for j in job_merge.source_jobs_for(conn, user_id)
+                    if identity and job_merge.posting_identity(j["url"]) == identity]  # fmt: skip
+        if same:
+            return _track_existing(job_merge.find_match({"url": payload.url}, same)["id"])
     try:
         parsed = parse_job_posting(url=payload.url, raw_text=payload.raw_text)
     except ManualImportError as exc:
@@ -157,9 +181,13 @@ def create_manual_job(payload: ManualImportRequest):
     except LLMError as exc:
         raise HTTPException(502, str(exc)) from exc
 
+    with get_db() as conn:
+        existing_source_job = job_merge.match_for_pasted(conn, user_id, parsed)
+    if existing_source_job is not None:
+        return _track_existing(existing_source_job)
+
     # A pasted-in job is private to whoever pasted it, so its key is too: two people pasting the
     # same posting each get their own copy.
-    user_id = current_user_id()
     dedupe_key = f"u{user_id}:{parsed['dedupe_key']}"
     with get_db() as conn:
         existing = conn.execute(

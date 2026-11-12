@@ -524,6 +524,22 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   The external_id preference matters: Greenhouse-shaped URLs carry the real job id in the query
   string, which URL normalization strips, so without it every posting on a board would collapse
   onto the same key (this actually happened once, caught via a live test against Stripe's board).
+- **A pasted job and the same job from a source become one** (D-035, asked 2026-11-12;
+  `core/job_merge.py`). A pasted job (private, on My Jobs) and the copy a followed source later
+  finds had different dedupe keys, so All Jobs showed the source copy as untracked. Matching, most
+  certain first: `posting_identity(url)` (ATS + job id: Greenhouse `/jobs/<id>` or `gh_jid=`, Lever
+  and Ashby uuids or `ashby_jid=`, Workday, SmartRecruiters; else the address minus tracking
+  parameters, query kept); then normalized title + organization ("Sr." = "Senior", "Inc"/"LLC"
+  dropped) when exactly one source job has them and the locations don't clearly differ; the
+  description (word overlap >= 0.8) only breaks a tie among several. `merge_into()` keeps the source
+  copy and moves the person's application (the further-along one wins when both are tracked, with
+  both notes and both histories), scores, feedback, documents, Jobby chat (the longer), queue and
+  digest rows onto it in one transaction, fills its missing pay/posted date, then deletes the pasted
+  row. It runs when a source saves a new job (`_upsert_job` → `merge_for_new_source_job`), at
+  startup over existing duplicates (`merge_existing_duplicates`, in the salary-backfill thread), and
+  at paste time: `POST /api/jobs/manual` checks a URL's identity before the paid read, and the parsed
+  title/organization after, and on a match tracks the source job instead (`already_in_sources`;
+  "Add a job" says so). Only the person's own pasted jobs and the sources they follow are compared.
 - `src/jobhunt/ingest/adapters/` — one module per source kind (`greenhouse`, `lever`, `ashby`,
   `adzuna`, `remoteok`, `custom_board`). Each `fetch(source: dict) -> list[dict]` returns raw
   posting dicts; the pipeline does dedup/upsert/normalization uniformly across all of them. Every
@@ -748,6 +764,9 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     Starlette leaves `text/event-stream` alone). 0.06 s and 2.9 MB before compression; the page draws
     50 cards and adds 50 more as you near the end (an `IntersectionObserver` on a "Showing N of M"
     line), starting over when a filter changes.
+  - A job you've applied to leaves All Jobs (asked 2026-11-12): `RANKED_WHERE` (and the All Jobs
+    rescore) skips jobs with an `applications` row of the person's in any status but `saved`
+    (Drafting), so they live on My Jobs only; removing one from My Jobs brings it back.
   - All Jobs cards show where a job stands on My Jobs (asked 2026-11-10): `GET /api/jobs/ranked`
     joins the person's own `applications` row as `application_status`, and `ScoredJobCard` shows
     "On My Jobs · Waiting" (the status's `pill-*` colors, linking to `/tracker`) in place of the
