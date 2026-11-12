@@ -429,21 +429,21 @@ export function JobFilterBar({
         onChange={(v) => set("candidateFilter", v)}
       />
 
-      {/* Plain labels, each with what it means (2026-11-12: a tester didn't know what "scoring" or
-          the "title screen", now the relevance check, were). */}
+      {/* One section for the three "show more" boxes (asked 2026-11-12), with one short line on what
+          they are and plain, short labels. Each count shows only when there's something to show. */}
       <div className="fsection filter-checks">
+        <div className="flabel">Include unrated and low relevance jobs</div>
+        <span className="filter-check-hint">
+          Jobs still waiting for a rating, outside your dealbreakers, or set aside by a quick title check as
+          clearly not a fit.
+        </span>
         <label className="filter-check">
           <input
             type="checkbox"
             checked={filters.includeUnscored}
             onChange={(e) => set("includeUnscored", e.target.checked)}
           />
-          <span>
-            Include jobs not rated yet
-            <span className="filter-check-hint">
-              Each job is rated for interest and fit once; new ones wait for the next daily check.
-            </span>
-          </span>
+          <span>Not rated yet</span>
         </label>
         {ruledOut > 0 && (
           <label className="filter-check">
@@ -452,10 +452,7 @@ export function JobFilterBar({
               checked={filters.includeDealbreakers}
               onChange={(e) => set("includeDealbreakers", e.target.checked)}
             />
-            <span>
-              Show {ruledOut} job{ruledOut === 1 ? "" : "s"} outside your locations or pay floor
-              <span className="filter-check-hint">Your dealbreakers, set on the Profile page.</span>
-            </span>
+            <span>Outside your locations or pay floor ({ruledOut.toLocaleString()})</span>
           </label>
         )}
         {setAside > 0 && (
@@ -465,12 +462,7 @@ export function JobFilterBar({
               checked={filters.includeScreenedOut}
               onChange={(e) => set("includeScreenedOut", e.target.checked)}
             />
-            <span>
-              Show {setAside} low-relevance job{setAside === 1 ? "" : "s"}
-              <span className="filter-check-hint">
-                A quick check of their titles set these aside as clearly not what you're looking for.
-              </span>
-            </span>
+            <span>Low relevance ({setAside.toLocaleString()})</span>
           </label>
         )}
       </div>
