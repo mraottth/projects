@@ -19,6 +19,7 @@ recognizes is matched as written, and Settings shows which entries were recogniz
 
 import functools
 import re
+import unicodedata
 from dataclasses import dataclass, field
 
 STATES = {
@@ -210,6 +211,29 @@ COUNTRIES = {
     "egypt": ["egypt", "cairo"],
 }  # fmt: skip
 
+# Cities and suburbs that, written alone, can only mean one place, so they're enough to say where a job
+# is (asked 2026-11-12: bare "Palo Alto" or "London" was kept as unknown, and leaked past the
+# dealbreaker). A name shared with other notable places ("Richmond", "Springfield", "Columbia",
+# "Arlington", "Pasadena", "Bellevue"...) is left out on purpose: alone it still decides nothing.
+DISTINCT_PLACES = {
+    # The states each one implies.
+    "CA": ["palo alto", "mountain view", "menlo park", "redwood city", "sunnyvale", "santa clara",
+           "cupertino", "san mateo", "emeryville", "south san francisco", "foster city", "milpitas",
+           "los gatos", "san jose", "oakland", "berkeley", "santa monica", "culver city",
+           "el segundo", "playa vista", "irvine", "beverly hills", "west hollywood", "marina del rey",
+           "costa mesa", "newport beach", "san diego", "sacramento", "la jolla"],
+    "NJ": ["jersey city", "hoboken", "secaucus", "weehawken", "newark nj"],
+    "NY": ["long island city", "white plains", "yonkers", "brooklyn", "queens", "manhattan",
+           "the bronx", "staten island"],
+    "IL": ["evanston", "naperville", "schaumburg"],
+    "CO": ["boulder"],
+    "TX": ["round rock", "cedar park", "pflugerville", "houston", "dallas", "san antonio",
+           "fort worth"],
+    "WA": ["washington state", "kirkland wa"],
+    "PA": ["pittsburgh", "philadelphia"],
+}  # fmt: skip
+DISTINCT_FOREIGN = {"uk": ["london", "londres"], "france": ["paris"], "ireland": ["dublin"]}
+
 REMOTE_WORDS = ("remote", "anywhere", "wfh", "work from home", "work from anywhere", "distributed",
                 "telecommute", "telework", "home based", "virtual", "fully remote")  # fmt: skip
 # Wording that says the list isn't complete, or the job could be almost anywhere. A job with any
@@ -244,6 +268,8 @@ def normalize(text: str) -> str:
     """Lowercase words separated by single spaces, padded with a space at each end, so a phrase is
     matched as ' phrase ' on word boundaries. "D.C." and "D. C." become "dc", "St." becomes "st"."""
     text = re.sub(r"\bd\s*\.\s*c\b\.?", "dc", text, flags=re.IGNORECASE)
+    # "Zürich", "São Paulo", "Montréal": compare without accents.
+    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
     text = text.lower().replace(".", "").replace("'", "")
     text = re.sub(r"[^a-z0-9]+", " ", text)
     return f" {text.strip()} "
@@ -387,6 +413,14 @@ def read_job_location(location: str) -> JobPlace:
     for metro in METROS:
         if any(_has(norm, name) for name in metro.core):
             states.add(metro.home)
+    if not states and not countries:
+        # A place named alone that can only be one place (see DISTINCT_PLACES).
+        for code, names in DISTINCT_PLACES.items():
+            if any(_has(norm, n) for n in names):
+                states.add(code)
+        for country, names in DISTINCT_FOREIGN.items():
+            if not states and any(_has(norm, n) for n in names):
+                countries.add(country)
     return JobPlace(norm, states, countries, us)
 
 

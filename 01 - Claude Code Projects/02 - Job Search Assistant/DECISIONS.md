@@ -408,6 +408,8 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 - It's still kept if any place matches, if one can't be read, or if the wording is vague ("+2 more", "3 locations", "multiple", "nationwide").
 - A written state code now outranks state names inside a city's name, so "Kansas City, MO" reads as Missouri, not Kansas plus Missouri.
 
+**Amended (2026-11-12, prompt ab602548-181).** A place named alone now counts when no reading of it could be near the wanted locations: a short list of places that can only be one place ("Palo Alto", "Jersey City", "Brooklyn", "Washington State"), plus "London", "Paris" and "Dublin", which are elsewhere for a DC search wherever they are. Shared names ("Richmond", "Springfield", "Columbia", "Arlington") still prove nothing alone, and accents are ignored. The owner saw many non-DC jobs on All Jobs with the dealbreaker on; bare names like these had been kept as unknown. The Settings readout now also lists what it keeps only because it can't place the location, so a leak is visible.
+
 ## D-027 · A salary dealbreaker on the low end of the posted range
 - **Date:** 2026-11-04
 - **Category:** pipeline

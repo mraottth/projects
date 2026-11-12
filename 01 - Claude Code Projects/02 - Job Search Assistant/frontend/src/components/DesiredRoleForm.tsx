@@ -205,6 +205,7 @@ function SalaryReadout({ version, enabled }: { version: number; enabled: boolean
 function LocationReadout({ version, enabled }: { version: number; enabled: boolean }) {
   const [check, setCheck] = useState<LocationCheck | null>(null);
   const [open, setOpen] = useState(false);
+  const [unsureOpen, setUnsureOpen] = useState(false);
 
   useEffect(() => {
     api
@@ -242,6 +243,23 @@ function LocationReadout({ version, enabled }: { version: number; enabled: boole
           {preview.hidden_locations.length > 6 && (
             <button className="link small" onClick={() => setOpen(!open)}>
               {open ? " show fewer" : ` +${preview.hidden_locations.length - 6} more`}
+            </button>
+          )}
+        </p>
+      )}
+      {preview.unsure_locations.length > 0 && (
+        <p className="muted" style={{ margin: "6px 0 0" }}>
+          Kept because we can't tell where they are ({preview.unsure_locations.reduce((n, u) => n + u.count, 0)}{" "}
+          jobs):{" "}
+          {(unsureOpen ? preview.unsure_locations : preview.unsure_locations.slice(0, 6)).map((u, i) => (
+            <span key={u.location}>
+              {i > 0 && " · "}
+              {u.location} ({u.count})
+            </span>
+          ))}
+          {preview.unsure_locations.length > 6 && (
+            <button className="link small" onClick={() => setUnsureOpen(!unsureOpen)}>
+              {unsureOpen ? " show fewer" : ` +${preview.unsure_locations.length - 6} more`}
             </button>
           )}
         </p>

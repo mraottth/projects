@@ -59,11 +59,44 @@ def test_dc_matches(location):
         "United States",
         "USA",
         "Washington",  # DC or the state: can't tell
-        "London",  # England or Ontario or Kentucky
+        "Richmond",  # Virginia or California: one of them could be wanted
+        "Hybrid",
     ],
 )
 def test_unknown_locations_stay(location):
     assert locations.verdict(location, None, DC) == "unknown"
+
+
+@pytest.mark.parametrize(
+    "location",
+    [
+        # Named alone, but only one place, or no place near DC whichever it is (asked 2026-11-12:
+        # these were kept as unknown and leaked onto All Jobs).
+        "London",  # England, Ontario or Kentucky: none is near DC
+        "Paris",
+        "Dublin",
+        "Zürich",
+        "São Paulo",
+        "Palo Alto",
+        "Sunnyvale",
+        "Jersey City",
+        "Hoboken",
+        "Brooklyn",
+        "Washington State",
+        "Boulder",
+    ],
+)
+def test_a_place_that_can_only_be_elsewhere_is_hidden(location):
+    assert locations.verdict(location, None, ["Washington DC", "Remote"]) == "elsewhere"
+
+
+def test_a_distinct_place_still_matches_its_own_area():
+    assert locations.verdict("Palo Alto", None, ["California"]) == "match"
+    assert locations.verdict("Sunnyvale", None, ["San Francisco"]) == "match"
+    assert locations.verdict("London", None, ["United Kingdom"]) == "match"
+    assert locations.verdict("Jersey City", None, ["New York"]) == "match"
+    # A shared name decides nothing on its own.
+    assert locations.verdict("Richmond", None, ["Virginia"]) == "unknown"
 
 
 def test_a_bare_suburb_name_is_kept():
@@ -341,3 +374,19 @@ def test_location_check_previews_before_switching_on():
     assert "Washington, DC metro" in check["entries"][0]["matches"][0]
     assert check["preview"]["total"] == 4 and check["preview"]["hidden"] == 1
     assert check["preview"]["hidden_locations"] == [{"location": "Austin, TX", "count": 1}]
+    # Jobs kept only because their location couldn't be placed are listed too (asked 2026-11-12).
+    assert check["preview"]["unsure_locations"] == []
+    with get_db() as conn:
+        source = conn.execute("SELECT id FROM sources").fetchone()[0]
+        for n, loc in enumerate(["Hybrid", "Hybrid", "Richmond"]):
+            conn.execute(
+                "INSERT INTO jobs (source_id, dedupe_key, title, company, location) "
+                "VALUES (?, ?, 'T', 'Co', ?)",
+                (source, f"u-{n}", loc),
+            )
+    with TestClient(app) as http:
+        check = http.get("/api/settings/location-check").json()
+    assert check["preview"]["unsure_locations"] == [
+        {"location": "Hybrid", "count": 2},
+        {"location": "Richmond", "count": 1},
+    ]

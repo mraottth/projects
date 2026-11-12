@@ -323,7 +323,11 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     bare "DC"; a bare uppercase pair elsewhere isn't trusted, so "IN OFFICE" isn't Indiana and
     "Portland, OR" isn't "or"), a metro's core name (implies its home state), or a non-US country or
     big foreign city. A written state code wins over state names inside a city's name ("Kansas
-    City, MO" is MO). A suburb name alone never proves "elsewhere".
+    City, MO" is MO). A place named alone counts only when it can be just one place
+    (`DISTINCT_PLACES`: "Palo Alto", "Jersey City", "Brooklyn", "Washington State"...;
+    `DISTINCT_FOREIGN`: "London", "Paris", "Dublin", none of whose readings is near DC). Shared names
+    ("Richmond", "Springfield", "Columbia", "Arlington") still prove nothing alone. Accents are
+    ignored ("Zürich"). Added 2026-11-12, when bare names like these leaked past the dealbreaker.
   - How the work is done isn't a place (2026-11-10, after a New York/San Francisco job reached the
     email): `ARRANGEMENT` ("(Hybrid)", "On-site:", "- In Office"...) is dropped before splitting,
     and stray dashes/colons are trimmed from each piece. "New York City, NY (Hybrid)" had read as
@@ -339,7 +343,8 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     "Clear all" keeps it off) and the All Jobs rescore. My Jobs is never filtered.
   - `GET /api/settings/location-check` shows how each entry is read and what it hides (or would
     hide) among All Jobs, by location text, shown under the checkbox, so a wrong reading is visible
-    before it's switched on. Baltimore isn't in the DC metro; the preview shows it if hidden.
+    before it's switched on. It also lists what it keeps only because it can't tell where the job
+    is (`unsure_locations`), so a leak is visible too. Baltimore isn't in the DC metro; the preview shows it if hidden.
 - **Salary dealbreaker** (asked 2026-11-04; `core/dealbreakers.py`, `salary_dealbreaker` setting,
   shown under Minimum salary once one is set). Hides a job whose posted pay, annualized at the low
   end (`salary_min`, else the one figure given; hour x2080, day x260, week x52, month x12), is below

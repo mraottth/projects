@@ -595,6 +595,8 @@ export type LocationCheck = {
     hidden: number;
     hidden_locations: { location: string; count: number }[];
     kept: Record<string, number>;
+    // Kept because the location couldn't be placed ("Hybrid", "Richmond", "3 locations").
+    unsure_locations: { location: string; count: number }[];
   };
 };
 
