@@ -81,10 +81,13 @@ def location_check():
 
     current = get_settings()
     entries = current.get("prefilter_locations") or []
-    preview = {"total": 0, "hidden": 0, "hidden_locations": [], "kept": {}}
+    preview = {"total": 0, "hidden": 0, "hidden_locations": [], "kept": {}, "unsure_locations": []}
     if entries:
         hidden: dict[str, int] = {}
         kept: dict[str, int] = {}
+        # Kept only because the location couldn't be placed: shown, so a leak can be spotted and fixed
+        # (asked 2026-11-12, when non-DC jobs stayed on All Jobs and nothing said why).
+        unsure: dict[str, int] = {}
         for job in list_ranked_jobs():
             preview["total"] += 1
             outcome = locations.verdict(job.get("location"), job.get("remote_type"), entries)
@@ -92,11 +95,16 @@ def location_check():
                 hidden[job["location"]] = hidden.get(job["location"], 0) + 1
             else:
                 kept[outcome] = kept.get(outcome, 0) + 1
+                if outcome in ("unknown", "multiple") and job.get("location"):
+                    unsure[job["location"]] = unsure.get(job["location"], 0) + 1
         preview["hidden"] = sum(hidden.values())
         preview["hidden_locations"] = [
             {"location": loc, "count": n} for loc, n in sorted(hidden.items(), key=lambda kv: (-kv[1], kv[0]))
         ]
         preview["kept"] = kept
+        preview["unsure_locations"] = [
+            {"location": loc, "count": n} for loc, n in sorted(unsure.items(), key=lambda kv: (-kv[1], kv[0]))
+        ]
     return {
         "enabled": locations.dealbreaker_on(current),
         "entries": locations.describe(entries),

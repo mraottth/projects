@@ -1,7 +1,7 @@
 {
  "session": "ab602548-13cf-5dd6-933c-6e698e563853",
  "omitted_api_errors": 0,
- "omitted": 62,
+ "omitted": 63,
  "entries": [
   {
    "time": "2026-10-28T14:37:31.396Z",
@@ -1261,6 +1261,14 @@
    "text": "\"Should new users on the real app get the guided tour too?\"=\"Yes, right after onboarding (Recommended)\".",
    "reply": "New users on the real app now get the guided tour once, right after onboarding. It's pushed to `claude/move-job-search-assistant`.\n\n- **When it starts:** a person who finishes or skips the setup wizard gets it as soon as they land on New & Noteworthy. During the first job search after setup, the progress screen stays put and the tour waits until that's done.\n- **Wording:** the same 7 steps as the demo, written about the person's own data. Jobby's step reads \"Start a chat about your search, or prep for a job on My Jobs\", and the last step says they can take it again from the About page.\n- **Shown once per person:** this is saved with their account, so it won't reappear on another device. Anyone set up before this, including you, won't get it automatically.\n- **Taking it again:** About's \"Getting started\" card now has a \"Take the tour\" button, for you or anyone else.\n\nI checked it in a browser on a fresh database. A new person who skips setup gets the tour on New & Noteworthy, all 7 steps open the right page, it doesn't come back after a reload once finished, and About's button restarts it. The demo's tour behaves as before, and all 518 tests pass.\n\nThis one changes the real app, so it needs a deploy:\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com IAP_AUDIENCE=/projects/<project number>/locations/us-central1/services/jobhunt\n```",
    "id": "ab602548-177",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-12T04:50:50.109Z",
+   "kind": "prompt",
+   "text": "My location preferences are Washington DC & remote and I have the dealbreaker box checked, but I'm seeing a lot of non-DC/non-remote jobs in All Jobs with \"Show 770 jobs your dealbreakers hide\" unchecked. Note - I think most/all of these are unsecured (not sure if that's relevant). Can you look into it?",
+   "reply": null,
+   "id": "ab602548-181",
    "session": "ab602548"
   }
  ]
