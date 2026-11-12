@@ -565,3 +565,24 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 - IAP answers every path of a Cloud Run service before the app sees the request and can't exempt any, so nothing on the app's address can come before sign-in while IAP guards it.
 - A separate page keeps the app exactly as locked down as it was, costs nothing, and was a day's work.
 
+## D-034 · Score fewer, better-chosen jobs, and score the 2pm run in batches
+- **Date:** 2026-11-12
+- **Category:** ai
+- **Prompts:** ab602548-193, ab602548-194
+- **Commits:** 003dc27
+
+**Decision.**
+- **A title screen before scoring:** the waiting jobs' titles, organizations and locations go to Claude Haiku 5.5, about 150 per call, which sets aside only clear mismatches. Set-aside jobs are never scored and are hidden on All Jobs behind a toggle.
+- **The everyone run's scoring goes through the Message Batches API** at half price, within an 18-minute budget per run; anything a batch doesn't finish is scored live. A person's own check and Refresh stay live.
+
+**Context.** The owner asked for a breakdown of a scoring run's cost and a way to make it cheaper. From the Usage log, a score costs about 0.9 cents: about 2,240 tokens of posting (50%), about 355 tokens of answer (39%) and 5,101 cached tokens of profile (11%). With a 50-a-day cap and about 1,700 jobs waiting, the cap is reached every day, so cost was cap x price. The owner chose these two of four options.
+
+**Alternatives considered.**
+- **Stripping boilerplate from postings:** perhaps 10-20% off. Left for later.
+- **A smaller model for scoring itself:** unmeasured quality risk; the Admin page's scoring experiment would have to show it first.
+- **Lean scoring settings** were already measured and declined (D-025: 0.9 vs 0.8 cents a job).
+
+**Why.**
+- Batches halve every token's price with no change to the prompt or its quality, and the 2pm run doesn't need instant answers.
+- The screen costs a fraction of a cent per hundred titles. It lets the cap go to jobs worth reading, so the cap can be lowered without missing good jobs. It is told to keep anything uncertain, since a wrong "set aside" costs a job the person wanted.
+
