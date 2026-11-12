@@ -531,6 +531,8 @@ export interface TitleScreenInsight {
   set_aside: number;
   kept: number;
   waiting: number;
+  // Waiting jobs a location or pay dealbreaker hides: never scored, so never checked.
+  skipped: number;
   last_screened_at: string | null;
   cost_this_month: number;
   calls_this_month: number;

@@ -222,6 +222,18 @@ def test_the_settings_card_reports_what_the_screen_did_and_put_back_works(monkey
     assert sorted(queue.select_batch(10)) == sorted([data, legal, maybe])  # scored like any other
 
 
+def test_not_checked_yet_counts_only_what_a_check_would_send():
+    _jobs("Director of Data", "Analytics Lead")
+    with get_db() as conn:
+        conn.execute("UPDATE jobs SET location = 'Washington, DC'")
+        conn.execute("UPDATE jobs SET location = 'Tokyo, Japan' WHERE title = 'Analytics Lead'")
+    with TestClient(app) as http:
+        http.put("/api/settings", json={"prefilter_locations": ["DC"], "location_dealbreaker": True})
+        info = http.get("/api/settings/title-screen").json()
+    assert (info["waiting"], info["skipped"]) == (1, 1)
+    assert info["waiting"] == info["estimates"]["waiting"]["jobs"]
+
+
 def test_the_screen_runs_even_when_todays_cap_is_used_up(monkeypatch):
     # A day at 50 of 50 skipped the screen along with scoring, so nothing was ever set aside and
     # All Jobs' "set aside" toggle never appeared (2026-11-12).

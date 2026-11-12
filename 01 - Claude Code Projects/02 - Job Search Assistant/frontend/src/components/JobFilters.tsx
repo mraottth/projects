@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { ScoredJob } from "../api";
 
 export type RecencyFilter = "all" | "1" | "3" | "7" | "30";
@@ -429,48 +430,40 @@ export function JobFilterBar({
         onChange={(v) => set("candidateFilter", v)}
       />
 
-      {/* Plain labels, each with what it means (2026-11-12: a tester didn't know what "scoring" or
-          the "title screen", now the relevance check, were). */}
+      {/* One section for the three "show more" boxes (asked 2026-11-12), with one short line on what
+          they are and plain, short labels. Each count shows only when there's something to show. */}
       <div className="fsection filter-checks">
-        <label className="filter-check">
+        <IncludeAllCheckbox filters={filters} onChange={onChange} ruledOut={ruledOut} setAside={setAside} />
+        <span className="filter-check-hint">
+          Jobs still waiting for a rating, outside your dealbreakers, or set aside by a quick title check as
+          clearly not a fit.
+        </span>
+        <label className="filter-check filter-check-child">
           <input
             type="checkbox"
             checked={filters.includeUnscored}
             onChange={(e) => set("includeUnscored", e.target.checked)}
           />
-          <span>
-            Include jobs not rated yet
-            <span className="filter-check-hint">
-              Each job is rated for interest and fit once; new ones wait for the next daily check.
-            </span>
-          </span>
+          <span>Not rated yet</span>
         </label>
         {ruledOut > 0 && (
-          <label className="filter-check">
+          <label className="filter-check filter-check-child">
             <input
               type="checkbox"
               checked={filters.includeDealbreakers}
               onChange={(e) => set("includeDealbreakers", e.target.checked)}
             />
-            <span>
-              Show {ruledOut} job{ruledOut === 1 ? "" : "s"} outside your locations or pay floor
-              <span className="filter-check-hint">Your dealbreakers, set on the Profile page.</span>
-            </span>
+            <span>Outside your locations or pay floor ({ruledOut.toLocaleString()})</span>
           </label>
         )}
         {setAside > 0 && (
-          <label className="filter-check">
+          <label className="filter-check filter-check-child">
             <input
               type="checkbox"
               checked={filters.includeScreenedOut}
               onChange={(e) => set("includeScreenedOut", e.target.checked)}
             />
-            <span>
-              Show {setAside} low-relevance job{setAside === 1 ? "" : "s"}
-              <span className="filter-check-hint">
-                A quick check of their titles set these aside as clearly not what you're looking for.
-              </span>
-            </span>
+            <span>Low relevance ({setAside.toLocaleString()})</span>
           </label>
         )}
       </div>
@@ -534,4 +527,42 @@ export function toggleFilterValue(
 ): JobFilterState {
   const current = f[key];
   return { ...f, [key]: current.includes(value) ? current.filter((v) => v !== value) : [...current, value] };
+}
+
+/**
+ * The section's own checkbox (asked 2026-11-12): ticks or clears every box below it that's shown
+ * (a box with nothing to show isn't counted), and reads half-ticked when only some are on. Each box
+ * below still works on its own.
+ */
+function IncludeAllCheckbox({
+  filters,
+  onChange,
+  ruledOut,
+  setAside,
+}: {
+  filters: JobFilterState;
+  onChange: (f: JobFilterState) => void;
+  ruledOut: number;
+  setAside: number;
+}) {
+  const shown: ("includeUnscored" | "includeDealbreakers" | "includeScreenedOut")[] = ["includeUnscored"];
+  if (ruledOut > 0) shown.push("includeDealbreakers");
+  if (setAside > 0) shown.push("includeScreenedOut");
+  const on = shown.filter((k) => filters[k]).length;
+  const all = on === shown.length;
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = on > 0 && !all;
+  }, [on, all]);
+  return (
+    <label className="filter-check filter-check-all">
+      <input
+        ref={ref}
+        type="checkbox"
+        checked={all}
+        onChange={() => onChange({ ...filters, ...Object.fromEntries(shown.map((k) => [k, !all])) })}
+      />
+      <span>Include unrated and low relevance jobs</span>
+    </label>
+  );
 }
