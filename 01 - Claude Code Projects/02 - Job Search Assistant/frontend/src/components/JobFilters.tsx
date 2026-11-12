@@ -430,7 +430,7 @@ export function JobFilterBar({
       />
 
       {/* Plain labels, each with what it means (2026-11-12: a tester didn't know what "scoring" or
-          "the title screen" were). */}
+          the "title screen", now the relevance check, were). */}
       <div className="fsection filter-checks">
         <label className="filter-check">
           <input

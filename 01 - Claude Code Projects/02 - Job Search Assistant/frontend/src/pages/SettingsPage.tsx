@@ -15,6 +15,7 @@ import { Markdown } from "../components/Markdown";
 import { RescoreButton } from "../components/RescoreButton";
 import { Spinner } from "../components/Spinner";
 import { useIsAdmin } from "../me";
+import { DEMO } from "../demo";
 import { PrivacyNote } from "./AccessPage";
 
 function toList(s: string): string[] {
@@ -107,32 +108,66 @@ function LastEmail({ last }: { last: NonNullable<EmailStatus["last"]> }) {
 }
 
 /**
- * The title screen (core/screening.py, asked 2026-11-12): what it has screened, set aside and kept,
- * what's still waiting, what it cost, and its latest set-asides, each with "Put back" for when it
- * got one wrong (that job is then scored like any other).
+ * The relevance check (core/screening.py; "title screen" in the code, renamed for people
+ * 2026-11-12): what it has checked, set aside and kept, what's still waiting, what it cost, and its
+ * latest set-asides, each with "Put back" for when it got one wrong. It can be run by hand: the
+ * waiting jobs now, or every waiting job again after changing what you're looking for, with the
+ * cost shown when it's over $0.10.
  */
 function TitleScreenCard() {
   const [info, setInfo] = useState<TitleScreenInsight | null>(null);
   const [putBack, setPutBack] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
+  const [running, setRunning] = useState<"waiting" | "recheck" | null>(null);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [result, setResult] = useState<string | null>(null);
 
+  const load = () =>
+    api
+      .getTitleScreen()
+      .then(setInfo)
+      .catch(() => setInfo(null));
   useEffect(() => {
-    api.getTitleScreen().then(setInfo).catch(() => setInfo(null));
+    load();
   }, []);
 
   if (!info) return null;
+  const run = async (which: "waiting" | "recheck") => {
+    setRunning(which);
+    setProgress(null);
+    setResult(null);
+    setError(null);
+    try {
+      const r = await api.runRelevanceCheck(which === "recheck", (done, total) => setProgress({ done, total }));
+      setResult(
+        r.screened === 0
+          ? "Nothing new to check."
+          : `Checked ${r.screened.toLocaleString()} job${r.screened === 1 ? "" : "s"}; ${r.set_aside.toLocaleString()} set aside as low-relevance.`,
+      );
+      setPutBack(new Set());
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setRunning(null);
+    }
+  };
+  const label = (verb: string, est: { jobs: number; usd: number }) =>
+    `${verb} ${est.jobs.toLocaleString()} waiting job${est.jobs === 1 ? "" : "s"}` +
+    (est.usd > info.show_estimate_over ? ` (about $${est.usd.toFixed(2)})` : "");
   const rate = info.screened ? Math.round(((info.set_aside) / info.screened) * 100) : 0;
   return (
     <div className="card">
-      <h2>Title screen</h2>
+      <h2>Relevance check</h2>
       <p className="muted small">
         Before jobs are scored, a quick, very cheap read of their titles sets aside the ones that are clearly
         not a fit, so your daily scoring goes to jobs worth a closer look. Anything it isn't sure about is
-        kept. Set-aside jobs aren't scored and are hidden on All Jobs unless you ask to see them.
+        kept. Low-relevance jobs aren't scored and are hidden on All Jobs unless you ask to see them. It
+        runs with every check; you can also run it now.
       </p>
       {info.screened === 0 ? (
         <p className="small">
-          Nothing screened yet. It runs before the next check scores jobs
+          Nothing checked yet. It runs before the next check scores jobs
           {info.waiting > 0 && ` (${info.waiting.toLocaleString()} waiting)`}.
         </p>
       ) : (
@@ -140,7 +175,7 @@ function TitleScreenCard() {
           <div className="screen-stats">
             <div>
               <strong>{info.screened.toLocaleString()}</strong>
-              <span className="muted small">screened</span>
+              <span className="muted small">checked</span>
             </div>
             <div>
               <strong>{info.set_aside.toLocaleString()}</strong>
@@ -152,7 +187,7 @@ function TitleScreenCard() {
             </div>
             <div>
               <strong>{info.waiting.toLocaleString()}</strong>
-              <span className="muted small">not screened yet</span>
+              <span className="muted small">not checked yet</span>
             </div>
           </div>
           <p className="muted small">
@@ -162,6 +197,34 @@ function TitleScreenCard() {
           </p>
         </>
       )}
+      {!DEMO && (info.estimates.waiting.jobs > 0 || info.screened > 0) && (
+        <div className="form-actions relevance-actions">
+          {info.estimates.waiting.jobs > 0 && (
+            <button className="primary small" onClick={() => run("waiting")} disabled={!!running}>
+              {running === "waiting" ? (
+                <Spinner label={progress?.total ? `Checked ${progress.done} of ${progress.total}...` : "Starting..."} />
+              ) : (
+                label("Check", info.estimates.waiting)
+              )}
+            </button>
+          )}
+          {info.estimates.recheck.jobs > 0 && info.screened > 0 && (
+            <button
+              className="ghost small"
+              onClick={() => run("recheck")}
+              disabled={!!running}
+              title="After changing what you're looking for: checks every waiting job again"
+            >
+              {running === "recheck" ? (
+                <Spinner label={progress?.total ? `Checked ${progress.done} of ${progress.total}...` : "Starting..."} />
+              ) : (
+                label("Re-check all", info.estimates.recheck)
+              )}
+            </button>
+          )}
+        </div>
+      )}
+      {result && <p className="muted small">{result}</p>}
       {info.recent.length > 0 && (
         <>
           <h3 className="screen-recent-head">Recently set aside</h3>

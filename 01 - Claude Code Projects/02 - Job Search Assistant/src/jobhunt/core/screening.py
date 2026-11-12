@@ -12,6 +12,7 @@ deleted, so the person can still find and track it.
 """
 
 import logging
+import threading
 
 from pydantic import BaseModel
 
@@ -20,7 +21,7 @@ from jobhunt.core.llm import LLMError, cache_tokens, get_client, llm_error_bound
 from jobhunt.core.preference import get_current_preference_profile
 from jobhunt.core.profile import get_current_candidate_profile
 from jobhunt.core.settings import get_settings
-from jobhunt.core.users import current_user_id
+from jobhunt.core.users import carry, current_user_id
 from jobhunt.db.connection import get_db
 
 logger = logging.getLogger(__name__)
@@ -45,34 +46,46 @@ class ScreenResult(BaseModel):
     set_aside: list[int]
 
 
-def screen_pending(source_ids: list[int]) -> dict:
-    """Screens the current person's waiting, unscreened jobs from `source_ids`. Returns
-    {"screened", "set_aside", "errors"}. A failed call leaves its jobs unscreened (so they're
-    scored as before), never failing the run."""
+def _waiting(source_ids: list[int], recheck: bool = False) -> list[dict]:
+    """The current person's waiting jobs from `source_ids` to screen: the unscreened ones, or with
+    `recheck` every waiting one. A job a dealbreaker hides is never scored anyway, so it's left out."""
     settings = get_settings()
     only = ",".join(str(int(i)) for i in source_ids) or "NULL"
+    unscreened = "" if recheck else "AND q.screen IS NULL"
     with get_db() as conn:
         rows = conn.execute(
             f"""SELECT q.id AS queue_id, j.title, j.company, j.location, j.remote_type,
                        j.salary_min, j.salary_max, j.salary_currency, j.salary_period
                   FROM scoring_queue q JOIN jobs j ON j.id = q.job_id
-                 WHERE q.user_id = ? AND q.status = 'pending' AND q.screen IS NULL
+                 WHERE q.user_id = ? AND q.status = 'pending' {unscreened}
                    AND j.source_id IN ({only})
                  ORDER BY q.priority DESC, q.id""",
             (current_user_id(),),
         ).fetchall()
-    # A job a dealbreaker hides is never scored anyway: no need to screen it.
-    waiting = [dict(r) for r in rows if not dealbreakers.blocks(dict(r), settings)][:MAX_PER_RUN]
+    return [dict(r) for r in rows if not dealbreakers.blocks(dict(r), settings)]
+
+
+def screen_pending(
+    source_ids: list[int], limit: int | None = MAX_PER_RUN, recheck: bool = False, on_progress=None
+) -> dict:
+    """Screens the current person's waiting, unscreened jobs from `source_ids` (with `recheck`,
+    every waiting one, overwriting the earlier verdict). Returns {"screened", "set_aside",
+    "errors"}. A failed call leaves its jobs as they were (unscreened ones are scored as before),
+    never failing the run. `on_progress(done, total)` follows a manual run."""
+    settings = get_settings()
+    waiting = _waiting(source_ids, recheck)[:limit] if limit else _waiting(source_ids, recheck)
     outcome = {"screened": 0, "set_aside": 0, "errors": []}
     if not waiting:
         return outcome
+    if on_progress is not None:
+        on_progress(0, len(waiting))
     context = _context(settings)
     for start in range(0, len(waiting), CHUNK):
         chunk = waiting[start : start + CHUNK]
         try:
             dropped = _screen_chunk(context, chunk)
         except LLMError as exc:
-            outcome["errors"].append(f"title screen: {exc}")
+            outcome["errors"].append(f"relevance check: {exc}")
             break
         with get_db() as conn:
             conn.executemany(
@@ -81,7 +94,92 @@ def screen_pending(source_ids: list[int]) -> dict:
             )
         outcome["screened"] += len(chunk)
         outcome["set_aside"] += len(dropped)
+        if on_progress is not None:
+            on_progress(outcome["screened"], len(waiting))
     return outcome
+
+
+# ---------------------------------------------------------------------------------------------
+# Running it by hand (asked 2026-11-12): Settings' Relevance check card. "Check waiting jobs" screens
+# every unscreened one now; "Re-check" redoes every waiting job, after changing what you're
+# looking for. Shown with a cost estimate when it's over $0.10.
+
+# About what 100 jobs cost before the person has runs of their own to average (Claude Haiku 5.5,
+# measured from the call sizes: ~3,000 tokens in and ~200 out per 150 jobs).
+FALLBACK_COST_PER_JOB = 0.00003
+SHOW_ESTIMATE_OVER = 0.10
+
+_lock = threading.Lock()
+_runs: dict[int, dict] = {}
+
+
+def _followed() -> list[int]:
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT source_id FROM source_follows WHERE user_id = ? AND enabled = 1", (current_user_id(),)
+        ).fetchall()
+    return [r["source_id"] for r in rows]
+
+
+def cost_per_job() -> float:
+    """From this person's recent runs ("title screen (N jobs)" notes), else the fallback."""
+    with get_db() as conn:
+        rows = conn.execute(
+            """SELECT estimated_cost_usd AS cost, note FROM llm_calls
+                WHERE user_id = ? AND note LIKE 'title screen (%' ORDER BY id DESC LIMIT 20""",
+            (current_user_id(),),
+        ).fetchall()
+    jobs = sum(int(r["note"].split("(")[1].split()[0]) for r in rows)
+    spent = sum(r["cost"] or 0 for r in rows)
+    return spent / jobs if jobs and spent else FALLBACK_COST_PER_JOB
+
+
+def estimates() -> dict:
+    """{"waiting": {jobs, usd}, "recheck": {jobs, usd}}: what each manual action would send."""
+    followed, per_job = _followed(), cost_per_job()
+    out = {}
+    for key, recheck in (("waiting", False), ("recheck", True)):
+        jobs = len(_waiting(followed, recheck))
+        out[key] = {"jobs": jobs, "usd": round(jobs * per_job, 4)}
+    return out
+
+
+def get_run() -> dict:
+    with _lock:
+        return dict(_runs.get(current_user_id()) or {"running": False})
+
+
+def start_run(recheck: bool) -> bool:
+    """Starts a manual run for the current person in the background. False when one is already
+    going (the caller follows it)."""
+    uid = current_user_id()
+    with _lock:
+        if (_runs.get(uid) or {}).get("running"):
+            return False
+        _runs[uid] = {"running": True, "done": 0, "total": 0, "set_aside": 0, "error": None}
+
+    def progress(done: int, total: int) -> None:
+        with _lock:
+            _runs[uid].update(done=done, total=total)
+
+    def run() -> None:
+        try:
+            outcome = screen_pending(_followed(), limit=None, recheck=recheck, on_progress=progress)
+            with _lock:
+                _runs[uid].update(
+                    set_aside=outcome["set_aside"],
+                    error=outcome["errors"][0] if outcome["errors"] else None,
+                )
+        except Exception as exc:  # noqa: BLE001 - reported to the page
+            logger.exception("manual relevance check failed")
+            with _lock:
+                _runs[uid]["error"] = str(exc)
+        finally:
+            with _lock:
+                _runs[uid]["running"] = False
+
+    threading.Thread(target=carry(run), daemon=True).start()
+    return True
 
 
 RECENT = 15
@@ -124,6 +222,9 @@ def insight() -> dict:
         "cost_this_month": round(spend["cost"], 4),
         "calls_this_month": spend["calls"],
         "recent": [dict(r) for r in recent],
+        "estimates": estimates(),
+        "show_estimate_over": SHOW_ESTIMATE_OVER,
+        "running": get_run().get("running", False),
     }
 
 
@@ -155,7 +256,7 @@ def _screen_chunk(context: str, chunk: list[dict]) -> set[int]:
         for n, row in enumerate(chunk, 1)
     )
     client = get_client()
-    with llm_error_boundary("screening job titles"):
+    with llm_error_boundary("checking job relevance"):
         response = client.messages.parse(
             model=SCREEN_MODEL,
             max_tokens=4000,
