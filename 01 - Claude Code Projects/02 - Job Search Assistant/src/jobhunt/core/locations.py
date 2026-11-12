@@ -238,6 +238,21 @@ DISTINCT_PLACES = {
     "WA": ["washington state", "kirkland wa"],
     "PA": ["pittsburgh", "philadelphia"],
 }  # fmt: skip
+# Two-letter country codes written after a comma ("Dublin, IE", "Berlin, DE"), as Greenhouse boards
+# do (asked 2026-11-12: "Dublin, IE" was split into an unknown "IE" and kept). Codes that are also US
+# states (CA, IN, IL, AR, CO, DE...) aren't here: after a comma those mean the state.
+COUNTRY_CODES = {
+    "IE": "ireland", "GB": "uk", "UK": "uk", "FR": "france", "ES": "spain", "NL": "netherlands",
+    "JP": "japan", "SG": "singapore", "AU": "australia", "NZ": "new zealand", "CH": "switzerland",
+    "SE": "sweden", "DK": "denmark", "NO": "norway", "FI": "finland", "BE": "belgium", "AT": "austria",
+    "PL": "poland", "PT": "portugal", "IT": "italy", "BR": "brazil", "MX": "mexico", "KR": "south korea",
+    "CN": "china", "HK": "hong kong", "TW": "taiwan", "AE": "uae", "ZA": "south africa", "CL": "chile",
+    "PH": "philippines", "IS": "iceland", "CZ": "czechia", "RO": "romania", "UA": "ukraine", "EG": "egypt",
+    "NG": "nigeria", "KE": "kenya", "TR": "turkey", "GR": "greece", "HU": "hungary", "EE": "estonia",
+    "LT": "lithuania", "LV": "latvia", "LU": "luxembourg", "CR": "costa rica", "PK": "pakistan",
+}  # fmt: skip
+COUNTRY_CODE = re.compile(r",\s*([A-Z]{2})\s*$")
+
 DISTINCT_FOREIGN = {"uk": ["london", "londres"], "france": ["paris"], "ireland": ["dublin"]}
 
 REMOTE_WORDS = ("remote", "anywhere", "wfh", "work from home", "work from anywhere", "distributed",
@@ -398,6 +413,9 @@ def read_job_location(location: str) -> JobPlace:
     trusted over state names inside a city's name ("Kansas", "Virginia Beach")."""
     norm = normalize(location)
     countries = {c for c, names in COUNTRIES.items() if any(_has(norm, n) for n in names)}
+    code = COUNTRY_CODE.search(location)
+    if code and code.group(1) in COUNTRY_CODES:
+        countries.add(COUNTRY_CODES[code.group(1)])
     us = any(_has(norm, n) for n in US_NAMES)
     explicit: set[str] = set()
     for match in STATE_ABBR.finditer(location):
@@ -435,7 +453,7 @@ def _only_region(part: str) -> bool:
     bare = ZIP.sub("", part).strip()
     if not bare:
         return True
-    if bare.upper().replace(".", "") in STATES:
+    if bare.upper().replace(".", "") in STATES or bare in COUNTRY_CODES:
         return True
     phrase = normalize(bare).strip()
     return (

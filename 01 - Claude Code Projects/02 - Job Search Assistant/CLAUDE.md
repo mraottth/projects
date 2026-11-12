@@ -330,7 +330,8 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     (`DISTINCT_PLACES`: "Palo Alto", "Jersey City", "Brooklyn", "Washington State"...;
     `DISTINCT_FOREIGN`: "London", "Paris", "Dublin", none of whose readings is near DC). Shared names
     ("Richmond", "Springfield", "Columbia", "Arlington") still prove nothing alone. Accents are
-    ignored ("Zürich"). Added 2026-11-12, when bare names like these leaked past the dealbreaker.
+    ignored ("Zürich"). A two-letter country code after a comma ("Dublin, IE", `COUNTRY_CODES`) is that
+    country, except codes that are also US states (", DE" is Delaware). Added 2026-11-12, when bare names like these leaked past the dealbreaker.
   - How the work is done isn't a place (2026-11-10, after a New York/San Francisco job reached the
     email): `ARRANGEMENT` ("(Hybrid)", "On-site:", "- In Office"...) is dropped before splitting,
     and stray dashes/colons are trimmed from each piece. "New York City, NY (Hybrid)" had read as

@@ -1291,8 +1291,16 @@
    "time": "2026-11-12T05:12:59.628Z",
    "kind": "prompt",
    "text": "matthew_adam_roth@cloudshell:~/projects/01 - Claude Code Projects/02 - Job Search Assistant (job-searcher-512814)$ curl -s \"https://api.ashbyhq.com/posting-api/job-board/harvey\" | python3 -c \"import json,sys; j=[x for x in json.load(sys.stdin)['jobs'] if x['id']=='239a5672-24da-4a1d-946f-f69bcaaef81b'][0]; print(json.dumps({k:j.get(k) for k in ['title','location','secondaryLocations','isRemote','workplaceType','address']}, indent=1))\"\n{\n \"title\": \"Employee Relations Business Partner\",\n \"location\": \"New York\",\n \"secondaryLocations\": [\n  {\n   \"location\": \"San Francisco\",\n   \"address\": {\n    \"postalAddress\": {\n     \"addressRegion\": \"California\",\n     \"addressCountry\": \"USA\",\n     \"addressLocality\": \"San Francisco\"\n    }\n   }\n  }\n ],\n \"isRemote\": true,\n \"workplaceType\": \"Hybrid\",\n \"address\": {\n  \"postalAddress\": {\n   \"addressRegion\": \"New York\",\n   \"addressCountry\": \"USA\",\n   \"addressLocality\": \"New York\"\n  }\n }\n}",
-   "reply": null,
+   "reply": "Your output showed the cause. Harvey's job board contradicts itself on this job: it says `isRemote: true` but also `workplaceType: \"Hybrid\"`, and it keeps a second office (San Francisco) in a separate list. The app believed `isRemote`, so it stored this as a remote \"New York\" job, and the dealbreaker keeps remote jobs. Its real places are New York and San Francisco, neither of which is DC.\n\nI've pushed a fix to `claude/move-job-search-assistant`:\n1. **Remote only when the board says so in its workplace field.** For Ashby boards, \"Hybrid\" or \"OnSite\" now wins over `isRemote`, which only counts when that field is missing.\n2. **Every location is read.** The secondary locations are added to the main one, so this job now reads \"New York | San Francisco\" and is hidden for you.\n3. **Jobs already saved get corrected too.** Until now, a job's location and remote flag were never updated after it was first saved. Now each daily check updates them, so this job and others like it are fixed at the next 2pm check. A posting that comes back with no location doesn't wipe the one already stored.\n\nThis affects every Ashby board you follow, not just Harvey. All 551 tests pass, including one built from this exact job's data.\n\nTo deploy:\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge --no-edit origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com IAP_AUDIENCE=/projects/<project number>/locations/us-central1/services/jobhunt\n```\n\nAfter the deploy, the job will disappear once Harvey's board is checked again: at the next 2pm check, or right away with \"Check my sources now\" on Manage Sources.",
    "id": "ab602548-185",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-12T14:29:06.407Z",
+   "kind": "prompt",
+   "text": "[screenshot]\n\nI deployed and reran check sources and I'm still seeing some postings that should be filtered out e.g. https://jobs.ashbyhq.com/harvey/cb89e7ec-6643-4cfa-b4d6-ce34b345f46a and https://job-boards.greenhouse.io/anthropic/jobs/5475136008",
+   "reply": null,
+   "id": "ab602548-186",
    "session": "ab602548"
   }
  ]

@@ -130,6 +130,19 @@ def test_remote_abroad_stays_when_that_country_is_wanted():
     assert locations.verdict("Remote, UK", None, ["United Kingdom"]) == "remote"
 
 
+@pytest.mark.parametrize("location", ["Dublin, IE", "London, GB", "Berlin, DE", "Tokyo, JP", "Zurich, CH"])
+def test_a_country_code_after_a_comma_is_that_country(location):
+    # Greenhouse writes "Dublin, IE"; "IE" used to be an unknown second place, so the job was kept
+    # (asked 2026-11-12, Anthropic's Dublin posting).
+    assert locations.verdict(location, None, ["Washington DC", "Remote"]) == "elsewhere"
+
+
+def test_a_state_code_still_wins_over_a_country_code():
+    assert locations.verdict("Wilmington, DE", None, ["Delaware"]) == "match"  # Delaware, not Germany
+    assert locations.verdict("Dublin, IE", None, ["Ireland"]) == "match"
+    assert locations.verdict("Dublin, IE; Washington, DC", None, ["Washington DC"]) == "match"
+
+
 def test_a_distinct_place_still_matches_its_own_area():
     assert locations.verdict("Palo Alto", None, ["California"]) == "match"
     assert locations.verdict("Sunnyvale", None, ["San Francisco"]) == "match"
