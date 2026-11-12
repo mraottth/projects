@@ -1,15 +1,13 @@
-import json
 import tempfile
-import time
 from datetime import date
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from starlette.background import BackgroundTask
 
-from jobhunt.core import backup, dealbreakers, locations, retag, usage
+from jobhunt.core import backup, dealbreakers, locations, screening, usage
 
 from jobhunt.core.llm import CACHE_READ_MULTIPLIER, CACHE_WRITE_MULTIPLIER, PRICING_PER_MTOK, LLMError
 from jobhunt.core.email_digest import EmailNotConfigured, email_status, send_test_email
@@ -139,41 +137,18 @@ def salary_check():
     return {"enabled": dealbreakers.salary_dealbreaker_on(current), "floor": floor, "preview": preview}
 
 
-@router.get("/retag-highlights")
-def retag_highlights_status():
-    """How many job summaries still have uncolored (untagged) highlights, and a cost estimate."""
-    return retag.pending_summary()
+@router.get("/title-screen")
+def title_screen():
+    """What the title screen has done for the current person (core/screening.py), for Settings."""
+    return screening.insight()
 
 
-@router.post("/retag-highlights")
-def retag_highlights():
-    """Colors older summaries' highlights (core/retag.py) in a background thread, streaming
-    progress as server-sent events -- {"type": "progress", done, total}, then {"type": "done",
-    retagged, skipped} or {"type": "error", message} -- like the pipeline's run stream, so a long
-    pass isn't a silent request that gets cut. A second request follows the pass in progress."""
-    retag.start()
-
-    def events():
-        while True:
-            state = retag.get_state()
-            if not state["running"]:
-                if state["error"]:
-                    yield _sse({"type": "error", "message": state["error"]})
-                else:
-                    yield _sse({"type": "done", "retagged": state["retagged"], "skipped": state["skipped"]})
-                return
-            yield _sse({"type": "progress", "done": state["done"], "total": state["total"]})
-            time.sleep(1.0)
-
-    return StreamingResponse(
-        events(),
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
-    )
-
-
-def _sse(event: dict) -> str:
-    return f"data: {json.dumps(event)}\n\n"
+@router.post("/title-screen/{job_id}/keep")
+def title_screen_put_back(job_id: int):
+    """Puts back a job the title screen set aside: it's scored like any other waiting job."""
+    if not screening.put_back(job_id):
+        raise HTTPException(404, "no set-aside job with that id")
+    return {"ok": True}
 
 
 @router.get("/email-status")

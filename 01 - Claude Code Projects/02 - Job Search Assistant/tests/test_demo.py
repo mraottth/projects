@@ -21,6 +21,7 @@ NOT_RECORDED = {
     "/api/admin/users/{}",
     "/api/jobs/manual",
     "/api/jobs/{}/confirm",
+    "/api/settings/title-screen/{}/keep",
     "/api/jobs/{}/score",
     "/api/jobs/{}/feedback",
     "/api/applications/{}",
@@ -93,7 +94,7 @@ def test_recorded_answers_are_the_real_apps(recording):
     me = data["responses"]["/api/me"]["body"]
     assert me["name"] == "Jordan Rivera" and not me["is_admin"]
     assert len(data["responses"]["/api/digest/today"]["body"]["entries"]) >= 6
-    assert data["responses"]["/api/settings/retag-highlights"]["body"]["pending"] == 0
+    assert data["responses"]["/api/settings/title-screen"]["status"] == 200
     threads = data["responses"]["/api/jobby/threads"]["body"]
     assert len(threads) == 4
     for t in threads:

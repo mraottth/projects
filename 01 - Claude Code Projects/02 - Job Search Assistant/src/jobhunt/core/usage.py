@@ -57,7 +57,7 @@ def categorize(call_type: str, note: str | None) -> str:
             return "discovery"
         if note.startswith("title screen"):
             return "screen"
-        if note.startswith("retag"):
+        if note.startswith("retag"):  # "Color older highlights", removed 2026-11-12; old log rows
             return "upkeep"
         return "adding"  # manual job paste-in logs with no note
     return "upkeep"

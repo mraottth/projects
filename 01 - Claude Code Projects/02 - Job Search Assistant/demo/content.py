@@ -797,7 +797,15 @@ JOBS = [
         None,
     ),
     ("ro_3", "remoteok", "Lumen Civic", "Data Lead", "Remote", "remote", None, 2, None, None, None, None),
+    # Set aside by the title screen (SET_ASIDE below): clear mismatches, never scored.
+    ("ts_1", "mission_data", "Clearwater Legal Group", "Senior Litigation Counsel", "Washington, DC", "onsite", None, 1, None, None, None, None),
+    ("ts_2", "dc_impact", "Beacon Health Services", "Registered Nurse, Night Shift", "Washington, DC", "onsite", None, 2, None, None, None, None),
+    ("ts_3", "public_interest", "Northwind SaaS", "Enterprise Account Executive", "Remote (US)", "remote", None, 3, None, None, None, None),
+    ("ts_4", "data4good", "Open Health Commons", "Summer Intern, Communications", "Remote (US)", "remote", None, 4, None, None, None, None),
 ]
+
+# Set aside by the title screen as clear mismatches (never scored; hidden on All Jobs unless asked).
+SET_ASIDE = {"ts_1", "ts_2", "ts_3", "ts_4"}
 
 # Today's New & Noteworthy and yesterday's (job keys, best first is worked out by the app).
 # A job on My Jobs never shows here (the app hides it), so these are mostly untracked ones. md_2

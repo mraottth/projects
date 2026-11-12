@@ -65,7 +65,7 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   - **Whose data.** `core/users.py` holds the current user in a context variable, set by the
     middleware and by the daily run per person (`acting_as`). `current_user_id()` raises
     `NoUserError` when nobody is set, so a missed spot fails closed. Background threads and pools
-    don't inherit it: `carry()` (discovery tasks, retag) or `daily_run._map_in_context()`. Every
+    don't inherit it: `carry()` (discovery tasks) or `daily_run._map_in_context()`. Every
     per-person table (`connection.PER_USER_TABLES`) has `user_id NOT NULL` (nullable only on
     `llm_calls`, where NULL is shared work like the scheduled run reading a board, and `runs`), and
     every query on one filters by it; reading another person's row by id is a 404. The UNIQUEs on
@@ -299,7 +299,7 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   estimate (count x the person's average of their last 50 scoring calls, 1 cent until they have
   5), when it's next available, and the budget left (null for the admin). `POST` starts it in a
   background thread (one per person; a second click on the same list follows it) and streams
-  progress like the retag pass. It stores a new `job_scores` row per job (the latest is what every
+  progress like the pipeline run. It stores a new `job_scores` row per job (the latest is what every
   page shows) and marks a queued job scored. It ignores the daily cap (an explicit request whose
   cost is shown first) but not the budget: `BudgetExceeded` stops the run and the result says why.
   Anyone but the admin can rescore each list once a day (`last_rescore_<scope>` setting, set at
@@ -327,6 +327,12 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     results kept, and the rest scored live, as are errored results and batches under
     `BATCH_MIN_JOBS`. Someone's own check and Refresh score live. `conftest.py` turns the screen and
     batches off for every test except `tests/test_scoring_costs.py`.
+  - **Settings' Title screen card** (asked 2026-11-12; `GET /api/settings/title-screen`,
+    `screening.insight()`): jobs screened, set aside, kept, still waiting, when it last ran and
+    what it cost this month, and the 15 latest set-asides, each with **Put back**
+    (`POST /api/settings/title-screen/{job_id}/keep`: screen becomes 'keep', so it's scored like
+    any other). "See all N on All Jobs" opens `/all-jobs?set_aside=1` (`onlyScreenedOut`, chip
+    "Only set-aside jobs"). The demo has four set-aside jobs (`content.SET_ASIDE`).
 - **"Score this job"** (asked 2026-11-12): an unscored job's card (and its detail card) has a button
   that scores it now, live (`POST /api/jobs/{id}/score`, `ScoreButton` in `ScoredJobCard.tsx`): the
   posting is fetched first if needed (`_backfill_description`), the score stored and the queue row
@@ -1018,14 +1024,9 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   chip colors, background and text (`.badge-high/-med/-low`): green High, amber Med, red Low. The
   user asked for highlights in the color of the assessment they support, matching the chips. An
   untagged `==text==` (rationales scored before this) looks like the Med chip.
-  Settings' "Color older highlights" (`core/retag.py`, `GET`/`POST /api/settings/retag-highlights`)
-  fixes those older ones. A refresh only scores new jobs, so live every card stayed amber. It shows
-  how many latest-score summaries have untagged marks and an estimate. Then, in a background thread
-  streamed as SSE progress like the pipeline run, it asks Claude (low effort, structured
-  `HighlightTags`) only for an `i`/`f` per numbered highlight and splices the tags in, so wording
-  and ratings never change. An answer whose length doesn't match the highlights leaves that
-  summary as it was. It logs as `parsing` with note "retag highlights", and the card hides once
-  nothing's left.
+  Settings' "Color older highlights" (`core/retag.py`) tagged those older ones with one cheap call
+  each; it was removed on 2026-11-12 once every live summary was tagged (its "retag highlights" log
+  rows still read as Upkeep in the Usage log).
 - On both `DigestPage` and `AllJobsPage`, marking a job "Interested" records the feedback *and*
   auto-creates an `applications` row the same way -- `components/ScoredJobCard.tsx` (`JobActions`)
   is the one shared implementation both pages use, so this only exists in one place. `JobDetailPage`

@@ -39,7 +39,7 @@ FIXED = [
     "/api/settings/preference-profile",
     "/api/settings/location-check",
     "/api/settings/salary-check",
-    "/api/settings/retag-highlights",
+    "/api/settings/title-screen",
     "/api/settings/email-status",
     "/api/settings/backups",
     "/api/settings/usage-log?period=day",
