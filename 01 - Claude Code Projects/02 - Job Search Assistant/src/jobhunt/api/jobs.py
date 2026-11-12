@@ -249,6 +249,44 @@ def confirm_job(job_id: int):
     return get_job(job_id)
 
 
+@router.post("/{job_id}/score")
+def score_one_job(job_id: int):
+    """Scores one job now, on request (asked 2026-11-12: a "Score this job" button on a card).
+    Live, about a cent, and outside the daily cap, like a rescore: it's an explicit ask. The
+    monthly budget still applies (get_client raises BudgetExceeded, an LLMError: a 502 here). Works
+    on a job the title screen set aside too, and on one already scored (a fresh score)."""
+    from jobhunt.core import queue
+    from jobhunt.pipeline.daily_run import _backfill_description
+
+    if not job_is_visible(job_id):
+        raise HTTPException(404, "job not found")
+    with get_db() as conn:
+        job = _row_to_dict(conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone())
+    job = _backfill_description(job)  # a web-board job's posting is fetched before its first score
+    try:
+        score = score_job(
+            job,
+            get_current_candidate_profile(),
+            get_current_preference_profile(),
+            get_setting("prefilter_sectors", []),
+            get_setting("prefilter_titles_include", []),
+            get_setting("salary_floor", None),
+            get_setting("looking_for_notes", ""),
+        )
+    except LLMError as exc:
+        raise HTTPException(502, str(exc)) from exc
+    store_score(job_id, score)
+    queue.mark_scored(job_id)
+    return {
+        "interest_fit": score.interest_fit,
+        "interest_score": score.interest_score,
+        "candidate_fit": score.candidate_fit,
+        "candidate_fit_score": score.candidate_fit_score,
+        "summary_text": score.summary_text,
+        "rationale_text": score.rationale_text,
+    }
+
+
 @router.post("/{job_id}/feedback")
 def submit_feedback(job_id: int, payload: FeedbackRequest):
     if payload.interested not in ("interested", "not_interested", "maybe"):

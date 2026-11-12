@@ -327,6 +327,11 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     results kept, and the rest scored live, as are errored results and batches under
     `BATCH_MIN_JOBS`. Someone's own check and Refresh score live. `conftest.py` turns the screen and
     batches off for every test except `tests/test_scoring_costs.py`.
+- **"Score this job"** (asked 2026-11-12): an unscored job's card (and its detail card) has a button
+  that scores it now, live (`POST /api/jobs/{id}/score`, `ScoreButton` in `ScoredJobCard.tsx`): the
+  posting is fetched first if needed (`_backfill_description`), the score stored and the queue row
+  marked scored. Outside the daily cap like a rescore, inside the monthly budget (a 502 says so).
+  Works on a job the title screen set aside. The card shows the score at once. Hidden in the demo.
 - Desired sectors (`settings.prefilter_sectors`, edited on the Profile page's "What are you looking
   for?" card) feed three places: `core/prefilter.py`'s rule-based scorer (boost on a text match,
   penalty on a clear miss -- unlike titles, sector is treated as a harder constraint per the user's

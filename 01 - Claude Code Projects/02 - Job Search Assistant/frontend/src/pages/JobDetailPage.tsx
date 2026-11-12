@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, Application, APPLICATION_STATUS_LABELS, GeneratedDoc, Job } from "../api";
 import { Markdown } from "../components/Markdown";
-import { rationaleClass } from "../components/ScoredJobCard";
+import { rationaleClass, ScoreButton } from "../components/ScoredJobCard";
+import { DEMO } from "../demo";
 import { Spinner } from "../components/Spinner";
 import { tidyDescription } from "../descriptionText";
 
@@ -100,6 +101,15 @@ export default function JobDetailPage({ jobId: shownId }: { jobId?: number } = {
         )}
       </p>
 
+      {!latestScore && (
+        <div className="card">
+          <h2>Scoring</h2>
+          <div className="badge-row">
+            <span className="muted small">Not yet scored.</span>
+            {!DEMO && <ScoreButton jobId={jobId} onScored={() => refresh()} />}
+          </div>
+        </div>
+      )}
       {latestScore && (
         <div className="card">
           <h2>Scoring</h2>
