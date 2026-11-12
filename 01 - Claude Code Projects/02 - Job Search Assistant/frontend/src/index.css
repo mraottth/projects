@@ -964,3 +964,21 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 .demo-tour.sheet { left: 12px; right: 12px; bottom: 12px; top: auto; width: auto; }
 .about-guide-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px; }
 .about-guide-head h2 { margin: 0; }
+/* Settings' Usage log (asked 2026-11-12): a period toggle, cost by category, activities that open. */
+.usage-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 12px 0 10px; flex-wrap: wrap; }
+.usage-total strong { font-size: 1.15rem; }
+.usage-cats { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.usage-cats li { display: grid; grid-template-columns: 170px 1fr 110px 64px; align-items: center; gap: 10px; font-size: 0.92rem; }
+.usage-cat-bar { height: 8px; border-radius: 999px; background: var(--page); overflow: hidden; }
+.usage-cat-bar span { display: block; height: 100%; border-radius: 999px; background: var(--accent); }
+.usage-cat-amount { text-align: right; }
+.usage-cat-cost { text-align: right; font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) { .usage-cats li { grid-template-columns: 1fr auto; } .usage-cat-bar, .usage-cat-amount { display: none; } }
+.usage-activities .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.usage-activity { cursor: pointer; }
+.usage-activity:hover { background: var(--page); }
+.usage-activity.open { background: color-mix(in srgb, var(--accent) 6%, var(--card)); }
+.usage-toggle { padding: 0; text-align: left; color: var(--ink); text-decoration: none; font-weight: 600; }
+.usage-call td { background: color-mix(in srgb, var(--accent) 3%, var(--card)); }
+.usage-call td:first-child { padding-left: 22px; }
+

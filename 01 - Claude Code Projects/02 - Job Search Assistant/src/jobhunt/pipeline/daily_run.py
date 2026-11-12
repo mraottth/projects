@@ -204,12 +204,33 @@ def _poll_sources(
         if postings is None:
             continue
 
+        if not postings:
+            # A source with active jobs that suddenly lists none is far more likely a read that went
+            # wrong (a board that didn't render in time) than a board emptied overnight: say so,
+            # rather than count it a success and leave its jobs as they were (asked 2026-11-12).
+            with get_db() as conn:
+                had = conn.execute(
+                    "SELECT COUNT(*) FROM jobs WHERE source_id = ? AND status = 'active'", (source["id"],)
+                ).fetchone()[0]
+                if had:
+                    message = f"found no postings this time (it had {had}); will try again next check"
+                    conn.execute(
+                        "UPDATE sources SET last_polled_at = datetime('now'), last_error = ? WHERE id = ?",
+                        (message, source["id"]),
+                    )
+                    errors.append(f"{source['name']}: {message}")
+                    continue
+
         fetched += len(postings)
+        seen: list[int] = []
         for posting in postings:
             job_id = _upsert_job(source["id"], posting)
             job_ids.append(job_id)
+            seen.append(job_id)
             jobs_by_source.setdefault(source["id"], []).append(job_id)
             upserted += 1
+        if postings and (source["kind"] in COMPLETE_KINDS or source.get("read_complete")):
+            _close_unlisted(source["id"], seen)
 
         with get_db() as conn:
             conn.execute(
@@ -339,6 +360,25 @@ def _upsert_job(source_id: int, posting: dict) -> int:
             ),
         )
         return cursor.lastrowid
+
+
+# Sources read from an ATS's API, which lists every open posting: a job missing from a read of one
+# has been taken down. (A web page read by Claude can list only some, so it never closes anything;
+# those age out after STALE_AFTER_DAYS.) A custom board read through its embedded ATS board sets
+# read_complete on the source (custom_board.py).
+COMPLETE_KINDS = {"ats_greenhouse", "ats_lever", "ats_ashby"}
+
+
+def _close_unlisted(source_id: int, listed: list[int]) -> None:
+    """Closes the source's active jobs that a complete read didn't list (asked 2026-11-12: a posting
+    taken down stayed on All Jobs until it aged out). Seen again, a job reopens (_upsert_job)."""
+    with get_db() as conn:
+        conn.execute(
+            f"""UPDATE jobs SET status = 'expired'
+                 WHERE source_id = ? AND status = 'active'
+                   AND id NOT IN ({",".join("?" * len(listed)) or "NULL"})""",
+            (source_id, *listed),
+        )
 
 
 def _expire_stale_jobs() -> None:

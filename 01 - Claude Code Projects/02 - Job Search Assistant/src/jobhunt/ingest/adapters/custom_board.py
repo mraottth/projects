@@ -10,6 +10,7 @@ scoring, keeping cost proportional to what actually gets scored, not what's mere
 
 import hashlib
 import json
+import logging
 import re
 from datetime import date
 from typing import Literal
@@ -22,6 +23,8 @@ from jobhunt.core.llm import DEFAULT_MODEL, get_client, llm_error_boundary, log_
 from jobhunt.core.page_fetch import PageFetchError, fetch_page
 from jobhunt.db.connection import get_db
 from jobhunt.ingest.adapters import ashby, greenhouse, lever
+
+logger = logging.getLogger(__name__)
 
 MAX_POSTINGS_PER_FETCH = 30
 # Low, not the default (high): copying postings off a page is mechanical, and at high effort each
@@ -90,6 +93,9 @@ def fetch_with_report(source: dict) -> tuple[list[dict], list[str]]:
        is read instead. The biggest result wins."""
     url = source["config"]["url"]
     steps: list[str] = []
+    remembered = _fetch_remembered_ats(source, steps)
+    if remembered is not None:
+        return remembered, steps
     try:
         page = fetch_page(url, preserve_links=True, max_chars=PAGE_MAX_CHARS)
     except PageFetchError as exc:
@@ -163,6 +169,56 @@ def _fetch_embedded_ats(html: str, source: dict, steps: list[str]) -> list[dict]
         steps.append(f"found a {kind.removeprefix('ats_').title()} board '{board}' but couldn't read it")
         return None
     steps.append(f"read its {kind.removeprefix('ats_').title()} board '{board}': {len(postings)}")
+    if postings:
+        _remember_ats(source, kind, config)
+        source["read_complete"] = True
+    return postings
+
+
+# A page found to embed a Greenhouse/Lever/Ashby board remembers it (in its config, as `embedded_ats`)
+# and reads the board's API directly from then on (asked 2026-11-12). Finding it can take a browser
+# render (Harvey's careers page: the static HTML shows nothing, so Claude read it and found 0, then the
+# render revealed Ashby). In the daily run, six sources render at once and the embed didn't always
+# load in time, so the read quietly found nothing and the board's jobs were never updated.
+
+
+def _remember_ats(source: dict, kind: str, config: dict) -> None:
+    saved = {"kind": kind, "config": config}
+    if source.get("id") is None or source["config"].get("embedded_ats") == saved:
+        return
+    source["config"] = {**source["config"], "embedded_ats": saved}
+    try:
+        with get_db() as conn:
+            row = conn.execute("SELECT config_json FROM sources WHERE id = ?", (source["id"],)).fetchone()
+            if row is not None:
+                stored = json.loads(row["config_json"] or "{}")
+                stored["embedded_ats"] = saved
+                conn.execute(
+                    "UPDATE sources SET config_json = ? WHERE id = ?", (json.dumps(stored), source["id"])
+                )
+    except Exception:  # noqa: BLE001 - remembering is an optimization; the read itself worked
+        logger.exception("couldn't remember the embedded board for source %s", source.get("id"))
+
+
+def _fetch_remembered_ats(source: dict, steps: list[str]) -> list[dict] | None:
+    """The remembered board's postings, or None (no board remembered, or it gave nothing) so the
+    page is read as usual and the board found afresh."""
+    saved = source["config"].get("embedded_ats") or {}
+    kind, config = saved.get("kind"), saved.get("config")
+    if kind not in ATS_ADAPTERS or not isinstance(config, dict):
+        return None
+    board = next(iter(config.values()), "")
+    name = kind.removeprefix("ats_").title()
+    try:
+        postings = ATS_ADAPTERS[kind]({**source, "kind": kind, "config": config})
+    except Exception as exc:  # noqa: BLE001 - fall back to reading the page
+        steps.append(f"its {name} board '{board}' couldn't be read ({exc}); reading the page instead")
+        return None
+    if not postings:
+        steps.append(f"its {name} board '{board}' listed nothing; reading the page instead")
+        return None
+    steps.append(f"read its {name} board '{board}' (remembered): {len(postings)}")
+    source["read_complete"] = True
     return postings
 
 

@@ -210,3 +210,56 @@ def test_progress_lists_sources_still_being_read(monkeypatch):
     daily_run._poll_sources([slow])
     assert seen_while_reading == [["Slow board"]]
     assert daily_run.get_progress()["sources_pending"] == []
+
+
+def _job_status(source_id):
+    with get_db() as conn:
+        rows = conn.execute("SELECT title, status FROM jobs WHERE source_id = ? ORDER BY title", (source_id,))
+        return {r["title"]: r["status"] for r in rows}
+
+
+def test_a_complete_read_closes_jobs_it_no_longer_lists(monkeypatch):
+    # A Greenhouse/Lever/Ashby read lists every open posting; one that's gone is closed (2026-11-12).
+    source = _source("Board")
+    listed = [{"title": t, "company": "Acme", "external_id": t} for t in ("A", "B", "C")]
+
+    def adapter(src):
+        src["read_complete"] = True  # as custom_board does for an embedded ATS board
+        return list(listed)
+
+    monkeypatch.setitem(daily_run.ADAPTERS, "custom_board", adapter)
+    daily_run._poll_sources(source_ids=[source])
+    listed.pop(1)
+    daily_run._poll_sources(source_ids=[source])
+    assert _job_status(source) == {"A": "active", "B": "expired", "C": "active"}
+    listed.append({"title": "B", "company": "Acme", "external_id": "B"})  # back again: reopened
+    daily_run._poll_sources(source_ids=[source])
+    assert _job_status(source)["B"] == "active"
+
+
+def test_a_page_read_by_claude_never_closes_jobs(monkeypatch):
+    source = _source("Board")
+    listed = [{"title": t, "company": "Acme", "url": f"https://x.org/{t}"} for t in ("A", "B")]
+    monkeypatch.setitem(daily_run.ADAPTERS, "custom_board", lambda src: list(listed))
+    daily_run._poll_sources(source_ids=[source])
+    listed.pop()
+    daily_run._poll_sources(source_ids=[source])
+    assert _job_status(source) == {"A": "active", "B": "active"}  # it may only have read some
+
+
+def test_an_empty_read_of_a_source_with_jobs_is_an_error_not_a_success(monkeypatch):
+    source = _source("Board")
+    listed = [{"title": "A", "company": "Acme", "external_id": "A"}]
+    monkeypatch.setitem(daily_run.ADAPTERS, "custom_board", lambda src: list(listed))
+    daily_run._poll_sources(source_ids=[source])
+    with get_db() as conn:
+        conn.execute("UPDATE sources SET last_success_at = '2026-01-01 00:00:00' WHERE id = ?", (source,))
+    listed.clear()
+    result = daily_run._poll_sources(source_ids=[source])
+    assert result["errors"] == ["Board: found no postings this time (it had 1); will try again next check"]
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT last_success_at, last_error FROM sources WHERE id = ?", (source,)
+        ).fetchone()
+    assert row["last_success_at"] == "2026-01-01 00:00:00" and "found no postings" in row["last_error"]
+    assert _job_status(source) == {"A": "active"}
