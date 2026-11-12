@@ -369,6 +369,9 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     - The three checkboxes sit in one section, "Include unrated and low relevance jobs", with one
       short line on what they are and short labels: "Not rated yet", "Outside your locations or pay
       floor (N)", "Low relevance (N)" (combined 2026-11-12; each had its own explanation before).
+      The section's heading is itself a checkbox (`IncludeAllCheckbox`) that ticks or clears every
+      box shown below it and reads half-ticked (`indeterminate`) when only some are on; each box
+      still works alone.
   - **Profile's My documents** has "Tailor for a job": a My Jobs select plus Tailor resume / Tailor cover letter (the usual `/api/generate/*`), a download link, and a refresh of Generated documents. It's hidden in the demo.
   - **Not done:** a "how to apply" summary on job cards. The stored descriptions from Greenhouse, Lever and Ashby don't carry the application form, so it wasn't worth adding to the scoring call. (Greenhouse's `questions=true` could give it free, for Greenhouse only.)
 - Desired sectors (`settings.prefilter_sectors`, edited on the Profile page's "What are you looking

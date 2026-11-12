@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { ScoredJob } from "../api";
 
 export type RecencyFilter = "all" | "1" | "3" | "7" | "30";
@@ -432,12 +433,12 @@ export function JobFilterBar({
       {/* One section for the three "show more" boxes (asked 2026-11-12), with one short line on what
           they are and plain, short labels. Each count shows only when there's something to show. */}
       <div className="fsection filter-checks">
-        <div className="flabel">Include unrated and low relevance jobs</div>
+        <IncludeAllCheckbox filters={filters} onChange={onChange} ruledOut={ruledOut} setAside={setAside} />
         <span className="filter-check-hint">
           Jobs still waiting for a rating, outside your dealbreakers, or set aside by a quick title check as
           clearly not a fit.
         </span>
-        <label className="filter-check">
+        <label className="filter-check filter-check-child">
           <input
             type="checkbox"
             checked={filters.includeUnscored}
@@ -446,7 +447,7 @@ export function JobFilterBar({
           <span>Not rated yet</span>
         </label>
         {ruledOut > 0 && (
-          <label className="filter-check">
+          <label className="filter-check filter-check-child">
             <input
               type="checkbox"
               checked={filters.includeDealbreakers}
@@ -456,7 +457,7 @@ export function JobFilterBar({
           </label>
         )}
         {setAside > 0 && (
-          <label className="filter-check">
+          <label className="filter-check filter-check-child">
             <input
               type="checkbox"
               checked={filters.includeScreenedOut}
@@ -526,4 +527,42 @@ export function toggleFilterValue(
 ): JobFilterState {
   const current = f[key];
   return { ...f, [key]: current.includes(value) ? current.filter((v) => v !== value) : [...current, value] };
+}
+
+/**
+ * The section's own checkbox (asked 2026-11-12): ticks or clears every box below it that's shown
+ * (a box with nothing to show isn't counted), and reads half-ticked when only some are on. Each box
+ * below still works on its own.
+ */
+function IncludeAllCheckbox({
+  filters,
+  onChange,
+  ruledOut,
+  setAside,
+}: {
+  filters: JobFilterState;
+  onChange: (f: JobFilterState) => void;
+  ruledOut: number;
+  setAside: number;
+}) {
+  const shown: ("includeUnscored" | "includeDealbreakers" | "includeScreenedOut")[] = ["includeUnscored"];
+  if (ruledOut > 0) shown.push("includeDealbreakers");
+  if (setAside > 0) shown.push("includeScreenedOut");
+  const on = shown.filter((k) => filters[k]).length;
+  const all = on === shown.length;
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = on > 0 && !all;
+  }, [on, all]);
+  return (
+    <label className="filter-check filter-check-all">
+      <input
+        ref={ref}
+        type="checkbox"
+        checked={all}
+        onChange={() => onChange({ ...filters, ...Object.fromEntries(shown.map((k) => [k, !all])) })}
+      />
+      <span>Include unrated and low relevance jobs</span>
+    </label>
+  );
 }
