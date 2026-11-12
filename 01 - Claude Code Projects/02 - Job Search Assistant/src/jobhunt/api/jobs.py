@@ -68,7 +68,11 @@ RANKED_JOB_COLUMNS = ", ".join(
 )  # fmt: skip
 RANKED_WHERE = (
     "j.status = :status AND j.source_id IS NOT NULL "
-    "AND j.source_id IN (SELECT source_id FROM source_follows WHERE user_id = :uid)"
+    "AND j.source_id IN (SELECT source_id FROM source_follows WHERE user_id = :uid) "
+    # A job you've applied to lives on My Jobs only (asked 2026-11-12); one still in Drafting stays
+    # here, and removing it from My Jobs brings it back.
+    "AND NOT EXISTS (SELECT 1 FROM applications ap WHERE ap.user_id = :uid AND ap.job_id = j.id "
+    "AND ap.status != 'saved')"
 )
 
 

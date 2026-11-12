@@ -764,6 +764,9 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     Starlette leaves `text/event-stream` alone). 0.06 s and 2.9 MB before compression; the page draws
     50 cards and adds 50 more as you near the end (an `IntersectionObserver` on a "Showing N of M"
     line), starting over when a filter changes.
+  - A job you've applied to leaves All Jobs (asked 2026-11-12): `RANKED_WHERE` (and the All Jobs
+    rescore) skips jobs with an `applications` row of the person's in any status but `saved`
+    (Drafting), so they live on My Jobs only; removing one from My Jobs brings it back.
   - All Jobs cards show where a job stands on My Jobs (asked 2026-11-10): `GET /api/jobs/ranked`
     joins the person's own `applications` row as `application_status`, and `ScoredJobCard` shows
     "On My Jobs · Waiting" (the status's `pill-*` colors, linking to `/tracker`) in place of the

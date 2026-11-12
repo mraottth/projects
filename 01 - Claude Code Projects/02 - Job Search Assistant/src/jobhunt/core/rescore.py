@@ -58,8 +58,10 @@ def job_ids(scope: str) -> list[int]:
                 """SELECT j.id, j.title, j.location, j.remote_type, j.salary_min, j.salary_max,
                           j.salary_currency, j.salary_period FROM jobs j
                    WHERE j.status = 'active' AND j.source_id IS NOT NULL
-                     AND j.source_id IN (SELECT source_id FROM source_follows WHERE user_id = ?)""",
-                (uid,),
+                     AND j.source_id IN (SELECT source_id FROM source_follows WHERE user_id = ?)
+                     AND NOT EXISTS (SELECT 1 FROM applications ap WHERE ap.user_id = ?
+                                       AND ap.job_id = j.id AND ap.status != 'saved')""",
+                (uid, uid),
             ).fetchall()
         else:
             raise ValueError(f"unknown list: {scope}")

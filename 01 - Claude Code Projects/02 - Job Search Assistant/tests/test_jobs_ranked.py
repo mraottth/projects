@@ -76,9 +76,28 @@ def test_each_job_says_its_status_on_my_jobs():
             "INSERT INTO applications (user_id, job_id, status) VALUES (?, ?, 'offer')", (bea, other)
         )
 
+    with get_db() as conn:
+        conn.execute("UPDATE applications SET status = 'saved' WHERE user_id = 1")
     with TestClient(app) as client:
         statuses = {row["title"]: row["application_status"] for row in client.get("/api/jobs/ranked").json()}
-    assert statuses == {"Tracked": "waiting", "Not tracked": None, "Bea's": None}
+    assert statuses == {"Tracked": "saved", "Not tracked": None, "Bea's": None}
+
+
+def test_a_job_youve_applied_to_leaves_all_jobs_until_its_removed_from_my_jobs():
+    """Asked 2026-11-12: applied-to jobs live on My Jobs only; Drafting ones stay on All Jobs."""
+    source_id = _insert_source()
+    drafting = _insert_job("k1", "Drafting", source_id, score=60)
+    applied = _insert_job("k2", "Applied", source_id, score=50)
+    with get_db() as conn:
+        conn.execute("INSERT INTO applications (user_id, job_id, status) VALUES (1, ?, 'saved')", (drafting,))
+        app_id = conn.execute(
+            "INSERT INTO applications (user_id, job_id, status) VALUES (1, ?, 'waiting')", (applied,)
+        ).lastrowid
+
+    with TestClient(app) as client:
+        assert [r["title"] for r in client.get("/api/jobs/ranked").json()] == ["Drafting"]
+        assert client.delete(f"/api/applications/{app_id}").status_code in (200, 204)
+        assert {r["title"] for r in client.get("/api/jobs/ranked").json()} == {"Drafting", "Applied"}
 
 
 def test_the_list_leaves_out_descriptions_and_raw_data_which_load_separately():

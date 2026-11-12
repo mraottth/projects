@@ -122,8 +122,8 @@ def test_a_source_finding_your_pasted_job_merges_everything_onto_it():
         assert conn.execute("SELECT job_id FROM job_scores").fetchone()[0] == found
         assert conn.execute("SELECT job_id FROM jobby_threads WHERE id = ?", (thread,)).fetchone()[0] == found
     with TestClient(app) as http:
-        ranked = {j["id"]: j for j in http.get("/api/jobs/ranked").json()}
-        assert ranked[found]["application_status"] == "interviewing"
+        # Applied to, so it's on My Jobs only (not All Jobs).
+        assert found not in {j["id"] for j in http.get("/api/jobs/ranked").json()}
         assert [a["job_id"] for a in http.get("/api/applications").json()] == [found]
 
 
