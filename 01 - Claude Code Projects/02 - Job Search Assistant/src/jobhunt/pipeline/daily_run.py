@@ -667,18 +667,23 @@ def _run_for_person(
 
         scored_count, scoring_errors, preference_rebuilt = 0, [], False
         allowed = remaining_cap(cap)
-        if get_current_candidate_profile() is None:
+        has_profile = get_current_candidate_profile() is not None
+        over_budget = budget.status(user_id)["over"]
+        if not has_profile:
             # Nothing to score against until they've set up a profile (onboarding builds one).
             allowed = 0
-        if allowed and budget.status(user_id)["over"]:
+        if allowed and over_budget:
             # This month's budget is used up: skip the batch rather than fail job by job.
             allowed = 0
             scoring_errors.append(budget.exceeded_message(budget.status(user_id)["monthly_budget_usd"]))
         screened = None
-        if allowed:
-            # Set aside clear title mismatches first, so the cap goes to plausible jobs.
+        if has_profile and not over_budget:
+            # Set aside clear title mismatches first, so the cap goes to plausible jobs. It runs even
+            # when today's cap is used up: it costs next to nothing and it tidies All Jobs (2026-11-12:
+            # a day at 50 of 50 never reached it, so nothing was ever set aside).
             screened = screen_pending(sorted(followed))
             scoring_errors.extend(screened["errors"])
+        if allowed:
             batch = queue.select_batch(allowed, source_ids=sorted(followed) or [-1])
             scored_count, errors = _score_and_digest(batch, batch_deadline)
             scoring_errors.extend(errors)
@@ -871,12 +876,11 @@ def _refresh_sources(source_ids: list[int], cap: int) -> dict:
         enqueued = _prefilter_and_enqueue(job_ids)
         scored, scoring_errors = 0, []
         allowed = remaining_cap(cap)
-        if (
-            allowed
-            and get_current_candidate_profile() is not None
-            and not budget.status(current_user_id())["over"]
-        ):
-            scoring_errors.extend(screen_pending(source_ids)["errors"])
+        if get_current_candidate_profile() is not None and not budget.status(current_user_id())["over"]:
+            scoring_errors.extend(screen_pending(source_ids)["errors"])  # even with the cap used up
+        else:
+            allowed = 0
+        if allowed:
             batch = queue.select_batch(allowed, source_ids=source_ids)
             scored, errors = _score_and_digest(batch)
             scoring_errors.extend(errors)

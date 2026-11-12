@@ -22,6 +22,8 @@ export interface JobFilterState {
   // Jobs the title screen set aside as clear mismatches (core/screening.py): never scored, hidden
   // unless asked for. A setting like the dealbreakers one.
   includeScreenedOut: boolean;
+  // Only the set-aside jobs (Settings' Title screen card links to All Jobs?set_aside=1).
+  onlyScreenedOut?: boolean;
   sort: SortKey;
 }
 
@@ -153,6 +155,7 @@ export function filterJobs(jobs: ScoredJob[], f: JobFilterState): ScoredJob[] {
   const filtered = jobs.filter((job) => {
     if (job.dealbreakers?.length && !f.includeDealbreakers) return false;
     if (job.screened_out && !f.includeScreenedOut) return false;
+    if (f.onlyScreenedOut && !job.screened_out) return false;
     if (!job.interest_fit && !job.candidate_fit) {
       if (!f.includeUnscored) return false;
     } else {
@@ -296,7 +299,13 @@ function AppliedFilters({
       clear: () => set({ includeDealbreakers: false }),
     });
   }
-  if (filters.includeScreenedOut) {
+  if (filters.onlyScreenedOut) {
+    chips.push({
+      key: "only-screened",
+      label: "Only set-aside jobs",
+      clear: () => set({ onlyScreenedOut: false, includeScreenedOut: false }),
+    });
+  } else if (filters.includeScreenedOut) {
     chips.push({
       key: "screened",
       label: "Showing set-aside jobs",

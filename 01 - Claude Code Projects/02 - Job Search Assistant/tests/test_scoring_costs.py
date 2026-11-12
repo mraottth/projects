@@ -203,3 +203,37 @@ def test_batch_calls_are_logged_at_half_price():
     llm.log_call("scoring", llm.DEFAULT_MODEL, 1000, 100)
     halved, full = (r["estimated_cost_usd"] for r in _scored())
     assert abs(halved - full / 2) < 1e-12
+
+
+def test_the_settings_card_reports_what_the_screen_did_and_put_back_works(monkeypatch):
+    source, (data, legal, maybe) = _jobs("Director of Data", "Senior Litigation Counsel", "Analytics Lead")
+    client = FakeAnthropicClient(parse_result=FakeParseResponse(ScreenResult(set_aside=[2])))
+    monkeypatch.setattr(screening, "get_client", lambda: client)
+    screening.screen_pending([source])
+    with TestClient(app) as http:
+        info = http.get("/api/settings/title-screen").json()
+        assert (info["screened"], info["set_aside"], info["kept"], info["waiting"]) == (3, 1, 2, 0)
+        assert info["calls_this_month"] == 1 and info["last_screened_at"]
+        assert [j["title"] for j in info["recent"]] == ["Senior Litigation Counsel"]
+
+        assert http.post(f"/api/settings/title-screen/{legal}/keep").json() == {"ok": True}
+        assert http.post(f"/api/settings/title-screen/{legal}/keep").status_code == 404  # not set aside now
+        assert http.get("/api/settings/title-screen").json()["set_aside"] == 0
+    assert sorted(queue.select_batch(10)) == sorted([data, legal, maybe])  # scored like any other
+
+
+def test_the_screen_runs_even_when_todays_cap_is_used_up(monkeypatch):
+    # A day at 50 of 50 skipped the screen along with scoring, so nothing was ever set aside and
+    # All Jobs' "set aside" toggle never appeared (2026-11-12).
+    give_profile()
+    _, (data, legal) = _jobs("Director of Data", "Senior Litigation Counsel")
+    client = FakeAnthropicClient(parse_result=FakeParseResponse(ScreenResult(set_aside=[2])))
+    monkeypatch.setattr(screening, "get_client", lambda: client)
+    monkeypatch.setattr(daily_run, "ADAPTERS", {})
+    monkeypatch.setattr(daily_run, "remaining_cap", lambda cap=None: 0)
+    daily_run.run_daily(only_user=1)
+    with TestClient(app) as http:
+        jobs = {j["title"]: j for j in http.get("/api/jobs/ranked").json()}
+    assert jobs["Senior Litigation Counsel"]["screened_out"] is True
+    with get_db() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM job_scores").fetchone()[0] == 0  # still nothing scored

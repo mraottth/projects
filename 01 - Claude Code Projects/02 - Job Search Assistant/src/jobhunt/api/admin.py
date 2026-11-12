@@ -169,7 +169,7 @@ def scoring_experiment_status():
 @router.post("/scoring-experiment")
 def run_scoring_experiment():
     """Runs the experiment in a background thread, streaming {"type": "progress", done, total},
-    then {"type": "done", result} or {"type": "error", message}, like Settings' retag pass. A second
+    then {"type": "done", result} or {"type": "error", message}, like Settings' rescore stream. A second
     request follows the run in progress."""
     scoring_experiment.start()
 

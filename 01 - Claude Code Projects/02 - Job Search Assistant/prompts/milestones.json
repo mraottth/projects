@@ -537,7 +537,9 @@
   "summary": "A score cost about 0.9 cents, and the daily cap was used up every day, much of it on jobs that were obviously not a fit. Now a quick, very cheap read of the waiting jobs' titles sets aside the clear mismatches first, and the daily 2pm check scores the rest through Anthropic's batch API at half price.",
   "prompts": [
    "ab602548-193",
-   "ab602548-194"
+   "ab602548-194",
+   "ab602548-198",
+   "ab602548-199"
   ],
   "commits": [
    "003dc27"

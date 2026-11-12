@@ -981,4 +981,13 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 .usage-toggle { padding: 0; text-align: left; color: var(--ink); text-decoration: none; font-weight: 600; }
 .usage-call td { background: color-mix(in srgb, var(--accent) 3%, var(--card)); }
 .usage-call td:first-child { padding-left: 22px; }
+/* Settings' Title screen card (asked 2026-11-12). */
+.screen-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 10px 0; }
+.screen-stats > div { background: var(--page); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+.screen-stats strong { font-size: 1.2rem; }
+@media (max-width: 640px) { .screen-stats { grid-template-columns: repeat(2, 1fr); } }
+.screen-recent-head { margin: 14px 0 6px; font-size: 0.95rem; }
+.screen-recent { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; }
+.screen-recent li { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 6px 0; border-top: 1px solid var(--grid); }
+.screen-recent-title { min-width: 0; }
 

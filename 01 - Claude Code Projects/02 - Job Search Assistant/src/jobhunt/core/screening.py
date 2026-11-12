@@ -84,6 +84,59 @@ def screen_pending(source_ids: list[int]) -> dict:
     return outcome
 
 
+RECENT = 15
+
+
+def insight() -> dict:
+    """For Settings' Title screen card (asked 2026-11-12): what it has screened, set aside and kept,
+    what's still waiting, when it last ran, what it cost this month, and its latest set-asides."""
+    uid = current_user_id()
+    with get_db() as conn:
+        counts = conn.execute(
+            """SELECT
+                   SUM(screen IS NOT NULL) AS screened,
+                   SUM(screen = 'drop' AND status = 'pending') AS set_aside,
+                   SUM(screen = 'keep') AS kept,
+                   SUM(screen IS NULL AND status = 'pending') AS waiting,
+                   MAX(screened_at) AS last_screened_at
+                 FROM scoring_queue WHERE user_id = ?""",
+            (uid,),
+        ).fetchone()
+        spend = conn.execute(
+            """SELECT COALESCE(SUM(estimated_cost_usd), 0) AS cost, COUNT(*) AS calls
+                 FROM llm_calls WHERE user_id = ? AND note LIKE 'title screen%'
+                  AND created_at >= date('now', 'start of month')""",
+            (uid,),
+        ).fetchone()
+        recent = conn.execute(
+            """SELECT j.id, j.title, j.company, j.location, q.screened_at
+                 FROM scoring_queue q JOIN jobs j ON j.id = q.job_id
+                WHERE q.user_id = ? AND q.screen = 'drop' AND q.status = 'pending' AND j.status = 'active'
+                ORDER BY q.screened_at DESC, q.id DESC LIMIT ?""",
+            (uid, RECENT),
+        ).fetchall()
+    return {
+        "screened": counts["screened"] or 0,
+        "set_aside": counts["set_aside"] or 0,
+        "kept": counts["kept"] or 0,
+        "waiting": counts["waiting"] or 0,
+        "last_screened_at": counts["last_screened_at"],
+        "cost_this_month": round(spend["cost"], 4),
+        "calls_this_month": spend["calls"],
+        "recent": [dict(r) for r in recent],
+    }
+
+
+def put_back(job_id: int) -> bool:
+    """A set-aside job back in line to be scored, when the screen got it wrong."""
+    with get_db() as conn:
+        cursor = conn.execute(
+            "UPDATE scoring_queue SET screen = 'keep' WHERE user_id = ? AND job_id = ? AND screen = 'drop'",
+            (current_user_id(), job_id),
+        )
+    return cursor.rowcount > 0
+
+
 def _context(settings: dict) -> str:
     titles = ", ".join(settings.get("prefilter_titles_include") or []) or "(not specified)"
     sectors = ", ".join(settings.get("prefilter_sectors") or []) or "(not specified)"

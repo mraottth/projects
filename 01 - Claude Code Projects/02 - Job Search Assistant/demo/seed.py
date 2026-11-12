@@ -223,7 +223,7 @@ def build(now: datetime | None = None) -> dict:
                 scored = interest is not None
                 conn.execute(
                     """INSERT INTO scoring_queue (user_id, job_id, prefilter_score, priority, status,
-                       queued_at, scored_at) VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                       queued_at, scored_at, screen, screened_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (
                         uid,
                         job_id,
@@ -232,6 +232,8 @@ def build(now: datetime | None = None) -> dict:
                         "scored" if scored else "pending",
                         first_seen,
                         first_seen if scored else None,
+                        "drop" if key in C.SET_ASIDE else "keep",
+                        first_seen,
                     ),
                 )
                 if scored:
@@ -413,10 +415,13 @@ def build(now: datetime | None = None) -> dict:
                 ("profile_rebuild", None, 7600, 1700, 0, 0, "candidate profile", 6),
                 ("profile_rebuild", None, 3900, 600, 0, 0, "preference profile", 3),
                 ("profile_rebuild", None, 2800, 900, 0, 0, "application insights", 1),
+                ("title screen", None, 3200, 60, 2600, 0, f"title screen ({len(C.JOBS)} jobs)", 0),
             ]
             for call_type, job_id, inp, outp, read, write, note, n in calls:
+                model = "claude-haiku-5-5" if call_type == "title screen" else DEMO_MODEL
+                call_type = "parsing" if call_type == "title screen" else call_type
                 cost = llm.estimate_cost_usd(
-                    DEMO_MODEL, inp, outp, cache_read_tokens=read, cache_write_tokens=write
+                    model, inp, outp, cache_read_tokens=read, cache_write_tokens=write
                 )
                 conn.execute(
                     """INSERT INTO llm_calls (user_id, call_type, job_id, model, input_tokens, output_tokens,
@@ -426,7 +431,7 @@ def build(now: datetime | None = None) -> dict:
                         uid,
                         call_type,
                         job_id,
-                        DEMO_MODEL,
+                        model,
                         inp,
                         outp,
                         cost,

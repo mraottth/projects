@@ -525,6 +525,18 @@ export interface UsageSummary {
   }[];
 }
 
+/** What the title screen has done (GET /api/settings/title-screen, core/screening.py). */
+export interface TitleScreenInsight {
+  screened: number;
+  set_aside: number;
+  kept: number;
+  waiting: number;
+  last_screened_at: string | null;
+  cost_this_month: number;
+  calls_this_month: number;
+  recent: { id: number; title: string; company: string; location: string | null; screened_at: string }[];
+}
+
 /** Who's signed in (GET /api/me, D-021). status "none" = never asked for access. */
 export interface Me {
   email: string;
@@ -868,28 +880,10 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
-  getRetagStatus: () =>
-    request<{ pending: number; estimated_cost_usd: number }>("/api/settings/retag-highlights"),
+  getTitleScreen: () => request<TitleScreenInsight>("/api/settings/title-screen"),
 
-  // Colors older summaries' highlights; streams {done, total} progress until it finishes.
-  retagHighlights: async (onProgress: (done: number, total: number) => void) => {
-    const res = await apiFetch("/api/settings/retag-highlights", { method: "POST" });
-    if (!res.ok || !res.body) throw new ApiError(res.status, res.statusText);
-    let result: { retagged: number; skipped: number } | null = null;
-    let failure: string | null = null;
-    await readEvents<
-      | { type: "progress"; done: number; total: number }
-      | { type: "done"; retagged: number; skipped: number }
-      | { type: "error"; message: string }
-    >(res, (event) => {
-      if (event.type === "progress") onProgress(event.done, event.total);
-      else if (event.type === "done") result = { retagged: event.retagged, skipped: event.skipped };
-      else failure = event.message;
-    });
-    if (failure) throw new Error(failure);
-    if (!result) throw new Error(NETWORK_ERROR);
-    return result as { retagged: number; skipped: number };
-  },
+  putBackScreened: (jobId: number) =>
+    request<{ ok: true }>(`/api/settings/title-screen/${jobId}/keep`, { method: "POST" }),
 
   getEmailStatus: () => request<EmailStatus>("/api/settings/email-status"),
 

@@ -21,7 +21,10 @@ export default function AllJobsPage() {
   // without the default fit filters, so the list matches the count it was opened from.
   const [filters, setFilters] = useState<JobFilterState>(() => {
     const source = params.get("source");
-    return source ? { ...NO_JOB_FILTERS, source: [source] } : DEFAULT_JOB_FILTERS;
+    if (source) return { ...NO_JOB_FILTERS, source: [source] };
+    // ?set_aside=1 (Settings' Title screen card): just the jobs the title screen set aside.
+    if (params.get("set_aside")) return { ...NO_JOB_FILTERS, includeScreenedOut: true, onlyScreenedOut: true };
+    return DEFAULT_JOB_FILTERS;
   });
 
   useEffect(() => {

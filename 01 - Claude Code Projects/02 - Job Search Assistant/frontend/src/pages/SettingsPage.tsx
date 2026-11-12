@@ -1,5 +1,16 @@
 import { useEffect, useState } from "react";
-import { api, ApiError, type EmailStatus, Me, Settings, type UsagePeriod, type UsageSummary } from "../api";
+import {
+  api,
+  ApiError,
+  type EmailStatus,
+  Me,
+  Settings,
+  type TitleScreenInsight,
+  type UsagePeriod,
+  type UsageSummary,
+} from "../api";
+import { Link } from "react-router-dom";
+import { JobLink } from "../components/JobLink";
 import { Markdown } from "../components/Markdown";
 import { RescoreButton } from "../components/RescoreButton";
 import { Spinner } from "../components/Spinner";
@@ -95,61 +106,106 @@ function LastEmail({ last }: { last: NonNullable<EmailStatus["last"]> }) {
   );
 }
 
-// One-off: older job summaries' highlights are untagged, so they all show amber. This has Claude
-// label each as interest or fit (core/retag.py), after showing how many and roughly what it costs.
-function ColorOlderHighlights() {
-  const [status, setStatus] = useState<{ pending: number; estimated_cost_usd: number } | null>(null);
-  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
+/**
+ * The title screen (core/screening.py, asked 2026-11-12): what it has screened, set aside and kept,
+ * what's still waiting, what it cost, and its latest set-asides, each with "Put back" for when it
+ * got one wrong (that job is then scored like any other).
+ */
+function TitleScreenCard() {
+  const [info, setInfo] = useState<TitleScreenInsight | null>(null);
+  const [putBack, setPutBack] = useState<Set<number>>(new Set());
+  const [error, setError] = useState<string | null>(null);
 
-  const load = () => api.getRetagStatus().then(setStatus).catch(() => undefined);
   useEffect(() => {
-    load();
+    api.getTitleScreen().then(setInfo).catch(() => setInfo(null));
   }, []);
 
-  const run = async () => {
-    setBusy(true);
-    setResult(null);
-    setProgress(null);
-    try {
-      const r = await api.retagHighlights((done, total) => setProgress({ done, total }));
-      setResult({
-        ok: true,
-        text:
-          `Colored the highlights in ${r.retagged} summar${r.retagged === 1 ? "y" : "ies"}.` +
-          (r.skipped ? ` ${r.skipped} couldn't be matched up and were left as they were.` : ""),
-      });
-      load();
-    } catch (e) {
-      setResult({ ok: false, text: e instanceof Error ? e.message : String(e) });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  if (!status || (status.pending === 0 && !result)) return null;
+  if (!info) return null;
+  const rate = info.screened ? Math.round(((info.set_aside) / info.screened) * 100) : 0;
   return (
     <div className="card">
-      <h2>Color older highlights</h2>
+      <h2>Title screen</h2>
       <p className="muted small">
-        Job summaries scored before highlights were colored still show every highlight in amber.
-        This asks Claude which rating each highlight explains, interest or fit, and colors it to
-        match, without changing any wording or ratings.
+        Before jobs are scored, a quick, very cheap read of their titles sets aside the ones that are clearly
+        not a fit, so your daily scoring goes to jobs worth a closer look. Anything it isn't sure about is
+        kept. Set-aside jobs aren't scored and are hidden on All Jobs unless you ask to see them.
       </p>
-      {status.pending > 0 && (
-        <button className="ghost" onClick={run} disabled={busy}>
-          {busy ? (
-            <Spinner label={progress?.total ? `Colored ${progress.done} of ${progress.total}...` : "Starting..."} />
-          ) : (
-            `Color ${status.pending} summar${status.pending === 1 ? "y" : "ies"} (about $${Math.max(
-              status.estimated_cost_usd,
-              0.01,
-            ).toFixed(2)})`
-          )}
-        </button>
+      {info.screened === 0 ? (
+        <p className="small">
+          Nothing screened yet. It runs before the next check scores jobs
+          {info.waiting > 0 && ` (${info.waiting.toLocaleString()} waiting)`}.
+        </p>
+      ) : (
+        <>
+          <div className="screen-stats">
+            <div>
+              <strong>{info.screened.toLocaleString()}</strong>
+              <span className="muted small">screened</span>
+            </div>
+            <div>
+              <strong>{info.set_aside.toLocaleString()}</strong>
+              <span className="muted small">set aside ({rate}%)</span>
+            </div>
+            <div>
+              <strong>{info.kept.toLocaleString()}</strong>
+              <span className="muted small">kept for scoring</span>
+            </div>
+            <div>
+              <strong>{info.waiting.toLocaleString()}</strong>
+              <span className="muted small">not screened yet</span>
+            </div>
+          </div>
+          <p className="muted small">
+            {info.last_screened_at && `Last ran ${when(info.last_screened_at)}. `}
+            This month: {info.calls_this_month} call{info.calls_this_month === 1 ? "" : "s"},{" "}
+            {money(info.cost_this_month)}.
+          </p>
+        </>
       )}
-      {result && <p className={result.ok ? "muted small" : "error-text small"}>{result.text}</p>}
+      {info.recent.length > 0 && (
+        <>
+          <h3 className="screen-recent-head">Recently set aside</h3>
+          <ul className="screen-recent">
+            {info.recent.map((job) => (
+              <li key={job.id}>
+                <span className="screen-recent-title">
+                  <JobLink jobId={job.id}>{job.title}</JobLink>
+                  <span className="muted small">
+                    {" "}
+                    · {job.company}
+                    {job.location && ` · ${job.location}`}
+                  </span>
+                </span>
+                {putBack.has(job.id) ? (
+                  <span className="muted small">Put back: it'll be scored</span>
+                ) : (
+                  <button
+                    className="link small"
+                    title="The screen got this one wrong: score it like any other job"
+                    onClick={async () => {
+                      setError(null);
+                      try {
+                        await api.putBackScreened(job.id);
+                        setPutBack((s) => new Set(s).add(job.id));
+                      } catch (e) {
+                        setError(e instanceof Error ? e.message : String(e));
+                      }
+                    }}
+                  >
+                    Put back
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+          {error && <p className="error-text small">{error}</p>}
+          {info.set_aside > 0 && (
+            <Link className="link small" to="/all-jobs?set_aside=1">
+              See all {info.set_aside.toLocaleString()} on All Jobs →
+            </Link>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -617,7 +673,7 @@ export default function SettingsPage() {
       <RescoreJobs />
 
       <DailyEmail />
-      <ColorOlderHighlights />
+      <TitleScreenCard />
       <PrefilterSettings />
       <UsageLog />
       <YourData />
