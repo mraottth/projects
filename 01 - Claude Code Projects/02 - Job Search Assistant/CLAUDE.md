@@ -314,7 +314,9 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     call, the person's context cached. It lists only clear mismatches (another line of work, far
     off in seniority; never location, pay or organization). `scoring_queue.screen` becomes 'drop'
     or 'keep' (a MIGRATIONS ALTER); `queue.select_batch` skips 'drop', so the cap goes to plausible
-    jobs. A failed or refused call leaves jobs unscreened. All Jobs gets `screened_out` and hides
+    jobs. It runs whenever the person has a profile and budget, even with today's cap used up (a
+    day at 50 of 50 skipped it, so nothing was set aside). A failed or refused call leaves jobs
+    unscreened. All Jobs gets `screened_out` and hides
     them behind "Show N jobs set aside by title" (`includeScreenedOut`). Runs in `_run_for_person`
     and `_refresh_sources`. Logs as `parsing`, note "title screen (N jobs)" (Usage log: Title
     screen).
