@@ -1,7 +1,7 @@
 import { DEMO } from "../demo";
 import { useEffect, useRef, useState } from "react";
 import { JobLink } from "../components/JobLink";
-import { api, GeneratedDocWithJob, ResumeSummary } from "../api";
+import { api, type Application, GeneratedDocWithJob, ResumeSummary } from "../api";
 import { CandidateProfileCard } from "../components/CandidateProfileCard";
 import { DesiredRoleForm } from "../components/DesiredRoleForm";
 import { Spinner } from "../components/Spinner";
@@ -208,7 +208,98 @@ function OlderDocs({
   );
 }
 
-function MyDocuments({ resumes, onChanged }: { resumes: ResumeSummary[]; onChanged: () => void }) {
+/**
+ * Tailor the current resume or cover letter for one job on My Jobs, from My documents (asked
+ * 2026-11-12). The same generation as My Jobs' Prep column and the job page's buttons.
+ */
+function TailorForJob({ onMade }: { onMade: () => void }) {
+  const [apps, setApps] = useState<Application[] | null>(null);
+  const [appId, setAppId] = useState<number | "">("");
+  const [busy, setBusy] = useState<"resume" | "cover" | null>(null);
+  const [made, setMade] = useState<{ id: number; kind: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api
+      .listApplications()
+      .then(setApps)
+      .catch(() => setApps([]));
+  }, []);
+
+  if (apps === null) return null;
+  const app = apps.find((a) => a.id === appId);
+  const make = async (kind: "resume" | "cover") => {
+    if (!app) return;
+    setBusy(kind);
+    setError(null);
+    setMade(null);
+    try {
+      const doc =
+        kind === "resume"
+          ? await api.generateResume(app.job_id, app.id)
+          : await api.generateCoverLetter(app.job_id, app.id);
+      setMade({ id: doc.id, kind: kind === "resume" ? "resume" : "cover letter" });
+      onMade();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="doc-slot tailor-for-job">
+      <h3>Tailor for a job</h3>
+      {apps.length === 0 ? (
+        <p className="muted small" style={{ margin: 0 }}>
+          Add a job to My Jobs to tailor your documents for it.
+        </p>
+      ) : (
+        <>
+          <select
+            value={appId}
+            onChange={(e) => {
+              setAppId(e.target.value ? Number(e.target.value) : "");
+              setMade(null);
+            }}
+            aria-label="Job to tailor for"
+          >
+            <option value="">Choose a job on My Jobs...</option>
+            {apps.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.title} — {a.company}
+              </option>
+            ))}
+          </select>
+          <div className="doc-actions">
+            <button className="ghost small" disabled={!app || !!busy} onClick={() => make("resume")}>
+              {busy === "resume" ? <Spinner label="Writing..." /> : "Tailor resume"}
+            </button>
+            <button className="ghost small" disabled={!app || !!busy} onClick={() => make("cover")}>
+              {busy === "cover" ? <Spinner label="Writing..." /> : "Tailor cover letter"}
+            </button>
+          </div>
+          {made && (
+            <a className="link small doc-download" href={api.generatedDocumentDownloadUrl(made.id)} download>
+              Download the tailored {made.kind}
+            </a>
+          )}
+          {error && <p className="error-text small">{error}</p>}
+        </>
+      )}
+    </div>
+  );
+}
+
+function MyDocuments({
+  resumes,
+  onChanged,
+  onGenerated,
+}: {
+  resumes: ResumeSummary[];
+  onChanged: () => void;
+  onGenerated: () => void;
+}) {
   const [error, setError] = useState<string | null>(null);
   const [libraryPath, setLibraryPath] = useState<string | null>(null);
 
@@ -232,6 +323,7 @@ function MyDocuments({ resumes, onChanged }: { resumes: ResumeSummary[]; onChang
       {error && <p className="error-text small">{error}</p>}
       <CurrentDoc kind="resume" doc={currentResume} onChanged={changed} onError={setError} />
       <CurrentDoc kind="cover_letter" doc={currentCoverLetter} onChanged={changed} onError={setError} />
+      {!DEMO && currentResume && <TailorForJob onMade={onGenerated} />}
       <OlderDocs docs={older} onChanged={changed} onError={setError} />
       {libraryPath && (
         <p className="muted small" style={{ margin: "10px 0 0" }}>
@@ -243,7 +335,7 @@ function MyDocuments({ resumes, onChanged }: { resumes: ResumeSummary[]; onChang
   );
 }
 
-function GeneratedDocumentsSection() {
+function GeneratedDocumentsSection({ version = 0 }: { version?: number }) {
   const [docs, setDocs] = useState<GeneratedDocWithJob[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -252,7 +344,7 @@ function GeneratedDocumentsSection() {
       .getAllGeneratedDocuments()
       .then(setDocs)
       .finally(() => setLoading(false));
-  }, []);
+  }, [version]);
 
   return (
     <div className="card">
@@ -312,6 +404,8 @@ export default function ProfilePage() {
     api.listResumes().then(setResumes);
   };
   useEffect(refresh, []);
+  // Bumped when a document is tailored from My documents, so the Generated documents list reloads.
+  const [generated, setGenerated] = useState(0);
 
   return (
     <div>
@@ -322,10 +416,10 @@ export default function ProfilePage() {
       </p>
       <div className="profile-top">
         <DesiredRoleForm />
-        <MyDocuments resumes={resumes} onChanged={refresh} />
+        <MyDocuments resumes={resumes} onChanged={refresh} onGenerated={() => setGenerated((n) => n + 1)} />
       </div>
       <CandidateProfileCard hasDocuments={resumes.length > 0} />
-      <GeneratedDocumentsSection />
+      <GeneratedDocumentsSection version={generated} />
     </div>
   );
 }

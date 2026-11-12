@@ -340,6 +340,24 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   posting is fetched first if needed (`_backfill_description`), the score stored and the queue row
   marked scored. Outside the daily cap like a rescore, inside the monthly budget (a 502 says so).
   Works on a job the title screen set aside. The card shows the score at once. Hidden in the demo.
+- **From a tester's walk-through** (asked 2026-11-12):
+  - **Onboarding:**
+    - `DocUploader`'s Upload stays a disabled ghost button until a file is chosen.
+    - The profile and sources steps have no "Skip this step".
+    - The profile, sources and first-jobs steps say they take a minute or a few.
+    - The sources step's Next needs at least one followed source (`sourceCount` from `api.listSources()`, refreshed by Discovery's `onAdded`).
+  - **Discovery** (shared with Manage Sources) says "+ Add" (blue) and "✓ Added", not "Monitor".
+  - **"Desired sectors"** has a hint with examples, plus inline chips of sectors drawn from the resume (`core/sector_suggest.py`, `POST /api/onboarding/sector-suggestions`).
+    - One `claude-haiku-5-5` call per current resume, kept in the `sector_suggestions` setting; it skips sectors already listed.
+    - Clicking a chip adds it; nothing is pre-filled. It's skipped in the demo.
+    - It logs as `parsing`, note "sector suggestions" (Usage log: Profile & insights).
+  - **The profile build prompt** asks for plain headings, never wording about scoring. "Distinctive notes for scoring" confused the tester; existing profiles keep their text.
+  - **Manage Sources:** "Add a source manually" is now a collapsed `<details>` at the bottom, titled "Advanced: keyword searches and manual setup".
+  - **All Jobs:**
+    - With the default High/Med filters on, a note says it's showing the strongest matches, with "Show everything" (`NO_JOB_FILTERS`).
+    - The checkboxes have plain labels with a one-line explanation each ("Include jobs not rated yet", "Show N jobs outside your locations or pay floor", "Show N low-relevance jobs").
+  - **Profile's My documents** has "Tailor for a job": a My Jobs select plus Tailor resume / Tailor cover letter (the usual `/api/generate/*`), a download link, and a refresh of Generated documents. It's hidden in the demo.
+  - **Not done:** a "how to apply" summary on job cards. The stored descriptions from Greenhouse, Lever and Ashby don't carry the application form, so it wasn't worth adding to the scoring call. (Greenhouse's `questions=true` could give it free, for Greenhouse only.)
 - Desired sectors (`settings.prefilter_sectors`, edited on the Profile page's "What are you looking
   for?" card) feed three places: `core/prefilter.py`'s rule-based scorer (boost on a text match,
   penalty on a clear miss -- unlike titles, sector is treated as a harder constraint per the user's

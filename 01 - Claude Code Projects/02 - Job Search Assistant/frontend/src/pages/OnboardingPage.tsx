@@ -48,6 +48,8 @@ function DocUploader({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [replacing, setReplacing] = useState(false);
+  // The blue Upload button only once a file is chosen (2026-11-12: a tester clicked it first).
+  const [chosen, setChosen] = useState(false);
 
   const upload = async () => {
     const file = fileInput.current?.files?.[0];
@@ -57,6 +59,7 @@ function DocUploader({
     try {
       await api.uploadResume(file, kind);
       if (fileInput.current) fileInput.current.value = "";
+      setChosen(false);
       setReplacing(false);
       onUploaded();
     } catch (e) {
@@ -68,8 +71,13 @@ function DocUploader({
 
   const picker = (small: boolean) => (
     <div className="form-row" style={{ marginBottom: 0 }}>
-      <input ref={fileInput} type="file" accept={ACCEPT} />
-      <button className={small ? "ghost small" : "primary"} onClick={upload} disabled={busy}>
+      <input ref={fileInput} type="file" accept={ACCEPT} onChange={(e) => setChosen(!!e.target.files?.length)} />
+      <button
+        className={chosen && !small ? "primary" : small ? "ghost small" : "ghost"}
+        onClick={upload}
+        disabled={busy || !chosen}
+        title={chosen ? undefined : "Choose a file first"}
+      >
         {busy ? <Spinner label="Uploading..." /> : "Upload"}
       </button>
     </div>
@@ -330,8 +338,8 @@ function FinishStep({ onDone }: { onDone: () => void }) {
           <h2>Finding and scoring your first jobs</h2>
           <p className="muted small">
             Checking your sources, then having Claude score your {FIRST_RUN_CAP} most promising
-            matches against your profile — the rest are scored in tomorrow's daily run. You'll land
-            on New &amp; Noteworthy when it's done.
+            matches against your profile — the rest are scored in tomorrow's daily run. This usually
+            takes a few minutes; you'll land on New &amp; Noteworthy when it's done.
           </p>
           <Spinner label={runProgressText(progress, "Done — loading your matches...")} />
         </>
@@ -369,6 +377,18 @@ export default function OnboardingPage({ onDone }: { onDone: () => void }) {
       .catch(() => setStep("resume"));
   }, []);
 
+  // Sources followed so far: the sources step needs one before Next.
+  const [sourceCount, setSourceCount] = useState(0);
+  const refreshSources = () => {
+    api
+      .listSources()
+      .then((list) => setSourceCount(list.length))
+      .catch(() => undefined);
+  };
+  useEffect(() => {
+    if (step === "sources") refreshSources();
+  }, [step]);
+
   if (step === null) return <Spinner label="Loading..." />;
 
   const index = STEPS.findIndex((s) => s.key === step);
@@ -399,7 +419,9 @@ export default function OnboardingPage({ onDone }: { onDone: () => void }) {
     cover_letter: !!currentCoverLetter,
     old_docs: olderDocs.length > 0,
     profile: hasProfile,
-    sources: true,
+    // At least one source, or there's nothing to find jobs in (2026-11-12: a tester didn't
+    // realize adding them mattered and went on with none).
+    sources: sourceCount > 0,
     finish: true,
   };
 
@@ -455,7 +477,7 @@ export default function OnboardingPage({ onDone }: { onDone: () => void }) {
           hasDocuments={docs.length > 0}
           autoRebuild={rebuildOnProfileStep}
           title="Your candidate profile"
-          description="A summary of your background built from the documents you added. Jobs and company suggestions are matched against it, so make sure it sounds like you. Ask Claude for changes, or edit it directly."
+          description="A summary of your background built from the documents you added; building it takes about a minute. Jobs and company suggestions are matched against it, so make sure it sounds like you. Ask Claude for changes, or edit it directly."
           onProfileChange={(text) => {
             setHasProfile(!!text);
             if (text) setDocsChanged(false);
@@ -466,11 +488,12 @@ export default function OnboardingPage({ onDone }: { onDone: () => void }) {
         <>
           <p className="muted small">
             Claude is searching the web for organizations and job boards that match your profile.
-            Click <strong>Monitor</strong> on any you want checked for new postings every day. You
-            can add more later from Manage Sources.
+            This takes a minute or two. Click <strong>+ Add</strong> on the ones you want: they're
+            checked for new postings every day, and your jobs come from them. Add at least one to
+            continue; you can add more later from Manage Sources.
           </p>
-          <DiscoverCompaniesSection autoRun />
-          <DiscoverJobBoardsSection autoRun />
+          <DiscoverCompaniesSection autoRun onAdded={refreshSources} />
+          <DiscoverJobBoardsSection autoRun onAdded={refreshSources} />
         </>
       )}
       {step === "finish" && <FinishStep onDone={onDone} />}
@@ -485,7 +508,7 @@ export default function OnboardingPage({ onDone }: { onDone: () => void }) {
             <span />
           )}
           <div className="form-actions" style={{ marginTop: 0 }}>
-            {index > 0 && !stepDone[step] && (
+            {index > 0 && !stepDone[step] && step !== "profile" && step !== "sources" && (
               <button className="link small" onClick={next}>
                 Skip this step
               </button>
@@ -493,7 +516,8 @@ export default function OnboardingPage({ onDone }: { onDone: () => void }) {
             <button
               className={stepDone[step] ? "primary" : "ghost"}
               onClick={next}
-              disabled={step === "resume" && !stepDone.resume}
+              disabled={(step === "resume" || step === "sources") && !stepDone[step]}
+              title={step === "sources" && !stepDone.sources ? "Add at least one organization or job board" : undefined}
             >
               {nextLabel}
             </button>

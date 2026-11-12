@@ -55,6 +55,8 @@ def categorize(call_type: str, note: str | None) -> str:
             return "boards"
         if note.startswith(("discovery", "resolve_company")):
             return "discovery"
+        if note.startswith("sector suggestions"):
+            return "profile"
         if note.startswith("title screen"):
             return "screen"
         if note.startswith("retag"):  # "Color older highlights", removed 2026-11-12; old log rows

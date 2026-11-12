@@ -839,6 +839,10 @@ export const api = {
 
   getOnboardingStatus: () => request<OnboardingStatus>("/api/onboarding/status"),
 
+  // A few sector names from the current resume (one cheap call, then kept until the resume changes).
+  getSectorSuggestions: () =>
+    request<{ sectors: string[] }>("/api/onboarding/sector-suggestions", { method: "POST" }),
+
   generateStarterCoverLetter: () =>
     request<{ id: number; content_text: string }>("/api/onboarding/generate-cover-letter", {
       method: "POST",
