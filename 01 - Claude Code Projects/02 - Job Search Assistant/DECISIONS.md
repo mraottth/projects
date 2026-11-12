@@ -586,3 +586,25 @@ Categories: `ui` · `ai` · `pipeline` · `infra` · `docs`
 - Batches halve every token's price with no change to the prompt or its quality, and the 2pm run doesn't need instant answers.
 - The screen costs a fraction of a cent per hundred titles. It lets the cap go to jobs worth reading, so the cap can be lowered without missing good jobs. It is told to keep anything uncertain, since a wrong "set aside" costs a job the person wanted.
 
+
+## D-035 · Merge a pasted job into the same job from a source, matched by how sure we are
+- **Date:** 2026-11-12
+- **Category:** pipeline
+- **Prompts:** ab602548-207
+- **Commits:** de2f304
+
+**Decision.** A pasted job and the same posting found by a followed source become one job: the source's copy, with the person's application, notes, scores, documents and Jobby chat moved onto it. Matching goes from most to least certain:
+- **The posting's identity from its URL** (the ATS and its job id, or the address minus tracking parameters): merges automatically.
+- **The same title and organization**, normalized, only when exactly one source job has them and the locations don't clearly differ.
+- **The description** only breaks a tie among several same-titled jobs at one organization (word overlap of at least 0.8); it never matches on its own.
+
+It runs when a source finds a new job, once at startup over existing duplicates, and when pasting, where a known address is caught before the paid read.
+
+**Context.** The owner saw jobs duplicated across All Jobs and My Jobs, likely from pasting a job that a source later found, and asked whether to match on URL, title and organization, or description.
+
+**Alternatives considered.**
+- **URL alone, as stored:** `normalize_url()` drops the query, so two Greenhouse `gh_jid`s on one careers page look alike, while one Greenhouse job can have three different addresses.
+- **Title and organization alone:** a large employer posts the same title for several teams or cities, and a wrong merge would move an application onto a different job.
+- **The description as a main signal:** pasted and board text are formatted differently, so similarity is noisy.
+
+**Why.** The source copy is shared, updated daily and closed when unlisted, so it's the one to keep. Tiers keep the common cases automatic and make a wrong merge, which is costly, unlikely; when unsure, nothing merges.

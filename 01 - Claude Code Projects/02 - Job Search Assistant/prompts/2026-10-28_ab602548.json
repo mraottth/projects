@@ -1446,8 +1446,16 @@
    "time": "2026-11-12T21:06:11.174Z",
    "kind": "prompt",
    "text": "let's have a single checkbox at the top level of the category that toggles on/off all 3. The user should be able to do each individually too.",
-   "reply": null,
+   "reply": "The section heading, \"Include unrated and low relevance jobs\", is now a checkbox that turns all three on or off together, and each box underneath still works on its own:\n\n- **All on:** the heading is ticked, and clicking it clears everything.\n- **Some on:** it shows a dash instead of a tick. That's the default, because \"Not rated yet\" starts ticked. Clicking it from there turns everything on.\n- **All off:** it's empty, and clicking it turns everything on.\n- **Boxes that aren't shown:** the dealbreaker and low-relevance boxes only appear when there are jobs for them. The heading checkbox leaves a hidden box alone.\n\nThe three boxes are indented under the heading so they read as part of it. I clicked through every case in the demo build and each one behaved as described. The tests pass, and it's pushed. One deploy now covers all three changes:\n\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge --no-edit origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com IAP_AUDIENCE=/projects/<project number>/locations/us-central1/services/jobhunt\n```",
    "id": "ab602548-206",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-12T21:58:44.786Z",
+   "kind": "prompt",
+   "text": "It happens sometimes that a job gets duplicated across All Jobs and My Jobs (I think if the user adds a job manually and then it also gets pulled in from a source). Can we merge these by matching on either A) url, B) title & organization, C) description? Tell me what methodology you think makes the most sense",
+   "reply": null,
+   "id": "ab602548-207",
    "session": "ab602548"
   }
  ]
