@@ -29,7 +29,7 @@ CATEGORIES = {
     c.key: c
     for c in [
         Category("scoring", "Job scoring", "job", "Scored {n}"),
-        Category("screen", "Title screen", "job", "Screened {n}"),
+        Category("screen", "Relevance check", "job", "Checked {n}"),
         Category("boards", "Reading job boards", "page", "Read {n}"),
         Category("jobby", "Jobby", "message", "Jobby: {n}"),
         Category("documents", "Tailored documents", "document", "Wrote {n}"),

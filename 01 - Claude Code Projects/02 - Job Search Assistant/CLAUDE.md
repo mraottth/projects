@@ -329,6 +329,14 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     results kept, and the rest scored live, as are errored results and batches under
     `BATCH_MIN_JOBS`. Someone's own check and Refresh score live. `conftest.py` turns the screen and
     batches off for every test except `tests/test_scoring_costs.py`.
+  - **Called "Relevance check" for people** (renamed 2026-11-12: Settings card, Usage log category,
+    error text). The code keeps "screening"/`screen`/the "title screen (N jobs)" log note, so old
+    Usage-log rows still categorize. **It runs by hand too:** the card's "Check N waiting jobs" (every
+    unscreened waiting job, no `MAX_PER_RUN` cap) and "Re-check all N waiting jobs" (every waiting
+    job again, overwriting its verdict; scored jobs untouched), via `POST
+    /api/settings/title-screen/run?recheck=` (`screening.start_run`: a background thread per person,
+    SSE progress, then done with screened/set-aside counts). Labels show the cost only over $0.10
+    (`estimates()`: jobs x `cost_per_job()`, this person's last 20 runs or `FALLBACK_COST_PER_JOB`).
   - **Settings' Title screen card** (asked 2026-11-12; `GET /api/settings/title-screen`,
     `screening.insight()`): jobs screened, set aside, kept, still waiting, when it last ran and
     what it cost this month, and the 15 latest set-asides, each with **Put back**

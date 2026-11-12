@@ -1,9 +1,11 @@
+import json
 import tempfile
+import time
 from datetime import date
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 from starlette.background import BackgroundTask
 
@@ -141,6 +143,37 @@ def salary_check():
 def title_screen():
     """What the title screen has done for the current person (core/screening.py), for Settings."""
     return screening.insight()
+
+
+@router.post("/title-screen/run")
+def title_screen_run(recheck: bool = False):
+    """Runs the relevance check now (core/screening.py's start_run): every unscreened waiting job,
+    or with `recheck` every waiting one. Streams {"type": "progress", done, total}, then
+    {"type": "done", screened, set_aside} or {"type": "error", message}. A second request while one
+    is going follows it."""
+    screening.start_run(recheck)
+
+    def events():
+        while True:
+            run = screening.get_run()
+            if not run.get("running"):
+                if run.get("error"):
+                    yield _sse({"type": "error", "message": run["error"]})
+                else:
+                    yield _sse({"type": "done", "screened": run["done"], "set_aside": run["set_aside"]})
+                return
+            yield _sse({"type": "progress", "done": run["done"], "total": run["total"]})
+            time.sleep(1.0)
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+def _sse(event: dict) -> str:
+    return f"data: {json.dumps(event)}\n\n"
 
 
 @router.post("/title-screen/{job_id}/keep")

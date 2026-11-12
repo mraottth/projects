@@ -535,6 +535,10 @@ export interface TitleScreenInsight {
   cost_this_month: number;
   calls_this_month: number;
   recent: { id: number; title: string; company: string; location: string | null; screened_at: string }[];
+  // What each manual run would send and roughly cost; shown when over show_estimate_over.
+  estimates: { waiting: { jobs: number; usd: number }; recheck: { jobs: number; usd: number } };
+  show_estimate_over: number;
+  running: boolean;
 }
 
 /** Who's signed in (GET /api/me, D-021). status "none" = never asked for access. */
@@ -915,6 +919,34 @@ export const api = {
     }),
 
   getRescoreStatus: (scope: RescoreScope) => request<RescoreStatus>(`/api/rescore/${scope}`),
+
+  // Runs the relevance check now: unscreened waiting jobs, or with recheck every waiting one.
+  runRelevanceCheck: async (recheck: boolean, onProgress: (done: number, total: number) => void) => {
+    const res = await apiFetch(`/api/settings/title-screen/run?recheck=${recheck ? 1 : 0}`, { method: "POST" });
+    if (!res.ok || !res.body) {
+      let detail = res.statusText;
+      try {
+        detail = (await res.json()).detail ?? detail;
+      } catch {
+        // not JSON
+      }
+      throw new ApiError(res.status, detail);
+    }
+    let result: { screened: number; set_aside: number } | null = null;
+    let failure: string | null = null;
+    await readEvents<
+      | { type: "progress"; done: number; total: number }
+      | { type: "done"; screened: number; set_aside: number }
+      | { type: "error"; message: string }
+    >(res, (event) => {
+      if (event.type === "progress") onProgress(event.done, event.total);
+      else if (event.type === "done") result = { screened: event.screened, set_aside: event.set_aside };
+      else failure = event.message;
+    });
+    if (failure) throw new Error(failure);
+    if (!result) throw new Error(NETWORK_ERROR);
+    return result as { screened: number; set_aside: number };
+  },
 
   rescore: async (scope: RescoreScope, onProgress: (done: number, total: number) => void) => {
     const res = await apiFetch(`/api/rescore/${scope}`, { method: "POST" });

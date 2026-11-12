@@ -1010,4 +1010,4 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 .filter-check-hint { display: block; color: var(--muted); font-size: 0.78rem; line-height: 1.35; margin-top: 1px; }
 /* Profile's "Tailor for a job" (asked 2026-11-12). */
 .tailor-for-job select { width: 100%; margin-bottom: 6px; }
-
+.relevance-actions { margin: 4px 0 8px; flex-wrap: wrap; }

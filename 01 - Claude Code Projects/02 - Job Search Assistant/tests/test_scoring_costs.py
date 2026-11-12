@@ -237,3 +237,55 @@ def test_the_screen_runs_even_when_todays_cap_is_used_up(monkeypatch):
     assert jobs["Senior Litigation Counsel"]["screened_out"] is True
     with get_db() as conn:
         assert conn.execute("SELECT COUNT(*) FROM job_scores").fetchone()[0] == 0  # still nothing scored
+
+
+# ---- running the relevance check by hand (asked 2026-11-12)
+
+
+def _wait_for_run():
+    import time
+
+    for _ in range(100):
+        if not screening.get_run().get("running"):
+            return
+        time.sleep(0.05)
+    raise AssertionError("the manual run didn't finish")
+
+
+def test_a_manual_run_checks_every_waiting_job_past_the_per_run_cap(monkeypatch):
+    _jobs(*(f"Role {n}" for n in range(7)))
+    monkeypatch.setattr(screening, "MAX_PER_RUN", 3)  # a scheduled run would stop at 3
+    monkeypatch.setattr(screening, "CHUNK", 2)
+    client = FakeAnthropicClient(parse_result=FakeParseResponse(ScreenResult(set_aside=[1])))
+    monkeypatch.setattr(screening, "get_client", lambda: client)
+    with TestClient(app) as http:
+        assert http.get("/api/settings/title-screen").json()["estimates"]["waiting"]["jobs"] == 7
+        body = http.post("/api/settings/title-screen/run").text
+    assert '"type": "done", "screened": 7, "set_aside": 4' in body  # one per chunk of 2: 4 chunks
+    with get_db() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM scoring_queue WHERE screen IS NULL").fetchone()[0] == 0
+
+
+def test_recheck_redoes_waiting_jobs_and_leaves_scored_ones_alone(monkeypatch):
+    source, (a, b, c) = _jobs("Director of Data", "Senior Litigation Counsel", "Analytics Lead")
+    first = FakeAnthropicClient(parse_result=FakeParseResponse(ScreenResult(set_aside=[2])))
+    monkeypatch.setattr(screening, "get_client", lambda: first)
+    screening.screen_pending([source])
+    queue.mark_scored(c)  # scored since: a re-check never touches it
+    again = FakeAnthropicClient(parse_result=FakeParseResponse(ScreenResult(set_aside=[1])))
+    monkeypatch.setattr(screening, "get_client", lambda: again)
+    screening.start_run(recheck=True)
+    _wait_for_run()
+    with get_db() as conn:
+        verdicts = dict(conn.execute("SELECT job_id, screen FROM scoring_queue").fetchall())
+    assert verdicts == {a: "drop", b: "keep", c: "keep"}  # a and b swapped; c as it was
+
+
+def test_the_estimate_uses_this_persons_own_runs():
+    assert screening.cost_per_job() == screening.FALLBACK_COST_PER_JOB  # no runs yet
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO llm_calls (user_id, call_type, model, estimated_cost_usd, note) "
+            "VALUES (1, 'parsing', 'claude-haiku-5-5', 0.006, 'title screen (150 jobs)')"
+        )
+    assert abs(screening.cost_per_job() - 0.006 / 150) < 1e-12
