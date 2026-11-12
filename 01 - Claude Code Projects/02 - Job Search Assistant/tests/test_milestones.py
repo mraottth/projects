@@ -53,3 +53,13 @@ def test_every_commit_exists():
                 ["git", "cat-file", "-e", f"{short}^{{commit}}"], cwd=ROOT, capture_output=True
             )
             assert found.returncode == 0, f"{m['id']} names commit {short}, which isn't in this repo"
+
+
+def test_every_prompt_label_is_a_list_of_known_categories():
+    """A label written as "ui" instead of ["ui"] blanked the Timeline page (2026-11-12)."""
+    import json
+
+    labels = json.loads((Path(__file__).resolve().parents[1] / "prompts" / "categories.json").read_text())
+    known = {"ui", "ai", "pipeline", "infra", "docs", "discussion"}
+    bad = {k: v for k, v in labels.items() if not isinstance(v, list) or not set(v) <= known}
+    assert not bad
