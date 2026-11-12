@@ -49,6 +49,11 @@ class ScreenResult(BaseModel):
 def _waiting(source_ids: list[int], recheck: bool = False) -> list[dict]:
     """The current person's waiting jobs from `source_ids` to screen: the unscreened ones, or with
     `recheck` every waiting one. A job a dealbreaker hides is never scored anyway, so it's left out."""
+    return _split(source_ids, recheck)[0]
+
+
+def _split(source_ids: list[int], recheck: bool = False) -> tuple[list[dict], list[dict]]:
+    """(to screen, hidden by a dealbreaker) among the person's waiting jobs from `source_ids`."""
     settings = get_settings()
     only = ",".join(str(int(i)) for i in source_ids) or "NULL"
     unscreened = "" if recheck else "AND q.screen IS NULL"
@@ -62,7 +67,10 @@ def _waiting(source_ids: list[int], recheck: bool = False) -> list[dict]:
                  ORDER BY q.priority DESC, q.id""",
             (current_user_id(),),
         ).fetchall()
-    return [dict(r) for r in rows if not dealbreakers.blocks(dict(r), settings)]
+    keep, hidden = [], []
+    for r in rows:
+        (hidden if dealbreakers.blocks(dict(r), settings) else keep).append(dict(r))
+    return keep, hidden
 
 
 def screen_pending(
@@ -195,7 +203,6 @@ def insight() -> dict:
                    SUM(screen IS NOT NULL) AS screened,
                    SUM(screen = 'drop' AND status = 'pending') AS set_aside,
                    SUM(screen = 'keep') AS kept,
-                   SUM(screen IS NULL AND status = 'pending') AS waiting,
                    MAX(screened_at) AS last_screened_at
                  FROM scoring_queue WHERE user_id = ?""",
             (uid,),
@@ -213,11 +220,16 @@ def insight() -> dict:
                 ORDER BY q.screened_at DESC, q.id DESC LIMIT ?""",
             (uid, RECENT),
         ).fetchall()
+    # "Waiting" is what a check would actually send (asked 2026-11-12: the card counted every
+    # unchecked job, 955, while its button offered none). Jobs a dealbreaker hides are never scored,
+    # so they're never checked: counted apart as `skipped`. Unfollowed sources' jobs aren't counted.
+    waiting, skipped = _split(_followed())
     return {
         "screened": counts["screened"] or 0,
         "set_aside": counts["set_aside"] or 0,
         "kept": counts["kept"] or 0,
-        "waiting": counts["waiting"] or 0,
+        "waiting": len(waiting),
+        "skipped": len(skipped),
         "last_screened_at": counts["last_screened_at"],
         "cost_this_month": round(spend["cost"], 4),
         "calls_this_month": spend["calls"],

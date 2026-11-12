@@ -337,6 +337,9 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     /api/settings/title-screen/run?recheck=` (`screening.start_run`: a background thread per person,
     SSE progress, then done with screened/set-aside counts). Labels show the cost only over $0.10
     (`estimates()`: jobs x `cost_per_job()`, this person's last 20 runs or `FALLBACK_COST_PER_JOB`).
+    The card's "not checked yet" is the same set the Check button sends (`_split()`); waiting jobs a
+    location or pay dealbreaker hides are never checked (never scored) and show as `skipped`, a line
+    under the stats (asked 2026-11-12: it read 955 not checked while the button offered none).
   - **Settings' Title screen card** (asked 2026-11-12; `GET /api/settings/title-screen`,
     `screening.insight()`): jobs screened, set aside, kept, still waiting, when it last ran and
     what it cost this month, and the 15 latest set-asides, each with **Put back**

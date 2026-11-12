@@ -1422,8 +1422,16 @@
    "time": "2026-11-12T20:37:38.131Z",
    "kind": "answer",
    "text": "\"What should \"Title screen\" be called across the app (Settings card, Usage log category, All Jobs)? All Jobs already calls its jobs \"low-relevance\".\"=\"Relevance check (Recommended)\", \"Who can run it manually, and how often?\"=\"Anyone, anytime (Recommended)\".",
-   "reply": null,
+   "reply": "The title screen is now called **Relevance check**, and you can run it by hand from its card in Settings. It's pushed to `claude/move-job-search-assistant`.\n\n**Name.** The other options I offered were \"Quick filter\", \"Pre-screen\" and \"Job triage\"; you picked \"Relevance check\", which matches the \"low-relevance jobs\" label on All Jobs. It's renamed on the Settings card, in the Usage log category and in error messages. The code underneath keeps its old internal names, so earlier Usage log entries are still grouped correctly.\n\n**Running it by hand**, from two buttons on the card (screenshot above):\n- **Check N waiting jobs**: checks every waiting job that hasn't been checked yet, all at once. The scheduled run stops at 1,500 jobs per run; this doesn't.\n- **Re-check all N waiting jobs**: checks every waiting job again. It's meant for after you change your titles or sectors, so a job set aside earlier can come back, or vice versa. Jobs already scored aren't touched.\n- **While it runs,** the button shows progress (\"Checked 300 of 1,200...\"). When it finishes, it shows what happened (\"Checked 1,200 jobs; 640 set aside as low-relevance\") and updates the card's numbers.\n- **Cost:** the button only shows a price when the estimate is over $0.10. Since it's about $0.003 per 100 jobs, that would take tens of thousands of jobs, so normally there's no price at all. The estimate is based on your own recent runs once there are some.\n- **Who can use it:** anyone, anytime. It only checks jobs that need checking, so clicking twice costs nothing extra. It's hidden in the demo.\n\n**Checked in a browser:** both buttons show the right job counts, with no price since the estimate is tiny. There's no API key on my local setup, so clicking showed a clear error instead of results. All 576 tests pass, including new ones for:\n- the manual run going past the per-run limit;\n- the re-check swapping verdicts while leaving scored jobs alone;\n- the cost estimate.\n\nTo deploy:\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge --no-edit origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com IAP_AUDIENCE=/projects/<project number>/locations/us-central1/services/jobhunt\n```\n\nOnce it's deployed, clicking **Check N waiting jobs** clears your whole backlog in one go, without waiting for the 2pm check.",
    "id": "ab602548-203",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-12T20:52:37.165Z",
+   "kind": "prompt",
+   "text": "[screenshot]\n\nShouldn't the button check the 955 not checked rather than the 342 already checked?",
+   "reply": null,
+   "id": "ab602548-204",
    "session": "ab602548"
   }
  ]

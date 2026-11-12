@@ -190,6 +190,12 @@ function TitleScreenCard() {
               <span className="muted small">not checked yet</span>
             </div>
           </div>
+          {info.skipped > 0 && (
+            <p className="muted small">
+              {info.skipped.toLocaleString()} more {info.skipped === 1 ? "is" : "are"} hidden by your location or pay
+              dealbreakers, so {info.skipped === 1 ? "it's" : "they're"} never checked or scored.
+            </p>
+          )}
           <p className="muted small">
             {info.last_screened_at && `Last ran ${when(info.last_screened_at)}. `}
             This month: {info.calls_this_month} call{info.calls_this_month === 1 ? "" : "s"},{" "}
