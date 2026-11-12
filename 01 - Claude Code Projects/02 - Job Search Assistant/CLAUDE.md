@@ -926,6 +926,11 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     short.
   - `_upsert_job` replaces a re-seen job's description with the adapter's current one (never with
     None), which is how jobs stored before this get reformatted on their next daily check.
+  - It does the same for location and `remote_type` (when the adapter gives a location), so an
+    adapter fix reaches stored jobs on their next check. Ashby (2026-11-12): `remote_type` comes from
+    `workplaceType` when given and `isRemote` only otherwise (Harvey sends `isRemote` true on
+    "Hybrid" jobs), and the location joins `location` with every `secondaryLocations` entry
+    ("New York | San Francisco") so the location dealbreaker judges all of them.
   - For text that's still plain (Adzuna snippets, plain-text fallbacks), `frontend/src/
     descriptionText.ts`'s `tidyDescription()` (used by `JobDetailPage`, inside `.job-description`)
     turns bullet-character lines into lists, short colon/ALL-CAPS lines into headings, and rejoins

@@ -13,7 +13,6 @@ def _profile():
     give_profile()
 
 
-
 def _source(name):
     with get_db() as conn:
         source_id = conn.execute(
@@ -124,6 +123,26 @@ def test_salary_is_read_from_the_description_and_filled_on_reseen_jobs():
     with get_db() as conn:
         row = conn.execute("SELECT salary_min, salary_max FROM jobs WHERE id = ?", (job_id,)).fetchone()
     assert tuple(row) == (150000, 180000)
+
+
+def test_a_reseen_job_takes_its_current_location_and_remote_flag():
+    # How an adapter fix (Ashby's workplaceType and secondaryLocations, 2026-11-12) reaches jobs saved
+    # before it: on their next check.
+    source = _source("Board")
+    posting = {"title": "ER Partner", "company": "Harvey", "external_id": "1", "location": "New York",
+               "remote_type": "remote"}  # fmt: skip
+    job_id = daily_run._upsert_job(source, posting)
+    daily_run._upsert_job(
+        source, {**posting, "location": "New York | San Francisco", "remote_type": "hybrid"}
+    )
+    with get_db() as conn:
+        row = conn.execute("SELECT location, remote_type FROM jobs WHERE id = ?", (job_id,)).fetchone()
+    assert tuple(row) == ("New York | San Francisco", "hybrid")
+    # A posting that comes back without a location never wipes the stored one.
+    daily_run._upsert_job(source, {**posting, "location": None, "remote_type": None})
+    with get_db() as conn:
+        row = conn.execute("SELECT location, remote_type FROM jobs WHERE id = ?", (job_id,)).fetchone()
+    assert tuple(row) == ("New York | San Francisco", "hybrid")
 
 
 def test_backfill_salaries_reads_existing_descriptions():
