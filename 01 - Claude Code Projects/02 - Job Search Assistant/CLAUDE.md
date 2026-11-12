@@ -309,7 +309,10 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   for?" has "Dealbreaker: only show jobs in these locations" (`location_dealbreaker` setting, off by
   default, only effective with `prefilter_locations` set). `locations.verdict()` returns
   match/remote/unknown/multiple/elsewhere, and only `elsewhere` is hidden. It errs towards keeping:
-  - remote jobs always stay (`remote_type`, or "remote"/"anywhere"/"WFH" in the text); missing or
+  - remote jobs stay (`remote_type`, or "remote"/"anywhere"/"WFH" in the text), unless every place
+    they name is outside the US and unwanted (`_remote_abroad`: Ashby boards flag "Tokyo" or
+    "Singapore" postings remote; "Remote (Canada)", "Anywhere in Europe"; regions like EMEA/APAC are
+    in `COUNTRIES`; asked 2026-11-12); missing or
     unreadable locations stay, as do "United States" alone, bare "Washington", and any place we
     don't know.
   - Several locations (amended at the user's ask): `split_places()` splits on ";", "|", "/",

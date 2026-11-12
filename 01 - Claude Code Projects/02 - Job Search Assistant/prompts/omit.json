@@ -103,5 +103,6 @@
   "ab602548-166": "troubleshooting: pasted server log (deployment details)",
   "ab602548-178": "housekeeping: a README screenshot",
   "ab602548-179": "housekeeping: a README screenshot (sent again)",
-  "ab602548-180": "sent again as ab602548-181 with a correction"
+  "ab602548-180": "sent again as ab602548-181 with a correction",
+  "ab602548-182": "troubleshooting: git identity in Cloud Shell before a deploy"
 }

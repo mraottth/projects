@@ -1,7 +1,7 @@
 {
  "session": "ab602548-13cf-5dd6-933c-6e698e563853",
  "omitted_api_errors": 0,
- "omitted": 63,
+ "omitted": 64,
  "entries": [
   {
    "time": "2026-10-28T14:37:31.396Z",
@@ -1267,8 +1267,16 @@
    "time": "2026-11-12T04:50:50.109Z",
    "kind": "prompt",
    "text": "My location preferences are Washington DC & remote and I have the dealbreaker box checked, but I'm seeing a lot of non-DC/non-remote jobs in All Jobs with \"Show 770 jobs your dealbreakers hide\" unchecked. Note - I think most/all of these are unsecured (not sure if that's relevant). Can you look into it?",
-   "reply": null,
+   "reply": "I found a gap in how the location dealbreaker reads place names and fixed it, but I can't promise it's the whole story until you deploy and look at the new list on your Profile page. The fix is pushed to `claude/move-job-search-assistant`.\n\n**Your setting was fine.** \"Washington DC\" is read as the DC metro, and \"Remote\" as remote. Jobs in \"San Francisco, CA\", \"New York, NY\", \"Seattle, WA\" or \"London, UK\" were already being hidden.\n\n**The gap:** the dealbreaker only hides a job when it's sure the job is elsewhere, and a city named on its own never counted as sure. So locations written as just \"London\", \"Paris\", \"Palo Alto\", \"Sunnyvale\", \"Jersey City\", \"Hoboken\", \"Brooklyn\", \"Zürich\" or \"Washington State\" were kept on All Jobs.\n\n**What changed:** a place named on its own now counts when none of its possible meanings is near you. \"London\" could be England, Ontario or Kentucky, none of which is near DC, so it's hidden. Names that could be in your area still stay: \"Richmond\" (Virginia), \"Springfield\" and \"Columbia\" (DC suburbs), and \"Washington\" (DC or the state). Accents no longer matter (\"Zürich\").\n\n**Why most were unscored:** jobs the dealbreaker hides are never scored, so jobs it wrongly kept that weren't top priority sat unscored on All Jobs.\n\n**A new list on your Profile page.** I can't see your production data from here, so there may be location formats I haven't caught. In \"What are you looking for?\", under the dealbreaker, there's now a line listing every location it keeps because it can't tell where it is, with counts, such as \"Hybrid (12) · Richmond (3) · …\". After deploying, if you see entries there that are clearly not DC or remote, paste them to me and I'll teach the reader those too.\n\nAll 532 tests pass, including new ones for these places and for the list. It's recorded as an amendment to decision D-026.\n\nTo deploy:\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com IAP_AUDIENCE=/projects/<project number>/locations/us-central1/services/jobhunt\n```",
    "id": "ab602548-181",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-12T05:08:58.013Z",
+   "kind": "prompt",
+   "text": "[screenshot]\n\nI'm still seeing some that should be filtered (see screenshot)",
+   "reply": null,
+   "id": "ab602548-183",
    "session": "ab602548"
   }
  ]
