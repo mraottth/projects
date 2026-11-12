@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 from starlette.background import BackgroundTask
 
-from jobhunt.core import backup, dealbreakers, locations, retag
+from jobhunt.core import backup, dealbreakers, locations, retag, usage
 
 from jobhunt.core.llm import CACHE_READ_MULTIPLIER, CACHE_WRITE_MULTIPLIER, PRICING_PER_MTOK, LLMError
 from jobhunt.core.email_digest import EmailNotConfigured, email_status, send_test_email
@@ -217,7 +217,7 @@ def put_settings(payload: dict):
 
 
 @router.get("/usage-log")
-def usage_log(limit: int = 100):
+def usage_log(limit: int = 100, period: str = "week"):
     with get_db() as conn:
         uid = current_user_id()
         rows = conn.execute(
@@ -239,7 +239,13 @@ def usage_log(limit: int = 100):
                GROUP BY model""",
             (uid,),
         ).fetchall()
-    return {"calls": [dict(r) for r in rows], "totals": dict(totals), "cache": _cache_summary(cache_rows)}
+    return {
+        "calls": [dict(r) for r in rows],
+        "totals": dict(totals),
+        "cache": _cache_summary(cache_rows),
+        # By category and gathered into activities, for the chosen period (core/usage.py).
+        "summary": usage.summary(period),
+    }
 
 
 def _cache_summary(rows) -> dict:

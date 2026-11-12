@@ -1,7 +1,7 @@
 {
  "session": "ab602548-13cf-5dd6-933c-6e698e563853",
  "omitted_api_errors": 0,
- "omitted": 68,
+ "omitted": 69,
  "entries": [
   {
    "time": "2026-10-28T14:37:31.396Z",
@@ -1307,8 +1307,16 @@
    "time": "2026-11-12T14:41:06.165Z",
    "kind": "prompt",
    "text": "Found 381 posting(s), e.g. \"Legal Engineering Manager (Law Firm, Litigation/Regulatory)\". How: read the page as plain HTML: 0; read its Ashby board 'harvey': 381.",
-   "reply": null,
+   "reply": "Your Test fetch result showed the likely cause. Harvey is followed as a careers page, and its plain page shows no jobs. So each read first asks Claude (a paid call) to read the page, finds nothing, then opens the page in a headless browser, which reveals the Ashby board with all 381 postings.\n\nTest fetch does one page alone and gets there. The daily check opens six sources' pages at once on one CPU with short time limits, and very likely Harvey's board hadn't loaded in time. The read then found 0 postings, still counted as a success (\"checked 23 mins ago\"), and none of Harvey's jobs were updated, so the location fixes never reached them. That matches everything we saw, though I couldn't watch it happen on the live server.\n\nI've pushed three fixes to `claude/move-job-search-assistant`:\n1. **The board is remembered.** Once the app finds a Greenhouse, Lever or Ashby board inside a careers page, it saves it and reads the board directly from then on: no browser, and no Claude call (which also ends a small paid read every day). If that ever fails or lists nothing, it reads the page as before.\n2. **Jobs that are taken down now close.** Those job-board feeds list every open posting, so a job missing from one is marked closed and drops off All Jobs. If it shows up again, it reopens. Pages Claude reads never close anything, since Claude may only see some of the jobs; those still drop off after 14 days unseen.\n3. **A suspicious empty read is flagged.** If a source that has jobs suddenly returns none, Manage Sources shows an error (\"found no postings this time…\") instead of \"checked 23 mins ago\", and its jobs are left alone.\n\nAll 562 tests pass. This also includes the \"Dublin, IE\" fix from before.\n\nTo deploy:\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge --no-edit origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com IAP_AUDIENCE=/projects/<project number>/locations/us-central1/services/jobhunt\n```\n\nThen:\n1. Click **Test fetch** on Harvey AI's row once, so it remembers the Ashby board right away.\n2. Click **Check my sources now**. Harvey's 381 jobs will update, and the New York, San Francisco, Tokyo and similar ones will drop off All Jobs.\n3. Optionally, run Test fetch on your other careers-page sources too, so any that embed a job board are remembered before the next 2pm check.\n\nOne open item: the daily check's error for the Tech Jobs for Gov board is a separate problem I haven't looked at. Send me its error text from Manage Sources if you want it fixed.",
    "id": "ab602548-190",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-12T14:47:37.694Z",
+   "kind": "prompt",
+   "text": "it's a little hard to make sense of the usage log - can you aggregate these rows into something that is more human interpretable? maybe collapse rows into jobs and label them scoring / job / [whatever categories make sense] and then summarize the costs by category above the table. Also a toggle to switch between viewing costs in the last day, week, and month would be helpful",
+   "reply": null,
+   "id": "ab602548-192",
    "session": "ab602548"
   }
  ]

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, ApiError, type EmailStatus, LlmCall, Me, Settings } from "../api";
+import { api, ApiError, type EmailStatus, Me, Settings, type UsagePeriod, type UsageSummary } from "../api";
 import { Markdown } from "../components/Markdown";
 import { RescoreButton } from "../components/RescoreButton";
 import { Spinner } from "../components/Spinner";
@@ -378,25 +378,51 @@ function YourData() {
   );
 }
 
-function UsageLog() {
-  const [calls, setCalls] = useState<LlmCall[]>([]);
-  const [totals, setTotals] = useState<{ total_cost: number; today_cost: number; total_calls: number } | null>(
-    null,
-  );
-  const [cache, setCache] = useState<{ hit_rate: number; saved_usd: number } | null>(null);
+const PERIODS: { key: UsagePeriod; label: string; phrase: string }[] = [
+  { key: "day", label: "Day", phrase: "the last day" },
+  { key: "week", label: "Week", phrase: "the last 7 days" },
+  { key: "month", label: "Month", phrase: "the last 30 days" },
+];
 
+// Small amounts show to the tenth of a cent; anything over a dollar to the cent.
+function money(usd: number): string {
+  if (usd === 0) return "$0";
+  if (usd < 0.01) return "<$0.01";
+  return usd < 1 ? `$${usd.toFixed(3).replace(/0$/, "")}` : `$${usd.toFixed(2)}`;
+}
+
+/** "2026-11-12 14:16:28" (UTC) as local "Nov 12, 2:16 PM". */
+function when(dbTime: string): string {
+  const d = new Date(`${dbTime.replace(" ", "T")}Z`);
+  return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+/**
+ * The Usage log (asked 2026-11-12: the raw call list was hard to read): what Claude cost by category
+ * for the last day, week or month, then the calls gathered into activities ("Scored 23 jobs"), each
+ * opening into its calls. core/usage.py does the grouping.
+ */
+function UsageLog() {
+  const [period, setPeriod] = useState<UsagePeriod>("week");
+  const [summary, setSummary] = useState<UsageSummary | null>(null);
+  const [cache, setCache] = useState<{ hit_rate: number; saved_usd: number } | null>(null);
   const [usage, setUsage] = useState<Me["usage"]>(null);
+  const [open, setOpen] = useState<number | null>(null);
 
   useEffect(() => {
-    api.getUsageLog().then((r) => {
-      setCalls(r.calls);
-      setTotals(r.totals);
+    api.getUsageLog(period).then((r) => {
+      setSummary(r.summary);
       setCache(r.cache);
+      setOpen(null);
     });
+  }, [period]);
+  useEffect(() => {
     // Fresh numbers, rather than the ones App loaded when the page first opened.
     api.getMe().then((me) => setUsage(me.usage ?? null)).catch(() => {});
   }, []);
 
+  const phrase = PERIODS.find((p) => p.key === period)!.phrase;
+  const top = summary?.categories[0]?.cost ?? 0;
   return (
     <div className="card">
       <h2>Usage log</h2>
@@ -408,11 +434,35 @@ function UsageLog() {
           {usage.over && " · Budget reached: scoring, Jobby, tailoring and discovery pause until next month."}
         </p>
       )}
-      {totals && (
-        <p className="muted small">
-          ${totals.today_cost.toFixed(2)} today · ${totals.total_cost.toFixed(2)} total ·{" "}
-          {totals.total_calls} calls
-        </p>
+
+      <div className="usage-head">
+        <div className="seg" role="group" aria-label="Period">
+          {PERIODS.map((p) => (
+            <button key={p.key} className={period === p.key ? "on" : ""} onClick={() => setPeriod(p.key)}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+        {summary && (
+          <span className="usage-total">
+            <strong>{money(summary.total_cost)}</strong> <span className="muted small">in {phrase}</span>
+          </span>
+        )}
+      </div>
+
+      {summary && summary.categories.length > 0 && (
+        <ul className="usage-cats">
+          {summary.categories.map((c) => (
+            <li key={c.key}>
+              <span className="usage-cat-name">{c.label}</span>
+              <span className="usage-cat-bar" aria-hidden="true">
+                <span style={{ width: `${top ? Math.max(2, (c.cost / top) * 100) : 0}%` }} />
+              </span>
+              <span className="muted small usage-cat-amount">{c.amount}</span>
+              <span className="usage-cat-cost">{money(c.cost)}</span>
+            </li>
+          ))}
+        </ul>
       )}
       {cache && cache.hit_rate > 0 && (
         <p className="muted small">
@@ -420,36 +470,74 @@ function UsageLog() {
           {cache.saved_usd.toFixed(2)}.
         </p>
       )}
+
       {/* A fixed-height box that scrolls (asked 2026-11-06), with the header row kept in view. */}
-      <div className="usage-log-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>When</th>
-              <th>Type</th>
-              <th>Model</th>
-              <th>Tokens</th>
-              <th>Cost</th>
-            </tr>
-          </thead>
-          <tbody>
-            {calls.map((c) => (
-              <tr key={c.id}>
-                <td className="small">{c.created_at}</td>
-                <td className="small">{c.call_type}</td>
-                <td className="small">{c.model}</td>
-                <td className="small">
-                  {c.input_tokens}/{c.output_tokens}
-                  {c.cache_read_tokens > 0 && <span className="muted"> · {c.cache_read_tokens} cached</span>}
-                </td>
-                <td className="small">{c.estimated_cost_usd != null ? `$${c.estimated_cost_usd.toFixed(4)}` : "—"}</td>
+      {summary && summary.activities.length > 0 && (
+        <div className="usage-log-scroll">
+          <table className="usage-activities">
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>What</th>
+                <th>Kind</th>
+                <th className="num">Cost</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {calls.length === 0 && <p className="empty-state">No Claude calls logged yet.</p>}
+            </thead>
+            <tbody>
+              {summary.activities.map((a, i) => (
+                <ActivityRows
+                  key={`${a.started_at}-${i}`}
+                  activity={a}
+                  open={open === i}
+                  onToggle={() => setOpen(open === i ? null : i)}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {summary && summary.activities.length === 0 && <p className="empty-state">No Claude calls in {phrase}.</p>}
     </div>
+  );
+}
+
+function ActivityRows({
+  activity: a,
+  open,
+  onToggle,
+}: {
+  activity: UsageSummary["activities"][number];
+  open: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <>
+      <tr className={`usage-activity${open ? " open" : ""}`} onClick={onToggle}>
+        <td className="small">{when(a.ended_at)}</td>
+        <td>
+          <button className="link usage-toggle" aria-expanded={open}>
+            {open ? "\u25BE" : "\u25B8"} {a.label}
+          </button>
+        </td>
+        <td className="small muted">{a.category_label}</td>
+        <td className="small num">{money(a.cost)}</td>
+      </tr>
+      {open &&
+        a.calls.map((c) => (
+          <tr key={c.id} className="usage-call">
+            <td className="small muted">{when(c.created_at)}</td>
+            <td className="small" colSpan={2}>
+              {c.detail || "\u2014"}
+              <span className="muted">
+                {" "}
+                · {c.input_tokens.toLocaleString()} in / {c.output_tokens.toLocaleString()} out
+                {c.cache_read_tokens > 0 && `, ${c.cache_read_tokens.toLocaleString()} from cache`}
+              </span>
+            </td>
+            <td className="small num">{money(c.cost)}</td>
+          </tr>
+        ))}
+    </>
   );
 }
 

@@ -174,6 +174,13 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
       counted at all, so Jobby read low.
     - Settings' Usage log shows the last 7 days' cache hit rate and the net saving
       (`_cache_summary()` in `api/settings.py`).
+    - The Usage log reads in plain terms (`core/usage.py`, asked 2026-11-12): a Day / Week / Month
+      toggle (`?period=`), cost by category with what it bought (`categorize()` maps call_type +
+      note: Job scoring, Reading job boards, Jobby, Tailored documents, Profile & insights,
+      Finding sources, Adding jobs, Upkeep), and calls gathered into activities: back-to-back calls
+      of one category within `GAP_MINUTES` (15) are one row ("Scored 23 jobs") that opens into its
+      calls, each named by its job or what it did. A new log_call note needs a `categorize()` case,
+      or it lands in Adding jobs/Upkeep.
     - Not cached on purpose: board-page extraction (every page differs, read once a day), tailoring
       (calls too far apart for a 5-minute cache), and one-off or sub-1,024-token calls.
   - Model default is `claude-sonnet-5` (`JOBHUNT_LLM_MODEL` env override), not Opus. This is a

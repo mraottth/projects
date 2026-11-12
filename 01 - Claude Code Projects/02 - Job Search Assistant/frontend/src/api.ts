@@ -495,6 +495,34 @@ export interface LlmCall {
   cache_write_tokens: number;
 }
 
+/** The Usage log in plain terms (core/usage.py): by category, and calls gathered into activities. */
+export type UsagePeriod = "day" | "week" | "month";
+export interface UsageCall {
+  id: number;
+  created_at: string;
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cost: number;
+  detail: string;
+}
+export interface UsageSummary {
+  period: UsagePeriod;
+  total_cost: number;
+  total_calls: number;
+  categories: { key: string; label: string; cost: number; calls: number; amount: string }[];
+  activities: {
+    category: string;
+    category_label: string;
+    label: string;
+    started_at: string;
+    ended_at: string;
+    cost: number;
+    calls: UsageCall[];
+  }[];
+}
+
 /** Who's signed in (GET /api/me, D-021). status "none" = never asked for access. */
 export interface Me {
   email: string;
@@ -937,13 +965,14 @@ export const api = {
       body: JSON.stringify({ confirm }),
     }),
 
-  getUsageLog: () =>
+  getUsageLog: (period: UsagePeriod = "week") =>
     request<{
       calls: LlmCall[];
       totals: { total_cost: number; today_cost: number; total_calls: number };
       // Last 7 days: share of input tokens read from the prompt cache, and the net saving.
       cache: { hit_rate: number; saved_usd: number };
-    }>("/api/settings/usage-log"),
+      summary: UsageSummary;
+    }>(`/api/settings/usage-log?period=${period}`),
 
   runDailyNow: (cap?: number, onProgress?: (p: RunProgress) => void) => runDaily(cap, onProgress),
 
