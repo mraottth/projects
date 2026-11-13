@@ -1,7 +1,7 @@
 {
  "session": "e2f9082b-bde8-4d88-bb2a-e437b19bca6a",
  "omitted_api_errors": 0,
- "omitted": 46,
+ "omitted": 47,
  "entries": [
   {
    "time": "2026-10-26T12:42:23.385Z",
@@ -486,7 +486,7 @@
    "time": "2026-11-13T14:43:33.171Z",
    "kind": "prompt",
    "text": "Let's add a 'To-Do' toggle on the My Jobs page filter that shows jobs with the Drafting status",
-   "reply": null,
+   "reply": "I've added a **To-Do** option to My Jobs. It's first in the Active / Closed / All toggle and shows only jobs in Drafting. Active is still the default, and the count badge works like the others.\n\nI checked it in the demo build (fictional data): To-Do showed exactly the 2 Drafting jobs out of 7 active, and at 1440px and 1100px the toggle stays on one line beside the search box with Export CSV still on the right. All 589 tests pass and ruff is clean.\n\n**A mix-up you should know about:** I started in your old checkout at `~/Desktop/GitHub/job-search-assistant`, which nothing marks as archived, and made two commits there before I found the move to `projects` on Nov 6. They were never pushed. I redid the work in the `projects` folder on branch `claude/my-jobs-todo-view`, which is pushed. I left the two old commits where they are; say if you want them removed. I also saved a memory note so I don't repeat this.\n\nI updated the two places CLAUDE.md describes the toggle, and committed the prompt log: the To-Do request is labelled `ui`, and the local-setup and deploy prompts are omitted.\n\nTo ship it from Cloud Shell:\n\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge origin/claude/my-jobs-todo-view && git push && make deploy ADMIN_EMAIL=you@example.com\n```",
    "id": "e2f9082b-080",
    "session": "e2f9082b"
   }

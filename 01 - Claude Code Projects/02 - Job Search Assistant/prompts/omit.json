@@ -115,5 +115,6 @@
   "e2f9082b-075": "operational: local dev setup",
   "e2f9082b-076": "operational: local dev setup (port conflict)",
   "e2f9082b-077": "operational: prompt-log housekeeping",
-  "e2f9082b-079": "operational: deploy request"
+  "e2f9082b-079": "operational: deploy request",
+  "e2f9082b-081": "operational: deploy setup and cleaning up an old checkout"
 }
