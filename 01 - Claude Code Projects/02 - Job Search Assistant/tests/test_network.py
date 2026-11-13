@@ -22,14 +22,18 @@ Ed,Fox,https://www.linkedin.com/in/ed,,Pizza Palace,Shift Lead,08 Aug 2018
 
 
 class Recorder(FakeAnthropicClient):
-    def __init__(self, result):
-        super().__init__(parse_result=FakeParseResponse(result))
+    """Picks the organizations named in `picks` ({name: why}) by their number in the list sent."""
+
+    def __init__(self, picks: dict[str, str]):
+        super().__init__()
         self.sent: list[str] = []
-        parse = self.messages.parse
 
         def recording(**kwargs):
-            self.sent.append(kwargs["messages"][0]["content"])
-            return parse(**kwargs)
+            listing = kwargs["messages"][0]["content"]
+            self.sent.append(listing)
+            numbered = {line.split(". ", 1)[1]: int(line.split(".")[0]) for line in listing.splitlines()[1:]}
+            chosen = [Pick(number=numbered[n], why=w) for n, w in picks.items() if n in numbered]
+            return FakeParseResponse(Picks(picks=chosen))
 
         self.messages.parse = recording
 
@@ -60,11 +64,11 @@ def _job(source_id, title, company, interest=None, fit=None) -> int:
     return job_id
 
 
-def _upload(http, monkeypatch, picks=()):
-    client = Recorder(Picks(picks=list(picks)))
+def _upload(http, monkeypatch, picks=None, csv=CSV):
+    client = Recorder(picks or {})
     monkeypatch.setattr(network, "get_client", lambda: client)
     resp = http.post(
-        "/api/network/connections", files={"file": ("Connections.csv", CSV.encode(), "text/csv")}
+        "/api/network/connections", files={"file": ("Connections.csv", csv.encode(), "text/csv")}
     )
     assert resp.status_code == 200, resp.text
     return resp.json(), client
@@ -89,7 +93,7 @@ def test_tiers_and_suggested_sources(monkeypatch):
     _job(board, "Analytics Lead", "Civic Signal", "High", "High")
     _job(board, "Director, Analytics", "Open Ballot Lab", "Low", "Low")
     with TestClient(app) as http:
-        info, client = _upload(http, monkeypatch, picks=[Pick(number=1, why="Health data nonprofit.")])
+        info, client = _upload(http, monkeypatch, picks={"Brightwater Health Data": "Health data nonprofit."})
 
     tiers = {level: [p["name"] for p in rows] for level, rows in info["tiers"].items()}
     # Ana recruits where you have a strong match; Ben works there in another role; Cy is in the job's
@@ -141,3 +145,108 @@ def test_connections_are_private_and_can_be_removed(monkeypatch):
         assert http.get(f"/api/network/job/{job}", headers={"X-Dev-User": "bea@example.com"}).json() == []
         assert http.get("/api/network").json()["count"] == 5
         assert http.delete("/api/network/connections").json()["count"] == 0
+
+
+# ---- the rules after the owner's review (2026-11-13)
+
+HEAD = "First Name,Last Name,URL,Email Address,Company,Position,Connected On\n"
+
+
+def _people(rows: str) -> str:
+    return HEAD + rows
+
+
+def _tier_of(info, name):
+    for level, rows in info["tiers"].items():
+        if any(p["name"] == name for p in rows):
+            return level
+    return None
+
+
+def test_leaders_at_organizations_in_your_sources_are_high(monkeypatch):
+    board = _source()
+    _source("Blue Rose", company="Blue Rose")  # the source's short name
+    _job(board, "Field Organizer", "US Digital Response")  # an opening, not a match for you
+    csv = _people(
+        "Amy,Ceo,,,Blue Rose Research,CEO,01 Jan 2020\n"
+        "Bo,Chief,,,U.S. Digital Response,Chief Executive Officer,01 Jan 2020\n"
+        "Cal,Lead,,,Somewhere Else,CEO,01 Jan 2020\n"
+        "Dee,Dir,,,US Digital Response,Director of Finance,01 Jan 2020\n"
+    )
+    with TestClient(app) as http:
+        info, _ = _upload(http, monkeypatch, csv=csv)
+    assert _tier_of(info, "Amy Ceo") == "High"  # "Blue Rose" source = "Blue Rose Research"
+    assert _tier_of(info, "Bo Chief") == "High"  # "U.S." = "US"
+    assert _tier_of(info, "Cal Lead") is None  # not in your sources and not picked
+    assert _tier_of(info, "Dee Dir") is None  # a director, but no job you'd want there
+    assert "Somewhere Else" in {p["company"] for p in info["not_listed"]}
+
+
+def test_a_leader_at_an_organization_claude_picked_is_high(monkeypatch):
+    csv = _people("Ed,Ed,,,Common Ledger,Founder & CEO,01 Jan 2020\n")
+    with TestClient(app) as http:
+        info, _ = _upload(http, monkeypatch, picks={"Common Ledger": "Civic data nonprofit."}, csv=csv)
+    assert _tier_of(info, "Ed Ed") == "High"
+    [org] = info["suggested_sources"]
+    assert (org["name"], org["tier"], org["leader"]) == ("Common Ledger", "High", True)
+
+
+def test_every_good_job_counts_and_unrated_ones_in_your_line_of_work(monkeypatch):
+    board = _source()
+    _job(board, "Office Manager", "Civic Signal", "High", "High")
+    _job(board, "Director of Data", "Civic Signal", "High", "High")  # the one Fay fits
+    _job(board, "Senior Data Analyst", "Open Ballot Lab")  # unrated, your line of work
+    with TestClient(app) as http:
+        http.put("/api/settings", json={"prefilter_titles_include": ["Data Director"]})
+        csv = _people(
+            "Fay,Fit,,,Civic Signal,Head of Analytics,01 Jan 2020\n"
+            "Gus,Hire,,,Open Ballot Lab,Talent Partner,01 Jan 2020\n"
+            "Hal,Peep,,,Open Ballot Lab,People Analytics Manager,01 Jan 2020\n"
+        )
+        info, _ = _upload(http, monkeypatch, csv=csv)
+    assert _tier_of(info, "Fay Fit") == "High"
+    [fay] = [p for p in info["tiers"]["High"] if p["name"] == "Fay Fit"]
+    assert fay["job_title"] == "Director of Data"  # the job she fits, not the first one there
+    assert _tier_of(info, "Gus Hire") == "High"  # recruiter where an unrated data job waits
+    # "People Analytics" is data work, not hiring: the same line of work as the data job.
+    assert _tier_of(info, "Hal Peep") == "High"
+
+
+def test_a_set_aside_job_doesnt_count_and_generic_words_dont_match(monkeypatch):
+    board = _source()
+    job = _job(board, "Data Program Manager", "Civic Signal")
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO scoring_queue (user_id, job_id, priority, status, screen) "
+            "VALUES (1, ?, 1, 'pending', 'drop')",
+            (job,),
+        )
+    with TestClient(app) as http:
+        http.put("/api/settings", json={"prefilter_titles_include": ["Data Director"]})
+        csv = _people("Ivy,Prog,,,Civic Signal,Program Manager,01 Jan 2020\n")
+        info, _ = _upload(http, monkeypatch, csv=csv)
+    # Not a job you'd want (set aside), and "program"/"manager" alone isn't the same line of work.
+    assert _tier_of(info, "Ivy Prog") is None
+
+
+def test_your_line_of_work_with_no_openings_is_low(monkeypatch):
+    with TestClient(app) as http:
+        http.put("/api/settings", json={"prefilter_titles_include": ["Analytics Director"]})
+        csv = _people("Jo,Data,,,Tiny Nonprofit,Director of Data Science,01 Jan 2020\n")
+        info, _ = _upload(http, monkeypatch, csv=csv)
+    assert _tier_of(info, "Jo Data") == "Low"
+
+
+def test_organization_names_link_loosely_but_not_generically():
+    from jobhunt.core.network import _same_org, org_key
+
+    def same(a, b):
+        return _same_org(org_key(a), org_key(b))
+
+    assert same("Blue Rose", "Blue Rose Research")
+    assert same("Blue Rose Careers", "Blue Rose Research, Inc.")
+    assert same("US Digital Response", "U.S. Digital Response")
+    assert same("Civic Signal (acquired by X)", "Civic Signal")
+    assert same("The Data Foundation", "Data Foundation")
+    assert not same("Data", "Data Society")
+    assert not same("Civic", "Civic Signal")

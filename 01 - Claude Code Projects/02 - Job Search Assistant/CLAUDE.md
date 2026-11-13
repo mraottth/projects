@@ -545,10 +545,25 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   needs a partner program, so the person uploads LinkedIn's export, `Connections.csv` (`parse_csv`
   skips its note lines). Rows go in the per-person `connections` table (in `PER_USER_TABLES`; a new
   upload replaces the set; `org_key` = `job_merge.norm_org(company)`).
-  - **Tiers are worked out on each read**, from the jobs as they are then (`tier()`): High = at an
-    organization with a job you'd want (High/Med for both, or on My Jobs) and hiring-side
-    (`HIRING`) or the same line of work (`_words`, with `_FAMILIES` so "Analytics" = "Data");
-    Medium = one of the two; Low = an organization with other openings, or one Claude picked.
+  - **Tiers are worked out on each read**, from the jobs as they are then (`tier()`; revised
+    2026-11-13 after the owner's first real upload ranked good people too low):
+    - *A job you'd want* is rated High/Med for both, on My Jobs, or unrated with a title in your
+      line of work (desired titles) and not set aside by the relevance check. Every job at the
+      organization is compared, not just the best one.
+    - *High:* such a job there and they're hiring-side (`HIRING`; "people" only as people ops, not
+      "People Analytics"), in that job's line of work, or a leader (`LEADER`, or a plain director);
+      or they're a leader (CEO, founder, president, executive director, VP, head of...) at any
+      organization in your sources, followed or picked by Claude.
+    - *Medium:* a job you'd want there in another role; or hiring-side / in your line of work where
+      the openings aren't a strong match, or at a followed or picked organization.
+    - *Low:* a followed or picked organization in another role, or your line of work anywhere.
+    - Everyone else is under "Not listed" with why, searchable, so a missing person can be found.
+    - `_words` maps `_FAMILIES` ("Analytics" = "Data") and drops `_GENERIC` words (program,
+      operations, health...) that alone don't make two roles the same line of work.
+  - **Organization names link loosely** (`org_key`, `_same_org`, `_OrgIndex`): a parenthetical, a
+    leading "the" and trailing source words ("Careers", "Jobs") are dropped, "U.S." reads as "US",
+    and a name links to itself plus more words ("Blue Rose" = "Blue Rose Research") when the shorter
+    is 5+ letters and not generic (`_GENERIC_ORGS`). Used for tiers, card counts and the job card.
   - **Claude sees organization names only:** at upload, `pick_organizations()` sends the
     connections' organizations that have no jobs of yours to Claude Haiku (`PICK_MODEL`, `CHUNK` 200,
     note "network organizations", Usage log: Finding sources) and saves its picks in the
@@ -556,8 +571,9 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   - **Manage Sources' "Your LinkedIn network"** card (above "Check my sources now"): steps to get
     the file, the upload, "Remove them" (`DELETE /api/network/connections`), High/Medium/Low tabs
     of a table (name linked, position, organization, connected, why, "Write outreach with Jobby"),
-    and "Organizations to consider adding" (organizations with listed connections that no followed
-    source names; "+ Add" is `POST /api/sources/resolve`).
+    a "Not listed" tab and a search box, and "Organizations to consider adding" (organizations with
+    listed connections that no followed source names, grouped High/Medium/Low by their best person,
+    in a box that scrolls; "+ Add" is `POST /api/sources/resolve`).
   - **Jobby:** `outreachLink()` opens `/jobby?job=<id>&prompt=...` (or `?new=1&prompt=...`), and
     `JobbyPage` puts `prompt` in the message box unsent, so a person's details reach Claude only
     when they press Send.

@@ -11,16 +11,22 @@ import { Spinner } from "./Spinner";
  */
 
 const TIERS: NetworkTier[] = ["High", "Medium", "Low"];
-const TIER_HINT: Record<NetworkTier, string> = {
-  High: "At an organization with a job you'd want, and on the hiring side or in that line of work.",
-  Medium: "At an organization with a job you'd want in another role, or in the right role elsewhere.",
-  Low: "Worth a hello: an organization that suits you, with no strong opening yet.",
+type Tab = NetworkTier | "Not listed";
+const TIER_HINT: Record<Tab, string> = {
+  High: "A job you'd want there and they're on the hiring side, in that line of work or a leader; or they lead an organization in your sources.",
+  Medium:
+    "A job you'd want there in another role, or the right role where the openings aren't a strong match.",
+  Low: "Worth a hello: an organization that suits you, or someone in your line of work, with no openings yet.",
+  "Not listed":
+    "Everyone else, and why. If someone belongs higher, their organization may be missing from your sources.",
 };
 
 function since(date: string | null): string {
   if (!date) return "";
   const d = new Date(`${date}T00:00:00`);
-  return Number.isNaN(d.getTime()) ? date : d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+  return Number.isNaN(d.getTime())
+    ? date
+    : d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
 }
 
 /** A Jobby link with a ready-to-send first message asking for an outreach email (it's sent only
@@ -34,24 +40,36 @@ export function outreachLink(p: {
   job_id?: number | null;
   job_title?: string | null;
 }): string {
-  const who = [p.name, p.position, p.company && `at ${p.company}`].filter(Boolean).join(", ");
+  const who = [p.name, p.position, p.company && `at ${p.company}`]
+    .filter(Boolean)
+    .join(", ");
   const parts = [
     `Help me write a short outreach email to ${who}.`,
-    p.connected_on && `We've been connected on LinkedIn since ${since(p.connected_on)}.`,
+    p.connected_on &&
+      `We've been connected on LinkedIn since ${since(p.connected_on)}.`,
     p.job_title && `I'm interested in their ${p.job_title} opening.`,
     p.why && `Why them: ${p.why}`,
     "Keep it brief and specific to them, suggest a subject line, and give me a version for a LinkedIn message too.",
   ].filter(Boolean);
   const prompt = encodeURIComponent(parts.join(" "));
-  return p.job_id ? `/jobby?job=${p.job_id}&prompt=${prompt}` : `/jobby?new=1&prompt=${prompt}`;
+  return p.job_id
+    ? `/jobby?job=${p.job_id}&prompt=${prompt}`
+    : `/jobby?new=1&prompt=${prompt}`;
 }
 
-export function NetworkSection({ onSourcesChanged }: { onSourcesChanged: () => void }) {
+export function NetworkSection({
+  onSourcesChanged,
+}: {
+  onSourcesChanged: () => void;
+}) {
   const [info, setInfo] = useState<NetworkOverview | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [tier, setTier] = useState<NetworkTier>("High");
-  const [adding, setAdding] = useState<Record<string, "busy" | "added" | string>>({});
+  const [tier, setTier] = useState<Tab>("High");
+  const [search, setSearch] = useState("");
+  const [adding, setAdding] = useState<
+    Record<string, "busy" | "added" | string>
+  >({});
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -89,7 +107,10 @@ export function NetworkSection({ onSourcesChanged }: { onSourcesChanged: () => v
       onSourcesChanged();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      setAdding((a) => ({ ...a, [name]: `Couldn't find its job board (${msg}). Add it by link under Organizations.` }));
+      setAdding((a) => ({
+        ...a,
+        [name]: `Couldn't find its job board (${msg}). Add it by link under Organizations.`,
+      }));
     }
   };
 
@@ -98,36 +119,57 @@ export function NetworkSection({ onSourcesChanged }: { onSourcesChanged: () => v
   };
 
   const has = !!info && info.count > 0;
-  const rows = info?.tiers[tier] ?? [];
+  const all = info
+    ? tier === "Not listed"
+      ? info.not_listed
+      : info.tiers[tier]
+    : [];
+  const q = search.trim().toLowerCase();
+  const rows = q
+    ? all.filter((p) =>
+        [p.name, p.company, p.position].some((v) =>
+          (v ?? "").toLowerCase().includes(q),
+        ),
+      )
+    : all;
 
   return (
     <div className="card network">
       <h2>Your LinkedIn network</h2>
       <p className="muted small">
-        See which of your connections to reach out to about the jobs you want, and organizations you know people at.
-        LinkedIn doesn't let apps read your connections directly, so this uses the file LinkedIn gives you.
+        See which of your connections to reach out to about the jobs you want,
+        and organizations you know people at. LinkedIn doesn't let apps read
+        your connections directly, so this uses the file LinkedIn gives you.
       </p>
 
       <details className="network-steps" open={!has}>
         <summary>How to get your Connections.csv from LinkedIn</summary>
         <ol className="small">
           <li>
-            On LinkedIn, open <strong>Settings &amp; Privacy</strong> → <strong>Data privacy</strong> →{" "}
+            On LinkedIn, open <strong>Settings &amp; Privacy</strong> →{" "}
+            <strong>Data privacy</strong> →{" "}
             <strong>Get a copy of your data</strong>.
           </li>
           <li>
-            Choose <strong>"Want something in particular?"</strong>, tick only <strong>Connections</strong>, and press{" "}
+            Choose <strong>"Want something in particular?"</strong>, tick only{" "}
+            <strong>Connections</strong>, and press{" "}
             <strong>Request archive</strong>.
           </li>
-          <li>LinkedIn emails you a link, usually within 10 minutes. Download the file and unzip it if it's zipped.</li>
           <li>
-            Upload <strong>Connections.csv</strong> below. Upload a fresh one now and then: it's a snapshot.
+            LinkedIn emails you a link, usually within 10 minutes. Download the
+            file and unzip it if it's zipped.
+          </li>
+          <li>
+            Upload <strong>Connections.csv</strong> below. Upload a fresh one
+            now and then: it's a snapshot.
           </li>
         </ol>
         <p className="muted small">
-          Your connections stay in your account only; nobody else using the app sees them. To find organizations
-          that suit you, their organizations' names (never people's names) go to Claude once per upload, for about a
-          cent. A person's details go to Claude only when you ask Jobby to write to them.
+          Your connections stay in your account only; nobody else using the app
+          sees them. To find organizations that suit you, their organizations'
+          names (never people's names) go to Claude once per upload, for about a
+          cent. A person's details go to Claude only when you ask Jobby to write
+          to them.
         </p>
       </details>
 
@@ -139,13 +181,25 @@ export function NetworkSection({ onSourcesChanged }: { onSourcesChanged: () => v
           style={{ display: "none" }}
           onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])}
         />
-        <button className={has ? "ghost" : "primary"} onClick={() => fileRef.current?.click()} disabled={busy}>
-          {busy ? <Spinner label="Reading your connections..." /> : has ? "Upload a newer file" : "Upload Connections.csv"}
+        <button
+          className={has ? "ghost" : "primary"}
+          onClick={() => fileRef.current?.click()}
+          disabled={busy}
+        >
+          {busy ? (
+            <Spinner label="Reading your connections..." />
+          ) : has ? (
+            "Upload a newer file"
+          ) : (
+            "Upload Connections.csv"
+          )}
         </button>
         {has && (
           <span className="muted small">
             {info!.count.toLocaleString()} connections
-            {info!.uploaded_at && `, uploaded ${new Date(info!.uploaded_at).toLocaleDateString()}`} ·{" "}
+            {info!.uploaded_at &&
+              `, uploaded ${new Date(info!.uploaded_at).toLocaleDateString()}`}{" "}
+            ·{" "}
             <button className="link small" onClick={remove}>
               Remove them
             </button>
@@ -155,8 +209,9 @@ export function NetworkSection({ onSourcesChanged }: { onSourcesChanged: () => v
       {error && <p className="error-text small">{error}</p>}
       {info?.picks_error && (
         <p className="muted small">
-          Couldn't check which other organizations suit you ({info.picks_error}), so the Low tier only lists people
-          at organizations with jobs. Uploading again retries.
+          Couldn't check which other organizations suit you ({info.picks_error}
+          ), so the Low tier only lists people at organizations with jobs.
+          Uploading again retries.
         </p>
       )}
 
@@ -165,14 +220,34 @@ export function NetworkSection({ onSourcesChanged }: { onSourcesChanged: () => v
           <h3 className="network-heading">Who to reach out to</h3>
           <div className="seg network-tiers" role="tablist">
             {TIERS.map((t) => (
-              <button key={t} className={t === tier ? "on" : ""} onClick={() => setTier(t)}>
+              <button
+                key={t}
+                className={t === tier ? "on" : ""}
+                onClick={() => setTier(t)}
+              >
                 {t} ({info!.tiers[t].length})
               </button>
             ))}
+            <button
+              className={tier === "Not listed" ? "on" : ""}
+              onClick={() => setTier("Not listed")}
+            >
+              Not listed ({info!.not_listed.length})
+            </button>
           </div>
-          <p className="muted small">{TIER_HINT[tier]}</p>
+          <div className="network-filter">
+            <p className="muted small">{TIER_HINT[tier]}</p>
+            <input
+              type="search"
+              placeholder="Search name, organization, position..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
           {rows.length === 0 ? (
-            <p className="empty-state small">Nobody in this tier.</p>
+            <p className="empty-state small">
+              {q ? "Nobody here matches that." : "Nobody in this tier."}
+            </p>
           ) : (
             <div className="network-table-wrap">
               <table className="jobs-table network-table">
@@ -203,9 +278,14 @@ export function NetworkSection({ onSourcesChanged }: { onSourcesChanged: () => v
                       <td className="nowrap">{since(p.connected_on)}</td>
                       <td className="small">{p.why}</td>
                       <td>
-                        <Link className="ghost small button-link nowrap" to={outreachLink(p)}>
-                          Write outreach with Jobby
-                        </Link>
+                        {tier !== "Not listed" && (
+                          <Link
+                            className="ghost small button-link nowrap"
+                            to={outreachLink(p)}
+                          >
+                            Write outreach with Jobby
+                          </Link>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -216,35 +296,73 @@ export function NetworkSection({ onSourcesChanged }: { onSourcesChanged: () => v
 
           {info!.suggested_sources.length > 0 && (
             <>
-              <h3 className="network-heading">Organizations to consider adding</h3>
+              <h3 className="network-heading">
+                Organizations to consider adding
+              </h3>
               <p className="muted small">
-                You know people here but don't follow their jobs yet. Adding one checks it every day like your other
-                sources.
+                You know people here but don't follow their jobs yet. Adding one
+                checks it every day like your other sources.
               </p>
-              <ul className="network-sources">
-                {info!.suggested_sources.map((s) => {
-                  const state = adding[s.name];
-                  return (
-                    <li key={s.name}>
-                      <div>
-                        <strong>{s.name}</strong>{" "}
-                        <span className="muted small">
-                          · {s.connections} connection{s.connections === 1 ? "" : "s"} · {s.tier}
-                        </span>
-                        {s.why && <div className="muted small">{s.why}</div>}
-                        {state && state !== "busy" && state !== "added" && <div className="error-text small">{state}</div>}
-                      </div>
-                      {state === "added" ? (
-                        <span className="small added-mark">✓ Added</span>
-                      ) : (
-                        <button className="primary small" onClick={() => addSource(s.name)} disabled={state === "busy"}>
-                          {state === "busy" ? <Spinner label="Adding..." /> : "+ Add"}
-                        </button>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
+              {/* Grouped by tier (an organization's is its best person's), in a box that scrolls. */}
+              <div className="network-sources-wrap">
+                {TIERS.filter((t) =>
+                  info!.suggested_sources.some((s) => s.tier === t),
+                ).map((t) => (
+                  <div key={t}>
+                    <h4 className="network-org-tier">
+                      <span className={`network-tier tier-${t.toLowerCase()}`}>
+                        {t}
+                      </span>
+                    </h4>
+                    <ul className="network-sources">
+                      {info!.suggested_sources
+                        .filter((s) => s.tier === t)
+                        .map((s) => {
+                          const state = adding[s.name];
+                          return (
+                            <li key={s.name}>
+                              <div>
+                                <strong>{s.name}</strong>{" "}
+                                <span className="muted small">
+                                  · {s.connections} connection
+                                  {s.connections === 1 ? "" : "s"}
+                                  {s.leader && " · you know a leader there"}
+                                </span>
+                                {s.why && (
+                                  <div className="muted small">{s.why}</div>
+                                )}
+                                {state &&
+                                  state !== "busy" &&
+                                  state !== "added" && (
+                                    <div className="error-text small">
+                                      {state}
+                                    </div>
+                                  )}
+                              </div>
+                              {state === "added" ? (
+                                <span className="small added-mark">
+                                  ✓ Added
+                                </span>
+                              ) : (
+                                <button
+                                  className="primary small"
+                                  onClick={() => addSource(s.name)}
+                                  disabled={state === "busy"}
+                                >
+                                  {state === "busy" ? (
+                                    <Spinner label="Adding..." />
+                                  ) : (
+                                    "+ Add"
+                                  )}
+                                </button>
+                              )}
+                            </li>
+                          );
+                        })}
+                    </ul>
+                  </div>
+                ))}
+              </div>
             </>
           )}
         </>
@@ -254,7 +372,15 @@ export function NetworkSection({ onSourcesChanged }: { onSourcesChanged: () => v
 }
 
 /** The expanded job card's "People you know here" (nothing when there's nobody). */
-export function PeopleYouKnow({ jobId, company, jobTitle }: { jobId: number; company: string; jobTitle: string }) {
+export function PeopleYouKnow({
+  jobId,
+  company,
+  jobTitle,
+}: {
+  jobId: number;
+  company: string;
+  jobTitle: string;
+}) {
   const [people, setPeople] = useState<PersonAtJob[]>([]);
   useEffect(() => {
     api
@@ -266,7 +392,9 @@ export function PeopleYouKnow({ jobId, company, jobTitle }: { jobId: number; com
   return (
     <div className="card">
       <h2>People you know here</h2>
-      <p className="muted small">From the LinkedIn connections you uploaded on Manage Sources.</p>
+      <p className="muted small">
+        From the LinkedIn connections you uploaded on Manage Sources.
+      </p>
       <ul className="network-people">
         {people.map((p) => (
           <li key={p.id}>
@@ -278,14 +406,28 @@ export function PeopleYouKnow({ jobId, company, jobTitle }: { jobId: number; com
               ) : (
                 <strong>{p.name}</strong>
               )}
-              {p.tier && <span className={`network-tier tier-${p.tier.toLowerCase()}`}>{p.tier}</span>}
+              {p.tier && (
+                <span className={`network-tier tier-${p.tier.toLowerCase()}`}>
+                  {p.tier}
+                </span>
+              )}
               <div className="muted small">
-                {[p.position, p.connected_on && `connected since ${since(p.connected_on)}`].filter(Boolean).join(" · ")}
+                {[
+                  p.position,
+                  p.connected_on && `connected since ${since(p.connected_on)}`,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
               </div>
             </div>
             <Link
               className="ghost small button-link nowrap"
-              to={outreachLink({ ...p, company, job_id: jobId, job_title: jobTitle })}
+              to={outreachLink({
+                ...p,
+                company,
+                job_id: jobId,
+                job_title: jobTitle,
+              })}
             >
               Write outreach with Jobby
             </Link>

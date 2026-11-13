@@ -125,7 +125,9 @@ export interface NetworkOverview {
   count: number;
   picks_error: string | null;
   tiers: Record<NetworkTier, NetworkPerson[]>;
-  suggested_sources: { name: string; connections: number; tier: NetworkTier; why: string | null }[];
+  // Everyone else, each with why they aren't listed (so a missing person can be found).
+  not_listed: NetworkPerson[];
+  suggested_sources: { name: string; connections: number; tier: NetworkTier; why: string | null; leader: boolean }[];
 }
 export interface PersonAtJob {
   id: number;

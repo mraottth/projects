@@ -1034,3 +1034,9 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 .tier-low { background: var(--page); color: var(--muted); border: 1px solid var(--grid); }
 .meta-chip-network { background: rgba(16, 140, 130, 0.12); color: #0b6b63; }
 .added-mark { color: var(--good); font-weight: 600; white-space: nowrap; }
+.network-filter { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.network-filter p { margin: 6px 0; flex: 1 1 360px; }
+.network-filter input { width: 280px; max-width: 100%; }
+.network-sources-wrap { max-height: 380px; overflow-y: auto; border: 1px solid var(--grid); border-radius: var(--radius); padding: 0 12px; }
+.network-org-tier { margin: 12px 0 2px; position: sticky; top: 0; background: var(--card); padding: 6px 0; z-index: 1; }
+.network-org-tier .network-tier { margin-left: 0; }
