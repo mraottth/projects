@@ -801,8 +801,8 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     active filter except the Interest and Fit toggles (search, each organization/source/location,
     posted, minimum salary, hidden unscored jobs, shown dealbreaker jobs), and a closed dropdown
     names its selections ("Recidiviz, Civis Analytics", ellipsized) instead of "2 selected".
-  - My Jobs: the search box is 300px wide, so the Active/Closed/All toggle sits next to it and Export
-    stays right. Organization and Location cells are buttons (`CellFilter`) that filter the table
+  - My Jobs: the search box is 300px wide, so the To-Do/Active/Closed/All toggle sits next to it and
+    Export stays right. Organization and Location cells are buttons (`CellFilter`) that filter the table
     to that value; a pill in the toolbar shows the filter and clears it, as does clicking the cell again.
 - **Signed out after time away** (asked 2026-11-10: pages came up empty until a reload). IAP's
   session runs out; a page left open then had its data requests sent to Google's sign-in page,
@@ -1157,8 +1157,9 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     "Add a job" (right; swapped at the user's ask so the short card's white space sits on the right)
     sit side by side (`.myjobs-top`, 3fr/2fr, stacked under 900px) so the table starts above the
     fold. The search box,
-    an Active / Closed / All toggle (`.seg`; Closed = both rejections and withdrawn, default
-    Active) and the sort links form one toolbar inside the table card. That toolbar and the header
+    a To-Do / Active / Closed / All toggle (`.seg`; To-Do = Drafting only, added 2026-11-13;
+    Closed = both rejections and withdrawn; default Active) and the sort links form one toolbar
+    inside the table card. That toolbar and the header
     row are `position: sticky` under the app's sticky top bar. `useStickyOffsets()` measures both
     with a ResizeObserver into `--sticky-top`/`--thead-top`. The card has no `overflow-x`, which
     would break sticky.
@@ -1455,10 +1456,19 @@ no Claude calls, nothing from `data/`.
 ## Working conventions
 
 - Small commits, one concern each.
-- **Show the deploy command** (the owner's ask, 2026-11-06) whenever a reply hands over a change
-  that needs a deploy to go live: merged or about to be, or the owner asks to ship. Give it in full,
-  ready to paste into Cloud Shell, in its own `bash` block, as one line in the shape the owner is
-  used to (git works from the project folder, and `git pull` fetches the branch):
+- **Deploy from a local session, not Cloud Shell** (the owner's ask, 2026-11-13). Cloud Shell was
+  only ever a workaround: most work from Oct 28 on ran in a Claude Code on the web session, which
+  can't use the owner's `gcloud` login. A session on the owner's Mac can. When the owner asks to
+  ship: merge the branch into `main`, push, then `make deploy` from this folder. This checkout's
+  git-ignored `.deploy.local.mk` sets `GCP_PROJECT`, `ADMIN_EMAIL`, `IAP_USER` and `IAP_CLIENT_ID`.
+  `--set-env-vars`/`--set-secrets` replace the whole set, so before the first deploy from a new
+  checkout, compare `make -n deploy` with `gcloud run services describe jobhunt` (8 env vars, 3
+  secrets on 2026-11-13); they matched. Deploying is real spend, so only on the owner's ask.
+- **In a web session, show the deploy command instead** (the owner's ask, 2026-11-06) whenever a
+  reply hands over a change that needs a deploy to go live: merged or about to be, or the owner
+  asks to ship. Give it in full, ready to paste into Cloud Shell, in its own `bash` block, as one
+  line in the shape the owner is used to (git works from the project folder, and `git pull`
+  fetches the branch):
   `cd ~/projects/"01 - Claude Code Projects/02 - Job Search Assistant" && git checkout main && git pull && git merge origin/<branch> && git push && make deploy ADMIN_EMAIL=<the admin's sign-in address>`
   Leave out the merge when the branch is already on `main`. In the reply use the real address; in
   files, a placeholder. Cloud Shell's `~/projects` must use the SSH remote
@@ -1574,9 +1584,9 @@ makes it noticeably bigger than Shelf Life's — expect a slower Cloud Build and
 Deployed to the `job-searcher-512814` GCP project, service `jobhunt`, region `us-central1`.
 The URL isn't recorded in this repo; get it with `gcloud run services describe jobhunt --project
 job-searcher-512814 --region us-central1 --format='value(status.url)'` or from the Cloud Run
-console. Deploy from this folder in Cloud Shell's checkout of `mraottth/projects` (`cd
-~/projects/"01 - Claude Code Projects/02 - Job Search Assistant"`), with `.deploy.local.mk` copied
-there from the old checkout. One-time setup order (see the Makefile): `apis-setup` → `bucket-setup` → `anthropic-secret`
+console. Deploy from this folder, either in a local checkout (see Working conventions) or in
+Cloud Shell's checkout of `mraottth/projects` (`cd ~/projects/"01 - Claude Code
+Projects/02 - Job Search Assistant"`); each needs its own git-ignored `.deploy.local.mk`. One-time setup order (see the Makefile): `apis-setup` → `bucket-setup` → `anthropic-secret`
 / `scheduler-secret` (/ `email-secret` for the daily email) → `deploy` → `iap-setup` →
 `scheduler-setup` (the daily run at 2:00pm ET), then `bucket-protect` once; after that, `make
 deploy` alone ships every update. Every one of these is real spend/real infrastructure, so don't run them from

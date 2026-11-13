@@ -389,10 +389,11 @@ const REJECTED: ApplicationStatus[] = ["rejected_no_interview", "rejected_interv
 const INTERVIEWED: ApplicationStatus[] = ["interviewing", "offer", "rejected_interviewed"];
 // Still in play vs. over, for the table's Active / Closed toggle.
 const CLOSED: ApplicationStatus[] = [...REJECTED, "withdrawn"];
-type StatusView = "active" | "closed" | "all";
+type StatusView = "todo" | "active" | "closed" | "all";
 
 function inView(app: Application, view: StatusView): boolean {
   if (view === "all") return true;
+  if (view === "todo") return app.status === "saved";
   return CLOSED.includes(app.status) === (view === "closed");
 }
 
@@ -621,9 +622,10 @@ export default function MyJobsPage() {
   const sorted = ordered.filter(matches);
   const outOfOrder = sortedIds(apps, sortKey, sortDir).join() !== ordered.map((a) => a.id).join();
   const viewCount = (v: StatusView) => apps.filter((a) => inView(a, v)).length;
-  const VIEWS: { key: StatusView; label: string }[] = [
-    { key: "active", label: "Active" },
-    { key: "closed", label: "Closed" },
+  const VIEWS: { key: StatusView; label: string; title?: string }[] = [
+    { key: "todo", label: "To-Do", title: "Drafting: not applied yet" },
+    { key: "active", label: "Active", title: "Drafting, waiting, interviewing and offers" },
+    { key: "closed", label: "Closed", title: "Rejected and withdrawn" },
     { key: "all", label: "All" },
   ];
 
@@ -673,13 +675,7 @@ export default function MyJobsPage() {
                   key={v.key}
                   className={view === v.key ? "on" : ""}
                   onClick={() => setView(v.key)}
-                  title={
-                    v.key === "active"
-                      ? "Drafting, waiting, interviewing and offers"
-                      : v.key === "closed"
-                        ? "Rejected and withdrawn"
-                        : undefined
-                  }
+                  title={v.title}
                 >
                   {v.label} <span className="chip-count">{viewCount(v.key)}</span>
                 </button>
