@@ -4,6 +4,7 @@ import { DEMO } from "../demo";
 import { api, RunProgress, runProgressText, Source, SourceKind } from "../api";
 import { DiscoverCompaniesSection, DiscoverJobBoardsSection, DiscoverySeed } from "../components/Discovery";
 import { Modal } from "../components/Modal";
+import { NetworkSection } from "../components/Network";
 import { detectSourceFromUrl } from "../sourceUrl";
 import { Spinner } from "../components/Spinner";
 import { useIsAdmin } from "../me";
@@ -639,6 +640,9 @@ export default function ManageSourcesPage() {
         seed={boardSeed}
         onAdded={refresh}
       />
+
+      {/* Your LinkedIn connections (D-036): who to reach out to, and organizations to add. */}
+      {!DEMO && <NetworkSection onSourcesChanged={refresh} />}
 
       {!DEMO && (
       <div className="card">

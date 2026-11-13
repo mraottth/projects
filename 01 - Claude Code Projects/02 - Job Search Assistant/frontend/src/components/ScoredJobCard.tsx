@@ -297,6 +297,12 @@ export function ScoredJobCard({
               )}
               <span className="meta-chip meta-chip-salary">Salary: {salaryText(job)}</span>
               <span className="meta-chip meta-chip-posted">Date Posted: {postedText(job)}</span>
+              {/* LinkedIn connections at its organization (D-036); who they are is on the job's card. */}
+              {!!job.connections && (
+                <span className="meta-chip meta-chip-network" title="LinkedIn connections who work here">
+                  {job.connections} connection{job.connections === 1 ? "" : "s"}
+                </span>
+              )}
               {/* Where it was found, only for a job board (asked 2026-11-06): an organization's own careers page
                   adds nothing to the organization chip. A board's own postings don't repeat its name either. */}
               {!!job.source_is_board && job.source_name && !sameName(job.source_name, job.company) && (

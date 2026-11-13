@@ -19,6 +19,7 @@ from jobhunt.api import (
     internal,
     jobby,
     jobs,
+    network,
     onboarding,
     pipeline,
     rescore,
@@ -75,6 +76,7 @@ app.include_router(digest.router)
 app.include_router(applications.router)
 app.include_router(settings.router)
 app.include_router(sources.router)
+app.include_router(network.router)
 app.include_router(internal.router)
 app.include_router(generate.router)
 app.include_router(discovery.router)

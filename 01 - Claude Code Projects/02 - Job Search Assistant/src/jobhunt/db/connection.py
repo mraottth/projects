@@ -137,6 +137,7 @@ PER_USER_TABLES = (
     "jobby_threads",
     "llm_calls",
     "runs",
+    "connections",
 )
 ADMIN_ID = 1
 PLACEHOLDER_ADMIN_EMAIL = "admin@localhost"

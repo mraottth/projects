@@ -107,6 +107,35 @@ export interface Job {
   already_in_sources?: boolean;
 }
 
+// Your LinkedIn network (D-036): Connections.csv, who to reach out to, and sources to consider.
+export type NetworkTier = "High" | "Medium" | "Low";
+export interface NetworkPerson {
+  id: number;
+  name: string;
+  url: string | null;
+  company: string | null;
+  position: string | null;
+  connected_on: string | null;
+  why: string;
+  job_id: number | null;
+  job_title: string | null;
+}
+export interface NetworkOverview {
+  uploaded_at: string | null;
+  count: number;
+  picks_error: string | null;
+  tiers: Record<NetworkTier, NetworkPerson[]>;
+  suggested_sources: { name: string; connections: number; tier: NetworkTier; why: string | null }[];
+}
+export interface PersonAtJob {
+  id: number;
+  name: string;
+  url: string | null;
+  position: string | null;
+  connected_on: string | null;
+  tier: NetworkTier | null;
+}
+
 export type ApplicationStatus =
   | "saved"
   | "waiting"
@@ -173,6 +202,8 @@ export interface Application {
 }
 
 export interface ScoredJob extends Job {
+  // How many of your LinkedIn connections work at its organization (D-036; 0 without an upload).
+  connections?: number;
   // All Jobs only: which dealbreakers rule this job out ("location", "salary"); hidden unless asked.
   dealbreakers?: string[];
   // All Jobs only: the title screen set it aside as a clear mismatch, so it isn't scored.
@@ -816,6 +847,18 @@ export const api = {
       { method: "POST", body: form },
     );
   },
+
+  getNetwork: () => request<NetworkOverview>("/api/network"),
+
+  uploadConnections: (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return request<NetworkOverview>("/api/network/connections", { method: "POST", body: form });
+  },
+
+  deleteConnections: () => request<NetworkOverview>("/api/network/connections", { method: "DELETE" }),
+
+  peopleAtJob: (jobId: number) => request<PersonAtJob[]>(`/api/network/job/${jobId}`),
 
   updateResume: (id: number, payload: { is_archived?: boolean; is_template?: boolean }) =>
     request<{ ok: true }>(`/api/resumes/${id}`, {

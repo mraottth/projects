@@ -283,3 +283,18 @@ CREATE TABLE IF NOT EXISTS jobby_messages (
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_jobby_messages_thread ON jobby_messages(thread_id, id);
+
+-- Your LinkedIn connections, from LinkedIn's own data export (Connections.csv; D-036). Private to
+-- the person who uploaded them; a new upload replaces the set. org_key is job_merge.norm_org(company).
+CREATE TABLE IF NOT EXISTS connections (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    first_name TEXT,
+    last_name TEXT,
+    url TEXT,
+    company TEXT,
+    position TEXT,
+    connected_on TEXT,
+    org_key TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_connections_user_org ON connections(user_id, org_key);

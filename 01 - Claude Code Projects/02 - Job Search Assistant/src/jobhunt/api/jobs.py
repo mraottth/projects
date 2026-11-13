@@ -6,7 +6,7 @@ from jobhunt.core.llm import LLMError
 from jobhunt.core.preference import get_current_preference_profile
 from jobhunt.core.profile import get_current_candidate_profile
 from jobhunt.core.scoring import score_job, store_score
-from jobhunt.core import dealbreakers, job_merge
+from jobhunt.core import dealbreakers, job_merge, network
 from jobhunt.core.digest import SOURCE_IS_BOARD_SQL
 from jobhunt.core.settings import get_setting, get_settings
 from jobhunt.db.connection import get_db
@@ -116,6 +116,7 @@ def list_ranked_jobs(status: str = "active"):
         job["dealbreakers"] = dealbreakers.reasons(job, settings)
         job["screened_out"] = bool(job.get("screened_out"))
         job["description_text"] = None  # sent by /ranked/descriptions, after the list
+    network.add_counts(jobs)  # "2 connections" on the cards (D-036)
     return jobs
 
 

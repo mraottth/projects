@@ -15,6 +15,10 @@ FRONTEND = Path(__file__).resolve().parents[1] / "frontend" / "src"
 # Paths the frontend only ever writes to (POST/PUT/PATCH/DELETE) or links to as a file. The demo
 # refuses every write, so these need no recording.
 NOT_RECORDED = {
+    # Your LinkedIn network (D-036): never in the demo, which has no connections and hides the section.
+    "/api/network",
+    "/api/network/connections",
+    "/api/network/job/{}",
     "/api/access/request",
     "/api/admin/scoring-experiment",
     "/api/admin/users",

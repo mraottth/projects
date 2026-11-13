@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException
 
 from jobhunt.api.pipeline import stream_run
 from jobhunt.core import budget
+from jobhunt.core import network
 from jobhunt.core.digest import get_digest, get_digest_dates, today_str
 from jobhunt.core.settings import get_setting, update_settings
 from jobhunt.core.users import current_user, current_user_id
@@ -22,7 +23,9 @@ FRESH_HOURS = 1.0
 @router.get("/today")
 def digest_today():
     date = today_str()
-    return {"date": date, "entries": get_digest(date)}
+    entries = get_digest(date)
+    network.add_counts(entries)  # "2 connections" on the cards (D-036)
+    return {"date": date, "entries": entries}
 
 
 @router.get("/dates")
@@ -71,4 +74,6 @@ def refresh_stream():
 
 @router.get("/{digest_date}")
 def digest_by_date(digest_date: str):
-    return {"date": digest_date, "entries": get_digest(digest_date)}
+    entries = get_digest(digest_date)
+    network.add_counts(entries)  # "2 connections" on the cards (D-036)
+    return {"date": digest_date, "entries": entries}

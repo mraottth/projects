@@ -540,6 +540,31 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   at paste time: `POST /api/jobs/manual` checks a URL's identity before the paid read, and the parsed
   title/organization after, and on a match tracks the source job instead (`already_in_sources`;
   "Add a job" says so). Only the person's own pasted jobs and the sources they follow are compared.
+- **Your LinkedIn network** (D-036, asked 2026-11-13; `core/network.py`, `api/network.py`,
+  `components/Network.tsx`). LinkedIn's sign-in shares only your own profile and its connections API
+  needs a partner program, so the person uploads LinkedIn's export, `Connections.csv` (`parse_csv`
+  skips its note lines). Rows go in the per-person `connections` table (in `PER_USER_TABLES`; a new
+  upload replaces the set; `org_key` = `job_merge.norm_org(company)`).
+  - **Tiers are worked out on each read**, from the jobs as they are then (`tier()`): High = at an
+    organization with a job you'd want (High/Med for both, or on My Jobs) and hiring-side
+    (`HIRING`) or the same line of work (`_words`, with `_FAMILIES` so "Analytics" = "Data");
+    Medium = one of the two; Low = an organization with other openings, or one Claude picked.
+  - **Claude sees organization names only:** at upload, `pick_organizations()` sends the
+    connections' organizations that have no jobs of yours to Claude Haiku (`PICK_MODEL`, `CHUNK` 200,
+    note "network organizations", Usage log: Finding sources) and saves its picks in the
+    `network_orgs` setting. A failure leaves the free tiers and shows `network_orgs_error`.
+  - **Manage Sources' "Your LinkedIn network"** card (above "Check my sources now"): steps to get
+    the file, the upload, "Remove them" (`DELETE /api/network/connections`), High/Medium/Low tabs
+    of a table (name linked, position, organization, connected, why, "Write outreach with Jobby"),
+    and "Organizations to consider adding" (organizations with listed connections that no followed
+    source names; "+ Add" is `POST /api/sources/resolve`).
+  - **Jobby:** `outreachLink()` opens `/jobby?job=<id>&prompt=...` (or `?new=1&prompt=...`), and
+    `JobbyPage` puts `prompt` in the message box unsent, so a person's details reach Claude only
+    when they press Send.
+  - **Job cards:** `GET /api/jobs/ranked` and the digest routes add `connections` (a count per
+    organization; `network.add_counts`), shown as a teal "N connections" chip; the job's card has
+    "People you know here" (`GET /api/network/job/{id}`, `PeopleYouKnow`). Nothing on My Jobs (the
+    owner's call). All of it is hidden in the demo, which has no connections.
 - `src/jobhunt/ingest/adapters/` — one module per source kind (`greenhouse`, `lever`, `ashby`,
   `adzuna`, `remoteok`, `custom_board`). Each `fetch(source: dict) -> list[dict]` returns raw
   posting dicts; the pipeline does dedup/upsert/normalization uniformly across all of them. Every

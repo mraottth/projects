@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { PeopleYouKnow } from "../components/Network";
 import { Link, useParams } from "react-router-dom";
 import { api, Application, APPLICATION_STATUS_LABELS, GeneratedDoc, Job } from "../api";
 import { Markdown } from "../components/Markdown";
@@ -166,6 +167,8 @@ export default function JobDetailPage({ jobId: shownId }: { jobId?: number } = {
         </div>
         {error && <p className="error-text small">{error}</p>}
       </div>
+
+      {!DEMO && <PeopleYouKnow jobId={jobId} company={job.company} jobTitle={job.title} />}
 
       {docs.map((doc) => (
         <div className="card" key={doc.id}>

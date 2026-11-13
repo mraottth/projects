@@ -53,7 +53,7 @@ def categorize(call_type: str, note: str | None) -> str:
     if call_type == "parsing":
         if note.startswith("custom_board"):
             return "boards"
-        if note.startswith(("discovery", "resolve_company")):
+        if note.startswith(("discovery", "resolve_company", "network organizations")):
             return "discovery"
         if note.startswith("sector suggestions"):
             return "profile"

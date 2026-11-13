@@ -316,6 +316,17 @@ export default function JobbyPage() {
   // "Ask about this": the selected part of a reply and where to put its button.
   const [quote, setQuote] = useState<{ text: string; top: number; left: number } | null>(null);
 
+  // "Write outreach with Jobby" (Manage Sources, a job's card) opens a chat with its message ready in
+  // the box (?prompt=); nothing is sent, or paid for, until you press Send.
+  const promptParam = params.get("prompt");
+  const prefilled = useRef<string | null>(null);
+  useEffect(() => {
+    if (promptParam && prefilled.current !== promptParam) {
+      prefilled.current = promptParam;
+      setDraft(promptParam);
+    }
+  }, [promptParam]);
+
   const refreshChats = useCallback(() => {
     api
       .listJobbyChats()
