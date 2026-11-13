@@ -33,22 +33,30 @@ async def upload_connections(file: UploadFile = File(...)):
     if not rows:
         raise HTTPException(400, "That file has no connections in it.")
     network.replace_connections(rows)
-    # Organizations with jobs are judged by the free rules; Claude reads only the rest, by name, and
-    # never your own organization.
+    _rate()
+    return network.overview()
+
+
+@router.post("/rate")
+def rate_organizations():
+    """Rates the connections' organizations again (e.g. ratings saved before fit/interest existed)."""
+    _rate()
+    return network.overview()
+
+
+def _rate() -> None:
+    """Claude rates every connection's organization, by name, except your own. A failure keeps the
+    free tiers and is shown on the card."""
     with get_db() as conn:
         uid = current_user_id()
-        with_jobs = set(network._jobs_by_org(conn, uid))
         people = [dict(r) for r in conn.execute("SELECT company FROM connections WHERE user_id = ?", (uid,))]
         mine, _ = network.current_org(conn, uid, people, get_settings())
-    if mine:
-        with_jobs.add(network.org_key(mine))
     try:
-        network.pick_organizations(exclude=with_jobs)
+        network.pick_organizations(exclude={network.org_key(mine)} if mine else set())
         update_settings({"network_orgs_error": None})
     except LLMError as exc:
-        logger.warning("network organization picks failed: %s", exc)
+        logger.warning("rating network organizations failed: %s", exc)
         update_settings({"network_orgs": {}, "network_orgs_error": str(exc)})
-    return network.overview()
 
 
 @router.delete("/connections")

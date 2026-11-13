@@ -545,18 +545,19 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   needs a partner program, so the person uploads LinkedIn's export, `Connections.csv` (`parse_csv`
   skips its note lines). Rows go in the per-person `connections` table (in `PER_USER_TABLES`; a new
   upload replaces the set; `org_key` = `job_merge.norm_org(company)`).
-  - **Tiers are worked out on each read**, from the jobs as they are then (`tier()`; revised
-    2026-11-13 after the owner's first real upload ranked good people too low):
+  - **Tiers are worked out on each read**, from the jobs as they are then (`tier()`; revised twice
+    on 2026-11-13, last to make High only good-fit organizations):
     - *A job you'd want* is rated High/Med for both, on My Jobs, or unrated with a title in your
       line of work (desired titles) and not set aside by the relevance check. Every job at the
       organization is compared, not just the best one.
-    - *High:* such a job there and they're hiring-side (`HIRING`; "people" only as people ops, not
-      "People Analytics"), in that job's line of work, or a leader (`LEADER`, or a plain director);
-      or they're a leader (CEO, founder, president, executive director, VP, head of...) at any
-      organization in your sources, followed or picked by Claude.
-    - *Medium:* a job you'd want there in another role; or hiring-side / in your line of work where
-      the openings aren't a strong match, or at a followed or picked organization.
-    - *Low:* a followed or picked organization in another role, or your line of work anywhere.
+    - *A good-fit organization:* Claude rated it `fit`, or it has a job you'd want.
+    - *High:* a good-fit organization **and** a fitting role: a leader (`LEADER`, or a director),
+      hiring-side (`HIRING`; "people" only as people ops, not "People Analytics"), or the line of work
+      of a job you'd want there or of your desired titles.
+    - *Medium:* a good-fit organization in another role; any organization in your sources (followed,
+      or with jobs from your sources) or rated `interest`, any role; or a title particularly aligned
+      with one you're after anywhere (`_aligned`: same line of work and same seniority).
+    - *Low:* your general line of work, or hiring-side, anywhere else.
     - Everyone else is under "Not listed" with why, searchable, so a missing person can be found.
     - *Your current organization's people are left out* (asked 2026-11-13: "a ton of DCCC
       people"). `guess_current_org()` picks, among organizations with `MIN_COLLEAGUES` (3)+
@@ -571,10 +572,13 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     leading "the" and trailing source words ("Careers", "Jobs") are dropped, "U.S." reads as "US",
     and a name links to itself plus more words ("Blue Rose" = "Blue Rose Research") when the shorter
     is 5+ letters and not generic (`_GENERIC_ORGS`). Used for tiers, card counts and the job card.
-  - **Claude sees organization names only:** at upload, `pick_organizations()` sends the
-    connections' organizations that have no jobs of yours to Claude Haiku (`PICK_MODEL`, `CHUNK` 200,
-    note "network organizations", Usage log: Finding sources) and saves its picks in the
-    `network_orgs` setting. A failure leaves the free tiers and shows `network_orgs_error`.
+  - **Claude sees organization names only:** at upload, `pick_organizations()` sends every
+    connection's organization except your own to Claude Haiku (`PICK_MODEL`, `CHUNK` 200, note
+    "network organizations", Usage log: Finding sources), which rates the relevant ones `fit` or
+    `interest` with a reason; saved in `network_orgs` with `network_orgs_version`
+    (`RATINGS_VERSION`). Older picks (no rating) read as `interest`, and the card offers "Re-rate
+    organizations" (`POST /api/network/rate`) until they're redone. A failure leaves the free tiers
+    and shows `network_orgs_error`.
   - **Manage Sources' "Your LinkedIn network"** card (above "Check my sources now"): steps to get
     the file, the upload, "Remove them" (`DELETE /api/network/connections`), High/Medium/Low tabs
     of a table (name linked, position, organization, connected, why, "Write outreach with Jobby"),

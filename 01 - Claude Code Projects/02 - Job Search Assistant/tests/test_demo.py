@@ -18,6 +18,7 @@ NOT_RECORDED = {
     # Your LinkedIn network (D-036): never in the demo, which has no connections and hides the section.
     "/api/network",
     "/api/network/connections",
+    "/api/network/rate",
     "/api/network/job/{}",
     "/api/access/request",
     "/api/admin/scoring-experiment",

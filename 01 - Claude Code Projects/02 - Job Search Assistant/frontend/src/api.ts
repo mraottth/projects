@@ -128,6 +128,8 @@ export interface NetworkOverview {
   // Everyone else, each with why they aren't listed (so a missing person can be found).
   not_listed: NetworkPerson[];
   // Your own organization: its people are left out (guessed from your resume until you set it).
+  // Ratings saved before fit/interest existed: the card offers "Re-rate organizations".
+  ratings_outdated: boolean;
   current_org: string | null;
   current_org_guessed: boolean;
   colleagues: number;
@@ -864,6 +866,8 @@ export const api = {
     form.append("file", file);
     return request<NetworkOverview>("/api/network/connections", { method: "POST", body: form });
   },
+
+  rateNetworkOrganizations: () => request<NetworkOverview>("/api/network/rate", { method: "POST" }),
 
   deleteConnections: () => request<NetworkOverview>("/api/network/connections", { method: "DELETE" }),
 

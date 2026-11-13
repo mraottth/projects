@@ -13,10 +13,10 @@ import { Spinner } from "./Spinner";
 const TIERS: NetworkTier[] = ["High", "Medium", "Low"];
 type Tab = NetworkTier | "Not listed";
 const TIER_HINT: Record<Tab, string> = {
-  High: "A job you'd want there and they're on the hiring side, in that line of work or a leader; or they lead an organization in your sources.",
+  High: "An organization that suits your profile (or has a job you'd want), and they're a leader, on the hiring side or in your line of work.",
   Medium:
-    "A job you'd want there in another role, or the right role where the openings aren't a strong match.",
-  Low: "Worth a hello: an organization that suits you, or someone in your line of work, with no openings yet.",
+    "A good-fit organization in another role, any organization in your sources or of interest, or a title close to what you're after.",
+  Low: "Worth a hello: in your line of work, or on the hiring side, somewhere else.",
   "Not listed":
     "Everyone else, and why. If someone belongs higher, their organization may be missing from your sources.",
 };
@@ -114,6 +114,18 @@ export function NetworkSection({
     }
   };
 
+  const rerate = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      setInfo(await api.rateNetworkOrganizations());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const remove = async () => {
     setInfo(await api.deleteConnections());
   };
@@ -207,6 +219,18 @@ export function NetworkSection({
         )}
       </div>
       {has && <CurrentOrg info={info!} onSaved={setInfo} />}
+      {has && info!.ratings_outdated && (
+        <p className="small network-current">
+          <span className="muted">
+            High is now for organizations that suit your profile, so your
+            connections' organizations need rating (their names only, about a
+            cent or two).
+          </span>{" "}
+          <button className="ghost small" onClick={rerate} disabled={busy}>
+            {busy ? <Spinner label="Rating..." /> : "Re-rate organizations"}
+          </button>
+        </p>
+      )}
       {error && <p className="error-text small">{error}</p>}
       {info?.picks_error && (
         <p className="muted small">

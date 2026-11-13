@@ -19,6 +19,8 @@ import io
 import re
 from datetime import datetime
 
+from typing import Literal
+
 from pydantic import BaseModel
 
 from jobhunt.core.job_merge import norm_org
@@ -124,17 +126,22 @@ def replace_connections(rows: list[dict]) -> None:
 
 
 # ---------------------------------------------------------------------------------------------
-# Organizations Claude picks (names only)
+# Organizations Claude rates (names only; asked 2026-11-13: High is for good-fit organizations)
 
+RATINGS_VERSION = 2
 PICK_PROMPT = """You help a job seeker decide which of their LinkedIn connections to reach out to. \
 You'll get who they are and what they want, then a numbered list of organizations their \
-connections work at. List the numbers of organizations where they'd plausibly want to work, given \
-their background and goals, with a few words on why each. Leave out ones that are clearly a \
-different field, and anything you don't recognize well enough to judge."""
+connections work at. Rate the ones worth their attention:
+- "fit": somewhere they'd clearly want to work, given their background, the roles they're after, \
+their sectors and their own words;
+- "interest": plausible or adjacent: a related field or mission, or a likely stepping stone.
+Give a few words on why each. Leave out everything else, including organizations clearly in a \
+different field and anything you don't recognize well enough to judge."""
 
 
 class Pick(BaseModel):
     number: int
+    rating: Literal["fit", "interest"] = "interest"
     why: str
 
 
@@ -143,8 +150,9 @@ class Picks(BaseModel):
 
 
 def pick_organizations(exclude: set[str] | None = None) -> dict:
-    """Asks Claude which of the person's connections' other organizations suit them. Saves and
-    returns {org_key: {"name", "why"}} (the `network_orgs` setting). Errors are raised as LLMError."""
+    """Rates every one of the person's connections' organizations (except `exclude`, their own) with
+    Claude, by name only. Saves and returns {org_key: {"name", "why", "rating"}} (the `network_orgs`
+    setting, with `network_orgs_version`). Errors are raised as LLMError."""
     exclude = exclude or set()
     names = _org_names()
     orgs = [(k, n) for k, n in names.items() if k not in exclude][:MAX_ORGS]
@@ -153,10 +161,10 @@ def pick_organizations(exclude: set[str] | None = None) -> dict:
         context = _context()
         for start in range(0, len(orgs), CHUNK):
             chunk = orgs[start : start + CHUNK]
-            for n, why in _pick_chunk(context, [name for _, name in chunk]).items():
+            for n, (rating, why) in _pick_chunk(context, [name for _, name in chunk]).items():
                 key, name = chunk[n - 1]
-                picked[key] = {"name": name, "why": why}
-    update_settings({"network_orgs": picked})
+                picked[key] = {"name": name, "why": why, "rating": rating}
+    update_settings({"network_orgs": picked, "network_orgs_version": RATINGS_VERSION})
     return picked
 
 
@@ -214,7 +222,11 @@ def _pick_chunk(context: str, names: list[str]) -> dict[int, str]:
         raise LLMError(
             f"no answer about your connections' organizations (stop reason: {response.stop_reason})"
         )
-    return {p.number: p.why.strip() for p in response.parsed_output.picks if 1 <= p.number <= len(names)}
+    return {
+        p.number: (p.rating, p.why.strip())
+        for p in response.parsed_output.picks
+        if 1 <= p.number <= len(names)
+    }
 
 
 # ---------------------------------------------------------------------------------------------
@@ -332,8 +344,23 @@ def _jobs_by_org(conn, uid: int) -> dict[str, list[dict]]:
     return by_org
 
 
-def _desired_words() -> set[str]:
-    return _words(" ".join(get_settings().get("prefilter_titles_include") or []))
+def _desired_titles() -> list[str]:
+    return [t for t in (get_settings().get("prefilter_titles_include") or []) if t]
+
+
+def _desired_words(titles: list[str] | None = None) -> set[str]:
+    return _words(" ".join(titles if titles is not None else _desired_titles()))
+
+
+def _senior(title: str) -> bool:
+    return bool(LEADER.search(title) or DIRECTOR.search(title))
+
+
+def _aligned(position: str, titles: list[str]) -> bool:
+    """A title particularly close to one you're after: the same line of work and the same
+    seniority ("Director of Analytics" for "Analytics Director"; not "Data Analyst")."""
+    words = _words(position)
+    return any(words & _words(t) and _senior(position) == _senior(t) for t in titles)
 
 
 def _followed_org_keys(conn, uid: int) -> set[str]:
@@ -368,52 +395,69 @@ def tier(
     jobs: list[dict] | None,
     pick: dict | None,
     followed: bool = False,
-    desired: set[str] | None = None,
+    titles: list[str] | None = None,
 ) -> tuple[str | None, str, dict | None]:
-    """(tier or None for not listed, why, the job it's about). The why sits next to their position
-    and organization in the table, so it doesn't repeat them."""
+    """(tier or None for not listed, why, the job it's about). Revised 2026-11-13:
+    - High: a good-fit organization (Claude rated it "fit", or it has a job you'd want) and a role
+      that fits (a leader, hiring-side, or the line of work of that job or of your desired titles);
+    - Medium: a good-fit organization in another role; any organization in your sources or rated
+      "interest"; or a title particularly aligned with what you're after, anywhere;
+    - Low: your general line of work, or hiring-side, anywhere else.
+    The why sits next to their position and organization in the table, so it doesn't repeat them."""
     position = person.get("position") or ""
-    desired = desired if desired is not None else _desired_words()
+    titles = titles if titles is not None else _desired_titles()
     words = _words(position)
     hiring = bool(HIRING.search(position))
-    leader = bool(LEADER.search(position))
-    director = bool(DIRECTOR.search(position))
-    my_line = bool(words & desired)
+    leader = bool(LEADER.search(position) or DIRECTOR.search(position))
+    my_line = bool(words & _desired_words(titles))
+    aligned = _aligned(position, titles)
+    jobs = jobs or []
+    rating = (pick or {}).get("rating", "interest") if pick else None
 
-    if jobs:
-        wanted = sorted((j for j in jobs if j["wanted"]), key=_rank)
-        others = sorted((j for j in jobs if not j["wanted"]), key=_rank)
-        same = [j for j in wanted if words & _words(j["title"])]
-        if wanted:
-            job = (same or wanted)[0]
-            if hiring:
-                return "High", f"{_about(job)}; they're on the hiring side.", job
-            if same:
-                return "High", f"{_about(job)}; they're in the same line of work.", job
-            if leader or director:
-                return "High", f"{_about(job)}; they're a leader there.", job
-            return "Medium", f"{_about(job)}.", job
-        job = others[0]
-        if leader:
-            return "High", f"They lead an organization in your sources. {_about(job)}.", job
-        same_any = [j for j in others if words & _words(j["title"])]
-        if hiring or same_any or my_line:
-            job = (same_any or others)[0]
-            role = "on the hiring side" if hiring else "in your line of work"
-            return "Medium", f"{_about(job)}; they're {role}.", job
-        return None, "A different line of work from the openings there.", None
+    wanted = sorted((j for j in jobs if j["wanted"]), key=_rank)
+    same = [j for j in wanted if words & _words(j["title"])]
+    job = (same or wanted or sorted(jobs, key=_rank) or [None])[0]
+    good_fit = rating == "fit" or bool(wanted)
+    in_sources = followed or bool(jobs)
 
-    if pick or followed:
-        why = (pick or {}).get("why", "").rstrip(".") or "You follow this organization"
-        if leader:
-            return "High", f"{why}. They lead it. No opening from your sources yet.", None
-        if hiring or my_line:
-            role = "on the hiring side" if hiring else "in your line of work"
-            return "Medium", f"{why}. They're {role}. No opening from your sources yet.", None
-        return "Low", f"{why}. No opening from your sources yet.", None
-    if my_line:
-        return "Low", "In your line of work; no openings from your sources there yet.", None
+    if wanted:
+        place = _about(job)
+    elif rating == "fit":
+        place = f"A good fit for you: {pick['why'].rstrip('.')}"
+    elif rating == "interest":
+        place = f"Of interest: {pick['why'].rstrip('.')}"
+    elif jobs:
+        place = f"In your sources. {_about(job)}"
+    elif followed:
+        place = "In your sources"
+    else:
+        place = ""
+    if leader:
+        role = "they're a leader there"
+    elif hiring:
+        role = "they're on the hiring side"
+    elif same or my_line:
+        role = "they're in your line of work"
+    else:
+        role = ""
+    if aligned and not leader:
+        role = "their title is close to what you're looking for"
+
+    def why(*parts: str) -> str:
+        text = "; ".join(p for p in parts if p)
+        return (text[0].upper() + text[1:] + ".") if text else ""
+
+    if good_fit and (leader or hiring or same or my_line):
+        return "High", why(place, role), job
+    if good_fit or in_sources or rating == "interest":
+        return "Medium", why(place, role), job
+    if aligned:
+        return "Medium", why(role), job
+    if my_line or hiring:
+        return "Low", why(role, "no openings from your sources there yet"), job
     company = person.get("company")
+    if jobs:
+        return None, "A different line of work from the openings there.", None
     return (
         None,
         (f"No openings from your sources at {company}." if company else "No organization on their profile."),
@@ -492,7 +536,7 @@ def overview() -> dict:
     uid = current_user_id()
     settings = get_settings()
     picks = settings.get("network_orgs") or {}
-    desired = _desired_words()
+    desired = _desired_titles()
     with get_db() as conn:
         people = [dict(r) for r in conn.execute("SELECT * FROM connections WHERE user_id = ?", (uid,))]
         by_org = _jobs_by_org(conn, uid) if people else {}
@@ -577,6 +621,8 @@ def overview() -> dict:
         "tiers": tiers,
         "not_listed": not_listed,
         "suggested_sources": suggestions,
+        # Ratings saved before 2026-11-13 covered only organizations without jobs, with no fit/interest.
+        "ratings_outdated": bool(people) and settings.get("network_orgs_version") != RATINGS_VERSION,
         "current_org": mine,
         "current_org_guessed": guessed,
         "colleagues": colleagues,
@@ -616,7 +662,7 @@ def people_at(company: str | None) -> list[dict]:
         return []
     uid = current_user_id()
     picks = get_settings().get("network_orgs") or {}
-    desired = _desired_words()
+    desired = _desired_titles()
     with get_db() as conn:
         everyone = [dict(r) for r in conn.execute("SELECT * FROM connections WHERE user_id = ?", (uid,))]
         people = [p for p in everyone if _same_org(org_key(p["company"]), key)]

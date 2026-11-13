@@ -32,7 +32,13 @@ class Recorder(FakeAnthropicClient):
             listing = kwargs["messages"][0]["content"]
             self.sent.append(listing)
             numbered = {line.split(". ", 1)[1]: int(line.split(".")[0]) for line in listing.splitlines()[1:]}
-            chosen = [Pick(number=numbered[n], why=w) for n, w in picks.items() if n in numbered]
+            chosen = [
+                Pick(number=numbered[n], why=w[1], rating=w[0])
+                if isinstance(w, tuple)
+                else Pick(number=numbered[n], why=w)
+                for n, w in picks.items()
+                if n in numbered
+            ]
             return FakeParseResponse(Picks(picks=chosen))
 
         self.messages.parse = recording
@@ -95,10 +101,11 @@ def test_tiers_and_suggested_sources(monkeypatch):
     with TestClient(app) as http:
         info, client = _upload(http, monkeypatch, picks={"Brightwater Health Data": "Health data nonprofit."})
 
-    tiers = {level: [p["name"] for p in rows] for level, rows in info["tiers"].items()}
+    tiers = {level: sorted(p["name"] for p in rows) for level, rows in info["tiers"].items()}
     # Ana recruits where you have a strong match; Ben works there in another role; Cy is in the job's
     # line of work where the only opening isn't a match; Di is at an organization Claude picked.
-    assert tiers == {"High": ["Ana Lopez"], "Medium": ["Ben Ng", "Cy Park"], "Low": ["Di Ross"]}
+    # Di's organization is only "of interest" to Claude (2026-11-13: that's Medium, not Low).
+    assert tiers == {"High": ["Ana Lopez"], "Medium": ["Ben Ng", "Cy Park", "Di Ross"], "Low": []}
     assert (
         info["tiers"]["High"][0]["why"]
         == "Analytics Lead is a strong match for you; they're on the hiring side."
@@ -107,7 +114,8 @@ def test_tiers_and_suggested_sources(monkeypatch):
     assert len(client.sent) == 1
     sent = client.sent[0]
     assert "Brightwater Health Data" in sent and "Pizza Palace" in sent
-    assert "Civic Signal" not in sent and "Ana" not in sent and "Lopez" not in sent
+    # Every organization is rated now (2026-11-13), by name only: never people.
+    assert "Civic Signal" in sent and "Ana" not in sent and "Lopez" not in sent
     names = [s["name"] for s in info["suggested_sources"]]
     assert names == ["Civic Signal", "Brightwater Health Data"]  # Open Ballot Lab is followed
 
@@ -163,7 +171,7 @@ def _tier_of(info, name):
     return None
 
 
-def test_leaders_at_organizations_in_your_sources_are_high(monkeypatch):
+def test_leaders_are_high_only_at_good_fit_organizations(monkeypatch):
     board = _source()
     _source("Blue Rose", company="Blue Rose")  # the source's short name
     _job(board, "Field Organizer", "US Digital Response")  # an opening, not a match for you
@@ -174,20 +182,33 @@ def test_leaders_at_organizations_in_your_sources_are_high(monkeypatch):
         "Dee,Dir,,,US Digital Response,Director of Finance,01 Jan 2020\n"
     )
     with TestClient(app) as http:
-        info, _ = _upload(http, monkeypatch, csv=csv)
-    assert _tier_of(info, "Amy Ceo") == "High"  # "Blue Rose" source = "Blue Rose Research"
-    assert _tier_of(info, "Bo Chief") == "High"  # "U.S." = "US"
-    assert _tier_of(info, "Cal Lead") is None  # not in your sources and not picked
-    assert _tier_of(info, "Dee Dir") is None  # a director, but no job you'd want there
+        info, _ = _upload(
+            http, monkeypatch, picks={"Blue Rose Research": ("fit", "Election data research.")}, csv=csv
+        )
+    assert _tier_of(info, "Amy Ceo") == "High"  # a good fit, and "Blue Rose" source = "Blue Rose Research"
+    # In your sources but not a good fit (2026-11-13: High is for good-fit organizations only).
+    assert _tier_of(info, "Bo Chief") == "Medium"  # and "U.S." = "US"
+    assert _tier_of(info, "Dee Dir") == "Medium"  # any role at an organization in your sources
+    assert _tier_of(info, "Cal Lead") is None  # not in your sources and not rated
     assert "Somewhere Else" in {p["company"] for p in info["not_listed"]}
 
 
-def test_a_leader_at_an_organization_claude_picked_is_high(monkeypatch):
-    csv = _people("Ed,Ed,,,Common Ledger,Founder & CEO,01 Jan 2020\n")
+def test_a_leader_at_a_good_fit_organization_is_high_and_of_interest_is_medium(monkeypatch):
+    csv = _people(
+        "Ed,Ed,,,Common Ledger,Founder & CEO,01 Jan 2020\n"
+        "Flo,Off,,,Common Ledger,Office Manager,01 Jan 2020\n"
+        "Gil,Gil,,,Neighbor Org,Founder & CEO,01 Jan 2020\n"
+    )
+    picks = {
+        "Common Ledger": ("fit", "Civic data nonprofit."),
+        "Neighbor Org": ("interest", "Adjacent field."),
+    }
     with TestClient(app) as http:
-        info, _ = _upload(http, monkeypatch, picks={"Common Ledger": "Civic data nonprofit."}, csv=csv)
+        info, _ = _upload(http, monkeypatch, picks=picks, csv=csv)
+    assert _tier_of(info, "Flo Off") == "Medium"  # a good-fit organization, another role
+    assert _tier_of(info, "Gil Gil") == "Medium"  # of interest only
     assert _tier_of(info, "Ed Ed") == "High"
-    [org] = info["suggested_sources"]
+    [org] = [o for o in info["suggested_sources"] if o["name"] == "Common Ledger"]
     assert (org["name"], org["tier"], org["leader"]) == ("Common Ledger", "High", True)
 
 
@@ -225,16 +246,21 @@ def test_a_set_aside_job_doesnt_count_and_generic_words_dont_match(monkeypatch):
         http.put("/api/settings", json={"prefilter_titles_include": ["Data Director"]})
         csv = _people("Ivy,Prog,,,Civic Signal,Program Manager,01 Jan 2020\n")
         info, _ = _upload(http, monkeypatch, csv=csv)
-    # Not a job you'd want (set aside), and "program"/"manager" alone isn't the same line of work.
-    assert _tier_of(info, "Ivy Prog") is None
+    # Not a job you'd want (set aside), so not High; but Civic Signal is in your sources: Medium.
+    assert _tier_of(info, "Ivy Prog") == "Medium"
+    assert "line of work" not in [p for p in info["tiers"]["Medium"] if p["name"] == "Ivy Prog"][0]["why"]
 
 
-def test_your_line_of_work_with_no_openings_is_low(monkeypatch):
+def test_aligned_titles_are_medium_and_your_line_of_work_low(monkeypatch):
     with TestClient(app) as http:
         http.put("/api/settings", json={"prefilter_titles_include": ["Analytics Director"]})
-        csv = _people("Jo,Data,,,Tiny Nonprofit,Director of Data Science,01 Jan 2020\n")
+        csv = _people(
+            "Jo,Data,,,Tiny Nonprofit,Director of Data Science,01 Jan 2020\n"
+            "Kit,Data,,,Tiny Nonprofit,Data Analyst,01 Jan 2020\n"
+        )
         info, _ = _upload(http, monkeypatch, csv=csv)
-    assert _tier_of(info, "Jo Data") == "Low"
+    assert _tier_of(info, "Jo Data") == "Medium"  # a title close to what you're after, and as senior
+    assert _tier_of(info, "Kit Data") == "Low"  # your line of work, a different level
 
 
 def test_organization_names_link_loosely_but_not_generically():
@@ -316,3 +342,23 @@ def test_the_guess_reads_an_acronym_spelled_out_on_the_resume(monkeypatch):
     with TestClient(app) as http:
         info, _ = _upload(http, monkeypatch, csv=COLLEAGUES)
     assert (info["current_org"], info["colleagues"]) == ("DCCC", 3)
+
+
+def test_old_ratings_are_flagged_and_re_rating_replaces_them(monkeypatch):
+    with TestClient(app) as http:
+        _upload(http, monkeypatch, csv=_people("Ed,Ed,,,Common Ledger,Founder & CEO,01 Jan 2020\n"))
+        # As saved before fit/interest: no rating, no version. They read as "of interest".
+        http.put(
+            "/api/settings",
+            json={
+                "network_orgs": {"common ledger": {"name": "Common Ledger", "why": "Civic."}},
+                "network_orgs_version": None,
+            },
+        )
+        info = http.get("/api/network").json()
+        assert info["ratings_outdated"] and _tier_of(info, "Ed Ed") == "Medium"
+        monkeypatch.setattr(
+            network, "get_client", lambda: Recorder({"Common Ledger": ("fit", "Civic data.")})
+        )
+        info = http.post("/api/network/rate").json()
+    assert not info["ratings_outdated"] and _tier_of(info, "Ed Ed") == "High"
