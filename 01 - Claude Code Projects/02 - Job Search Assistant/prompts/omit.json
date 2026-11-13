@@ -111,5 +111,9 @@
   "ab602548-189": "troubleshooting: source and daily-check status",
   "ab602548-191": "sent again as ab602548-192 with the period toggle",
   "ab602548-196": "general question (answered; no change made)",
-  "ab602548-197": "general question about the daily cap"
+  "ab602548-197": "general question about the daily cap",
+  "e2f9082b-075": "operational: local dev setup",
+  "e2f9082b-076": "operational: local dev setup (port conflict)",
+  "e2f9082b-077": "operational: prompt-log housekeeping",
+  "e2f9082b-079": "operational: deploy request"
 }
