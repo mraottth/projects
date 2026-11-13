@@ -608,3 +608,20 @@ It runs when a source finds a new job, once at startup over existing duplicates,
 - **The description as a main signal:** pasted and board text are formatted differently, so similarity is noisy.
 
 **Why.** The source copy is shared, updated daily and closed when unlisted, so it's the one to keep. Tiers keep the common cases automatic and make a wrong merge, which is costly, unlikely; when unsure, nothing merges.
+
+## D-036 · LinkedIn connections from LinkedIn's own export, tiered by free rules
+- **Date:** 2026-11-13
+- **Category:** ai
+- **Prompts:** ab602548-210
+- **Commits:** a88436d
+
+**Decision.** The person uploads `Connections.csv` from LinkedIn's "Get a copy of your data" on Manage Sources. Connections are sorted into High, Medium and Low from free rules against the person's current jobs: whether the organization has a job they'd want, and whether the person is on the hiring side or in the same line of work. One cheap Claude Haiku call per upload, given organization names only, picks other organizations that suit the person; their connections there are Low, and those organizations are suggested as sources. Jobby drafts outreach on request, from a message placed in its box unsent. Job cards show a connection count, and the expanded card lists the people.
+
+**Context.** The owner asked how feasible it was to connect to LinkedIn and suggest who to reach out to. In review they moved it out of My Jobs: the section lives on Manage Sources with instructions and the upload, a High/Medium/Low table with a Jobby button per person, and organizations to add; collapsed job cards show a count and the expanded card the people.
+
+**Alternatives considered.**
+- **A live LinkedIn connection:** its public sign-in shares only the person's own profile; reading connections needs a partner program (Talent Solutions or Sales Navigator) that a personal project won't get.
+- **Scraping LinkedIn:** against its terms, and puts the person's account at risk.
+- **Ranking every connection with Claude:** would send people's names and roles to Claude and cost more; the rules cover the cases that matter (someone at a place with a job you want).
+
+**Why.** The export is the only sanctioned way in, and it's quick to get. Tiers are worked out on each read, so they follow the jobs as they change, at no cost. Other people's details stay in the uploader's account and reach Claude only when they ask Jobby to write to someone.

@@ -571,5 +571,22 @@
   "decisions": [
    "D-035"
   ]
+ },
+ {
+  "id": "M27",
+  "date": "2026-11-13",
+  "icon": "🤝",
+  "category": "ai",
+  "title": "Who to reach out to",
+  "summary": "Upload the connections file LinkedIn gives you, and Manage Sources sorts the people you know into High, Medium and Low: who works where you have a strong match, and whether they're on the hiring side or in your line of work. Jobby drafts the outreach email on request, organizations you know people at can be added as sources in one click, and job cards show how many connections work there.",
+  "prompts": [
+   "ab602548-210"
+  ],
+  "commits": [
+   "a88436d"
+  ],
+  "decisions": [
+   "D-036"
+  ]
  }
 ]

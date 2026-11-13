@@ -1470,8 +1470,16 @@
    "time": "2026-11-12T22:09:28.879Z",
    "kind": "prompt",
    "text": "The full changeling page seems to be malfunctioning <app URL>/changelog",
-   "reply": null,
+   "reply": "I broke it, and it's fixed and pushed. The Product Timeline page was coming up blank.\n\n**The cause:** when I logged my last five prompts in `prompts/categories.json` (the relevance-check count, the filter checkboxes and the duplicate-jobs work), I wrote each label as `\"ui\"` instead of `[\"ui\"]`. The page expects a list, so it crashed when it reached those entries and showed nothing.\n\n**What I changed:**\n- Corrected those five labels.\n- The Timeline build now accepts a single label as well as a list, so a slip like this can't blank the page again.\n- Added a test that fails if any label isn't a list of the known categories.\n\nI rebuilt the page on a local copy of the app: the full Timeline loads, with the new \"One job, not two\" milestone at the front. All 589 tests pass.\n\nThe public demo's copy of the Timeline uses the same data, so it would have broken too once this branch reached main. Merging the fix takes care of both. This deploy also ships the duplicate merge and the All Jobs change if you haven't deployed those yet:\n\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge --no-edit origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com IAP_AUDIENCE=/projects/<project number>/locations/us-central1/services/jobhunt\n```",
    "id": "ab602548-209",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-13T18:51:46.672Z",
+   "kind": "prompt",
+   "text": "What's the feasibility of adding a feature that connects to Linkedin and tells you which of your connections you should reach out to?",
+   "reply": null,
+   "id": "ab602548-210",
    "session": "ab602548"
   }
  ]
