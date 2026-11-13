@@ -776,8 +776,8 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     active filter except the Interest and Fit toggles (search, each organization/source/location,
     posted, minimum salary, hidden unscored jobs, shown dealbreaker jobs), and a closed dropdown
     names its selections ("Recidiviz, Civis Analytics", ellipsized) instead of "2 selected".
-  - My Jobs: the search box is 300px wide, so the Active/Closed/All toggle sits next to it and Export
-    stays right. Organization and Location cells are buttons (`CellFilter`) that filter the table
+  - My Jobs: the search box is 300px wide, so the To-Do/Active/Closed/All toggle sits next to it and
+    Export stays right. Organization and Location cells are buttons (`CellFilter`) that filter the table
     to that value; a pill in the toolbar shows the filter and clears it, as does clicking the cell again.
 - **Signed out after time away** (asked 2026-11-10: pages came up empty until a reload). IAP's
   session runs out; a page left open then had its data requests sent to Google's sign-in page,
@@ -1132,8 +1132,9 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     "Add a job" (right; swapped at the user's ask so the short card's white space sits on the right)
     sit side by side (`.myjobs-top`, 3fr/2fr, stacked under 900px) so the table starts above the
     fold. The search box,
-    an Active / Closed / All toggle (`.seg`; Closed = both rejections and withdrawn, default
-    Active) and the sort links form one toolbar inside the table card. That toolbar and the header
+    a To-Do / Active / Closed / All toggle (`.seg`; To-Do = Drafting only, added 2026-11-13;
+    Closed = both rejections and withdrawn; default Active) and the sort links form one toolbar
+    inside the table card. That toolbar and the header
     row are `position: sticky` under the app's sticky top bar. `useStickyOffsets()` measures both
     with a ResizeObserver into `--sticky-top`/`--thead-top`. The card has no `overflow-x`, which
     would break sticky.
