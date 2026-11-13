@@ -1,7 +1,7 @@
 {
  "session": "ab602548-13cf-5dd6-933c-6e698e563853",
  "omitted_api_errors": 0,
- "omitted": 71,
+ "omitted": 72,
  "entries": [
   {
    "time": "2026-10-28T14:37:31.396Z",
@@ -1478,8 +1478,51 @@
    "time": "2026-11-13T18:51:46.672Z",
    "kind": "prompt",
    "text": "What's the feasibility of adding a feature that connects to Linkedin and tells you which of your connections you should reach out to?",
-   "reply": null,
+   "reply": "The LinkedIn network section is built and pushed, laid out the way you described. It works from the `Connections.csv` file LinkedIn lets you download, because LinkedIn doesn't let an app like this read your connections directly.\n\n**Manage Sources: a new \"Your LinkedIn network\" card**, above \"Check my sources now\":\n- **Instructions:** step-by-step directions for getting `Connections.csv` from LinkedIn, then the upload button. A new upload replaces the old one, and \"Remove them\" deletes them all.\n- **Who to reach out to:** High, Medium and Low tabs over a table with name (linked to their LinkedIn profile), position, organization, connected since, why, and a \"Write outreach with Jobby\" button.\n  - **High:** they work somewhere with a job you'd want (rated High or Med for both interest and fit, or already on My Jobs), and they're either on the hiring side or in your line of work.\n  - **Medium:** only one of those two is true.\n  - **Low:** their organization has other openings, or Claude judged it a place that suits you.\n- **Organizations to consider adding:** places where you know people but don't follow a source yet, each with a reason and a \"+ Add\" button that uses the same lookup as Discover.\n\n**Jobby:** the button opens Jobby with the outreach request already typed in, naming the person, their role, how long you've been connected and the job. Nothing is sent, or paid for, until you press Send.\n\n**Job cards:**\n- **Collapsed cards** (All Jobs, New & Noteworthy) show a teal \"2 connections\" chip.\n- **The expanded card** has a \"People you know here\" list with each person's tier and the Jobby button.\n- **My Jobs** is unchanged, as you asked.\n\n**Cost and privacy:**\n- **What Claude sees:** organization names only, never people's names, in one cheap call per upload (about a cent). A person's details go to Claude only when you send the Jobby message.\n- **Who sees your connections:** only you. Start over and deleting your account remove them, and the section is hidden in the demo.\n\nI added 6 tests and all 595 pass. I also uploaded a made-up file in a local copy of the app: the tiers, Jobby's pre-filled message, the chips and the expanded card all worked.\n\nThe step where Claude picks organizations that suit you only ran against a stand-in in the tests, since there's no API key here. Locally that call failed, and the card showed a \"couldn't check\" note while still listing the High and Medium people. It should work in production.\n\nTo deploy:\n\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge --no-edit origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com IAP_AUDIENCE=/projects/<project number>/locations/us-central1/services/jobhunt\n```\n\nAfter it's live, try it with your real `Connections.csv`. If the tiers look off for some people, tell me who and I'll adjust how roles are matched to jobs.",
    "id": "ab602548-210",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-13T19:42:56.962Z",
+   "kind": "prompt",
+   "text": "What's the high/medium/low logic? There are some good hits and some miscategorization",
+   "reply": null,
+   "asked": [
+    {
+     "question": "Which kinds of miscategorization are you seeing in the LinkedIn tiers? (Pick all that apply; add specific examples like \"Jane Doe, Health Educator at X, shows High\" in Other if you can.)",
+     "options": [
+      "Unrelated roles too high",
+      "Big orgs flood Medium",
+      "Seniority ignored",
+      "Good people too low/missing"
+     ]
+    },
+    {
+     "question": "How would you like the tiers decided going forward?",
+     "options": [
+      "Tighter free rules (Recommended)",
+      "Claude ranks the shortlist",
+      "Both"
+     ]
+    }
+   ],
+   "id": "ab602548-212",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-13T19:46:44.488Z",
+   "kind": "answer",
+   "text": "\"Which kinds of miscategorization are you seeing in the LinkedIn tiers? (Pick all that apply; add specific examples like \"Jane Doe, Health Educator at X, shows High\" in Other if you can.)\"=\"Good people too low/missing\", \"How would you like the tiers decided going forward?\"=\"Tighter free rules (Recommended)\".",
+   "reply": null,
+   "id": "ab602548-213",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-13T19:58:52.927Z",
+   "kind": "prompt",
+   "text": "It looks like part of the problem is imperfect matching between my sources and the official company names (e.g. Blue Rose vs Blue Rose Research). Ideally we'd link those types of cases. Also, let's organize \"Organizations to consider adding\" into tiers and also make the list scrollable rather than taking up so much vertical space",
+   "reply": null,
+   "id": "ab602548-214",
    "session": "ab602548"
   }
  ]

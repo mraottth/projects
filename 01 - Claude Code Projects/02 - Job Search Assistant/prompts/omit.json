@@ -116,5 +116,6 @@
   "e2f9082b-076": "operational: local dev setup (port conflict)",
   "e2f9082b-077": "operational: prompt-log housekeeping",
   "e2f9082b-079": "operational: deploy request",
-  "e2f9082b-081": "operational: deploy setup and cleaning up an old checkout"
+  "e2f9082b-081": "operational: deploy setup and cleaning up an old checkout",
+  "ab602548-211": "operational: pasted Cloud Shell output from a deploy that hit a merge conflict"
 }
