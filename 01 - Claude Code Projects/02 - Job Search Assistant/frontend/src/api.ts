@@ -127,6 +127,10 @@ export interface NetworkOverview {
   tiers: Record<NetworkTier, NetworkPerson[]>;
   // Everyone else, each with why they aren't listed (so a missing person can be found).
   not_listed: NetworkPerson[];
+  // Your own organization: its people are left out (guessed from your resume until you set it).
+  current_org: string | null;
+  current_org_guessed: boolean;
+  colleagues: number;
   suggested_sources: { name: string; connections: number; tier: NetworkTier; why: string | null; leader: boolean }[];
 }
 export interface PersonAtJob {
@@ -357,6 +361,9 @@ export interface Settings {
   onboarding_step: OnboardingStep;
   // Set when someone finishes or skips onboarding; the guided tour (Tour.tsx) runs once, then clears it.
   tour_pending?: boolean;
+  // Your LinkedIn network (D-036): your current organization, whose people are left out ("" for none).
+  network_current_org?: string | null;
+  network_current_org_guessed?: boolean;
 }
 
 export type OnboardingStep =

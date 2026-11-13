@@ -250,3 +250,69 @@ def test_organization_names_link_loosely_but_not_generically():
     assert same("The Data Foundation", "Data Foundation")
     assert not same("Data", "Data Society")
     assert not same("Civic", "Civic Signal")
+
+
+# ---- your current organization (asked 2026-11-13)
+
+
+def _resume(text: str) -> None:
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO resumes (user_id, kind, file_name, file_type, stored_path, raw_text, is_template) "
+            "VALUES (1, 'resume', 'r.docx', 'docx', '/tmp/r.docx', ?, 1)",
+            (text,),
+        )
+
+
+COLLEAGUES = _people(
+    "A,One,,,DCCC,Data Director,01 Jan 2020\n"
+    "B,Two,,,DCCC,Recruiter,01 Jan 2020\n"
+    "C,Three,,,DCCC,CEO,01 Jan 2020\n"
+    "D,Four,,,Blue Rose Research,CEO,01 Jan 2020\n"
+    "E,Five,,,Blue Rose Research,Analyst,01 Jan 2020\n"
+    "F,Six,,,Blue Rose Research,Analyst,01 Jan 2020\n"
+)
+
+
+def test_people_at_your_current_organization_are_left_out(monkeypatch):
+    _source("Blue Rose", company="Blue Rose")
+    _source("DCCC", company="DCCC")
+    # The latest job comes first on the resume, so DCCC (not Blue Rose, listed later) is current.
+    _resume(
+        "Jordan Rivera\nDCCC — Director of Analytics, 2022–present\nBlue Rose Research — Analyst, 2019–2022"
+    )
+    with TestClient(app) as http:
+        info, client = _upload(http, monkeypatch, csv=COLLEAGUES)
+        assert (info["current_org"], info["current_org_guessed"], info["colleagues"]) == ("DCCC", True, 3)
+        everyone = [p["company"] for rows in info["tiers"].values() for p in rows] + [
+            p["company"] for p in info["not_listed"]
+        ]
+        assert "DCCC" not in everyone and "Blue Rose Research" in everyone
+        assert all("DCCC" not in sent for sent in client.sent)  # never sent to Claude
+
+        # Your own choice sticks, and "" leaves nobody out.
+        http.put(
+            "/api/settings", json={"network_current_org": "Blue Rose", "network_current_org_guessed": False}
+        )
+        info = http.get("/api/network").json()
+        assert (info["current_org"], info["current_org_guessed"], info["colleagues"]) == (
+            "Blue Rose",
+            False,
+            3,
+        )
+        http.put("/api/settings", json={"network_current_org": ""})
+        assert http.get("/api/network").json()["colleagues"] == 0
+
+
+def test_no_guess_without_a_resume_naming_them(monkeypatch):
+    _resume("A resume that names none of these organizations.")
+    with TestClient(app) as http:
+        info, _ = _upload(http, monkeypatch, csv=COLLEAGUES)
+    assert (info["current_org"], info["colleagues"]) == (None, 0)
+
+
+def test_the_guess_reads_an_acronym_spelled_out_on_the_resume(monkeypatch):
+    _resume("Democratic Congressional Campaign Committee, Director of Analytics\nBlue Rose Research, Analyst")
+    with TestClient(app) as http:
+        info, _ = _upload(http, monkeypatch, csv=COLLEAGUES)
+    assert (info["current_org"], info["colleagues"]) == ("DCCC", 3)

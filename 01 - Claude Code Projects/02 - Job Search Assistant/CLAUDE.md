@@ -558,6 +558,13 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
       the openings aren't a strong match, or at a followed or picked organization.
     - *Low:* a followed or picked organization in another role, or your line of work anywhere.
     - Everyone else is under "Not listed" with why, searchable, so a missing person can be found.
+    - *Your current organization's people are left out* (asked 2026-11-13: "a ton of DCCC
+      people"). `guess_current_org()` picks, among organizations with `MIN_COLLEAGUES` (3)+
+      connections, the one named earliest in the current resume (`_position_in`, which also reads a
+      short name as initials of a spelled-out one: "DCCC" = "Democratic Congressional Campaign
+      Committee"). Saved once in `network_current_org` (with `_guessed`); the card's line says who's
+      left out, with Change and "Don't leave anyone out" ("" = none). Removing the connections
+      resets it to None, so the next upload guesses again. It's never sent to Claude.
     - `_words` maps `_FAMILIES` ("Analytics" = "Data") and drops `_GENERIC` words (program,
       operations, health...) that alone don't make two roles the same line of work.
   - **Organization names link loosely** (`org_key`, `_same_org`, `_OrgIndex`): a parenthetical, a

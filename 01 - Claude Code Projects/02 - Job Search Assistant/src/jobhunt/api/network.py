@@ -7,7 +7,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from jobhunt.core import network
 from jobhunt.core.llm import LLMError
-from jobhunt.core.settings import update_settings
+from jobhunt.core.settings import get_settings, update_settings
 from jobhunt.core.users import current_user_id, job_is_visible
 from jobhunt.db.connection import get_db
 
@@ -33,9 +33,15 @@ async def upload_connections(file: UploadFile = File(...)):
     if not rows:
         raise HTTPException(400, "That file has no connections in it.")
     network.replace_connections(rows)
-    # Organizations with jobs are judged by the free rules; Claude reads only the rest, by name.
+    # Organizations with jobs are judged by the free rules; Claude reads only the rest, by name, and
+    # never your own organization.
     with get_db() as conn:
-        with_jobs = set(network._jobs_by_org(conn, current_user_id()))
+        uid = current_user_id()
+        with_jobs = set(network._jobs_by_org(conn, uid))
+        people = [dict(r) for r in conn.execute("SELECT company FROM connections WHERE user_id = ?", (uid,))]
+        mine, _ = network.current_org(conn, uid, people, get_settings())
+    if mine:
+        with_jobs.add(network.org_key(mine))
     try:
         network.pick_organizations(exclude=with_jobs)
         update_settings({"network_orgs_error": None})
@@ -49,7 +55,15 @@ async def upload_connections(file: UploadFile = File(...)):
 def delete_connections():
     with get_db() as conn:
         conn.execute("DELETE FROM connections WHERE user_id = ?", (current_user_id(),))
-    update_settings({"network_orgs": {}, "network_uploaded_at": None, "network_orgs_error": None})
+    update_settings(
+        {
+            "network_orgs": {},
+            "network_uploaded_at": None,
+            "network_orgs_error": None,
+            "network_current_org": None,  # guessed again from the next upload
+            "network_current_org_guessed": False,
+        }
+    )
     return network.overview()
 
 

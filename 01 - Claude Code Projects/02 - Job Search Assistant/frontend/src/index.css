@@ -1040,3 +1040,5 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 .network-sources-wrap { max-height: 380px; overflow-y: auto; border: 1px solid var(--grid); border-radius: var(--radius); padding: 0 12px; }
 .network-org-tier { margin: 12px 0 2px; position: sticky; top: 0; background: var(--card); padding: 6px 0; z-index: 1; }
 .network-org-tier .network-tier { margin-left: 0; }
+.network-current { margin: 4px 0 8px; align-items: center; gap: 8px; }
+.network-current input { width: 240px; max-width: 100%; }

@@ -206,6 +206,7 @@ export function NetworkSection({
           </span>
         )}
       </div>
+      {has && <CurrentOrg info={info!} onSaved={setInfo} />}
       {error && <p className="error-text small">{error}</p>}
       {info?.picks_error && (
         <p className="muted small">
@@ -435,5 +436,90 @@ export function PeopleYouKnow({
         ))}
       </ul>
     </div>
+  );
+}
+
+/** "Leaving out people at your current organization: DCCC (guessed from your resume) · Change". */
+function CurrentOrg({
+  info,
+  onSaved,
+}: {
+  info: NetworkOverview;
+  onSaved: (n: NetworkOverview) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(info.current_org ?? "");
+  const [saving, setSaving] = useState(false);
+
+  const save = async (name: string) => {
+    setSaving(true);
+    try {
+      await api.putSettings({
+        network_current_org: name.trim(),
+        network_current_org_guessed: false,
+      });
+      onSaved(await api.getNetwork());
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (editing) {
+    return (
+      <div className="form-row network-current">
+        <span className="small">Your current organization:</span>
+        <input
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="e.g. DCCC"
+        />
+        <button
+          className="primary small"
+          onClick={() => save(value)}
+          disabled={saving}
+        >
+          Save
+        </button>
+        <button className="link small" onClick={() => setEditing(false)}>
+          Cancel
+        </button>
+      </div>
+    );
+  }
+  return (
+    <p className="small network-current">
+      {info.current_org ? (
+        <>
+          Leaving out {info.colleagues}{" "}
+          {info.colleagues === 1 ? "person" : "people"} at your current
+          organization, <strong>{info.current_org}</strong>
+          {info.current_org_guessed && (
+            <span className="muted"> (guessed from your resume)</span>
+          )}{" "}
+          ·{" "}
+          <button className="link small" onClick={() => setEditing(true)}>
+            Change
+          </button>{" "}
+          ·{" "}
+          <button
+            className="link small"
+            onClick={() => save("")}
+            disabled={saving}
+          >
+            Don't leave anyone out
+          </button>
+        </>
+      ) : (
+        <>
+          <span className="muted">
+            Your coworkers aren't leads, so their names can be left out.
+          </span>{" "}
+          <button className="link small" onClick={() => setEditing(true)}>
+            Set your current organization
+          </button>
+        </>
+      )}
+    </p>
   );
 }

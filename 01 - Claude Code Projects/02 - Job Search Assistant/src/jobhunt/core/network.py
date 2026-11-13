@@ -421,6 +421,71 @@ def tier(
     )
 
 
+# ---- your current organization (asked 2026-11-13: "a ton of DCCC people" were listed)
+
+MIN_COLLEAGUES = 3
+
+
+def guess_current_org(conn, uid: int, people: list[dict]) -> str | None:
+    """The organization you work at now, guessed for free: of those where you have at least
+    MIN_COLLEAGUES connections, the one named earliest in your current resume (the latest job is
+    usually listed first). None when nothing fits; the person can set it themselves."""
+    row = conn.execute(
+        """SELECT raw_text FROM resumes WHERE user_id = ? AND kind = 'resume'
+            ORDER BY is_template DESC, is_archived ASC, id DESC LIMIT 1""",
+        (uid,),
+    ).fetchone()
+    text = " " + org_key((row["raw_text"] if row else "") or "") + " "
+    counts: dict[str, int] = {}
+    names: dict[str, str] = {}
+    for p in people:
+        if key := org_key(p["company"]):
+            counts[key] = counts.get(key, 0) + 1
+            names.setdefault(key, p["company"])
+    found = [
+        (pos, key)
+        for key, n in counts.items()
+        if n >= MIN_COLLEAGUES and (pos := _position_in(text, key)) >= 0
+    ]
+    return names[min(found)[1]] if found else None
+
+
+_SMALL_WORDS = {"of", "the", "and", "for", "on", "in", "at", "to"}
+
+
+def _position_in(text: str, key: str) -> int:
+    """Where an organization is first named in the resume text (normalized, space-padded), or -1.
+    A short one-word name also matches its spelled-out form by initials, since a resume often
+    writes "Democratic Congressional Campaign Committee" where LinkedIn says "DCCC"."""
+    pos = text.find(f" {key} ")
+    if pos >= 0 or " " in key or not 2 <= len(key) <= 6:
+        return pos
+    words = [(m.start(), m.group()) for m in re.finditer(r"[a-z0-9]+", text)]
+    for i in range(len(words)):
+        initials, j = "", i
+        while j < len(words) and len(initials) < len(key):
+            if words[j][1] not in _SMALL_WORDS or not initials:
+                initials += words[j][1][0]
+            j += 1
+            if not key.startswith(initials):
+                break
+        if initials == key and words[i][1] not in _SMALL_WORDS:
+            return words[i][0]
+    return -1
+
+
+def current_org(conn, uid: int, people: list[dict], settings: dict) -> tuple[str | None, bool]:
+    """(your current organization, whether it was guessed). Guessed once and saved, so the person's
+    own change, or clearing it (""), sticks."""
+    if settings.get("network_current_org") is not None:  # None: not decided yet (or connections removed)
+        return settings["network_current_org"] or None, bool(settings.get("network_current_org_guessed"))
+    if not people:
+        return None, False
+    guess = guess_current_org(conn, uid, people)
+    update_settings({"network_current_org": guess or "", "network_current_org_guessed": bool(guess)})
+    return guess, bool(guess)
+
+
 def overview() -> dict:
     """Manage Sources' network section: the upload, the three tiers, who isn't listed and why, and
     organizations to consider adding."""
@@ -432,12 +497,17 @@ def overview() -> dict:
         people = [dict(r) for r in conn.execute("SELECT * FROM connections WHERE user_id = ?", (uid,))]
         by_org = _jobs_by_org(conn, uid) if people else {}
         followed = _followed_org_keys(conn, uid) if people else set()
+        mine, guessed = current_org(conn, uid, people, settings)
     jobs_index, followed_index, pick_index = _OrgIndex(by_org), _OrgIndex(followed), _OrgIndex(picks)
     tiers: dict[str, list[dict]] = {"High": [], "Medium": [], "Low": []}
     not_listed: list[dict] = []
     orgs: dict[str, dict] = {}
+    mine_key, colleagues = org_key(mine), 0
     for p in people:
         key = org_key(p["company"])
+        if mine_key and _same_org(key, mine_key):  # your colleagues aren't outreach leads
+            colleagues += 1
+            continue
         jobs = [j for k in jobs_index.matches(key) for j in by_org[k]]
         pick = next((picks[k] for k in pick_index.matches(key)), None)
         is_followed = bool(followed_index.matches(key))
@@ -507,6 +577,9 @@ def overview() -> dict:
         "tiers": tiers,
         "not_listed": not_listed,
         "suggested_sources": suggestions,
+        "current_org": mine,
+        "current_org_guessed": guessed,
+        "colleagues": colleagues,
     }
 
 
