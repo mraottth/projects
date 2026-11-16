@@ -1078,7 +1078,7 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 .org-suggestions-list { overflow-y: auto; min-height: 0; flex: 1 1 auto; border-top: 1px solid var(--grid); }
 .org-suggestions-list li { padding: 8px 0; }
 .org-suggestions-list li > button, .org-suggestions-list li > .added-mark { white-space: nowrap; flex-shrink: 0; }
-.network-stats { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin: 12px 0 8px; }
+.network-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 12px 0 8px; }
 .network-stats > div { padding: 8px 10px; }
 .network-stats strong { font-size: 1.1rem; }
-@media (max-width: 640px) { .network-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .network-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

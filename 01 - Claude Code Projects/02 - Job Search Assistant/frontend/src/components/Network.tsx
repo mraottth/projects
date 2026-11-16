@@ -682,17 +682,17 @@ export function NetworkSection({
   );
 }
 
-/** A few numbers about the uploaded network (asked 2026-11-16), from what's already loaded. */
+/** A few numbers about the uploaded network (asked 2026-11-16), from what's already loaded. No
+ * "at aligned orgs": every Med/High org contact is High or Medium, so it repeated "worth reaching
+ * out to". */
 function NetworkStats({ info }: { info: NetworkOverview }) {
   const everyone = [...TIERS.flatMap((t) => info.tiers[t]), ...info.not_listed];
   const goodFit = everyone.filter((p) => p.org_align === "High").length;
-  const aligned = everyone.filter((p) => p.org_align !== "Low").length;
   const roles = everyone.filter((p) => p.title_align !== "Low").length;
   const worth = info.tiers.High.length + info.tiers.Medium.length;
   const stats: [number, string][] = [
     [info.count, "connections"],
     [goodFit, "at good-fit orgs"],
-    [aligned, "at aligned orgs"],
     [roles, "in relevant roles"],
     [worth, "worth reaching out to"],
   ];
