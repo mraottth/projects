@@ -1648,8 +1648,16 @@
    "time": "2026-11-16T17:33:18.630Z",
    "kind": "prompt",
    "text": "You can remove \"You know people here but don't follow their jobs yet.\" Also we should shrink down the Organizations to consider tracking section vertically and then make the \"Your LinkedIn network\" section match the height. You can also add to the \"Your LinkedIn network\" card some summary stats about how many connections the user has, how many work at aligned orgs, how many work in relevant roles, etc.",
-   "reply": null,
+   "reply": "The top of My Network is updated and pushed.\n\n- **Removed line:** \"You know people here but don't follow their jobs yet.\" is gone.\n- **Matching heights:** the \"Organizations to consider tracking\" card is now exactly as tall as the \"Your LinkedIn network\" card beside it, and its list scrolls inside that space. On a narrow screen, where the cards stack, it gets a fixed height of its own.\n- **Summary stats:** a row of five numbers under the upload button:\n  - **connections:** the total uploaded;\n  - **at good-fit orgs:** org alignment High;\n  - **at aligned orgs:** org alignment Med or High;\n  - **in relevant roles:** title alignment Med or High;\n  - **worth reaching out to:** your High and Medium tiers.\n\n  People at your current organization aren't counted in the last four.\n\nOn a local copy both cards measured 502px tall, and the stats row showed. The left card was taller than it will be for you, because without an API key here it also showed the \"couldn't rate organizations\" message. In production that message only appears if a rating fails.\n\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge --no-edit origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com IAP_AUDIENCE=/projects/<project number>/locations/us-central1/services/jobhunt\n```",
    "id": "ab602548-229",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-16T17:35:18.938Z",
+   "kind": "prompt",
+   "text": "<!-- attach -->\n> at good-fit orgs: org alignment High;\n> at aligned orgs: org alignment Med or High;\n\nNot worth having 2 categories here",
+   "reply": null,
+   "id": "ab602548-230",
    "session": "ab602548"
   }
  ]
