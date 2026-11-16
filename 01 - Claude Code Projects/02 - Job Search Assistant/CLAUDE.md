@@ -595,8 +595,9 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     the file, the upload, "Remove them" (`DELETE /api/network/connections`), High/Medium/Low tabs
     of a table (name linked, position, organization, connected, why, "Write outreach with Jobby"),
     a "Not listed" tab and a search box, and "Organizations to consider adding" (organizations with
-    listed connections that no followed source names, grouped High/Medium/Low by their best person,
-    in a box that scrolls; "+ Add" is `POST /api/sources/resolve`).
+    listed connections that no followed source names, each tiered by its best person; since
+    2026-11-16 a small scrolling card at the top right, `OrgSuggestions`, beside the upload card,
+    with Fit: High / Med / Low toggles; "+ Add" is `POST /api/sources/resolve`).
   - **Jobby:** "Write outreach with Jobby" (`OutreachButton`, on the table and the job card's "People
     you know here") first asks a few quick questions in a `Modal` (asked 2026-11-16: a draft to a
     close friend read like a cold email): how well you know them, how, when you were last in touch,

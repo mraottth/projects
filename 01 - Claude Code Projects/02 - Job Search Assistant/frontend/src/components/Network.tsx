@@ -465,108 +465,124 @@ export function NetworkSection({
     : all;
 
   return (
-    <div className="card network">
-      <h2>Your LinkedIn network</h2>
-      <p className="muted small">
-        See which of your connections to reach out to about the jobs you want,
-        and organizations you know people at. LinkedIn doesn't let apps read
-        your connections directly, so this uses the file LinkedIn gives you.
-      </p>
+    <div className="network-page">
+      {/* Top row (asked 2026-11-16): the upload on the left, organizations to add on the right. */}
+      <div
+        className={`network-top${has && info!.suggested_sources.length > 0 ? "" : " single"}`}
+      >
+        <div className="card network">
+          <h2>Your LinkedIn network</h2>
+          <p className="muted small">
+            See which of your connections to reach out to about the jobs you
+            want, and organizations you know people at. LinkedIn doesn't let
+            apps read your connections directly, so this uses the file LinkedIn
+            gives you.
+          </p>
 
-      <details className="network-steps" open={!has}>
-        <summary>How to get your Connections.csv from LinkedIn</summary>
-        {/* Matches LinkedIn's page as of 2026-11-16 (the owner's screenshot): Connections isn't in
+          <details className="network-steps" open={!has}>
+            <summary>How to get your Connections.csv from LinkedIn</summary>
+            {/* Matches LinkedIn's page as of 2026-11-16 (the owner's screenshot): Connections isn't in
             the "Want something in particular?" list any more, so it's the full archive. */}
-        <ol className="small">
-          <li>
-            On LinkedIn, open <strong>Settings &amp; Privacy</strong> →{" "}
-            <strong>Data privacy</strong> → <strong>Download my data</strong>.
-          </li>
-          <li>
-            Keep the first option selected,{" "}
-            <strong>
-              "Download larger data archive, including connections…"
-            </strong>{" "}
-            (Connections isn't in the "Want something in particular?" list), and
-            press <strong>Request archive</strong>.
-          </li>
-          <li>
-            LinkedIn takes a while to prepare it. Wait for LinkedIn's email
-            saying it's ready, then download the archive and unzip it.
-          </li>
-          <li>
-            Upload <strong>Connections.csv</strong> from it below. The archive
-            holds more than your connections; only that file is uploaded here.
-            Upload a fresh one now and then: it's a snapshot.
-          </li>
-        </ol>
-        <p className="muted small">
-          Your connections stay in your account only; nobody else using the app
-          sees them. To find organizations that suit you, their organizations'
-          names (never people's names) go to Claude once per upload, for about a
-          cent. A person's details go to Claude only when you ask Jobby to write
-          to them.
-        </p>
-      </details>
+            <ol className="small">
+              <li>
+                On LinkedIn, open <strong>Settings &amp; Privacy</strong> →{" "}
+                <strong>Data privacy</strong> →{" "}
+                <strong>Download my data</strong>.
+              </li>
+              <li>
+                Keep the first option selected,{" "}
+                <strong>
+                  "Download larger data archive, including connections…"
+                </strong>{" "}
+                (Connections isn't in the "Want something in particular?" list),
+                and press <strong>Request archive</strong>.
+              </li>
+              <li>
+                LinkedIn takes a while to prepare it. Wait for LinkedIn's email
+                saying it's ready, then download the archive and unzip it.
+              </li>
+              <li>
+                Upload <strong>Connections.csv</strong> from it below. The
+                archive holds more than your connections; only that file is
+                uploaded here. Upload a fresh one now and then: it's a snapshot.
+              </li>
+            </ol>
+            <p className="muted small">
+              Your connections stay in your account only; nobody else using the
+              app sees them. To find organizations that suit you, their
+              organizations' names (never people's names) go to Claude once per
+              upload, for about a cent. A person's details go to Claude only
+              when you ask Jobby to write to them.
+            </p>
+          </details>
 
-      <div className="form-actions network-upload">
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".csv,text/csv"
-          style={{ display: "none" }}
-          onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])}
-        />
-        <button
-          className={has ? "ghost" : "primary"}
-          onClick={() => fileRef.current?.click()}
-          disabled={busy}
-        >
-          {busy ? (
-            <Spinner label="Reading your connections..." />
-          ) : has ? (
-            "Upload a newer file"
-          ) : (
-            "Upload Connections.csv"
-          )}
-        </button>
-        {has && (
-          <span className="muted small">
-            {info!.count.toLocaleString()} connections
-            {info!.uploaded_at &&
-              `, uploaded ${new Date(info!.uploaded_at).toLocaleDateString()}`}{" "}
-            ·{" "}
-            <button className="link small" onClick={remove}>
-              Remove them
+          <div className="form-actions network-upload">
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".csv,text/csv"
+              style={{ display: "none" }}
+              onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])}
+            />
+            <button
+              className={has ? "ghost" : "primary"}
+              onClick={() => fileRef.current?.click()}
+              disabled={busy}
+            >
+              {busy ? (
+                <Spinner label="Reading your connections..." />
+              ) : has ? (
+                "Upload a newer file"
+              ) : (
+                "Upload Connections.csv"
+              )}
             </button>
-          </span>
+            {has && (
+              <span className="muted small">
+                {info!.count.toLocaleString()} connections
+                {info!.uploaded_at &&
+                  `, uploaded ${new Date(info!.uploaded_at).toLocaleDateString()}`}{" "}
+                ·{" "}
+                <button className="link small" onClick={remove}>
+                  Remove them
+                </button>
+              </span>
+            )}
+          </div>
+          {has && <CurrentOrg info={info!} onSaved={setInfo} />}
+          {has && info!.ratings_outdated && (
+            <p className="small network-current">
+              <span className="muted">
+                High is now for organizations that suit your profile, so your
+                connections' organizations need rating (their names only, about
+                a cent or two).
+              </span>{" "}
+              <button className="ghost small" onClick={rerate} disabled={busy}>
+                {busy ? <Spinner label="Rating..." /> : "Re-rate organizations"}
+              </button>
+            </p>
+          )}
+          {error && <p className="error-text small">{error}</p>}
+          {info?.picks_error && (
+            <p className="muted small">
+              Couldn't rate your connections' organizations ({info.picks_error}
+              ), so org alignment only counts your jobs and sources for now.
+              Uploading again, or Re-rate organizations, retries.
+            </p>
+          )}
+        </div>
+        {has && info!.suggested_sources.length > 0 && (
+          <OrgSuggestions
+            suggestions={info!.suggested_sources}
+            adding={adding}
+            onAdd={addSource}
+          />
         )}
       </div>
-      {has && <CurrentOrg info={info!} onSaved={setInfo} />}
-      {has && info!.ratings_outdated && (
-        <p className="small network-current">
-          <span className="muted">
-            High is now for organizations that suit your profile, so your
-            connections' organizations need rating (their names only, about a
-            cent or two).
-          </span>{" "}
-          <button className="ghost small" onClick={rerate} disabled={busy}>
-            {busy ? <Spinner label="Rating..." /> : "Re-rate organizations"}
-          </button>
-        </p>
-      )}
-      {error && <p className="error-text small">{error}</p>}
-      {info?.picks_error && (
-        <p className="muted small">
-          Couldn't rate your connections' organizations ({info.picks_error}), so
-          org alignment only counts your jobs and sources for now. Uploading
-          again, or Re-rate organizations, retries.
-        </p>
-      )}
 
       {has && (
-        <>
-          <h3 className="network-heading">Who to reach out to</h3>
+        <div className="card network">
+          <h3 className="network-heading first">Who to reach out to</h3>
           <div className="seg network-tiers" role="tablist">
             {TIERS.map((t) => (
               <button
@@ -645,80 +661,92 @@ export function NetworkSection({
               </table>
             </div>
           )}
-
-          {info!.suggested_sources.length > 0 && (
-            <>
-              <h3 className="network-heading">
-                Organizations to consider adding
-              </h3>
-              <p className="muted small">
-                You know people here but don't follow their jobs yet. Adding one
-                checks it every day like your other sources.
-              </p>
-              {/* Grouped by tier (an organization's is its best person's), in a box that scrolls. */}
-              <div className="network-sources-wrap">
-                {TIERS.filter((t) =>
-                  info!.suggested_sources.some((s) => s.tier === t),
-                ).map((t) => (
-                  <div key={t}>
-                    <h4 className="network-org-tier">
-                      <span className={`network-tier tier-${t.toLowerCase()}`}>
-                        {t}
-                      </span>
-                    </h4>
-                    <ul className="network-sources">
-                      {info!.suggested_sources
-                        .filter((s) => s.tier === t)
-                        .map((s) => {
-                          const state = adding[s.name];
-                          return (
-                            <li key={s.name}>
-                              <div>
-                                <strong>{s.name}</strong>{" "}
-                                <span className="muted small">
-                                  · {s.connections} connection
-                                  {s.connections === 1 ? "" : "s"}
-                                  {s.leader && " · you know a leader there"}
-                                </span>
-                                {s.why && (
-                                  <div className="muted small">{s.why}</div>
-                                )}
-                                {state &&
-                                  state !== "busy" &&
-                                  state !== "added" && (
-                                    <div className="error-text small">
-                                      {state}
-                                    </div>
-                                  )}
-                              </div>
-                              {state === "added" ? (
-                                <span className="small added-mark">
-                                  ✓ Added
-                                </span>
-                              ) : (
-                                <button
-                                  className="primary small"
-                                  onClick={() => addSource(s.name)}
-                                  disabled={state === "busy"}
-                                >
-                                  {state === "busy" ? (
-                                    <Spinner label="Adding..." />
-                                  ) : (
-                                    "+ Add"
-                                  )}
-                                </button>
-                              )}
-                            </li>
-                          );
-                        })}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </>
+        </div>
       )}
+    </div>
+  );
+}
+
+const FITS: { tier: NetworkTier; label: string }[] = [
+  { tier: "High", label: "High" },
+  { tier: "Medium", label: "Med" },
+  { tier: "Low", label: "Low" },
+];
+
+/** Organizations you know people at but don't follow, in a small card that scrolls, filtered by
+ * fit (the tier of the best person you know there; asked 2026-11-16). */
+function OrgSuggestions({
+  suggestions,
+  adding,
+  onAdd,
+}: {
+  suggestions: NetworkOverview["suggested_sources"];
+  adding: Record<string, string>;
+  onAdd: (name: string) => void;
+}) {
+  const [fits, setFits] = useState<NetworkTier[]>(["High", "Medium", "Low"]);
+  const toggle = (t: NetworkTier) =>
+    setFits((f) => (f.includes(t) ? f.filter((x) => x !== t) : [...f, t]));
+  const shown = suggestions.filter((s) => fits.includes(s.tier));
+  return (
+    <div className="card org-suggestions">
+      <h3 className="network-heading first">
+        Organizations to consider adding
+      </h3>
+      <p className="muted small">
+        You know people here but don't follow their jobs yet.
+      </p>
+      <div className="org-fit-toggles">
+        <span className="small">Fit:</span>
+        <div className="chip-toggle-group">
+          {FITS.map(({ tier, label }) => (
+            <button
+              key={tier}
+              className={`chip-toggle${fits.includes(tier) ? " on" : ""}`}
+              onClick={() => toggle(tier)}
+            >
+              {label} ({suggestions.filter((s) => s.tier === tier).length})
+            </button>
+          ))}
+        </div>
+      </div>
+      <ul className="network-sources org-suggestions-list">
+        {shown.length === 0 && (
+          <li className="muted small">None with this fit.</li>
+        )}
+        {shown.map((s) => {
+          const state = adding[s.name];
+          return (
+            <li key={s.name}>
+              <div>
+                <strong>{s.name}</strong>{" "}
+                <span className={`network-tier tier-${s.tier.toLowerCase()}`}>
+                  {s.tier === "Medium" ? "Med" : s.tier}
+                </span>
+                <div className="muted small">
+                  {s.connections} connection{s.connections === 1 ? "" : "s"}
+                  {s.leader && " · you know a leader there"}
+                </div>
+                {s.why && <div className="muted small">{s.why}</div>}
+                {state && state !== "busy" && state !== "added" && (
+                  <div className="error-text small">{state}</div>
+                )}
+              </div>
+              {state === "added" ? (
+                <span className="small added-mark">✓ Added</span>
+              ) : (
+                <button
+                  className="primary small"
+                  onClick={() => onAdd(s.name)}
+                  disabled={state === "busy"}
+                >
+                  {state === "busy" ? <Spinner label="Adding..." /> : "+ Add"}
+                </button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
