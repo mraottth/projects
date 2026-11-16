@@ -1632,8 +1632,16 @@
    "time": "2026-11-16T17:18:38.110Z",
    "kind": "prompt",
    "text": "let's change \"Organizations to consider adding\" to \"Organizations to consider tracking\". Also, we can remove the \"How to get your connections\" section if the user has already uploaded. It can reappear if they remove their file or click to upload a newer one",
-   "reply": null,
+   "reply": "Both changes are in and pushed:\n\n- **Title:** the card is now **\"Organizations to consider tracking\"**.\n- **LinkedIn how-to:** the \"How to get your Connections.csv from LinkedIn\" steps now show only before your first upload. They come back when you click **Upload a newer file**, or after **Remove them**, and hide again once the new file is uploaded.\n\nI checked it on a local copy: with connections uploaded, the steps were hidden, and clicking \"Upload a newer file\" brought them back.\n\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge --no-edit origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com IAP_AUDIENCE=/projects/<project number>/locations/us-central1/services/jobhunt\n```",
    "id": "ab602548-227",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-16T17:29:08.065Z",
+   "kind": "prompt",
+   "text": "An organization should not be considered High Org Alignment just because I'm tracking it or have applied to a job there.",
+   "reply": null,
+   "id": "ab602548-228",
    "session": "ab602548"
   }
  ]
