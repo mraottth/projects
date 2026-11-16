@@ -554,8 +554,10 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     - **Two ratings, since 2026-11-16** (`assess()`; `tier()` wraps it), shown as the table's "Org
       alignment" and "Title alignment" columns (High/Med/Low badges with a short note; "Tracked
       source" tag) in place of "Why", which is kept only as Jobby's background:
-      - *Org:* High = good fit (Claude `fit`, or a job you'd want there); Med = rated `interest`, or in
-        your sources (followed, or with jobs from them); Low = otherwise.
+      - *Org:* High = Claude rated the organization `fit` (only that, since 2026-11-16: tracking it
+        or applying there doesn't make it High); Med = rated `interest`, a job you'd want there (on My
+        Jobs, rated well, or promising and unrated), or in your sources (followed, or with jobs from
+        them); Low = otherwise.
       - *Title:* High = close to your desired titles (`_aligned`), hiring-side or a leader; Med = your
         line of work or that of a job there; Low = otherwise.
       - *Tier:* High = org High and title High/Med; Medium = org at least Med (the owner's rule);

@@ -99,7 +99,15 @@ def test_tiers_and_suggested_sources(monkeypatch):
     _job(board, "Analytics Lead", "Civic Signal", "High", "High")
     _job(board, "Director, Analytics", "Open Ballot Lab", "Low", "Low")
     with TestClient(app) as http:
-        info, client = _upload(http, monkeypatch, picks={"Brightwater Health Data": "Health data nonprofit."})
+        info, client = _upload(
+            http,
+            monkeypatch,
+            picks={
+                "Brightwater Health Data": "Health data nonprofit.",
+                "Civic Signal": ("fit", "Civic data group."),
+                "Civic Signal Inc.": ("fit", "Civic data group."),
+            },
+        )
 
     tiers = {level: sorted(p["name"] for p in rows) for level, rows in info["tiers"].items()}
     # Ana recruits where you have a strong match; Ben works there in another role; Cy is in the job's
@@ -109,7 +117,7 @@ def test_tiers_and_suggested_sources(monkeypatch):
     ana = info["tiers"]["High"][0]
     assert (ana["org_align"], ana["org_note"], ana["title_align"], ana["title_note"]) == (
         "High",
-        "Has a job you'd want: Analytics Lead",
+        "Good fit: Civic data group",
         "High",
         "Hiring side",
     )
@@ -131,7 +139,8 @@ def test_counts_on_cards_and_people_on_the_job_page(monkeypatch):
         [ranked] = http.get("/api/jobs/ranked").json()
         assert ranked["connections"] == 2
         people = http.get(f"/api/network/job/{job}").json()
-        assert [(p["name"], p["tier"]) for p in people] == [("Ana Lopez", "High"), ("Ben Ng", "Medium")]
+        # No organization rating: a strong job there makes the org Med, not High (2026-11-16).
+        assert [(p["name"], p["tier"]) for p in people] == [("Ana Lopez", "Medium"), ("Ben Ng", "Medium")]
 
 
 def test_a_failed_claude_call_still_lists_the_free_tiers(monkeypatch):
@@ -142,7 +151,8 @@ def test_a_failed_claude_call_still_lists_the_free_tiers(monkeypatch):
         info = http.post(
             "/api/network/connections", files={"file": ("Connections.csv", CSV.encode(), "text/csv")}
         ).json()
-    assert [p["name"] for p in info["tiers"]["High"]] == ["Ana Lopez"]
+    # Without Claude's rating nothing is High; the strong job still makes Ana Medium.
+    assert info["tiers"]["High"] == [] and "Ana Lopez" in [p["name"] for p in info["tiers"]["Medium"]]
     assert info["picks_error"] == "down"
 
 
@@ -227,7 +237,8 @@ def test_every_good_job_counts_and_unrated_ones_in_your_line_of_work(monkeypatch
             "Gus,Hire,,,Open Ballot Lab,Talent Partner,01 Jan 2020\n"
             "Hal,Peep,,,Open Ballot Lab,People Analytics Manager,01 Jan 2020\n"
         )
-        info, _ = _upload(http, monkeypatch, csv=csv)
+        picks = {"Civic Signal": ("fit", "Civic data."), "Open Ballot Lab": ("fit", "Election data.")}
+        info, _ = _upload(http, monkeypatch, picks=picks, csv=csv)
     assert _tier_of(info, "Fay Fit") == "High"
     [fay] = [p for p in info["tiers"]["High"] if p["name"] == "Fay Fit"]
     assert fay["job_title"] == "Director of Data"  # the job she fits, not the first one there
@@ -387,3 +398,31 @@ def test_medium_always_has_at_least_a_medium_org(monkeypatch):
     )
     [c] = [p for p in info["not_listed"] if p["name"] == "C C"]
     assert (c["org_align"], c["title_align"]) == ("Low", "Low")
+
+
+def test_high_org_alignment_comes_only_from_the_organizations_own_fit(monkeypatch):
+    """Asked 2026-11-16: tracking an organization, or applying to a job there, doesn't make it High."""
+    board = _source()
+    _source("Tracked Org", company="Tracked Org")
+    applied = _job(board, "Senior Analyst", "Applied Org")
+    _job(board, "Analytics Lead", "Strong Job Org", "High", "High")
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO applications (user_id, job_id, status) VALUES (1, ?, 'waiting')", (applied,)
+        )
+    csv = _people(
+        "A,A,,,Applied Org,Recruiter,01 Jan 2020\n"
+        "B,B,,,Strong Job Org,Recruiter,01 Jan 2020\n"
+        "C,C,,,Tracked Org,Recruiter,01 Jan 2020\n"
+        "D,D,,,Fit Org,Recruiter,01 Jan 2020\n"
+    )
+    with TestClient(app) as http:
+        info, _ = _upload(http, monkeypatch, picks={"Fit Org": ("fit", "Mission match.")}, csv=csv)
+    rows = {p["name"]: p for rows in info["tiers"].values() for p in rows}
+    assert {n: rows[n]["org_align"] for n in ("A A", "B B", "C C", "D D")} == {
+        "A A": "Med",  # applied there
+        "B B": "Med",  # a High/High job there
+        "C C": "Med",  # tracked
+        "D D": "High",  # Claude rated the organization a fit
+    }
+    assert [p["name"] for p in info["tiers"]["High"]] == ["D D"]

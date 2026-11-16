@@ -399,9 +399,9 @@ def assess(
 ) -> dict:
     """How one connection lines up, as two ratings (asked 2026-11-16), and the tier they make.
 
-    - Org alignment: High for a good-fit organization (Claude rated it "fit", or it has a job you'd
-      want); Med for one rated "interest" or in your sources (followed, or with jobs from them);
-      Low otherwise. Its note says why, briefly, and whether it's a tracked source.
+    - Org alignment: High only when Claude rated the organization "fit" for your profile; Med for
+      one rated "interest", with a job you'd want, or in your sources (followed, or with jobs from
+      them); Low otherwise. Its note says why, briefly, and whether it's a tracked source.
     - Title alignment: High for a title close to what you're after (same line of work and level),
       hiring-side, or a leader; Med for your line of work, or that of a job there; Low otherwise.
     - Tier: High = org High with title High/Med; Medium = org at least Med (org High with title
@@ -425,11 +425,13 @@ def assess(
 
     # Organization
     pick_why = ((pick or {}).get("why") or "").rstrip(".")
-    if wanted:
-        org_level = "High"
-        org_note = f"Has a job you'd want: {(same_wanted or wanted)[0]['title']}"
-    elif rating == "fit":
+    # High comes only from the organization itself: Claude's rating against your profile. Tracking
+    # it, or a job there on My Jobs or rated well, makes it Med at most (asked 2026-11-16).
+    if rating == "fit":
         org_level, org_note = "High", f"Good fit: {pick_why}" if pick_why else "Good fit for you"
+    elif wanted:
+        org_level = "Med"
+        org_note = f"Has a job you'd want: {(same_wanted or wanted)[0]['title']}"
     elif rating == "interest":
         org_level, org_note = "Med", f"Of interest: {pick_why}" if pick_why else "Of interest"
     elif jobs:
