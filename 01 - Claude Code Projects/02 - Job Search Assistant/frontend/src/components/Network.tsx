@@ -19,14 +19,37 @@ import { Spinner } from "./Spinner";
 
 const TIERS: NetworkTier[] = ["High", "Medium", "Low"];
 type Tab = NetworkTier | "Not listed";
-const TIER_HINT: Record<Tab, string> = {
-  High: "An organization that suits your profile (or has a job you'd want), and they're a leader, on the hiring side or in your line of work.",
-  Medium:
-    "A good-fit organization in another role, any organization in your sources or of interest, or a title close to what you're after.",
-  Low: "Worth a hello: in your line of work, or on the hiring side, somewhere else.",
-  "Not listed":
-    "Everyone else, and why. If someone belongs higher, their organization may be missing from your sources.",
-};
+
+/** A High / Med / Low rating with a short note (asked 2026-11-16), colored like the job cards'. */
+function Alignment({
+  level,
+  note,
+  tracked,
+}: {
+  level: "High" | "Med" | "Low";
+  note: string;
+  tracked?: boolean;
+}) {
+  const cls =
+    level === "High"
+      ? "badge-high"
+      : level === "Med"
+        ? "badge-med"
+        : "badge-low";
+  return (
+    <div className="alignment">
+      <span className={`badge ${cls}`}>{level}</span>
+      <span className="muted small">
+        {note}
+        {tracked && (
+          <span className={`tracked-tag${note ? "" : " alone"}`}>
+            Tracked source
+          </span>
+        )}
+      </span>
+    </div>
+  );
+}
 
 function since(date: string | null): string {
   if (!date) return "";
@@ -535,9 +558,9 @@ export function NetworkSection({
       {error && <p className="error-text small">{error}</p>}
       {info?.picks_error && (
         <p className="muted small">
-          Couldn't check which other organizations suit you ({info.picks_error}
-          ), so the Low tier only lists people at organizations with jobs.
-          Uploading again retries.
+          Couldn't rate your connections' organizations ({info.picks_error}), so
+          org alignment only counts your jobs and sources for now. Uploading
+          again, or Re-rate organizations, retries.
         </p>
       )}
 
@@ -561,8 +584,8 @@ export function NetworkSection({
               Not listed ({info!.not_listed.length})
             </button>
           </div>
+          {/* Search sits on the left under the tabs (asked 2026-11-16); the tier hints are gone. */}
           <div className="network-filter">
-            <p className="muted small">{TIER_HINT[tier]}</p>
             <input
               type="search"
               placeholder="Search name, organization, position..."
@@ -583,7 +606,8 @@ export function NetworkSection({
                     <th>Position</th>
                     <th>Organization</th>
                     <th>Connected</th>
-                    <th>Why</th>
+                    <th>Org alignment</th>
+                    <th>Title alignment</th>
                     <th />
                   </tr>
                 </thead>
@@ -602,7 +626,16 @@ export function NetworkSection({
                       <td>{p.position}</td>
                       <td>{p.company}</td>
                       <td className="nowrap">{since(p.connected_on)}</td>
-                      <td className="small">{p.why}</td>
+                      <td className="align-cell">
+                        <Alignment
+                          level={p.org_align}
+                          note={p.org_note}
+                          tracked={p.org_tracked}
+                        />
+                      </td>
+                      <td className="align-cell">
+                        <Alignment level={p.title_align} note={p.title_note} />
+                      </td>
                       <td>
                         {tier !== "Not listed" && <OutreachButton person={p} />}
                       </td>

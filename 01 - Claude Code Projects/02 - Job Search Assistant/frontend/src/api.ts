@@ -119,6 +119,12 @@ export interface NetworkPerson {
   why: string;
   job_id: number | null;
   job_title: string | null;
+  // Two ratings (asked 2026-11-16): how well their organization and their title line up with you.
+  org_align: "High" | "Med" | "Low";
+  org_note: string;
+  org_tracked: boolean;
+  title_align: "High" | "Med" | "Low";
+  title_note: string;
 }
 export interface NetworkOverview {
   uploaded_at: string | null;

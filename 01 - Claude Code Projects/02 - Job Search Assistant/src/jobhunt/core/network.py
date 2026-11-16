@@ -390,20 +390,24 @@ def _about(job: dict) -> str:
 # ---- tiers
 
 
-def tier(
+def assess(
     person: dict,
     jobs: list[dict] | None,
     pick: dict | None,
     followed: bool = False,
     titles: list[str] | None = None,
-) -> tuple[str | None, str, dict | None]:
-    """(tier or None for not listed, why, the job it's about). Revised 2026-11-13:
-    - High: a good-fit organization (Claude rated it "fit", or it has a job you'd want) and a role
-      that fits (a leader, hiring-side, or the line of work of that job or of your desired titles);
-    - Medium: a good-fit organization in another role; any organization in your sources or rated
-      "interest"; or a title particularly aligned with what you're after, anywhere;
-    - Low: your general line of work, or hiring-side, anywhere else.
-    The why sits next to their position and organization in the table, so it doesn't repeat them."""
+) -> dict:
+    """How one connection lines up, as two ratings (asked 2026-11-16), and the tier they make.
+
+    - Org alignment: High for a good-fit organization (Claude rated it "fit", or it has a job you'd
+      want); Med for one rated "interest" or in your sources (followed, or with jobs from them);
+      Low otherwise. Its note says why, briefly, and whether it's a tracked source.
+    - Title alignment: High for a title close to what you're after (same line of work and level),
+      hiring-side, or a leader; Med for your line of work, or that of a job there; Low otherwise.
+    - Tier: High = org High with title High/Med; Medium = org at least Med (org High with title
+      Low, or org Med); Low = org Low but title High/Med; everyone else isn't listed.
+
+    Returns {"tier", "why", "job", "org": {level, note, tracked}, "title": {level, note}}."""
     position = person.get("position") or ""
     titles = titles if titles is not None else _desired_titles()
     words = _words(position)
@@ -415,54 +419,66 @@ def tier(
     rating = (pick or {}).get("rating", "interest") if pick else None
 
     wanted = sorted((j for j in jobs if j["wanted"]), key=_rank)
-    same = [j for j in wanted if words & _words(j["title"])]
-    job = (same or wanted or sorted(jobs, key=_rank) or [None])[0]
-    good_fit = rating == "fit" or bool(wanted)
-    in_sources = followed or bool(jobs)
+    same_wanted = [j for j in wanted if words & _words(j["title"])]
+    same_any = [j for j in jobs if words & _words(j["title"])]
+    job = (same_wanted or wanted or same_any or sorted(jobs, key=_rank) or [None])[0]
 
+    # Organization
+    pick_why = ((pick or {}).get("why") or "").rstrip(".")
     if wanted:
-        place = _about(job)
+        org_level = "High"
+        org_note = f"Has a job you'd want: {(same_wanted or wanted)[0]['title']}"
     elif rating == "fit":
-        place = f"A good fit for you: {pick['why'].rstrip('.')}"
+        org_level, org_note = "High", f"Good fit: {pick_why}" if pick_why else "Good fit for you"
     elif rating == "interest":
-        place = f"Of interest: {pick['why'].rstrip('.')}"
+        org_level, org_note = "Med", f"Of interest: {pick_why}" if pick_why else "Of interest"
     elif jobs:
-        place = f"In your sources. {_about(job)}"
+        org_level, org_note = "Med", f"Has openings: {job['title']}"
     elif followed:
-        place = "In your sources"
+        org_level, org_note = "Med", ""  # the "Tracked source" tag says it
     else:
-        place = ""
-    if leader:
-        role = "they're a leader there"
-    elif hiring:
-        role = "they're on the hiring side"
-    elif same or my_line:
-        role = "they're in your line of work"
-    else:
-        role = ""
-    if aligned and not leader:
-        role = "their title is close to what you're looking for"
+        org_level, org_note = "Low", "Not rated a fit" if person.get("company") else "No organization listed"
 
-    def why(*parts: str) -> str:
-        text = "; ".join(p for p in parts if p)
-        return (text[0].upper() + text[1:] + ".") if text else ""
-
-    if good_fit and (leader or hiring or same or my_line):
-        return "High", why(place, role), job
-    if good_fit or in_sources or rating == "interest":
-        return "Medium", why(place, role), job
+    # Title
     if aligned:
-        return "Medium", why(role), job
-    if my_line or hiring:
-        return "Low", why(role, "no openings from your sources there yet"), job
-    company = person.get("company")
-    if jobs:
-        return None, "A different line of work from the openings there.", None
-    return (
-        None,
-        (f"No openings from your sources at {company}." if company else "No organization on their profile."),
-        None,
-    )
+        title_level, title_note = "High", "Close to what you're after"
+    elif hiring:
+        title_level, title_note = "High", "Hiring side"
+    elif leader:
+        title_level, title_note = "High", "Leader"
+    elif my_line or same_any:
+        title_level, title_note = "Med", "Your line of work"
+    else:
+        title_level, title_note = "Low", "Different line of work"
+
+    if org_level == "High" and title_level != "Low":
+        level = "High"
+    elif org_level in ("High", "Med"):
+        level = "Medium"
+    elif title_level != "Low":
+        level = "Low"
+    else:
+        level = None
+    return {
+        "tier": level,
+        "why": f"{org_note or 'In your sources'}{' (a tracked source)' if followed and org_note else ''}; "
+        f"{title_note.lower()}.",
+        "job": job,
+        "org": {"level": org_level, "note": org_note, "tracked": followed},
+        "title": {"level": title_level, "note": title_note},
+    }
+
+
+def tier(
+    person: dict,
+    jobs: list[dict] | None,
+    pick: dict | None,
+    followed: bool = False,
+    titles: list[str] | None = None,
+) -> tuple[str | None, str, dict | None]:
+    """(tier or None for not listed, why, the job it's about); see `assess`."""
+    a = assess(person, jobs, pick, followed, titles)
+    return a["tier"], a["why"], a["job"]
 
 
 # ---- your current organization (asked 2026-11-13: "a ton of DCCC people" were listed)
@@ -555,8 +571,14 @@ def overview() -> dict:
         jobs = [j for k in jobs_index.matches(key) for j in by_org[k]]
         pick = next((picks[k] for k in pick_index.matches(key)), None)
         is_followed = bool(followed_index.matches(key))
-        level, why, job = tier(p, jobs, pick, is_followed, desired)
+        result = assess(p, jobs, pick, is_followed, desired)
+        level, why, job = result["tier"], result["why"], result["job"]
         row = {
+            "org_align": result["org"]["level"],
+            "org_note": result["org"]["note"],
+            "org_tracked": result["org"]["tracked"],
+            "title_align": result["title"]["level"],
+            "title_note": result["title"]["note"],
             "id": p["id"],
             "name": f"{p['first_name']} {p['last_name']}".strip(),
             "url": p["url"],

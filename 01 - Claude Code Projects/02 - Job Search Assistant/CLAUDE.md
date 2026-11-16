@@ -551,6 +551,15 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
       line of work (desired titles) and not set aside by the relevance check. Every job at the
       organization is compared, not just the best one.
     - *A good-fit organization:* Claude rated it `fit`, or it has a job you'd want.
+    - **Two ratings, since 2026-11-16** (`assess()`; `tier()` wraps it), shown as the table's "Org
+      alignment" and "Title alignment" columns (High/Med/Low badges with a short note; "Tracked
+      source" tag) in place of "Why", which is kept only as Jobby's background:
+      - *Org:* High = good fit (Claude `fit`, or a job you'd want there); Med = rated `interest`, or in
+        your sources (followed, or with jobs from them); Low = otherwise.
+      - *Title:* High = close to your desired titles (`_aligned`), hiring-side or a leader; Med = your
+        line of work or that of a job there; Low = otherwise.
+      - *Tier:* High = org High and title High/Med; Medium = org at least Med (the owner's rule);
+        Low = org Low with title High/Med; else not listed. The rules below are the earlier wording.
     - *High:* a good-fit organization **and** a fitting role: a leader (`LEADER`, or a director),
       hiring-side (`HIRING`; "people" only as people ops, not "People Analytics"), or the line of work
       of a job you'd want there or of your desired titles.

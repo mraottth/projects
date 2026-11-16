@@ -106,9 +106,12 @@ def test_tiers_and_suggested_sources(monkeypatch):
     # line of work where the only opening isn't a match; Di is at an organization Claude picked.
     # Di's organization is only "of interest" to Claude (2026-11-13: that's Medium, not Low).
     assert tiers == {"High": ["Ana Lopez"], "Medium": ["Ben Ng", "Cy Park", "Di Ross"], "Low": []}
-    assert (
-        info["tiers"]["High"][0]["why"]
-        == "Analytics Lead is a strong match for you; they're on the hiring side."
+    ana = info["tiers"]["High"][0]
+    assert (ana["org_align"], ana["org_note"], ana["title_align"], ana["title_note"]) == (
+        "High",
+        "Has a job you'd want: Analytics Lead",
+        "High",
+        "Hiring side",
     )
     # Claude saw organization names only, and not ones already judged by your jobs.
     assert len(client.sent) == 1
@@ -189,8 +192,8 @@ def test_leaders_are_high_only_at_good_fit_organizations(monkeypatch):
     # In your sources but not a good fit (2026-11-13: High is for good-fit organizations only).
     assert _tier_of(info, "Bo Chief") == "Medium"  # and "U.S." = "US"
     assert _tier_of(info, "Dee Dir") == "Medium"  # any role at an organization in your sources
-    assert _tier_of(info, "Cal Lead") is None  # not in your sources and not rated
-    assert "Somewhere Else" in {p["company"] for p in info["not_listed"]}
+    # A leader somewhere not in your sources or rated: title High, org Low, so Low (2026-11-16).
+    assert _tier_of(info, "Cal Lead") == "Low"
 
 
 def test_a_leader_at_a_good_fit_organization_is_high_and_of_interest_is_medium(monkeypatch):
@@ -248,10 +251,11 @@ def test_a_set_aside_job_doesnt_count_and_generic_words_dont_match(monkeypatch):
         info, _ = _upload(http, monkeypatch, csv=csv)
     # Not a job you'd want (set aside), so not High; but Civic Signal is in your sources: Medium.
     assert _tier_of(info, "Ivy Prog") == "Medium"
-    assert "line of work" not in [p for p in info["tiers"]["Medium"] if p["name"] == "Ivy Prog"][0]["why"]
+    ivy = [p for p in info["tiers"]["Medium"] if p["name"] == "Ivy Prog"][0]
+    assert (ivy["org_align"], ivy["title_align"]) == ("Med", "Low")
 
 
-def test_aligned_titles_are_medium_and_your_line_of_work_low(monkeypatch):
+def test_title_alignment_without_an_aligned_org_is_low(monkeypatch):
     with TestClient(app) as http:
         http.put("/api/settings", json={"prefilter_titles_include": ["Analytics Director"]})
         csv = _people(
@@ -259,7 +263,10 @@ def test_aligned_titles_are_medium_and_your_line_of_work_low(monkeypatch):
             "Kit,Data,,,Tiny Nonprofit,Data Analyst,01 Jan 2020\n"
         )
         info, _ = _upload(http, monkeypatch, csv=csv)
-    assert _tier_of(info, "Jo Data") == "Medium"  # a title close to what you're after, and as senior
+    # Close to what you're after, but Medium needs at least a medium org (2026-11-16): Low.
+    assert _tier_of(info, "Jo Data") == "Low"
+    jo = [p for p in info["tiers"]["Low"] if p["name"] == "Jo Data"][0]
+    assert (jo["org_align"], jo["title_align"]) == ("Low", "High")
     assert _tier_of(info, "Kit Data") == "Low"  # your line of work, a different level
 
 
@@ -362,3 +369,21 @@ def test_old_ratings_are_flagged_and_re_rating_replaces_them(monkeypatch):
         )
         info = http.post("/api/network/rate").json()
     assert not info["ratings_outdated"] and _tier_of(info, "Ed Ed") == "High"
+
+
+def test_medium_always_has_at_least_a_medium_org(monkeypatch):
+    board = _source()
+    _job(board, "Analytics Lead", "Civic Signal", "High", "High")
+    csv = _people(
+        "A,A,,,Civic Signal,Office Manager,01 Jan 2020\n"  # High org, Low title: Medium
+        "B,B,,,Elsewhere Inc,Recruiter,01 Jan 2020\n"  # Low org, High title: Low
+        "C,C,,,Elsewhere Inc,Chef,01 Jan 2020\n"  # neither: not listed
+    )
+    with TestClient(app) as http:
+        info, _ = _upload(http, monkeypatch, csv=csv)
+    assert all(p["org_align"] in ("High", "Med") for p in info["tiers"]["Medium"])
+    assert (
+        _tier_of(info, "A A") == "Medium" and _tier_of(info, "B B") == "Low" and _tier_of(info, "C C") is None
+    )
+    [c] = [p for p in info["not_listed"] if p["name"] == "C C"]
+    assert (c["org_align"], c["title_align"]) == ("Low", "Low")
