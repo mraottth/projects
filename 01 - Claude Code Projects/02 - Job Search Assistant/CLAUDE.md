@@ -579,7 +579,9 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     (`RATINGS_VERSION`). Older picks (no rating) read as `interest`, and the card offers "Re-rate
     organizations" (`POST /api/network/rate`) until they're redone. A failure leaves the free tiers
     and shows `network_orgs_error`.
-  - **Manage Sources' "Your LinkedIn network"** card (above "Check my sources now"): steps to get
+  - **The "My Network" tab** (`pages/NetworkPage.tsx`, route `/network`, after Manage Sources;
+    moved out of Manage Sources on 2026-11-16 and left out of the demo's nav) holds the "Your
+    LinkedIn network" card (`NetworkSection`): steps to get
     the file, the upload, "Remove them" (`DELETE /api/network/connections`), High/Medium/Low tabs
     of a table (name linked, position, organization, connected, why, "Write outreach with Jobby"),
     a "Not listed" tab and a search box, and "Organizations to consider adding" (organizations with
@@ -871,8 +873,10 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   background and shows the full page, as before. Chosen over a Back button on the page, which would
   have reloaded the list and lost its scroll. Don't give the dialog `position: relative`: it reset
   the page's scroll position behind it when opened.
-- **About** (`pages/AboutPage.tsx`, route `/about`, an "About" link at the right of the top bar
-  before Admin and the gear; asked 2026-11-04): what the project is, how the daily pipeline works,
+- **About** (`pages/AboutPage.tsx`, route `/about`; asked 2026-11-04). Since 2026-11-16 it's a "?"
+  in a circle (`HelpIcon`, `.about-link`, styled like the gear) before Admin and the gear, and the
+  page opens with a "Take the tour" call to action (`.tour-cta`). The tour has a My Network step in
+  the app (`NETWORK_STEP`, not the demo) and ends by pointing at the "?". The page has what the project is, how the daily pipeline works,
   a "Getting started" guide linking each page, costs and limits (the person's own daily cap and
   budget from `/api/me`'s `usage`), the `PrivacyNote`, what it's built with, and the Product
   Timeline's milestones (`MilestoneTimeline`, loaded from `GET /api/changelog`) with "Open the full

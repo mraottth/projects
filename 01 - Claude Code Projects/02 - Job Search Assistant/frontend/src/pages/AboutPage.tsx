@@ -77,6 +77,14 @@ const GUIDE: { title: string; to: string; link: string; body: string }[] = [
       "questions, how to frame your background, and research on the organization.",
   },
   {
+    title: "Reach out to people you know",
+    to: "/network",
+    link: "My Network",
+    body:
+      "Upload your LinkedIn connections and see who to contact about the jobs you want: High, Medium and Low, " +
+      "with the reason for each, a Jobby draft of the note, and organizations you know people at to follow.",
+  },
+  {
     title: "Settings",
     to: "/settings",
     link: "Settings",
@@ -99,13 +107,20 @@ export default function AboutPage() {
         applications. It's a small personal project, shared with a few people its owner invites.
       </p>
 
+      {/* The guided tour of the tabs (Tour.tsx), front and center (asked 2026-11-16). */}
+      <div className="card tour-cta">
+        <div>
+          <h2>New here, or need a refresher?</h2>
+          <p className="muted small">A two-minute walk through every tab: what it's for and how to use it.</p>
+        </div>
+        <button className="primary tour-cta-button" onClick={() => window.dispatchEvent(new Event(TOUR_EVENT))}>
+          Take the tour →
+        </button>
+      </div>
+
       <div className="card">
         <div className="about-guide-head">
           <h2>Getting started</h2>
-          {/* The guided tour of the tabs (Tour.tsx), any time. */}
-          <button className="ghost small" onClick={() => window.dispatchEvent(new Event(TOUR_EVENT))}>
-            Take the tour
-          </button>
         </div>
         <ol className="about-guide">
           {GUIDE.map((step) => (

@@ -801,8 +801,9 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 .admin-pill { margin-left: 6px; font-size: 0.75em; }
 .admin-link + .settings-gear { margin-left: 0; }
 /* "About" sits first on the right of the top bar, then Admin (for the admin), then the gear. */
-.about-link { margin-left: auto; margin-right: 12px; font-weight: 600; text-decoration: none; color: var(--muted); }
-.about-link.active, .about-link:hover { color: var(--ink); }
+/* About is a "?" in a circle beside the gear (2026-11-16), styled like it. */
+.about-link { margin-left: auto; margin-right: 4px; display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 999px; color: var(--muted); text-decoration: none; }
+.about-link.active, .about-link:hover { color: var(--ink); background: #efeee9; }
 .about-link + .admin-link, .about-link + .settings-gear { margin-left: 0; }
 .usage-line { margin: 4px 0 8px; }
 .usage-line.over { color: var(--bad); font-weight: 600; }
@@ -1042,3 +1043,8 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 .network-org-tier .network-tier { margin-left: 0; }
 .network-current { margin: 4px 0 8px; align-items: center; gap: 8px; }
 .network-current input { width: 240px; max-width: 100%; }
+/* About's tour call to action (2026-11-16) */
+.tour-cta { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; border: 1px solid var(--accent); background: rgba(42, 120, 214, 0.06); }
+.tour-cta h2 { margin: 0 0 4px; }
+.tour-cta p { margin: 0; }
+.tour-cta-button { font-size: 1rem; padding: 10px 20px; }

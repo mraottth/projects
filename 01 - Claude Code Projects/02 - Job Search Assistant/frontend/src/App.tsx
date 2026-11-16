@@ -24,6 +24,7 @@ import { DEMO } from "./demo";
 // Carries ~220 KB of prompts and commits, so it's only loaded when visited.
 const ChangelogPage = lazy(() => import("./pages/ChangelogPage"));
 const AboutPage = lazy(() => import("./pages/AboutPage"));
+const NetworkPage = lazy(() => import("./pages/NetworkPage"));
 
 const NAV_LINKS = [
   { to: "/", label: "New & Noteworthy", end: true },
@@ -31,6 +32,8 @@ const NAV_LINKS = [
   { to: "/tracker", label: "My Jobs" },
   { to: "/jobby", label: "Jobby" },
   { to: "/sources", label: "Manage Sources" },
+  // Your LinkedIn connections (D-036; its own tab since 2026-11-16). Not in the demo: it has no network.
+  ...(DEMO ? [] : [{ to: "/network", label: "My Network" }]),
   { to: "/profile", label: "Profile" },
 ];
 
@@ -57,6 +60,17 @@ function AppHead({ children }: { children: React.ReactNode }) {
   );
 }
 
+function HelpIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="9.5" />
+      <path d="M9.4 9.3a2.7 2.7 0 0 1 5.2 1c0 1.8-2.6 2.3-2.6 3.9" />
+      <circle cx="12" cy="17.1" r="0.6" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 function GearIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
@@ -70,7 +84,9 @@ function GearIcon() {
 // These pages need the extra room (a filter sidebar, a wide table, Jobby's job picker beside
 // the chat, Manage Sources' two columns, or the Timeline's milestone strip) that the default
 // prose-friendly max-width doesn't give them.
-const WIDE_ROUTES = ["/", "/all-jobs", "/tracker", "/jobby", "/sources", "/changelog", "/admin", "/profile"];
+const WIDE_ROUTES = [
+  "/", "/all-jobs", "/tracker", "/jobby", "/sources", "/network", "/changelog", "/admin", "/profile",
+];
 
 // A job opened from a list shows as a card over it (JobLink, JobModal); the list stays underneath.
 function AppMain({
@@ -100,6 +116,7 @@ function AppMain({
         <Route path="/tracker" element={<MyJobsPage />} />
         <Route path="/jobby" element={<JobbyPage />} />
         <Route path="/sources" element={<ManageSourcesPage />} />
+        {!DEMO && <Route path="/network" element={<NetworkPage />} />}
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/settings" element={<SettingsPage />} />
         {isAdmin && <Route path="/admin" element={<AdminPage />} />}
@@ -206,8 +223,14 @@ export default function App() {
           </nav>
         )}
         {!inOnboarding && (
-          <NavLink to="/about" className={({ isActive }) => `about-link${isActive ? " active" : ""}`}>
-            About
+          // About and the tour, as a "?" in a circle beside the gear (asked 2026-11-16).
+          <NavLink
+            to="/about"
+            className={({ isActive }) => `about-link${isActive ? " active" : ""}`}
+            aria-label="About and help"
+            title="About and help"
+          >
+            <HelpIcon />
           </NavLink>
         )}
         {!inOnboarding && me?.is_admin && (

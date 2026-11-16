@@ -6,7 +6,7 @@ import { DEMO } from "../demo";
 /**
  * The guided tour (asked 2026-11-11): one step per tab, each opening that page with a short note
  * under its tab about what it's for. It never blocks the page: clicking a tab mid-tour jumps to that
- * tab's step. "Take the tour" (the demo bar, the About page) restarts it via TOUR_EVENT.
+ * tab's step. "Take the tour" (the demo bar, the About page behind the "?") restarts it via TOUR_EVENT.
  *
  * When it starts on its own differs by build:
  * - the demo: a first visit to its home page, remembered in localStorage;
@@ -71,15 +71,23 @@ const DEMO_STEPS: Step[] = [
   },
 ];
 
-// The same tabs for a real person, about their own data.
-const APP_STEPS: Step[] = DEMO_STEPS.map((step) =>
-  step.path === "/jobby"
-    ? {
+// The same tabs for a real person, about their own data, plus My Network (not in the demo).
+const NETWORK_STEP: Step = {
+  path: "/network",
+  selector: '.topbar nav a[data-path="/network"]',
+  title: "My Network",
+  body: "Upload your LinkedIn connections to see who to reach out to about the jobs you want, sorted High, Medium and Low, with Jobby ready to draft the note.",
+};
+const APP_STEPS: Step[] = DEMO_STEPS.flatMap((step) => {
+  if (step.path === "/jobby")
+    return [
+      {
         ...step,
         body: "An assistant that knows your background and the jobs you like. Start a chat about your search, or prep for a job on My Jobs: mock interviews, likely questions, strategy.",
-      }
-    : step,
-);
+      },
+    ];
+  return step.path === "/sources" ? [step, NETWORK_STEP] : [step];
+});
 const STEPS = DEMO ? DEMO_STEPS : APP_STEPS;
 
 function readDone(): boolean {
@@ -158,7 +166,7 @@ export function Tour() {
     }
   }, [pending, location.pathname]);
 
-  // "Take the tour" (the demo bar, the About page).
+  // "Take the tour" (the demo bar, the About page behind the "?").
   useEffect(() => {
     const start = () => go(0);
     window.addEventListener(TOUR_EVENT, start);
@@ -233,7 +241,7 @@ export function Tour() {
               <a href={`${import.meta.env.BASE_URL}../job-search/`}>go back to the welcome page</a>.
             </>
           ) : (
-            "That's the tour. You can take it again any time from the About page."
+            "That's the tour. You can take it again any time from the ? next to the gear."
           )}
         </p>
       )}
