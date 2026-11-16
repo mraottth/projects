@@ -3,7 +3,7 @@ import { PeopleYouKnow } from "../components/Network";
 import { Link, useParams } from "react-router-dom";
 import { api, Application, APPLICATION_STATUS_LABELS, GeneratedDoc, Job } from "../api";
 import { Markdown } from "../components/Markdown";
-import { rationaleClass, ScoreButton } from "../components/ScoredJobCard";
+import { daysAgo, rationaleClass, ScoreButton } from "../components/ScoredJobCard";
 import { DEMO } from "../demo";
 import { Spinner } from "../components/Spinner";
 import { tidyDescription } from "../descriptionText";
@@ -29,6 +29,20 @@ function FitBadge({ label, value }: { label: string; value: string | null }) {
 }
 
 // A page at /jobs/<id>, or (given `jobId`) the card JobModal shows over the list it was opened from.
+function shortDate(d: Date): string {
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function postedLine(job: Job): string {
+  if (job.posted_at) {
+    const d = new Date(job.posted_at.length === 10 ? `${job.posted_at}T00:00:00` : job.posted_at);
+    if (!Number.isNaN(d.getTime())) return `Posted ${daysAgo(job.posted_at)} (${shortDate(d)})`;
+  }
+  // first_seen_at is SQLite's UTC "YYYY-MM-DD HH:MM:SS".
+  const seen = new Date(`${job.first_seen_at.replace(" ", "T")}Z`);
+  return Number.isNaN(seen.getTime()) ? "Posting date unknown" : `Found ${daysAgo(seen.toISOString())} (no posting date given)`;
+}
+
 export default function JobDetailPage({ jobId: shownId }: { jobId?: number } = {}) {
   const { id } = useParams();
   const jobId = shownId ?? Number(id);
@@ -92,6 +106,10 @@ export default function JobDetailPage({ jobId: shownId }: { jobId?: number } = {
       </h1>
       <p className="muted" style={{ marginBottom: "18px" }}>
         {job.location ?? "location unknown"}
+        {/* How old it is (asked 2026-11-16): the posting's own date, or, when it gives none, when the
+            app first found it, worded differently since "posted" means the posting's date. */}
+        {" · "}
+        {postedLine(job)}
         {job.url && (
           <>
             {" · "}

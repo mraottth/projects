@@ -1164,6 +1164,10 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   Settings' "Color older highlights" (`core/retag.py`) tagged those older ones with one cheap call
   each; it was removed on 2026-11-12 once every live summary was tagged (its "retag highlights" log
   rows still read as Upkeep in the Usage log).
+- **The expanded job card shows the posting's age** (asked 2026-11-16; `JobDetailPage`'s
+  `postedLine()`): "Posted 3 days ago (Nov 13, 2026)" from `posted_at`, or, when the posting gives
+  no date, "Found 3 days ago (no posting date given)" from `first_seen_at`, kept apart since
+  "posted" means the posting's own date.
 - **Job card buttons and clicks** (asked 2026-11-16): `JobActions` offers "Add to My Jobs" (the old
   "Interested": feedback `interested` plus an `applications` row) and "Not Interested"; "Maybe" was
   dropped (old `maybe` feedback rows still read fine). A click anywhere on a `ScoredJobCard`
