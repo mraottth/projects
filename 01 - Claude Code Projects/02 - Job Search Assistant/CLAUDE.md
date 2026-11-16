@@ -591,7 +591,9 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   - **Jobby:** "Write outreach with Jobby" (`OutreachButton`, on the table and the job card's "People
     you know here") first asks a few quick questions in a `Modal` (asked 2026-11-16: a draft to a
     close friend read like a cold email): how well you know them, how, when you were last in touch,
-    what would help most, where you are with the role, anything else, and email/LinkedIn/both.
+    what would help most, which role it's about (a My Jobs job, the opening they came up for, "No
+    specific job" or "Other" in your words; asked 2026-11-16), where you are with it, anything
+    else, and email/LinkedIn/both. A chosen job opens that job's Jobby chat; otherwise a general one.
     `outreachLink(person, answers)` turns them into a message and opens `/jobby?job=<id>&prompt=...`
     (or `?new=1&prompt=...`); `JobbyPage` puts `prompt` in the message box unsent, so a person's
     details reach Claude only when they press Send. LinkedIn's connected-since date is passed as

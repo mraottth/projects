@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, NetworkOverview, NetworkTier, PersonAtJob } from "../api";
+import {
+  api,
+  Application,
+  NetworkOverview,
+  NetworkTier,
+  PersonAtJob,
+} from "../api";
 import { Modal } from "./Modal";
 import { Spinner } from "./Spinner";
 
@@ -48,6 +54,11 @@ export interface OutreachAnswers {
   stage: string;
   format: string;
   notes: string;
+  // Which role it's about (asked 2026-11-16): a job on My Jobs (or the one the person came up for),
+  // something written in ("other"), or none.
+  role: "none" | "job" | "other";
+  roleJob: { id: number; title: string; company: string | null } | null;
+  roleOther: string;
 }
 
 /** A Jobby link with a ready-to-send first message asking for outreach, built from the person and
@@ -68,8 +79,7 @@ export function outreachLink(p: OutreachPerson, a?: OutreachAnswers): string {
     a?.closeness && `How well I know them: ${a.closeness}.`,
     a?.how.trim() && `How we know each other: ${a.how.trim()}.`,
     a?.lastTouch && `Last in touch: ${a.lastTouch}.`,
-    p.job_title &&
-      `It's about their ${p.job_title} opening${a?.stage ? ` (${a.stage.toLowerCase()})` : ""}.`,
+    roleLine(p, a),
     a?.asks.length
       ? `What I'd like from them: ${a.asks.join("; ").toLowerCase()}.`
       : null,
@@ -80,9 +90,22 @@ export function outreachLink(p: OutreachPerson, a?: OutreachAnswers): string {
     "Write it the way I'd actually talk to this person, with one clear ask. If something important is still unclear, ask me a question or two first.",
   ].filter(Boolean);
   const prompt = encodeURIComponent(lines.join("\n"));
-  return p.job_id
-    ? `/jobby?job=${p.job_id}&prompt=${prompt}`
+  // A job on My Jobs opens that job's chat, so Jobby has the posting; anything else a general chat.
+  const jobId = a ? (a.role === "job" ? a.roleJob?.id : null) : p.job_id;
+  return jobId
+    ? `/jobby?job=${jobId}&prompt=${prompt}`
     : `/jobby?new=1&prompt=${prompt}`;
+}
+
+function roleLine(p: OutreachPerson, a?: OutreachAnswers): string | null {
+  const stage = a?.stage ? ` (${a.stage.toLowerCase()})` : "";
+  if (!a)
+    return p.job_title ? `It's about their ${p.job_title} opening.` : null;
+  if (a.role === "job" && a.roleJob)
+    return `It's about the ${a.roleJob.title} role${a.roleJob.company ? ` at ${a.roleJob.company}` : ""}${stage}.`;
+  if (a.role === "other" && a.roleOther.trim())
+    return `It's about: ${a.roleOther.trim()}${stage}.`;
+  return null;
 }
 
 const CLOSENESS = [
@@ -124,7 +147,49 @@ export function OutreachButton({ person }: { person: OutreachPerson }) {
     stage: "",
     format: "both",
     notes: "",
+    role: person.job_id ? "job" : "none",
+    roleJob: person.job_id
+      ? {
+          id: person.job_id,
+          title: person.job_title ?? "this role",
+          company: person.company,
+        }
+      : null,
+    roleOther: "",
   });
+  // My Jobs, for "Which role is this about?", loaded the first time the dialog opens.
+  const [apps, setApps] = useState<Application[] | null>(null);
+  useEffect(() => {
+    if (open && apps === null)
+      api
+        .listApplications()
+        .then(setApps)
+        .catch(() => setApps([]));
+  }, [open, apps]);
+  const jobOptions = [
+    ...(person.job_id && !(apps ?? []).some((x) => x.job_id === person.job_id)
+      ? [
+          {
+            id: person.job_id,
+            title: person.job_title ?? "Their opening",
+            company: person.company,
+          },
+        ]
+      : []),
+    ...(apps ?? []).map((x) => ({
+      id: x.job_id,
+      title: x.title,
+      company: x.company,
+    })),
+  ];
+  const roleValue =
+    a.role === "job" && a.roleJob ? `job:${a.roleJob.id}` : a.role;
+  const chooseRole = (value: string) => {
+    if (value.startsWith("job:")) {
+      const job = jobOptions.find((j) => `job:${j.id}` === value) ?? null;
+      set({ role: "job", roleJob: job });
+    } else set({ role: value as "none" | "other", roleJob: null });
+  };
   const set = (patch: Partial<OutreachAnswers>) =>
     setA((prev) => ({ ...prev, ...patch }));
   const toggleAsk = (ask: string) =>
@@ -199,11 +264,38 @@ export function OutreachButton({ person }: { person: OutreachPerson }) {
               ))}
             </div>
           </div>
-          {person.job_title && (
+          <div className="fsection">
+            <span className="flabel">Which role is this about?</span>
+            <div className="select-wrap">
+              <select
+                value={roleValue}
+                onChange={(e) => chooseRole(e.target.value)}
+              >
+                <option value="none">No specific job</option>
+                {jobOptions.length > 0 && (
+                  <optgroup label="Jobs (My Jobs, and the opening they came up for)">
+                    {jobOptions.map((j) => (
+                      <option key={j.id} value={`job:${j.id}`}>
+                        {j.title}
+                        {j.company ? ` — ${j.company}` : ""}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                <option value="other">Other (describe it)</option>
+              </select>
+            </div>
+            {a.role === "other" && (
+              <input
+                value={a.roleOther}
+                onChange={(e) => set({ roleOther: e.target.value })}
+                placeholder="e.g. a data director role on their team that isn't posted yet"
+              />
+            )}
+          </div>
+          {a.role !== "none" && (
             <div className="fsection">
-              <span className="flabel">
-                Where are you with {person.job_title}?
-              </span>
+              <span className="flabel">Where are you with it?</span>
               <div className="chip-toggle-group">
                 {STAGES.map((c) => (
                   <button
