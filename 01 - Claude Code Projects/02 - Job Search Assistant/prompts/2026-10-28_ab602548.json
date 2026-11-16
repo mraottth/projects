@@ -1600,8 +1600,16 @@
    "time": "2026-11-16T16:58:09.693Z",
    "kind": "prompt",
    "text": "The jobby outreach messages are not great. e.g. \"Hi NAME — we've been connected since 2017! I just applied to the ROLE at COMPANY. My background is in political/civic data/analytics leadership (DCCC, Biden/Harris campaigns) rather than trust-and-safety directly, so I know it's a stretch, but the mission matters a lot to me. Would you be open to a quick chat or any candid take on the role/team? Totally understand if not — thanks either way!\" I know this person very well. We should have Jobby probe a little bit about the relationship and the role to come up with a good outreach message. Let's have it so clicking the \"Write outreach with Jobby\" button opens a little modal that asks a few guiding questions and then that information is passed to the Jobby conversation",
-   "reply": null,
+   "reply": "\"Write outreach with Jobby\" now opens a short set of questions before going to Jobby, and Jobby has new instructions for writing to people you know. It's pushed. It works the same from the My Network table and from \"People you know here\" on a job.\n\n**The questions (any can be skipped):**\n- How well do you know them: close friend or colleague, well professionally, a bit, or barely.\n- How do you know each other (free text, e.g. \"worked together on the 2020 campaign\").\n- When you were last in touch.\n- What would help most (pick any): a referral or a word with the hiring manager, their honest take on the role, an introduction, advice, or just reconnecting.\n- Where you are with the role (only when it's about a job): haven't applied, applied, or interviewing.\n- Anything else Jobby should know (free text).\n- Whether to write an email, a LinkedIn message, or both.\n\n**Open in Jobby →** puts your answers into Jobby's message box, unsent, so you can edit before pressing Send. The LinkedIn \"connected since\" date goes along as background only, with a note not to use it in the message.\n\n**What Jobby is now told for outreach:**\n- Match the relationship. To a close friend, write casually, the way you'd talk to them, with no re-introduction or résumé summary.\n- Make one clear ask.\n- Never undersell you. No \"I know it's a stretch\"; say what you'd bring instead.\n- If the relationship or the ask still isn't clear, ask you a question or two before drafting.\n\nI filled in the questions on a local copy and checked the message they produce in Jobby's box. I couldn't test the replies themselves, since there's no API key here. All 605 tests pass.\n\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge --no-edit origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com IAP_AUDIENCE=/projects/<project number>/locations/us-central1/services/jobhunt\n```\n\nTry it on the person from your example. If the draft still doesn't sound like you, paste it here and I'll adjust Jobby's guidance.",
    "id": "ab602548-223",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-16T17:01:37.552Z",
+   "kind": "prompt",
+   "text": "That's great - let's also just have a way for the user to select the job from My Jobs that they're reaching out about if that's relevant (or have an Other option for them to write open-ended)",
+   "reply": null,
+   "id": "ab602548-224",
    "session": "ab602548"
   }
  ]
