@@ -655,7 +655,7 @@ export default function MyJobsPage() {
 
       {apps.length === 0 && (
         <p className="empty-state">
-          No jobs tracked yet — mark one "Interested" on New &amp; Noteworthy or All Jobs, or add one above.
+          No jobs tracked yet — click "Add to My Jobs" on New &amp; Noteworthy or All Jobs, or add one above.
         </p>
       )}
 

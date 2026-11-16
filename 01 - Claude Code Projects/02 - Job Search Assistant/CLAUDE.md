@@ -1138,6 +1138,11 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   Settings' "Color older highlights" (`core/retag.py`) tagged those older ones with one cheap call
   each; it was removed on 2026-11-12 once every live summary was tagged (its "retag highlights" log
   rows still read as Upkeep in the Usage log).
+- **Job card buttons and clicks** (asked 2026-11-16): `JobActions` offers "Add to My Jobs" (the old
+  "Interested": feedback `interested` plus an `applications` row) and "Not Interested"; "Maybe" was
+  dropped (old `maybe` feedback rows still read fine). A click anywhere on a `ScoredJobCard`
+  (`.card-clickable`) opens the job's overlay like its title link (`JobLink.useOpenJobOnClick`),
+  except on its own links, buttons, chips and inputs, or after selecting text.
 - On both `DigestPage` and `AllJobsPage`, marking a job "Interested" records the feedback *and*
   auto-creates an `applications` row the same way -- `components/ScoredJobCard.tsx` (`JobActions`)
   is the one shared implementation both pages use, so this only exists in one place. `JobDetailPage`

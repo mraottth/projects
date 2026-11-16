@@ -1,5 +1,5 @@
-import { ReactNode } from "react";
-import { Link, Location, useLocation } from "react-router-dom";
+import { MouseEvent, ReactNode, useCallback } from "react";
+import { Link, Location, useLocation, useNavigate } from "react-router-dom";
 
 /**
  * A link to a job that opens it in a card over the current page (asked 2026-11-10), not a new
@@ -15,5 +15,25 @@ export function JobLink({ jobId, children, className }: { jobId: number; childre
     <Link to={`/jobs/${jobId}`} state={{ background: state?.background ?? location }} className={className}>
       {children}
     </Link>
+  );
+}
+
+/**
+ * A click handler that opens a job's overlay from anywhere on its card (asked 2026-11-16), the same
+ * as its JobLink. Clicks on the card's own controls (links, buttons, chips, inputs) and finishing a
+ * text selection are left alone.
+ */
+export function useOpenJobOnClick(jobId: number) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const state = location.state as { background?: Location } | null;
+  return useCallback(
+    (e: MouseEvent<HTMLElement>) => {
+      const target = e.target as HTMLElement;
+      if (target.closest("a, button, input, select, textarea, label, summary, details")) return;
+      if (window.getSelection()?.toString()) return;
+      navigate(`/jobs/${jobId}`, { state: { background: state?.background ?? location } });
+    },
+    [jobId, location, navigate, state],
   );
 }

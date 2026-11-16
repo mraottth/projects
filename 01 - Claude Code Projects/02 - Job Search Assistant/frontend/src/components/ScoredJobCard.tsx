@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { JobLink } from "./JobLink";
+import { JobLink, useOpenJobOnClick } from "./JobLink";
 import { api, ApiError, APPLICATION_STATUS_LABELS, ApplicationStatus, ScoredJob } from "../api";
 import { Markdown } from "./Markdown";
 import { Spinner } from "./Spinner";
@@ -124,7 +124,7 @@ export function JobActions({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const sendFeedback = async (value: "interested" | "not_interested" | "maybe") => {
+  const sendFeedback = async (value: "interested" | "not_interested") => {
     setBusy(true);
     setError(null);
     try {
@@ -149,22 +149,20 @@ export function JobActions({
 
   return (
     <div className="card-section form-actions">
+      {/* Two choices (asked 2026-11-16; "Maybe" was dropped). Adding it records interest too. */}
       <button
         className="ghost small"
         disabled={busy || feedback === "interested"}
         onClick={() => sendFeedback("interested")}
       >
-        Interested
-      </button>
-      <button className="ghost small" disabled={busy || feedback === "maybe"} onClick={() => sendFeedback("maybe")}>
-        Maybe
+        Add to My Jobs
       </button>
       <button
         className="ghost small"
         disabled={busy || feedback === "not_interested"}
         onClick={() => sendFeedback("not_interested")}
       >
-        Not interested
+        Not Interested
       </button>
       {tracked && <span className="muted small">Added to My Jobs — generate docs from the job page.</span>}
       {error && <span className="error-text small">{error}</span>}
@@ -260,13 +258,15 @@ export function ScoredJobCard({
   onFilter?: (key: ChipFilterKey, value: string) => void;
   activeFilters?: { location: string[]; organization: string[] };
 }) {
-  // Where it stands on My Jobs (asked 2026-11-10); marking it Interested here adds it as Drafting.
+  // Where it stands on My Jobs (asked 2026-11-10); "Add to My Jobs" here adds it as Drafting.
   const [status, setStatus] = useState<ApplicationStatus | null>(given.application_status ?? null);
   // A score asked for from this card ("Score this job", asked 2026-11-12) shows here at once.
   const [score, setScore] = useState<Partial<ScoredJob> | null>(null);
   const job = score ? { ...given, ...score } : given;
+  // A click anywhere on the card opens the job (asked 2026-11-16); its controls still work as before.
+  const open = useOpenJobOnClick(job.id);
   return (
-    <div className="card">
+    <div className="card card-clickable" onClick={open}>
       <div className="card-header">
         <div className="card-header-main">
           <CompanyLogo company={job.company} />
@@ -334,8 +334,8 @@ export function ScoredJobCard({
         <RationaleBlock text={job.rationale_text} className={rationaleClass(job.interest_fit, job.candidate_fit)} />
       )}
 
-      {/* On My Jobs already: its status there replaces the Interested / Maybe / Not interested
-          buttons (asked 2026-11-10). Marking it Interested here switches to "Drafting". */}
+      {/* On My Jobs already: its status there replaces the Add to My Jobs / Not Interested buttons
+          (asked 2026-11-10). Adding it here switches to "Drafting". */}
       {status ? (
         <div className="card-section form-actions">
           <Link to="/tracker" className={`pill pill-${status} tracked-pill`} title="Open My Jobs">

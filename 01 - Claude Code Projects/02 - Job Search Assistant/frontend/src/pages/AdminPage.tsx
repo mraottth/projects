@@ -383,7 +383,7 @@ function ScoringExperiment() {
     <section className="card">
       <h2>Scoring cost experiment</h2>
       <p className="muted small">
-        Rescores up to 20 jobs you've already judged (marked Interested or Not interested, or tracked) twice: with
+        Rescores up to 20 jobs you've already judged (added to My Jobs or marked Not interested) twice: with
         today's settings, and with cheaper "lean" ones (less reasoning, a 2–3 sentence rationale, long postings
         cut at 6,000 characters). Then it compares what each cost and how each rated the jobs. Nothing here
         changes your job lists or live scoring.
@@ -391,7 +391,7 @@ function ScoringExperiment() {
       {progress ? (
         <Spinner label={progress[1] ? `Scored ${progress[0]} of ${progress[1]}…` : "Starting…"} />
       ) : info.sample_size === 0 ? (
-        !result && <p className="muted small">No judged jobs yet: mark a few jobs Interested or Not interested first.</p>
+        !result && <p className="muted small">No judged jobs yet: add a few jobs to My Jobs or mark them Not interested first.</p>
       ) : (
         <button className={result ? "ghost" : "primary"} onClick={run}>
           {result ? "Run again" : `Run on ${info.sample_size} jobs`} (about ${info.estimate_usd.toFixed(2)})
