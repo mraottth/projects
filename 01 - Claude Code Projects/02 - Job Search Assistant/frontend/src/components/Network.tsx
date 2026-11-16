@@ -156,24 +156,25 @@ export function NetworkSection({
 
       <details className="network-steps" open={!has}>
         <summary>How to get your Connections.csv from LinkedIn</summary>
+        {/* Matches LinkedIn's page as of 2026-11-16 (the owner's screenshot): Connections isn't in
+            the "Want something in particular?" list any more, so it's the full archive. */}
         <ol className="small">
           <li>
-            On LinkedIn, open <strong>Settings &amp; Privacy</strong> →{" "}
-            <strong>Data privacy</strong> →{" "}
-            <strong>Get a copy of your data</strong>.
+            On LinkedIn, open <strong>Settings &amp; Privacy</strong> → <strong>Data privacy</strong> →{" "}
+            <strong>Download my data</strong>.
           </li>
           <li>
-            Choose <strong>"Want something in particular?"</strong>, tick only{" "}
-            <strong>Connections</strong>, and press{" "}
+            Keep the first option selected, <strong>"Download larger data archive, including connections…"</strong>{" "}
+            (Connections isn't in the "Want something in particular?" list), and press{" "}
             <strong>Request archive</strong>.
           </li>
           <li>
-            LinkedIn emails you a link, usually within 10 minutes. Download the
-            file and unzip it if it's zipped.
+            LinkedIn takes a while to prepare it. Wait for LinkedIn's email saying it's ready, then download the
+            archive and unzip it.
           </li>
           <li>
-            Upload <strong>Connections.csv</strong> below. Upload a fresh one
-            now and then: it's a snapshot.
+            Upload <strong>Connections.csv</strong> from it below. The archive holds more than your connections; only
+            that file is uploaded here. Upload a fresh one now and then: it's a snapshot.
           </li>
         </ol>
         <p className="muted small">

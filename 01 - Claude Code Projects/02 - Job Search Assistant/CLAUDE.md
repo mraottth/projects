@@ -581,7 +581,8 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     and shows `network_orgs_error`.
   - **The "My Network" tab** (`pages/NetworkPage.tsx`, route `/network`, after Manage Sources;
     moved out of Manage Sources on 2026-11-16 and left out of the demo's nav) holds the "Your
-    LinkedIn network" card (`NetworkSection`): steps to get
+    LinkedIn network" card (`NetworkSection`): steps to get (LinkedIn's "Download my data": the full archive, since
+    Connections left the pick-a-file list; wait for LinkedIn's email; checked 2026-11-16)
     the file, the upload, "Remove them" (`DELETE /api/network/connections`), High/Medium/Low tabs
     of a table (name linked, position, organization, connected, why, "Write outreach with Jobby"),
     a "Not listed" tab and a search box, and "Organizations to consider adding" (organizations with
