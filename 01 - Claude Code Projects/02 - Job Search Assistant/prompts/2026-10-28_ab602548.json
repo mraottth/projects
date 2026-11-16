@@ -1656,8 +1656,16 @@
    "time": "2026-11-16T17:35:18.938Z",
    "kind": "prompt",
    "text": "<!-- attach -->\n> at good-fit orgs: org alignment High;\n> at aligned orgs: org alignment Med or High;\n\nNot worth having 2 categories here",
-   "reply": null,
+   "reply": "I removed **\"at aligned orgs\"** and kept **\"at good-fit orgs\"**. Under the current rules, anyone at an organization rated Med or High lands in your High or Medium tier, so \"at aligned orgs\" was always the same number as \"worth reaching out to\".\n\nThe stats row now has four boxes:\n- connections\n- at good-fit orgs\n- in relevant roles\n- worth reaching out to\n\nThe app builds and the related checks pass. It's pushed:\n\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge --no-edit origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com IAP_AUDIENCE=/projects/<project number>/locations/us-central1/services/jobhunt\n```",
    "id": "ab602548-230",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-16T22:20:58.881Z",
+   "kind": "prompt",
+   "text": "please add how old the job posting is to job cards on the expanded view",
+   "reply": null,
+   "id": "ab602548-231",
    "session": "ab602548"
   }
  ]
