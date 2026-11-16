@@ -1624,8 +1624,16 @@
    "time": "2026-11-16T17:15:43.111Z",
    "kind": "prompt",
    "text": "\"Organizations to consider adding\" can be moved up to a small scrollable card at the top right. There should be toggles at the top for Fit: High / Med / Low",
-   "reply": null,
+   "reply": "\"Organizations to consider adding\" now sits in a small card at the top right of My Network, next to the upload card, and it's pushed.\n\n- **Fit toggles:** High / Med / Low buttons at the top of the card, each with a count. Click one to show or hide that fit; all three are on by default.\n- **Scrolling list:** the card is about 460px tall and its list scrolls inside it. Each organization shows its fit badge, how many people you know there, whether one of them is a leader, the reason, and \"+ Add\".\n- **Layout:** \"Who to reach out to\" now spans the full width below the two cards. On narrow screens the cards stack.\n\nI checked it in a local copy. With only High selected, the list narrowed to the one High organization. The related tests pass.\n\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge --no-edit origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com IAP_AUDIENCE=/projects/<project number>/locations/us-central1/services/jobhunt\n```",
    "id": "ab602548-226",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-16T17:18:38.110Z",
+   "kind": "prompt",
+   "text": "let's change \"Organizations to consider adding\" to \"Organizations to consider tracking\". Also, we can remove the \"How to get your connections\" section if the user has already uploaded. It can reappear if they remove their file or click to upload a newer one",
+   "reply": null,
+   "id": "ab602548-227",
    "session": "ab602548"
   }
  ]
