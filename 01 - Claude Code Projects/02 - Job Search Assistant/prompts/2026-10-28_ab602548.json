@@ -1640,8 +1640,16 @@
    "time": "2026-11-16T17:29:08.065Z",
    "kind": "prompt",
    "text": "An organization should not be considered High Org Alignment just because I'm tracking it or have applied to a job there.",
-   "reply": null,
+   "reply": "Org alignment is now High only when Claude rates the organization itself a good fit for your profile. Tracking an organization or applying to a job there no longer makes it High. All 607 tests pass and it's pushed.\n\n**Org alignment now:**\n- **High:** Claude rated the organization a good fit (\"Good fit: …\"). That's the only way in.\n- **Med:**\n  - Claude rated it of interest.\n  - It has a job you'd want: one on My Jobs, one rated well, or a promising unrated one. The note still says \"Has a job you'd want: …\".\n  - It's in your sources: you track it, or your sources list jobs there. The \"Tracked source\" tag still shows.\n- **Low:** everything else.\n\n**Effect on the High tier:** a High contact now always works somewhere Claude judged a good fit. People you know at places you've only applied to or track now land in Medium.\n\n**What to expect:**\n- **If ratings are missing or failed:** nobody can be High until \"Re-rate organizations\" succeeds.\n- **What I tested:** a new test confirms an organization you applied to, one with a strongly rated job, and a tracked one each come out Med, while one Claude rated a fit comes out High.\n\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge --no-edit origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com IAP_AUDIENCE=/projects/<project number>/locations/us-central1/services/jobhunt\n```",
    "id": "ab602548-228",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-16T17:33:18.630Z",
+   "kind": "prompt",
+   "text": "You can remove \"You know people here but don't follow their jobs yet.\" Also we should shrink down the Organizations to consider tracking section vertically and then make the \"Your LinkedIn network\" section match the height. You can also add to the \"Your LinkedIn network\" card some summary stats about how many connections the user has, how many work at aligned orgs, how many work in relevant roles, etc.",
+   "reply": null,
+   "id": "ab602548-229",
    "session": "ab602548"
   }
  ]
