@@ -600,7 +600,10 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     a "Not listed" tab and a search box, and "Organizations to consider tracking" (renamed from "adding" 2026-11-16; organizations with
     listed connections that no followed source names, each tiered by its best person; since
     2026-11-16 a small scrolling card at the top right, `OrgSuggestions`, beside the upload card,
-    with Fit: High / Med / Low toggles; "+ Add" is `POST /api/sources/resolve`).
+    with Fit: High / Med / Low toggles, as tall as the upload card beside it with its list scrolling
+    (`.org-suggestions-holder`); "+ Add" is `POST /api/sources/resolve`). The upload card has a stats
+    row (`NetworkStats`, from the loaded data): connections, at good-fit orgs, at aligned orgs, in
+    relevant roles, worth reaching out to (High + Medium).
   - **Jobby:** "Write outreach with Jobby" (`OutreachButton`, on the table and the job card's "People
     you know here") first asks a few quick questions in a `Modal` (asked 2026-11-16: a draft to a
     close friend read like a cold email): how well you know them, how, when you were last in touch,

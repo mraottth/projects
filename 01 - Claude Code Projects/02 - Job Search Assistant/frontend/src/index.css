@@ -1064,13 +1064,21 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 .tracked-tag { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 999px; font-size: 0.7rem; font-weight: 600; background: rgba(42, 120, 214, 0.1); color: var(--accent-ink); }
 .tracked-tag.alone { margin-left: 0; }
 /* My Network top row: upload left, organizations to add right (2026-11-16) */
-.network-top { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 20px; align-items: start; margin-bottom: 20px; }
+.network-top { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 20px; align-items: stretch; margin-bottom: 20px; }
 .network-top.single { grid-template-columns: minmax(0, 1fr); }
 .network-top > .card { margin-bottom: 0; }
 @media (max-width: 900px) { .network-top { grid-template-columns: minmax(0, 1fr); } }
 .network-heading.first { margin-top: 0; }
-.org-suggestions { display: flex; flex-direction: column; max-height: 460px; }
+/* The organizations card is as tall as the LinkedIn network card beside it (2026-11-16): it's taken
+   out of the row's sizing, and its list scrolls. Stacked on a narrow screen, it gets its own height. */
+.org-suggestions-holder { position: relative; min-height: 240px; }
+.org-suggestions { display: flex; flex-direction: column; position: absolute; inset: 0; margin: 0; }
+@media (max-width: 900px) { .org-suggestions-holder { height: 360px; } }
 .org-fit-toggles { display: flex; align-items: center; gap: 8px; margin: 4px 0 8px; }
 .org-suggestions-list { overflow-y: auto; min-height: 0; flex: 1 1 auto; border-top: 1px solid var(--grid); }
 .org-suggestions-list li { padding: 8px 0; }
 .org-suggestions-list li > button, .org-suggestions-list li > .added-mark { white-space: nowrap; flex-shrink: 0; }
+.network-stats { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin: 12px 0 8px; }
+.network-stats > div { padding: 8px 10px; }
+.network-stats strong { font-size: 1.1rem; }
+@media (max-width: 640px) { .network-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } }

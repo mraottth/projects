@@ -560,6 +560,7 @@ export function NetworkSection({
               </span>
             )}
           </div>
+          {has && <NetworkStats info={info!} />}
           {has && <CurrentOrg info={info!} onSaved={setInfo} />}
           {has && info!.ratings_outdated && (
             <p className="small network-current">
@@ -583,11 +584,14 @@ export function NetworkSection({
           )}
         </div>
         {has && info!.suggested_sources.length > 0 && (
-          <OrgSuggestions
-            suggestions={info!.suggested_sources}
-            adding={adding}
-            onAdd={addSource}
-          />
+          // The right card takes the left card's height and its list scrolls (asked 2026-11-16).
+          <div className="org-suggestions-holder">
+            <OrgSuggestions
+              suggestions={info!.suggested_sources}
+              adding={adding}
+              onAdd={addSource}
+            />
+          </div>
         )}
       </div>
 
@@ -678,6 +682,32 @@ export function NetworkSection({
   );
 }
 
+/** A few numbers about the uploaded network (asked 2026-11-16), from what's already loaded. */
+function NetworkStats({ info }: { info: NetworkOverview }) {
+  const everyone = [...TIERS.flatMap((t) => info.tiers[t]), ...info.not_listed];
+  const goodFit = everyone.filter((p) => p.org_align === "High").length;
+  const aligned = everyone.filter((p) => p.org_align !== "Low").length;
+  const roles = everyone.filter((p) => p.title_align !== "Low").length;
+  const worth = info.tiers.High.length + info.tiers.Medium.length;
+  const stats: [number, string][] = [
+    [info.count, "connections"],
+    [goodFit, "at good-fit orgs"],
+    [aligned, "at aligned orgs"],
+    [roles, "in relevant roles"],
+    [worth, "worth reaching out to"],
+  ];
+  return (
+    <div className="screen-stats network-stats">
+      {stats.map(([n, label]) => (
+        <div key={label}>
+          <strong>{n.toLocaleString()}</strong>
+          <span className="muted small">{label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 const FITS: { tier: NetworkTier; label: string }[] = [
   { tier: "High", label: "High" },
   { tier: "Medium", label: "Med" },
@@ -704,9 +734,6 @@ function OrgSuggestions({
       <h3 className="network-heading first">
         Organizations to consider tracking
       </h3>
-      <p className="muted small">
-        You know people here but don't follow their jobs yet.
-      </p>
       <div className="org-fit-toggles">
         <span className="small">Fit:</span>
         <div className="chip-toggle-group">
