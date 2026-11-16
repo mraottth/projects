@@ -1616,8 +1616,16 @@
    "time": "2026-11-16T17:09:47.734Z",
    "kind": "prompt",
    "text": "Let's change \"WHY\" on My Network to just have a couple categories that show a contact's Org alignment / title alignment. Org alignment should have High / Med / Low. Title alignment should have High / Med / Low. Org alignment should have a very short note that says why the org is rated that way and if it's already a tracked source. Then let's have the table headers stick while scrolling and move the search bar to the left under the toggles. We can get rid of the \"An organization that suits your profile (or has a job you'd want), and they're a leader, on the hiring side or in your line of work.\" text. Contacts in the Medium category should have at least medium org alignment.",
-   "reply": null,
+   "reply": "The My Network table now shows two ratings, Org alignment and Title alignment, in place of \"Why\", and it's pushed.\n\n**Org alignment**, each with a short note:\n- **High:** Claude rated the organization a good fit (\"Good fit: election data research\"), or it has a job you'd want (\"Has a job you'd want: Analytics Lead\").\n- **Med:** Claude rated it of interest, or it's in your sources (\"Has openings: …\").\n- **Low:** neither.\n- A **Tracked source** tag appears when you follow the organization.\n\n**Title alignment:**\n- **High:** close to the titles you're after, on the hiring side, or a leader.\n- **Med:** your line of work.\n- **Low:** a different line of work.\n\n**How the tiers follow from them:**\n\n| Tier | Org | Title |\n|---|---|---|\n| **High** | High | High or Med |\n| **Medium** | at least Med, as you asked | any |\n| **Low** | Low | High or Med |\n| *Not listed* | Low | Low |\n\n**Layout:**\n- **Sticky header:** the table header stays in place while the list scrolls.\n- **Search:** the box now sits on the left, under the High / Medium / Low / Not listed tabs.\n- **Text:** the explanation line under the tabs is gone, and the message shown when organization rating fails is reworded.\n\n**What moves:** a well-matched title at an organization that isn't rated or in your sources used to be Medium and is now Low. That includes a leader at an unrelated organization.\n\nI checked it on a local copy with enough rows to scroll, and the header stayed in place. 606 tests pass, including a new one confirming Medium never has an org below Med.\n\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge --no-edit origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com IAP_AUDIENCE=/projects/<project number>/locations/us-central1/services/jobhunt\n```",
    "id": "ab602548-225",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-16T17:15:43.111Z",
+   "kind": "prompt",
+   "text": "\"Organizations to consider adding\" can be moved up to a small scrollable card at the top right. There should be toggles at the top for Fit: High / Med / Low",
+   "reply": null,
+   "id": "ab602548-226",
    "session": "ab602548"
   }
  ]
