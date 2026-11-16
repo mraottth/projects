@@ -1608,8 +1608,16 @@
    "time": "2026-11-16T17:01:37.552Z",
    "kind": "prompt",
    "text": "That's great - let's also just have a way for the user to select the job from My Jobs that they're reaching out about if that's relevant (or have an Other option for them to write open-ended)",
-   "reply": null,
+   "reply": "The outreach questions now include **\"Which role is this about?\"**, and it's pushed.\n\n- **No specific job:** for a general catch-up or advice.\n- **A job:** any job on your My Jobs. It's preselected to the opening the person came up for, if there is one, and that opening is listed even when it isn't on My Jobs.\n- **Other (describe it):** a text box opens for your own words, such as \"a data director role on their team that isn't posted yet\".\n\nChoosing a job opens that job's Jobby chat, so Jobby has the full posting to work from. \"Other\" and \"No specific job\" open a general chat. The \"Where are you with it?\" question appears once a job or Other is chosen.\n\nI checked it on a local copy. Picking a My Jobs entry opened that job's chat with \"It's about the Director of Data role at Open Ballot Lab.\" in the message. \"Other\" opened a general chat with your text in it. The related tests pass.\n\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge --no-edit origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com IAP_AUDIENCE=/projects/<project number>/locations/us-central1/services/jobhunt\n```",
    "id": "ab602548-224",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-16T17:09:47.734Z",
+   "kind": "prompt",
+   "text": "Let's change \"WHY\" on My Network to just have a couple categories that show a contact's Org alignment / title alignment. Org alignment should have High / Med / Low. Title alignment should have High / Med / Low. Org alignment should have a very short note that says why the org is rated that way and if it's already a tracked source. Then let's have the table headers stick while scrolling and move the search bar to the left under the toggles. We can get rid of the \"An organization that suits your profile (or has a job you'd want), and they're a leader, on the hiring side or in your line of work.\" text. Contacts in the Medium category should have at least medium org alignment.",
+   "reply": null,
+   "id": "ab602548-225",
    "session": "ab602548"
   }
  ]
