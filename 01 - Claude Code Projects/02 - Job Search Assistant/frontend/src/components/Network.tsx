@@ -402,12 +402,14 @@ export function NetworkSection({
       .catch(() => setInfo(null));
   }, []);
 
+  const [showSteps, setShowSteps] = useState(false);
   const upload = async (file: File) => {
     setBusy(true);
     setError(null);
     try {
       const n = await api.uploadConnections(file);
       setInfo(n);
+      setShowSteps(false);
       setTier(TIERS.find((t) => n.tiers[t].length > 0) ?? "High");
       setAdding({});
     } catch (e) {
@@ -479,42 +481,48 @@ export function NetworkSection({
             gives you.
           </p>
 
-          <details className="network-steps" open={!has}>
-            <summary>How to get your Connections.csv from LinkedIn</summary>
-            {/* Matches LinkedIn's page as of 2026-11-16 (the owner's screenshot): Connections isn't in
+          {/* The how-to shows until a file is uploaded, and again when they go to upload a newer
+              one or remove theirs (asked 2026-11-16). */}
+          {(!has || showSteps) && (
+            <details className="network-steps" open>
+              <summary>How to get your Connections.csv from LinkedIn</summary>
+              {/* Matches LinkedIn's page as of 2026-11-16 (the owner's screenshot): Connections isn't in
             the "Want something in particular?" list any more, so it's the full archive. */}
-            <ol className="small">
-              <li>
-                On LinkedIn, open <strong>Settings &amp; Privacy</strong> →{" "}
-                <strong>Data privacy</strong> →{" "}
-                <strong>Download my data</strong>.
-              </li>
-              <li>
-                Keep the first option selected,{" "}
-                <strong>
-                  "Download larger data archive, including connections…"
-                </strong>{" "}
-                (Connections isn't in the "Want something in particular?" list),
-                and press <strong>Request archive</strong>.
-              </li>
-              <li>
-                LinkedIn takes a while to prepare it. Wait for LinkedIn's email
-                saying it's ready, then download the archive and unzip it.
-              </li>
-              <li>
-                Upload <strong>Connections.csv</strong> from it below. The
-                archive holds more than your connections; only that file is
-                uploaded here. Upload a fresh one now and then: it's a snapshot.
-              </li>
-            </ol>
-            <p className="muted small">
-              Your connections stay in your account only; nobody else using the
-              app sees them. To find organizations that suit you, their
-              organizations' names (never people's names) go to Claude once per
-              upload, for about a cent. A person's details go to Claude only
-              when you ask Jobby to write to them.
-            </p>
-          </details>
+              <ol className="small">
+                <li>
+                  On LinkedIn, open <strong>Settings &amp; Privacy</strong> →{" "}
+                  <strong>Data privacy</strong> →{" "}
+                  <strong>Download my data</strong>.
+                </li>
+                <li>
+                  Keep the first option selected,{" "}
+                  <strong>
+                    "Download larger data archive, including connections…"
+                  </strong>{" "}
+                  (Connections isn't in the "Want something in particular?"
+                  list), and press <strong>Request archive</strong>.
+                </li>
+                <li>
+                  LinkedIn takes a while to prepare it. Wait for LinkedIn's
+                  email saying it's ready, then download the archive and unzip
+                  it.
+                </li>
+                <li>
+                  Upload <strong>Connections.csv</strong> from it below. The
+                  archive holds more than your connections; only that file is
+                  uploaded here. Upload a fresh one now and then: it's a
+                  snapshot.
+                </li>
+              </ol>
+              <p className="muted small">
+                Your connections stay in your account only; nobody else using
+                the app sees them. To find organizations that suit you, their
+                organizations' names (never people's names) go to Claude once
+                per upload, for about a cent. A person's details go to Claude
+                only when you ask Jobby to write to them.
+              </p>
+            </details>
+          )}
 
           <div className="form-actions network-upload">
             <input
@@ -526,7 +534,10 @@ export function NetworkSection({
             />
             <button
               className={has ? "ghost" : "primary"}
-              onClick={() => fileRef.current?.click()}
+              onClick={() => {
+                if (has) setShowSteps(true);
+                fileRef.current?.click();
+              }}
               disabled={busy}
             >
               {busy ? (
@@ -691,7 +702,7 @@ function OrgSuggestions({
   return (
     <div className="card org-suggestions">
       <h3 className="network-heading first">
-        Organizations to consider adding
+        Organizations to consider tracking
       </h3>
       <p className="muted small">
         You know people here but don't follow their jobs yet.
