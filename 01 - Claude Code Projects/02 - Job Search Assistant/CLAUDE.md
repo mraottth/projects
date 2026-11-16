@@ -588,9 +588,16 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     a "Not listed" tab and a search box, and "Organizations to consider adding" (organizations with
     listed connections that no followed source names, grouped High/Medium/Low by their best person,
     in a box that scrolls; "+ Add" is `POST /api/sources/resolve`).
-  - **Jobby:** `outreachLink()` opens `/jobby?job=<id>&prompt=...` (or `?new=1&prompt=...`), and
-    `JobbyPage` puts `prompt` in the message box unsent, so a person's details reach Claude only
-    when they press Send.
+  - **Jobby:** "Write outreach with Jobby" (`OutreachButton`, on the table and the job card's "People
+    you know here") first asks a few quick questions in a `Modal` (asked 2026-11-16: a draft to a
+    close friend read like a cold email): how well you know them, how, when you were last in touch,
+    what would help most, where you are with the role, anything else, and email/LinkedIn/both.
+    `outreachLink(person, answers)` turns them into a message and opens `/jobby?job=<id>&prompt=...`
+    (or `?new=1&prompt=...`); `JobbyPage` puts `prompt` in the message box unsent, so a person's
+    details reach Claude only when they press Send. LinkedIn's connected-since date is passed as
+    background only. Jobby's `PERSONA` has outreach guidance: match the relationship (casual to a
+    close friend, no résumé summary or "connected since"), one clear ask, never undersell ("I know
+    it's a stretch"), and ask a question or two first if the relationship or ask is unclear.
   - **Job cards:** `GET /api/jobs/ranked` and the digest routes add `connections` (a count per
     organization; `network.add_counts`), shown as a teal "N connections" chip; the job's card has
     "People you know here" (`GET /api/network/job/{id}`, `PeopleYouKnow`). Nothing on My Jobs (the

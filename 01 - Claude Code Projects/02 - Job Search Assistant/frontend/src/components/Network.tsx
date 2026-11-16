@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { api, NetworkOverview, NetworkTier, PersonAtJob } from "../api";
+import { Modal } from "./Modal";
 import { Spinner } from "./Spinner";
 
 /**
@@ -29,9 +30,7 @@ function since(date: string | null): string {
     : d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
 }
 
-/** A Jobby link with a ready-to-send first message asking for an outreach email (it's sent only
- * when you press Send, so nothing is paid for until then). */
-export function outreachLink(p: {
+export interface OutreachPerson {
   name: string;
   position: string | null;
   company: string | null;
@@ -39,22 +38,227 @@ export function outreachLink(p: {
   why?: string;
   job_id?: number | null;
   job_title?: string | null;
-}): string {
+}
+
+export interface OutreachAnswers {
+  closeness: string;
+  how: string;
+  lastTouch: string;
+  asks: string[];
+  stage: string;
+  format: string;
+  notes: string;
+}
+
+/** A Jobby link with a ready-to-send first message asking for outreach, built from the person and
+ * the guiding questions' answers (asked 2026-11-16: a draft to a close friend read like a cold
+ * email). It's sent only when you press Send, so nothing is paid for until then. */
+export function outreachLink(p: OutreachPerson, a?: OutreachAnswers): string {
   const who = [p.name, p.position, p.company && `at ${p.company}`]
     .filter(Boolean)
     .join(", ");
-  const parts = [
-    `Help me write a short outreach email to ${who}.`,
+  const format =
+    a?.format === "email"
+      ? "an email"
+      : a?.format === "linkedin"
+        ? "a LinkedIn message"
+        : "an email and a shorter LinkedIn message";
+  const lines = [
+    `Help me write ${format} to ${who}.`,
+    a?.closeness && `How well I know them: ${a.closeness}.`,
+    a?.how.trim() && `How we know each other: ${a.how.trim()}.`,
+    a?.lastTouch && `Last in touch: ${a.lastTouch}.`,
+    p.job_title &&
+      `It's about their ${p.job_title} opening${a?.stage ? ` (${a.stage.toLowerCase()})` : ""}.`,
+    a?.asks.length
+      ? `What I'd like from them: ${a.asks.join("; ").toLowerCase()}.`
+      : null,
+    a?.notes.trim() && `Also: ${a.notes.trim()}`,
+    p.why && `Background on why they came up: ${p.why}`,
     p.connected_on &&
-      `We've been connected on LinkedIn since ${since(p.connected_on)}.`,
-    p.job_title && `I'm interested in their ${p.job_title} opening.`,
-    p.why && `Why them: ${p.why}`,
-    "Keep it brief and specific to them, suggest a subject line, and give me a version for a LinkedIn message too.",
+      `(LinkedIn says we connected in ${since(p.connected_on)}; that's for you, not for the message.)`,
+    "Write it the way I'd actually talk to this person, with one clear ask. If something important is still unclear, ask me a question or two first.",
   ].filter(Boolean);
-  const prompt = encodeURIComponent(parts.join(" "));
+  const prompt = encodeURIComponent(lines.join("\n"));
   return p.job_id
     ? `/jobby?job=${p.job_id}&prompt=${prompt}`
     : `/jobby?new=1&prompt=${prompt}`;
+}
+
+const CLOSENESS = [
+  "Close: a friend or someone I worked closely with",
+  "Well, professionally",
+  "A bit",
+  "Barely: we've met once or twice",
+];
+const LAST_TOUCH = [
+  "Recently",
+  "Within the past year",
+  "A few years ago",
+  "Not sure",
+];
+const ASKS = [
+  "A referral or a word with the hiring manager",
+  "Their honest take on the role or team",
+  "An introduction to someone else",
+  "Advice on my search",
+  "Just reconnecting",
+];
+const STAGES = ["Haven't applied yet", "Already applied", "Interviewing"];
+const FORMATS: [string, string][] = [
+  ["both", "Email and LinkedIn message"],
+  ["email", "Email"],
+  ["linkedin", "LinkedIn message"],
+];
+
+/** "Write outreach with Jobby": a few quick questions about the relationship and the ask, then
+ * Jobby with the answers in its message box (asked 2026-11-16). */
+export function OutreachButton({ person }: { person: OutreachPerson }) {
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const [a, setA] = useState<OutreachAnswers>({
+    closeness: "",
+    how: "",
+    lastTouch: "",
+    asks: [],
+    stage: "",
+    format: "both",
+    notes: "",
+  });
+  const set = (patch: Partial<OutreachAnswers>) =>
+    setA((prev) => ({ ...prev, ...patch }));
+  const toggleAsk = (ask: string) =>
+    set({
+      asks: a.asks.includes(ask)
+        ? a.asks.filter((x) => x !== ask)
+        : [...a.asks, ask],
+    });
+
+  return (
+    <>
+      <button className="ghost small nowrap" onClick={() => setOpen(true)}>
+        Write outreach with Jobby
+      </button>
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        title={`Reaching out to ${person.name}`}
+      >
+        <div className="outreach-form">
+          <p className="muted small">
+            A few quick answers help Jobby write it the way you'd actually say
+            it. Skip any you like.
+          </p>
+          <div className="fsection">
+            <span className="flabel">How well do you know them?</span>
+            <div className="chip-toggle-group">
+              {CLOSENESS.map((c) => (
+                <button
+                  key={c}
+                  className={`chip-toggle${a.closeness === c ? " on" : ""}`}
+                  onClick={() => set({ closeness: a.closeness === c ? "" : c })}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+          </div>
+          <label className="fsection">
+            <span className="flabel">How do you know each other?</span>
+            <input
+              value={a.how}
+              onChange={(e) => set({ how: e.target.value })}
+              placeholder="e.g. we worked together on the 2020 campaign; grad school friends"
+            />
+          </label>
+          <div className="fsection">
+            <span className="flabel">When were you last in touch?</span>
+            <div className="chip-toggle-group">
+              {LAST_TOUCH.map((c) => (
+                <button
+                  key={c}
+                  className={`chip-toggle${a.lastTouch === c ? " on" : ""}`}
+                  onClick={() => set({ lastTouch: a.lastTouch === c ? "" : c })}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="fsection">
+            <span className="flabel">What would help most? (any)</span>
+            <div className="chip-toggle-group">
+              {ASKS.map((c) => (
+                <button
+                  key={c}
+                  className={`chip-toggle${a.asks.includes(c) ? " on" : ""}`}
+                  onClick={() => toggleAsk(c)}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+          </div>
+          {person.job_title && (
+            <div className="fsection">
+              <span className="flabel">
+                Where are you with {person.job_title}?
+              </span>
+              <div className="chip-toggle-group">
+                {STAGES.map((c) => (
+                  <button
+                    key={c}
+                    className={`chip-toggle${a.stage === c ? " on" : ""}`}
+                    onClick={() => set({ stage: a.stage === c ? "" : c })}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <label className="fsection">
+            <span className="flabel">Anything else Jobby should know?</span>
+            <textarea
+              rows={3}
+              value={a.notes}
+              onChange={(e) => set({ notes: e.target.value })}
+              placeholder="Shared history, what's going on with them, what you'd say in person, anything to avoid..."
+            />
+          </label>
+          <div className="fsection">
+            <span className="flabel">Write</span>
+            <div className="chip-toggle-group">
+              {FORMATS.map(([value, label]) => (
+                <button
+                  key={value}
+                  className={`chip-toggle${a.format === value ? " on" : ""}`}
+                  onClick={() => set({ format: value })}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="form-actions">
+            <button
+              className="primary"
+              onClick={() => navigate(outreachLink(person, a))}
+            >
+              Open in Jobby →
+            </button>
+            <button className="link small" onClick={() => setOpen(false)}>
+              Cancel
+            </button>
+          </div>
+          <p className="muted small">
+            Nothing is sent until you press Send in Jobby, and you can edit the
+            message there first.
+          </p>
+        </div>
+      </Modal>
+    </>
+  );
 }
 
 export function NetworkSection({
@@ -160,21 +364,25 @@ export function NetworkSection({
             the "Want something in particular?" list any more, so it's the full archive. */}
         <ol className="small">
           <li>
-            On LinkedIn, open <strong>Settings &amp; Privacy</strong> → <strong>Data privacy</strong> →{" "}
-            <strong>Download my data</strong>.
+            On LinkedIn, open <strong>Settings &amp; Privacy</strong> →{" "}
+            <strong>Data privacy</strong> → <strong>Download my data</strong>.
           </li>
           <li>
-            Keep the first option selected, <strong>"Download larger data archive, including connections…"</strong>{" "}
-            (Connections isn't in the "Want something in particular?" list), and press{" "}
-            <strong>Request archive</strong>.
+            Keep the first option selected,{" "}
+            <strong>
+              "Download larger data archive, including connections…"
+            </strong>{" "}
+            (Connections isn't in the "Want something in particular?" list), and
+            press <strong>Request archive</strong>.
           </li>
           <li>
-            LinkedIn takes a while to prepare it. Wait for LinkedIn's email saying it's ready, then download the
-            archive and unzip it.
+            LinkedIn takes a while to prepare it. Wait for LinkedIn's email
+            saying it's ready, then download the archive and unzip it.
           </li>
           <li>
-            Upload <strong>Connections.csv</strong> from it below. The archive holds more than your connections; only
-            that file is uploaded here. Upload a fresh one now and then: it's a snapshot.
+            Upload <strong>Connections.csv</strong> from it below. The archive
+            holds more than your connections; only that file is uploaded here.
+            Upload a fresh one now and then: it's a snapshot.
           </li>
         </ol>
         <p className="muted small">
@@ -304,14 +512,7 @@ export function NetworkSection({
                       <td className="nowrap">{since(p.connected_on)}</td>
                       <td className="small">{p.why}</td>
                       <td>
-                        {tier !== "Not listed" && (
-                          <Link
-                            className="ghost small button-link nowrap"
-                            to={outreachLink(p)}
-                          >
-                            Write outreach with Jobby
-                          </Link>
-                        )}
+                        {tier !== "Not listed" && <OutreachButton person={p} />}
                       </td>
                     </tr>
                   ))}
@@ -446,17 +647,9 @@ export function PeopleYouKnow({
                   .join(" · ")}
               </div>
             </div>
-            <Link
-              className="ghost small button-link nowrap"
-              to={outreachLink({
-                ...p,
-                company,
-                job_id: jobId,
-                job_title: jobTitle,
-              })}
-            >
-              Write outreach with Jobby
-            </Link>
+            <OutreachButton
+              person={{ ...p, company, job_id: jobId, job_title: jobTitle }}
+            />
           </li>
         ))}
       </ul>
