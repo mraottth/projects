@@ -801,8 +801,10 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     - `_run_for_person_safely()` keeps one person's failure from stopping the others. It writes no
       `runs` row for them, so "Last updated" doesn't claim a check that didn't happen.
     - `describe_error()` adds the file, line and function to the Daily check card's error.
-  - **Settings' "Daily run audit"** (asked 2026-11-17; `core/run_audit.py`, `GET
-    /api/settings/run-audit?date=&tz=`, `RunAuditCard`, hidden in the demo). For a day in the
+  - **The "Daily run audit"** (asked 2026-11-17; `core/run_audit.py`, `GET
+    /api/digest/run-audit?date=&tz=`, registered before `/{digest_date}`; `components/RunAudit.tsx`).
+    It sits under New & Noteworthy's job list (moved there from Settings the same day), reloads after
+    a Refresh, and is hidden in the demo. For a day in the
     browser's time zone (a select of the last 14 days with activity), it shows the person's checks
     (`runs` rows) and the sources they covered: organizations and boards checked of those followed,
     plus failures. Each `_run_for_person` records that as `runs.audit_json` (`{"checked": [ids],
@@ -1216,7 +1218,11 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   `posted_at` is simply unknown (missing data shouldn't read as "not new"), and `get_digest()`
   additionally excludes any job with a `not_interested` feedback row (`NOT_DISMISSED_SQL`) --
   once dismissed, a job is done surfacing here on any future read of any date, not just removed
-  from the current view. It also excludes any job on the person's My Jobs (`NOT_TRACKED_SQL`, an
+  from the current view. **Only jobs rated High or Med for both interest and fit** land there
+  (`digest.GOOD_RATINGS`, asked 2026-11-17: Low/Low and Med/Low jobs were in the list, hidden only by
+  the default filters): `add_to_digest()` skips the rest, and `get_digest()` checks the latest score
+  when read, so rows stored before and jobs rescored to Low drop out. The daily email's
+  `GOOD_INTEREST`/`GOOD_FITS` are the same tuple. It also excludes any job on the person's My Jobs (`NOT_TRACKED_SQL`, an
   `applications` row for them; asked 2026-11-04), so a tracked job never shows here or in the daily
   email, which reads `get_digest()`; removing it from My Jobs brings it back. The card you mark
   Interested stays, saying "Added to My Jobs", until the page reloads. None of these exclusions touches `AllJobsPage`'s `GET /api/jobs/ranked`, which

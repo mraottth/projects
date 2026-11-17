@@ -17,14 +17,20 @@ def _insert_job(
         return cursor.lastrowid
 
 
-def _score_job(job_id: int, interest_score: float, candidate_fit_score: float) -> None:
+def _score_job(
+    job_id: int,
+    interest_score: float = 80,
+    candidate_fit_score: float = 80,
+    interest: str = "High",
+    fit: str = "High",
+) -> None:
     with get_db() as conn:
         conn.execute(
             """INSERT INTO job_scores
                (user_id, job_id, model, interest_fit, interest_score, candidate_fit, candidate_fit_score,
                 summary_text, rationale_text)
-               VALUES (1, ?, 'x', 'High', ?, 'High', ?, '', '')""",
-            (job_id, interest_score, candidate_fit_score),
+               VALUES (1, ?, 'x', ?, ?, ?, ?, '', '')""",
+            (job_id, interest, interest_score, fit, candidate_fit_score),
         )
 
 
@@ -42,12 +48,14 @@ def _days_ago(n: int) -> str:
 
 def test_add_to_digest_skips_postings_older_than_90_days():
     job_id = _insert_job("Old Role", posted_at=_days_ago(120))
+    _score_job(job_id)
     digest.add_to_digest(job_id, "2026-01-01")
     assert digest.get_digest("2026-01-01") == []
 
 
 def test_add_to_digest_includes_unknown_posted_date():
     job_id = _insert_job("Mystery Role", posted_at=None)
+    _score_job(job_id)
     digest.add_to_digest(job_id, "2026-01-01")
     entries = digest.get_digest("2026-01-01")
     assert len(entries) == 1
@@ -56,6 +64,7 @@ def test_add_to_digest_includes_unknown_posted_date():
 
 def test_add_to_digest_includes_recent_posting():
     job_id = _insert_job("Fresh Role", posted_at=_days_ago(10))
+    _score_job(job_id)
     digest.add_to_digest(job_id, "2026-01-01")
     entries = digest.get_digest("2026-01-01")
     assert [e["title"] for e in entries] == ["Fresh Role"]
@@ -63,6 +72,7 @@ def test_add_to_digest_includes_recent_posting():
 
 def test_get_digest_excludes_jobs_marked_not_interested():
     job_id = _insert_job("Dismissed Role", posted_at=_days_ago(5))
+    _score_job(job_id)
     digest.add_to_digest(job_id, "2026-01-01")
     assert len(digest.get_digest("2026-01-01")) == 1
 
@@ -140,3 +150,44 @@ def test_get_digest_sorts_live_even_if_stored_rank_is_stale():
         )
 
     assert [e["title"] for e in digest.get_digest("2026-01-01")] == ["High Score", "Low Score"]
+
+
+def test_only_jobs_rated_med_or_better_on_both_land_on_new_and_noteworthy():
+    ratings = {
+        "High/High": ("High", "High"),
+        "Med/Med": ("Med", "Med"),
+        "High/Med": ("High", "Med"),
+        "Low/Low": ("Low", "Low"),
+        "Med/Low": ("Med", "Low"),
+        "Low/High": ("Low", "High"),
+    }
+    for title, (interest, fit) in ratings.items():
+        job_id = _insert_job(title, posted_at=_days_ago(1))
+        _score_job(job_id, interest=interest, fit=fit)
+        digest.add_to_digest(job_id, "2026-01-01")
+    unscored = _insert_job("Not rated", posted_at=_days_ago(1))
+    digest.add_to_digest(unscored, "2026-01-01")
+    titles = {e["title"] for e in digest.get_digest("2026-01-01")}
+    assert titles == {"High/High", "Med/Med", "High/Med"}
+    with get_db() as conn:
+        stored = conn.execute(
+            "SELECT COUNT(*) FROM digest_entries WHERE digest_date = '2026-01-01'"
+        ).fetchone()[0]
+    assert stored == 3  # the others never went in
+
+
+def test_a_low_row_already_stored_or_rescored_low_drops_out():
+    kept = _insert_job("Still good", posted_at=_days_ago(1))
+    rescored = _insert_job("Rescored low", posted_at=_days_ago(1))
+    stored_low = _insert_job("Stored before the rule", posted_at=_days_ago(1))
+    for job_id in (kept, rescored):
+        _score_job(job_id)
+        digest.add_to_digest(job_id, "2026-01-01")
+    _score_job(stored_low, interest="Low", fit="Low")
+    with get_db() as conn:  # as an older version would have stored it
+        conn.execute(
+            "INSERT INTO digest_entries (user_id, digest_date, job_id, rank) VALUES (1, '2026-01-01', ?, 0)",
+            (stored_low,),
+        )
+    _score_job(rescored, interest="Med", fit="Low")  # the latest score is what counts
+    assert [e["title"] for e in digest.get_digest("2026-01-01")] == ["Still good"]

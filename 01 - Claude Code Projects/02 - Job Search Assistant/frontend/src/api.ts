@@ -577,7 +577,7 @@ export interface UsageSummary {
   }[];
 }
 
-/** Settings' daily run audit (GET /api/settings/run-audit, core/run_audit.py). */
+/** The daily run audit under New & Noteworthy (GET /api/digest/run-audit, core/run_audit.py). */
 export interface RunAudit {
   date: string;
   days: string[];
@@ -1110,7 +1110,7 @@ export const api = {
   getRunAudit: (date?: string) => {
     const params = new URLSearchParams({ tz: Intl.DateTimeFormat().resolvedOptions().timeZone });
     if (date) params.set("date", date);
-    return request<RunAudit>(`/api/settings/run-audit?${params}`);
+    return request<RunAudit>(`/api/digest/run-audit?${params}`);
   },
   getUsageLog: (period: UsagePeriod = "week") =>
     request<{

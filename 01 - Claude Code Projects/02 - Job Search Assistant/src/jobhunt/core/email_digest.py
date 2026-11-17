@@ -16,15 +16,15 @@ import smtplib
 from datetime import date, timedelta
 from email.message import EmailMessage
 
-from jobhunt.core.digest import get_digest
+from jobhunt.core.digest import GOOD_RATINGS, get_digest
 from jobhunt.db.connection import PLACEHOLDER_ADMIN_EMAIL, get_db
 from jobhunt.core.users import current_user_id, get_user, optional_user_id
 
 SMTP_HOST = "smtp.gmail.com"
 SMTP_PORT = 465
 SMTP_TIMEOUT = 20
-GOOD_FITS = ("High", "Med")
-GOOD_INTEREST = ("High", "Med")
+GOOD_FITS = GOOD_RATINGS  # the same rule New & Noteworthy uses (core/digest.py)
+GOOD_INTEREST = GOOD_RATINGS
 # Today's digest plus yesterday's: a source added in the evening puts its jobs in that day's
 # digest after the email already went out.
 LOOKBACK_DAYS = 1

@@ -353,9 +353,20 @@ def test_cap_isnt_wasted_on_hidden_jobs():
     assert queue.select_batch(1) == [ids["Here"]]
 
 
+def _rate_well(job_id: int) -> None:
+    """New & Noteworthy only takes jobs rated Med or better on both (asked 2026-11-17)."""
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO job_scores (user_id, job_id, interest_fit, interest_score, candidate_fit, "
+            "candidate_fit_score) VALUES (1, ?, 'High', 80, 'High', 80)",
+            (job_id,),
+        )
+
+
 def test_hidden_from_new_and_noteworthy_and_all_jobs_but_not_my_jobs():
     ids = _setup()
     for job_id in ids.values():
+        _rate_well(job_id)
         add_to_digest(job_id)
     assert {j["title"] for j in get_digest(today_str())} == {"Here", "Unknown", "Remote"}
     with TestClient(app) as http:

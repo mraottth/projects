@@ -7,6 +7,10 @@ from jobhunt.db.connection import get_db
 from jobhunt.core.users import current_user_id
 
 MAX_AGE_DAYS = 90
+# Only jobs rated High or Med for both interest and fit land on New & Noteworthy (asked
+# 2026-11-17: Low/Low and Med/Low jobs were there, hidden only by the default filters). The daily
+# email reads get_digest(), so it follows the same rule.
+GOOD_RATINGS = ("High", "Med")
 
 # "New and noteworthy" excludes a job the user already dismissed (once marked not interested,
 # it's done surfacing here -- still reachable from All Jobs, just not pushed at the user again)
@@ -55,9 +59,14 @@ def add_to_digest(job_id: int, digest_date: str | None = None) -> None:
     uid = current_user_id()
     with get_db() as conn:
         is_recent = conn.execute(
-            f"SELECT {RECENT_OR_UNKNOWN_SQL} AS ok, j.title FROM jobs j WHERE j.id = ?", (job_id,)
+            f"""SELECT {RECENT_OR_UNKNOWN_SQL} AS ok, j.title, js.interest_fit, js.candidate_fit
+                  FROM jobs j LEFT JOIN job_scores js ON {LATEST_SCORE_SQL.format(job="j.id")}
+                 WHERE j.id = :job""",
+            {"uid": uid, "job": job_id},
         ).fetchone()
         if is_recent is None or not is_recent["ok"] or is_generic_posting(is_recent["title"]):
+            return
+        if not _good(is_recent):
             return
 
         conn.execute(
@@ -88,6 +97,10 @@ SOURCE_IS_BOARD_SQL = (
 )
 
 
+def _good(row) -> bool:
+    return row["interest_fit"] in GOOD_RATINGS and row["candidate_fit"] in GOOD_RATINGS
+
+
 def get_digest(digest_date: str) -> list[dict]:
     with get_db() as conn:
         rows = conn.execute(
@@ -111,7 +124,9 @@ def get_digest(digest_date: str) -> list[dict]:
     rows = [
         row
         for row in rows
-        if not is_generic_posting(row["title"]) and not dealbreakers.blocks(dict(row), settings)
+        if _good(row)
+        and not is_generic_posting(row["title"])
+        and not dealbreakers.blocks(dict(row), settings)
     ]
     return [dict(row) for row in sorted(rows, key=_rank_key, reverse=True)]
 

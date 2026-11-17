@@ -2,7 +2,6 @@ import json
 import tempfile
 import time
 from datetime import date
-from datetime import date as date_type
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
@@ -10,7 +9,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 from starlette.background import BackgroundTask
 
-from jobhunt.core import backup, dealbreakers, locations, run_audit, screening, usage
+from jobhunt.core import backup, dealbreakers, locations, screening, usage
 
 from jobhunt.core.llm import CACHE_READ_MULTIPLIER, CACHE_WRITE_MULTIPLIER, PRICING_PER_MTOK, LLMError
 from jobhunt.core.email_digest import EmailNotConfigured, email_status, send_test_email
@@ -138,17 +137,6 @@ def salary_check():
                         {"title": job["title"], "company": job["company"], "annual_low": round(low)}
                     )
     return {"enabled": dealbreakers.salary_dealbreaker_on(current), "floor": floor, "preview": preview}
-
-
-@router.get("/run-audit")
-def get_run_audit(date: str | None = None, tz: str | None = None):
-    """Settings' daily run audit (core/run_audit.py): one day's checks, sources, new and scored jobs,
-    and the jobs waiting now. `date` is YYYY-MM-DD in `tz` (the browser's zone); default today."""
-    try:
-        day = date_type.fromisoformat(date) if date else run_audit.today(tz)
-    except ValueError as exc:
-        raise HTTPException(400, "date must be YYYY-MM-DD") from exc
-    return run_audit.audit(day, tz)
 
 
 @router.get("/title-screen")

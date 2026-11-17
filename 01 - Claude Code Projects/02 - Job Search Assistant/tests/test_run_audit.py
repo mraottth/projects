@@ -133,12 +133,12 @@ def test_the_route_is_per_person_and_checks_its_date():
     mine = _source("Mine")
     _score(_job(mine, "My job"))
     with TestClient(app) as http:
-        assert http.get("/api/settings/run-audit?date=2026-11-17&tz=America/New_York").json()["scored"]
+        assert http.get("/api/digest/run-audit?date=2026-11-17&tz=America/New_York").json()["scored"]
         theirs = http.get(
-            "/api/settings/run-audit?date=2026-11-17&tz=America/New_York",
+            "/api/digest/run-audit?date=2026-11-17&tz=America/New_York",
             headers={"X-Dev-User": "bea@example.com"},
         ).json()
         assert theirs["scored"] == [] and theirs["new_jobs"] == []
-        assert http.get("/api/settings/run-audit?date=nope").status_code == 400
-        assert http.get("/api/settings/run-audit?tz=Not/AZone").status_code == 200
+        assert http.get("/api/digest/run-audit?date=nope").status_code == 400
+        assert http.get("/api/digest/run-audit?tz=Not/AZone").status_code == 200
     assert bea

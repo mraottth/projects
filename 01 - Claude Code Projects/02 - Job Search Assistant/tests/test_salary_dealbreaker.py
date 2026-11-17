@@ -74,10 +74,21 @@ def _jobs():
     return ids
 
 
+def _rate_well(job_id: int) -> None:
+    """New & Noteworthy only takes jobs rated Med or better on both (asked 2026-11-17)."""
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO job_scores (user_id, job_id, interest_fit, interest_score, candidate_fit, "
+            "candidate_fit_score) VALUES (1, ?, 'High', 80, 'High', 80)",
+            (job_id,),
+        )
+
+
 def test_applied_like_the_location_dealbreaker():
     ids = _jobs()
     for job_id in ids.values():
         queue.enqueue(job_id, 50, {})
+        _rate_well(job_id)
         add_to_digest(job_id)
     assert sorted(queue.select_batch(10)) == sorted([ids["Good"], ids["Unlisted"]])
     assert {j["title"] for j in get_digest(today_str())} == {"Good", "Unlisted"}

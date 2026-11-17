@@ -1,10 +1,11 @@
 from datetime import UTC, datetime, timedelta
+from datetime import date as date_type
 
 from fastapi import APIRouter, HTTPException
 
 from jobhunt.api.pipeline import stream_run
 from jobhunt.core import budget
-from jobhunt.core import network
+from jobhunt.core import network, run_audit
 from jobhunt.core.digest import get_digest, get_digest_dates, today_str
 from jobhunt.core.settings import get_setting, update_settings
 from jobhunt.core.users import current_user, current_user_id
@@ -70,6 +71,18 @@ def refresh_stream():
         raise HTTPException(429, f"You can refresh again in {minutes} minute{'s' if minutes != 1 else ''}.")
     update_settings({"last_refresh_at": datetime.now(UTC).isoformat(timespec="seconds")})
     return stream_run(daily_run.start_run_daily(only_user=current_user_id(), fresh_hours=FRESH_HOURS))
+
+
+@router.get("/run-audit")
+def get_run_audit(date: str | None = None, tz: str | None = None):
+    """The daily run audit under New & Noteworthy (core/run_audit.py): one day's checks, sources,
+    new and scored jobs, and the jobs waiting now. Registered before /{digest_date}, which would
+    otherwise take "run-audit" as a date. `date` is YYYY-MM-DD in `tz` (the browser's zone)."""
+    try:
+        day = date_type.fromisoformat(date) if date else run_audit.today(tz)
+    except ValueError as exc:
+        raise HTTPException(400, "date must be YYYY-MM-DD") from exc
+    return run_audit.audit(day, tz)
 
 
 @router.get("/{digest_date}")

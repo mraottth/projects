@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, ApiError, DigestEntry, DigestStatus, RunProgress, runProgressText } from "../api";
+import { RunAuditCard } from "../components/RunAudit";
 import { Spinner } from "../components/Spinner";
+import { DEMO } from "../demo";
 import {
   DEFAULT_JOB_FILTERS,
   FilteredEmptyState,
@@ -16,6 +18,8 @@ import { ScoredJobCard } from "../components/ScoredJobCard";
 
 export default function DigestPage() {
   const [entries, setEntries] = useState<DigestEntry[]>([]);
+  // Bumped after a Refresh, so the run audit below reloads with the new check.
+  const [audited, setAudited] = useState(0);
   const [filters, setFilters] = useState<JobFilterState>(DEFAULT_JOB_FILTERS);
   const [hasResume, setHasResume] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -44,7 +48,14 @@ export default function DigestPage() {
         The best of what showed up today, ranked by interest and candidate fit first. For
         everything your tracked sources have turned up, see All Jobs.
       </p>
-      {hasResume && <Freshness onRefreshed={loadEntries} />}
+      {hasResume && (
+        <Freshness
+          onRefreshed={() => {
+            loadEntries();
+            setAudited((n) => n + 1);
+          }}
+        />
+      )}
 
       {!hasResume && (
         <div className="card">
@@ -103,6 +114,8 @@ export default function DigestPage() {
           </aside>
         </div>
       )}
+
+      {!DEMO && !loading && <RunAuditCard reload={audited} />}
     </div>
   );
 }
