@@ -1754,8 +1754,16 @@
    "time": "2026-11-17T18:00:13.751Z",
    "kind": "prompt",
    "text": "If a source is renamed in my sources, it should also be renamed in All Jobs / My Jobs / New & Noteworthy",
-   "reply": null,
+   "reply": "Renaming an organization source now renames its jobs on All Jobs, My Jobs and New & Noteworthy. It's pushed to `claude/move-job-search-assistant`.\n\nJob-board names were already fine, because the board chip reads the source's current name. The problem was organization names: each job kept a copy of the organization name from when it was first saved, and a rename never updated those copies.\n\n- **Existing jobs:** renaming an organization now updates its saved jobs that still carry one of its old names. A job listed under a different organization, such as a partner's posting, is left alone.\n- **Greenhouse, Lever and Ashby sources:** a source you added without an organization name now takes on the new name when you rename it, so its jobs switch from the board's short code (e.g. \"acme\") to the name you chose.\n- **Future Greenhouse jobs:** they now use the name you gave the source instead of Greenhouse's own, as Lever and Ashby already did. Without this, a renamed Greenhouse source's new jobs would have come in under the old name.\n- **Pasted jobs** aren't tied to a source, so a rename doesn't touch them.\n\nI added three tests: an organization rename reaching My Jobs, a renamed Greenhouse board, and a board rename leaving its employers alone. All 623 tests pass.\n\nTo deploy:\n\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge --no-edit origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com IAP_AUDIENCE=/projects/<project number>/locations/us-central1/services/jobhunt\n```",
    "id": "ab602548-243",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-17T18:15:20.334Z",
+   "kind": "prompt",
+   "text": "[screenshot]\n\nI'm still seeing jobs with the wrong organization name after updating it in My Sources (e.g. OpenAI DC should now be displaying as OpenAI). Additionally, let's shrink the Daily run audit horizontally to fit neatly under the job cards (unlike how it is now where it takes up the full page width - see screenshot). Also, I notice that when you navigate to the My Network page, the instructions display momentarily before the full page load. Can we get rid of that?",
+   "reply": null,
+   "id": "ab602548-244",
    "session": "ab602548"
   }
  ]
