@@ -803,16 +803,16 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     - `describe_error()` adds the file, line and function to the Daily check card's error.
   - **The "Daily run audit"** (asked 2026-11-17; `core/run_audit.py`, `GET
     /api/digest/run-audit?date=&tz=`, registered before `/{digest_date}`; `components/RunAudit.tsx`).
-    It sits in New & Noteworthy's job-card column, after the cards (under the empty-day card when there are none; moved there from Settings the same day), reloads after
+    It sits in New & Noteworthy's job-card column, after the cards and a thin line (`.audit-divider`) (under the empty-day card when there are none; moved there from Settings the same day), reloads after
     a Refresh, and is hidden in the demo. For a day in the
     browser's time zone (a select of the last 14 days with activity), it shows the person's checks
     (`runs` rows) and the sources they covered: organizations and boards checked of those followed,
-    plus failures. Each `_run_for_person` records that as `runs.audit_json` (`{"checked": [ids],
+    plus failures (collapsed, "N couldn't be read"). Each `_run_for_person` records that as `runs.audit_json` (`{"checked": [ids],
     "failed": {id: error}}`, a MIGRATIONS ALTER), from `_poll_sources`' `sources_read` (including
     sources reused from a read within the hour) and `sources_failed`. Older runs show "Not
     recorded". A new source's immediate check writes no `runs` row. The card also shows new jobs per
     followed source (`first_seen_at` that day, counts above 0, linked to All Jobs), the jobs scored
-    that day (`job_scores.scored_at`; a rescore is marked), and the jobs waiting *now* in the order
+    that day (`job_scores.scored_at`; a rescore is marked; best first by interest + fit score, as New & Noteworthy ranks), and the jobs waiting *now* in the order
     they'd be scored (each source's best, then each one's second best, after leaving out jobs set
     aside or hidden by a dealbreaker, which are counted instead). The queue isn't kept per day.
   - **The Admin page's "Daily check" card.** `run_daily()` gives the everyone run (scheduled, or the

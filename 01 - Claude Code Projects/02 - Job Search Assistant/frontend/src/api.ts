@@ -595,6 +595,8 @@ export interface RunAudit {
     company: string;
     interest_fit: string | null;
     candidate_fit: string | null;
+    interest_score: number | null;
+    candidate_fit_score: number | null;
     rescored: boolean;
   }[];
   queue: {

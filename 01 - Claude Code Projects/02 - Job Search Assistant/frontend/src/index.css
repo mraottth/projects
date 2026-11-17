@@ -1107,6 +1107,11 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 
 /* Settings' daily run audit (asked 2026-11-17). */
 .run-audit { margin-top: 28px; }
+/* The line between New & Noteworthy's job cards and the audit (asked 2026-11-17). */
+.audit-divider { border: 0; border-top: 1px solid var(--ring); margin: 28px 0 24px; }
+.audit-divider + .run-audit { margin-top: 0; }
+.audit-failures summary { cursor: pointer; color: var(--bad); }
+.audit-failures[open] summary { margin-bottom: 6px; }
 .run-audit .usage-head h2 { margin: 0; }
 .audit-section { border-top: 1px solid var(--ring); padding-top: 10px; margin-top: 12px; }
 .audit-section h3 { font-size: 0.95rem; margin: 0 0 6px; }

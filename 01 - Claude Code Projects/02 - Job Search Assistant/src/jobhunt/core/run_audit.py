@@ -81,11 +81,13 @@ def audit(day: date, tz: str | None = None) -> dict:
         ).fetchall()
         scored = conn.execute(
             """SELECT j.id, j.title, j.company, sc.interest_fit, sc.candidate_fit, sc.scored_at,
+                      sc.interest_score, sc.candidate_fit_score,
                       EXISTS (SELECT 1 FROM job_scores e WHERE e.user_id = sc.user_id
                               AND e.job_id = sc.job_id AND e.id < sc.id) AS rescored
                  FROM job_scores sc JOIN jobs j ON j.id = sc.job_id
                 WHERE sc.user_id = ? AND sc.scored_at >= ? AND sc.scored_at < ?
-                ORDER BY sc.id""",
+                -- Best first, as New & Noteworthy ranks (asked 2026-11-17), then in the order scored.
+                ORDER BY COALESCE(sc.interest_score, 0) + COALESCE(sc.candidate_fit_score, 0) DESC, sc.id""",
             (uid, start, end),
         ).fetchall()
         waiting = conn.execute(
@@ -164,6 +166,8 @@ def audit(day: date, tz: str | None = None) -> dict:
                 "company": r["company"],
                 "interest_fit": r["interest_fit"],
                 "candidate_fit": r["candidate_fit"],
+                "interest_score": r["interest_score"],
+                "candidate_fit_score": r["candidate_fit_score"],
                 "rescored": bool(r["rescored"]),
             }
             for r in scored

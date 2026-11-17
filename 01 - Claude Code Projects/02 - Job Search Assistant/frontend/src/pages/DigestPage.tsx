@@ -109,7 +109,12 @@ export default function DigestPage() {
               />
             ))}
             {/* In the cards' column, so it's their width and never runs under the sidebar. */}
-            {!DEMO && <RunAuditCard reload={audited} />}
+            {!DEMO && (
+              <>
+                <hr className="audit-divider" />
+                <RunAuditCard reload={audited} />
+              </>
+            )}
           </div>
           <aside className="list-side">
             <JobFilterBar jobs={entries} filters={filters} onChange={setFilters} />

@@ -142,3 +142,17 @@ def test_the_route_is_per_person_and_checks_its_date():
         assert http.get("/api/digest/run-audit?date=nope").status_code == 400
         assert http.get("/api/digest/run-audit?tz=Not/AZone").status_code == 200
     assert bea
+
+
+def test_scored_jobs_come_best_first():
+    board = _source("Board")
+    with get_db() as conn:
+        for title, interest, fit in (("Okay", 50, 40), ("Best", 90, 85), ("Weak", 20, 10)):
+            job = _job(board, title)
+            conn.execute(
+                "INSERT INTO job_scores (user_id, job_id, scored_at, interest_fit, interest_score, "
+                "candidate_fit, candidate_fit_score) VALUES (1, ?, ?, 'Med', ?, 'Med', ?)",
+                (job, NOON, interest, fit),
+            )
+    scored = run_audit.audit(DAY, "America/New_York")["scored"]
+    assert [s["title"] for s in scored] == ["Best", "Okay", "Weak"]
