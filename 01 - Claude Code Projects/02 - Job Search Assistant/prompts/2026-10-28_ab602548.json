@@ -1664,8 +1664,34 @@
    "time": "2026-11-16T22:20:58.881Z",
    "kind": "prompt",
    "text": "please add how old the job posting is to job cards on the expanded view",
-   "reply": null,
+   "reply": "The expanded job card now shows how old the posting is, on the line under the title, and it's pushed:\n\n- **Posting gives a date:** \"Washington, DC · Posted 3 days ago (Nov 13, 2026) · original posting\".\n- **Posting has no date** (many don't): \"Found 3 days ago (no posting date given)\". That's when the app first picked it up, worded differently so it isn't mistaken for the posting date.\n\nI checked both cases in the overlay on a local copy.\n\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge --no-edit origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com IAP_AUDIENCE=/projects/<project number>/locations/us-central1/services/jobhunt\n```",
    "id": "ab602548-231",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-17T00:13:42.700Z",
+   "kind": "prompt",
+   "text": "Let's add an edit feature to sources (to change the name or URL) and a status filter on My Jobs",
+   "reply": null,
+   "asked": [
+    {
+     "question": "My Jobs already has a To-Do / Active / Closed / All toggle (groups of statuses). How should the new status filter work?",
+     "options": [
+      "Add a status dropdown (Recommended)",
+      "Replace the toggle",
+      "Filter from the column"
+     ]
+    }
+   ],
+   "id": "ab602548-232",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-17T00:14:13.387Z",
+   "kind": "answer",
+   "text": "\"My Jobs already has a To-Do / Active / Closed / All toggle (groups of statuses). How should the new status filter work?\"=\"Add a status dropdown (Recommended)\".",
+   "reply": null,
+   "id": "ab602548-233",
    "session": "ab602548"
   }
  ]
