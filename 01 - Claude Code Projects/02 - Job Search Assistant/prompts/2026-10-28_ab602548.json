@@ -1,7 +1,7 @@
 {
  "session": "ab602548-13cf-5dd6-933c-6e698e563853",
  "omitted_api_errors": 0,
- "omitted": 75,
+ "omitted": 76,
  "entries": [
   {
    "time": "2026-10-28T14:37:31.396Z",
@@ -1722,8 +1722,16 @@
    "time": "2026-11-17T16:24:16.867Z",
    "kind": "prompt",
    "text": "Let's make the usage log sortable by clicking on the category in the chart",
-   "reply": null,
+   "reply": "Clicking a category in the usage log's chart now shows only that category's activities, and clicking it again shows everything. I took \"sortable\" to mean filtering by the category you click; if you meant reordering the list, tell me and I'll change it. It's pushed to `claude/move-job-search-assistant`.\n\n- The chosen row is highlighted and the other categories fade.\n- A line under the chart reads \"Showing only Jobby (1 activity) · Show all\".\n- Switching between Day, Week and Month keeps the filter if that category still has spending in the new period.\n- You can also use the keyboard: Tab to a row and press Enter.\n\nI checked it in a browser with a few made-up charges. Filtering to Jobby, clicking it again, \"Show all\" and the keyboard all worked, with no errors.\n\nTo deploy:\n\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge --no-edit origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com IAP_AUDIENCE=/projects/<project number>/locations/us-central1/services/jobhunt\n```",
    "id": "ab602548-238",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-17T17:19:11.253Z",
+   "kind": "prompt",
+   "text": "Let's add a section in settings that shows a run audit every day. It should tell the user how many organizations and boards were checked, how many new jobs were added from each organization (only those with > 0), how many jobs were scored (including which), how many jobs are still in the scoring queue (including which)",
+   "reply": null,
+   "id": "ab602548-240",
    "session": "ab602548"
   }
  ]
