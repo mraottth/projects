@@ -577,6 +577,33 @@ export interface UsageSummary {
   }[];
 }
 
+/** Settings' daily run audit (GET /api/settings/run-audit, core/run_audit.py). */
+export interface RunAudit {
+  date: string;
+  days: string[];
+  checks: { started_at: string; finished_at: string | null; errors: string[] }[];
+  sources: {
+    recorded: boolean;
+    organizations: { checked: number; total: number };
+    boards: { checked: number; total: number };
+    failed: { name: string; error: string }[];
+  };
+  new_jobs: { source: string; jobs: number }[];
+  scored: {
+    id: number;
+    title: string;
+    company: string;
+    interest_fit: string | null;
+    candidate_fit: string | null;
+    rescored: boolean;
+  }[];
+  queue: {
+    jobs: { id: number; title: string; company: string; source: string }[];
+    set_aside: number;
+    hidden: number;
+  };
+}
+
 /** What the title screen has done (GET /api/settings/title-screen, core/screening.py). */
 export interface TitleScreenInsight {
   screened: number;
@@ -1080,6 +1107,11 @@ export const api = {
       body: JSON.stringify({ confirm }),
     }),
 
+  getRunAudit: (date?: string) => {
+    const params = new URLSearchParams({ tz: Intl.DateTimeFormat().resolvedOptions().timeZone });
+    if (date) params.set("date", date);
+    return request<RunAudit>(`/api/settings/run-audit?${params}`);
+  },
   getUsageLog: (period: UsagePeriod = "week") =>
     request<{
       calls: LlmCall[];

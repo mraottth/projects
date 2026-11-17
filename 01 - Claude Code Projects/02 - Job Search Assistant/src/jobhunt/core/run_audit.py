@@ -1,0 +1,203 @@
+"""Settings' daily run audit (asked 2026-11-17): for one day, what the person's checks did.
+
+- the checks that ran (their `runs` rows) and which sources they covered (`runs.audit_json`,
+  recorded by pipeline/daily_run.py's `_run_for_person` since this was added);
+- new jobs per source (`jobs.first_seen_at` that day, sources they follow);
+- the jobs scored that day (`job_scores.scored_at`), with a rescore marked;
+- the jobs still waiting to be scored now, in the order they'd be taken (the queue isn't kept per
+  day, so this is always the current list).
+
+A day is midnight to midnight in the person's time zone (the browser's), as UTC bounds."""
+
+import json
+from datetime import date, datetime, time, timedelta
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+from jobhunt.core import dealbreakers
+from jobhunt.core.digest import SOURCE_IS_BOARD_SQL
+from jobhunt.core.settings import get_settings
+from jobhunt.core.users import current_user_id
+from jobhunt.db.connection import get_db
+
+DEFAULT_TZ = "America/New_York"
+HISTORY_DAYS = 14
+
+
+def _zone(tz: str | None) -> ZoneInfo:
+    try:
+        return ZoneInfo(tz or DEFAULT_TZ)
+    except (ZoneInfoNotFoundError, ValueError):
+        return ZoneInfo(DEFAULT_TZ)
+
+
+def _bounds(day: date, zone: ZoneInfo) -> tuple[str, str]:
+    """The day's start and end as SQLite UTC times ("YYYY-MM-DD HH:MM:SS")."""
+    start = datetime.combine(day, time.min, zone).astimezone(ZoneInfo("UTC"))
+    end = datetime.combine(day + timedelta(days=1), time.min, zone).astimezone(ZoneInfo("UTC"))
+    return start.strftime("%Y-%m-%d %H:%M:%S"), end.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _utc(value: str) -> str:
+    """A stored time as SQLite's format; runs keep ISO times with a "T" and an offset."""
+    if "T" not in value:
+        return value
+    parsed = datetime.fromisoformat(value)
+    if parsed.tzinfo:
+        parsed = parsed.astimezone(ZoneInfo("UTC"))
+    return parsed.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def today(tz: str | None) -> date:
+    return datetime.now(_zone(tz)).date()
+
+
+def audit(day: date, tz: str | None = None) -> dict:
+    zone = _zone(tz)
+    start, end = _bounds(day, zone)
+    uid = current_user_id()
+    with get_db() as conn:
+        follows = conn.execute(
+            f"""SELECT s.id, s.name, {SOURCE_IS_BOARD_SQL} AS is_board, f.enabled
+                  FROM source_follows f JOIN sources s ON s.id = f.source_id
+                 WHERE f.user_id = ?""",
+            (uid,),
+        ).fetchall()
+        runs = [
+            dict(r)
+            for r in conn.execute(
+                "SELECT started_at, finished_at, errors_json, audit_json FROM runs WHERE user_id = ? "
+                "ORDER BY id",
+                (uid,),
+            )
+        ]
+        runs = [r for r in runs if start <= _utc(r["started_at"]) < end]
+        new_jobs = conn.execute(
+            """SELECT s.name AS source, COUNT(*) AS jobs
+                 FROM jobs j JOIN sources s ON s.id = j.source_id
+                 JOIN source_follows f ON f.source_id = s.id AND f.user_id = ?
+                WHERE j.first_seen_at >= ? AND j.first_seen_at < ?
+                GROUP BY s.id ORDER BY jobs DESC, s.name""",
+            (uid, start, end),
+        ).fetchall()
+        scored = conn.execute(
+            """SELECT j.id, j.title, j.company, sc.interest_fit, sc.candidate_fit, sc.scored_at,
+                      EXISTS (SELECT 1 FROM job_scores e WHERE e.user_id = sc.user_id
+                              AND e.job_id = sc.job_id AND e.id < sc.id) AS rescored
+                 FROM job_scores sc JOIN jobs j ON j.id = sc.job_id
+                WHERE sc.user_id = ? AND sc.scored_at >= ? AND sc.scored_at < ?
+                ORDER BY sc.id""",
+            (uid, start, end),
+        ).fetchall()
+        waiting = conn.execute(
+            """SELECT j.id, j.title, j.company, j.location, j.remote_type, j.salary_min, j.salary_max,
+                      j.salary_currency, j.salary_period, j.source_id, s.name AS source, q.screen
+                 FROM scoring_queue q JOIN jobs j ON j.id = q.job_id
+                 JOIN sources s ON s.id = j.source_id
+                 JOIN source_follows f ON f.source_id = s.id AND f.user_id = q.user_id AND f.enabled = 1
+                WHERE q.user_id = ? AND q.status = 'pending'
+                ORDER BY q.priority DESC, q.id""",
+            (uid,),
+        ).fetchall()
+        days = _active_days(conn, uid, zone)
+
+    by_id = {r["id"]: r for r in follows}
+    checked: set[int] = set()
+    failed: dict[int, str] = {}
+    recorded = False
+    for run in runs:
+        if not run["audit_json"]:
+            continue
+        recorded = True
+        info = json.loads(run["audit_json"])
+        checked.update(i for i in info.get("checked", []) if i in by_id)
+        for sid, err in info.get("failed", {}).items():
+            if int(sid) in by_id:
+                failed[int(sid)] = err
+    # A later successful read of a source clears an earlier failure that day.
+    failed = {sid: err for sid, err in failed.items() if sid not in checked}
+
+    def side(is_board: bool) -> dict:
+        mine = [r for r in follows if bool(r["is_board"]) == is_board and r["enabled"]]
+        return {"checked": sum(1 for r in mine if r["id"] in checked), "total": len(mine)}
+
+    settings = get_settings()
+    hide = dealbreakers.any_on(settings)
+    ranked, set_aside, hidden = [], 0, 0
+    per_source: dict[int, int] = {}
+    for n, r in enumerate(waiting):  # highest priority first
+        if r["screen"] == "drop":
+            set_aside += 1
+        elif hide and dealbreakers.blocks(dict(r), settings):
+            hidden += 1
+        else:
+            per_source[r["source_id"]] = rank = per_source.get(r["source_id"], 0) + 1
+            ranked.append((rank, n, r))
+    # The order the next scoring takes them, like queue.select_batch: every source's best job, then
+    # every source's second best, and so on.
+    queue = [
+        {"id": r["id"], "title": r["title"], "company": r["company"], "source": r["source"]}
+        for _, _, r in sorted(ranked, key=lambda t: (t[0], t[1]))
+    ]
+
+    return {
+        "date": day.isoformat(),
+        "days": days,
+        "checks": [
+            {
+                "started_at": r["started_at"],
+                "finished_at": r["finished_at"],
+                "errors": json.loads(r["errors_json"] or "[]"),
+            }
+            for r in runs
+        ],
+        "sources": {
+            "recorded": recorded,
+            "organizations": side(False),
+            "boards": side(True),
+            "failed": [{"name": by_id[sid]["name"], "error": err} for sid, err in failed.items()],
+        },
+        "new_jobs": [{"source": r["source"], "jobs": r["jobs"]} for r in new_jobs],
+        "scored": [
+            {
+                "id": r["id"],
+                "title": r["title"],
+                "company": r["company"],
+                "interest_fit": r["interest_fit"],
+                "candidate_fit": r["candidate_fit"],
+                "rescored": bool(r["rescored"]),
+            }
+            for r in scored
+        ],
+        "queue": {"jobs": queue, "set_aside": set_aside, "hidden": hidden},
+    }
+
+
+def _active_days(conn, uid: int, zone: ZoneInfo) -> list[str]:
+    """The last HISTORY_DAYS days (in the person's zone) with a check, a new job or a score."""
+    since = (datetime.now(ZoneInfo("UTC")) - timedelta(days=HISTORY_DAYS + 1)).strftime("%Y-%m-%d %H:%M:%S")
+    stamps = [
+        _utc(r[0])
+        for r in conn.execute("SELECT started_at FROM runs WHERE user_id = ?", (uid,))
+        if _utc(r[0]) >= since
+    ]
+    stamps += [
+        r[0]
+        for r in conn.execute(
+            "SELECT scored_at FROM job_scores WHERE user_id = ? AND scored_at >= ?", (uid, since)
+        )
+    ]
+    stamps += [
+        r[0]
+        for r in conn.execute(
+            """SELECT j.first_seen_at FROM jobs j
+                 JOIN source_follows f ON f.source_id = j.source_id AND f.user_id = ?
+                WHERE j.first_seen_at >= ?""",
+            (uid, since),
+        )
+    ]
+    utc = ZoneInfo("UTC")
+    days = {
+        datetime.strptime(s, "%Y-%m-%d %H:%M:%S").replace(tzinfo=utc).astimezone(zone).date().isoformat()
+        for s in stamps
+    }
+    return sorted(days, reverse=True)[:HISTORY_DAYS]

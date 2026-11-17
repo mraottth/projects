@@ -242,7 +242,9 @@ CREATE TABLE IF NOT EXISTS runs (
     -- 'running' when it starts, then 'ok' or 'failed' (error), and who started it.
     status TEXT,
     started_by TEXT,
-    error TEXT
+    error TEXT,
+    -- A person's check: {"checked": [source ids], "failed": {id: error}} (Settings' run audit).
+    audit_json TEXT
 );
 
 CREATE TABLE IF NOT EXISTS llm_calls (

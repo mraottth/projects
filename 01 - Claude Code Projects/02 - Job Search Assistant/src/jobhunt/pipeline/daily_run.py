@@ -193,6 +193,10 @@ def _poll_sources(
     upserted = 0
     errors = []
     job_ids = []
+    # Which sources this check read, for Settings' run audit: the ones read now, the ones reused
+    # from a read within the hour, and the ones that failed (asked 2026-11-17).
+    sources_read: list[int] = [s["id"] for s in fresh]
+    sources_failed: dict[int, str] = {}
 
     # Fetches run concurrently; upserts stay sequential here, in source order -- two sources can
     # produce the same URL-based dedupe key, and _upsert_job's select-then-insert would race.
@@ -202,6 +206,7 @@ def _poll_sources(
     for source, (postings, error) in zip(sources, results, strict=True):
         if error:
             errors.append(error)
+            sources_failed[source["id"]] = error.removeprefix(f"{source['name']}: ")
         if postings is None:
             continue
 
@@ -220,6 +225,7 @@ def _poll_sources(
                         (message, source["id"]),
                     )
                     errors.append(f"{source['name']}: {message}")
+                    sources_failed[source["id"]] = message
                     continue
 
         fetched += len(postings)
@@ -239,6 +245,7 @@ def _poll_sources(
                 "last_error = NULL WHERE id = ?",
                 (source["id"],),
             )
+        sources_read.append(source["id"])
 
     return {
         "sources_polled": len(sources),
@@ -248,6 +255,8 @@ def _poll_sources(
         "errors": errors,
         "job_ids": job_ids,
         "jobs_by_source": jobs_by_source,
+        "sources_read": sources_read,
+        "sources_failed": sources_failed,
     }
 
 
@@ -631,8 +640,8 @@ def _record_run(summary: dict) -> None:
         conn.execute(
             """INSERT INTO runs
                (user_id, run_date, started_at, finished_at, sources_polled, jobs_fetched, jobs_deduped,
-                prefiltered_count, llm_scored_count, cap_used, carried_over_count, errors_json)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                prefiltered_count, llm_scored_count, cap_used, carried_over_count, errors_json, audit_json)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 optional_user_id(),
                 date.today().isoformat(),
@@ -646,6 +655,7 @@ def _record_run(summary: dict) -> None:
                 summary["cap_used"],
                 summary["carried_over_count"],
                 json.dumps(summary["errors"]),
+                json.dumps(summary["audit"]) if summary.get("audit") else None,
             ),
         )
 
@@ -729,6 +739,15 @@ def _run_for_person(
             "email": email_result,
             # Today's cap is used up: New & Noteworthy says scoring resumes tomorrow.
             "cap_reached": remaining_cap() == 0,
+            # The sources this check covered for them, for Settings' run audit.
+            "audit": {
+                "checked": sorted(followed & set(poll_result.get("sources_read", []))),
+                "failed": {
+                    str(sid): err
+                    for sid, err in poll_result.get("sources_failed", {}).items()
+                    if sid in followed
+                },
+            },
         }
         _record_run(summary)
         return summary

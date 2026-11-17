@@ -801,6 +801,18 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     - `_run_for_person_safely()` keeps one person's failure from stopping the others. It writes no
       `runs` row for them, so "Last updated" doesn't claim a check that didn't happen.
     - `describe_error()` adds the file, line and function to the Daily check card's error.
+  - **Settings' "Daily run audit"** (asked 2026-11-17; `core/run_audit.py`, `GET
+    /api/settings/run-audit?date=&tz=`, `RunAuditCard`, hidden in the demo). For a day in the
+    browser's time zone (a select of the last 14 days with activity), it shows the person's checks
+    (`runs` rows) and the sources they covered: organizations and boards checked of those followed,
+    plus failures. Each `_run_for_person` records that as `runs.audit_json` (`{"checked": [ids],
+    "failed": {id: error}}`, a MIGRATIONS ALTER), from `_poll_sources`' `sources_read` (including
+    sources reused from a read within the hour) and `sources_failed`. Older runs show "Not
+    recorded". A new source's immediate check writes no `runs` row. The card also shows new jobs per
+    followed source (`first_seen_at` that day, counts above 0, linked to All Jobs), the jobs scored
+    that day (`job_scores.scored_at`; a rescore is marked), and the jobs waiting *now* in the order
+    they'd be scored (each source's best, then each one's second best, after leaving out jobs set
+    aside or hidden by a dealbreaker, which are counted instead). The queue isn't kept per day.
   - **The Admin page's "Daily check" card.** `run_daily()` gives the everyone run (scheduled, or the
     admin's "Check every source now", `started_by`) its own `runs` row with `user_id` NULL. The row is
     written as it starts (`status` 'running'), then set to 'ok' with counts or 'failed' with the

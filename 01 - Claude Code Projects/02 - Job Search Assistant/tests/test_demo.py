@@ -20,6 +20,7 @@ NOT_RECORDED = {
     "/api/network/connections",
     "/api/network/rate",
     "/api/network/reached-out",
+    "/api/settings/run-audit?{}",  # the card is hidden in the demo
     "/api/network/job/{}",
     "/api/access/request",
     "/api/admin/scoring-experiment",
