@@ -175,9 +175,13 @@ def update_source(source_id: int, payload: SourceUpdateRequest):
         updates["config_json"] = json.dumps(updates.pop("config"))
     if (
         "name" in updates
+        and updates["name"] != current["name"]
         and "company_name" not in updates
-        and current.get("company_name")
-        and current["company_name"] == current["name"]
+        and (
+            current.get("company_name") == current["name"]
+            # An ATS board added without an employer name is still one organization.
+            or (current["kind"].startswith("ats_") and not current.get("company_name"))
+        )
     ):
         updates["company_name"] = updates["name"]  # an organization's employer name follows its name
     if moved:
@@ -191,6 +195,8 @@ def update_source(source_id: int, payload: SourceUpdateRequest):
         set_clause = ", ".join(f"{k} = ?" for k in updates)
         with get_db() as conn:
             conn.execute(f"UPDATE sources SET {set_clause} WHERE id = ?", (*updates.values(), source_id))
+            if updates.get("company_name") and updates["company_name"] != current.get("company_name"):
+                _rename_jobs(conn, current, updates["company_name"])
         if moved:
             schedule_source_refresh(source_id)  # a new address: check it now, like a new source
     if enabled is not None:
@@ -202,6 +208,23 @@ def update_source(source_id: int, payload: SourceUpdateRequest):
         if enabled and not current["enabled"]:
             schedule_source_refresh(source_id)  # re-enabled: check it now, like a new source
     return get_source(source_id)
+
+
+def _rename_jobs(conn, source: dict, new_name: str) -> None:
+    """A renamed organization (asked 2026-11-17): its jobs already saved carry the employer name they
+    were saved with, so those still showing one of the source's old names (its employer name, its
+    name, or the ATS token an adapter falls back to) take the new one. All Jobs, My Jobs and New &
+    Noteworthy all read jobs.company. A job naming some other organization is left alone."""
+    config = source.get("config") or {}
+    old = {source.get("company_name"), source.get("name")}
+    old |= {config.get(k) for k in ("board_token", "company_slug", "board_name")}
+    old = {o for o in old if o and o != new_name}
+    if old:
+        marks = ",".join("?" * len(old))
+        conn.execute(
+            f"UPDATE jobs SET company = ? WHERE source_id = ? AND company IN ({marks})",
+            (new_name, source["id"], *old),
+        )
 
 
 @router.delete("/{source_id}")

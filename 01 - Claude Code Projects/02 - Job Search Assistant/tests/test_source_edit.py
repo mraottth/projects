@@ -75,3 +75,48 @@ def test_a_shared_source_cant_be_edited_by_a_non_admin():
         )
         resp = http.patch(f"/api/sources/{s['id']}", json={"name": "Renamed"}, headers=bea)
     assert resp.status_code == 403
+
+
+def _saved_job(source_id: int, title: str, company: str) -> int:
+    with get_db() as conn:
+        return conn.execute(
+            "INSERT INTO jobs (source_id, dedupe_key, title, company) VALUES (?, ?, ?, ?)",
+            (source_id, f"{source_id}-{title}", title, company),
+        ).lastrowid
+
+
+def _company(job_id: int) -> str:
+    with get_db() as conn:
+        return conn.execute("SELECT company FROM jobs WHERE id = ?", (job_id,)).fetchone()[0]
+
+
+def test_renaming_an_organization_renames_its_saved_jobs():
+    with TestClient(app) as http:
+        s = _add(http, config={"url": "https://acme.example/jobs"}, company_name="Acme")
+        mine = _saved_job(s["id"], "Analyst", "Acme")
+        other = _saved_job(s["id"], "Partner role", "Some Partner Org")  # names another employer
+        http.patch(f"/api/sources/{s['id']}", json={"name": "Acme Labs"})
+        tracked = http.post("/api/applications", json={"job_id": mine})
+        assert tracked.status_code in (200, 201), tracked.text
+        assert http.get("/api/applications").json()[0]["company"] == "Acme Labs"  # My Jobs
+    assert (_company(mine), _company(other)) == ("Acme Labs", "Some Partner Org")
+
+
+def test_a_greenhouse_board_renamed_takes_the_new_name_over_its_token():
+    with TestClient(app) as http:
+        s = http.post(
+            "/api/sources",
+            json={"kind": "ats_greenhouse", "name": "acme", "config": {"board_token": "acme"}},
+        ).json()
+        job = _saved_job(s["id"], "Engineer", "acme")
+        out = http.patch(f"/api/sources/{s['id']}", json={"name": "Acme Corp"}).json()
+    assert out["company_name"] == "Acme Corp"
+    assert _company(job) == "Acme Corp"
+
+
+def test_renaming_a_job_board_leaves_its_employers_alone():
+    with TestClient(app) as http:
+        s = _add(http, config={"url": "https://board.example/jobs"}, name="Board")
+        job = _saved_job(s["id"], "Analyst", "Civic Signal")
+        out = http.patch(f"/api/sources/{s['id']}", json={"name": "Better Board"}).json()
+    assert out["company_name"] is None and _company(job) == "Civic Signal"

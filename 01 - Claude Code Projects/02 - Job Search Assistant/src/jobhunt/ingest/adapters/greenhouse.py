@@ -56,7 +56,9 @@ def fetch(source: dict) -> list[dict]:
             {
                 "external_id": str(job["id"]),
                 "title": job["title"],
-                "company": job.get("company_name") or source.get("company_name") or board_token,
+                # The employer name you gave the source wins (it's what you renamed it to), then
+                # Greenhouse's own, then the board token.
+                "company": source.get("company_name") or job.get("company_name") or board_token,
                 "location": (job.get("location") or {}).get("name"),
                 "remote_type": None,
                 "salary_min": None,
