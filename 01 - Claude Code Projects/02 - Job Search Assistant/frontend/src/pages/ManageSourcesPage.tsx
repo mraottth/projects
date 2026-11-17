@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { DEMO } from "../demo";
 import { api, RunProgress, runProgressText, Source, SourceKind } from "../api";
@@ -246,6 +246,102 @@ function SourceStatus({ source }: { source: Source }) {
   );
 }
 
+// Edit a source's name or address (asked 2026-11-17). A new address goes through the same rule as
+// "Add by link", so a Greenhouse/Lever/Ashby link becomes that kind; the server then rechecks it.
+// Keyword searches (Adzuna, RemoteOK) have no single address, so only their name is editable.
+function EditSourceDialog({
+  source,
+  open,
+  onClose,
+  onSaved,
+}: {
+  source: Source;
+  open: boolean;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const original = sourceLink(source) ?? "";
+  const hasUrl = source.kind === "custom_board" || source.kind.startsWith("ats_");
+  const [name, setName] = useState(source.name);
+  const [url, setUrl] = useState(original);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setName(source.name);
+      setUrl(sourceLink(source) ?? "");
+      setError(null);
+    }
+  }, [open, source]);
+
+  const save = async (e: FormEvent) => {
+    e.preventDefault();
+    const payload: Partial<Source> = {};
+    if (!name.trim()) return setError("Give it a name.");
+    if (name.trim() !== source.name) payload.name = name.trim();
+    if (hasUrl && url.trim() !== original) {
+      const detected = detectSourceFromUrl(url);
+      if (!detected) return setError("Enter a full address starting with http:// or https://.");
+      payload.kind = detected.kind;
+      payload.config = detected.config;
+    }
+    if (!Object.keys(payload).length) return onClose();
+    setSaving(true);
+    setError(null);
+    try {
+      await api.updateSource(source.id, payload);
+      onSaved();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal open={open} onClose={onClose} title={`Edit ${source.name}`}>
+      <form onSubmit={save}>
+        <div className="fsection">
+          <label className="flabel" htmlFor={`edit-name-${source.id}`}>
+            Name
+          </label>
+          <input id={`edit-name-${source.id}`} value={name} onChange={(e) => setName(e.target.value)} style={{ width: "100%" }} />
+        </div>
+        {hasUrl && (
+          <div className="fsection">
+            <label className="flabel" htmlFor={`edit-url-${source.id}`}>
+              Address
+            </label>
+            <input
+              id={`edit-url-${source.id}`}
+              type="url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://..."
+              style={{ width: "100%" }}
+            />
+            <p className="muted small">
+              The jobs page to read. A Greenhouse, Lever or Ashby board link is read through that board. A new
+              address is checked right away; jobs found at the old one stay until they close or age out.
+            </p>
+          </div>
+        )}
+        {error && <p className="error-text small">{error}</p>}
+        <div className="pursue-actions">
+          <button className="primary" type="submit" disabled={saving}>
+            {saving ? <Spinner label="Saving..." /> : "Save"}
+          </button>
+          <button className="ghost" type="button" onClick={onClose}>
+            Cancel
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 function SourceRow({
   source,
   onChanged,
@@ -257,6 +353,7 @@ function SourceRow({
 }) {
   const [testResult, setTestResult] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   const test = async () => {
     setBusy(true);
@@ -311,6 +408,11 @@ function SourceRow({
         </p>
       )}
       <div className="source-row-actions small">
+        {!DEMO && (
+          <button className="link small" onClick={() => setEditing(true)}>
+            Edit
+          </button>
+        )}
         <button className="link small" onClick={test} disabled={busy}>
           {busy ? <Spinner label="Testing..." /> : "Test fetch"}
         </button>
@@ -325,6 +427,9 @@ function SourceRow({
         </button>
       </div>
       {testResult && <p className="muted small source-row-test">{testResult}</p>}
+      {!DEMO && (
+        <EditSourceDialog source={source} open={editing} onClose={() => setEditing(false)} onSaved={onChanged} />
+      )}
     </li>
   );
 }

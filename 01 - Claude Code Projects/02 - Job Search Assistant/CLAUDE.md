@@ -921,7 +921,7 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   while searching; asked 2026-11-10): name, status ("N jobs · checked 3h ago" from `GET /api/sources`' `job_count`,
   "Checking for jobs..." for five minutes after it's added and before its first check, while the
   page polls every 4 s, or "disabled"), kind and host/board, the last error clamped to two lines,
-  and text-link actions. The name links (new tab) to the page it reads (`sourceLink()`): a web
+  and text-link actions. **Edit** (asked 2026-11-17, `EditSourceDialog`) changes the name and, except for the Adzuna/RemoteOK searches, the address (prefilled from `sourceLink()`, run through `detectSourceFromUrl()`, so a Greenhouse/Lever/Ashby link changes the kind). `PATCH /api/sources/{id}` takes `kind` (checked against `VALID_KINDS`); a new kind or config clears `last_error` (and with it the remembered `embedded_ats`, since the config is replaced) and calls `schedule_source_refresh`, and an employer name equal to the old name follows the new one. Jobs from the old address stay until closed or aged out; a shared source is still a 403 for a non-admin. The name links (new tab) to the page it reads (`sourceLink()`): a web
   page's own URL, or the public Greenhouse/Lever/Ashby board built from its token/slug. The
   Adzuna/RemoteOK keyword searches have no single page, so their names stay plain text. The two sections are **Organizations** (single-employer sources) and
   **Job boards** (multi-employer boards and the keyword aggregators), each with a "+ Add more"
@@ -1224,7 +1224,7 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     sit side by side (`.myjobs-top`, 3fr/2fr, stacked under 900px) so the table starts above the
     fold. The search box,
     a To-Do / Active / Closed / All toggle (`.seg`; To-Do = Drafting only, added 2026-11-13;
-    Closed = both rejections and withdrawn; default Active) and the sort links form one toolbar
+    Closed = both rejections and withdrawn; default Active), a **Status** dropdown beside it (asked 2026-11-17; `StatusDropdown`: a checkbox per status present in the current view, with counts, floating over the table and closed by an outside click; "Status: any" when none is ticked) and the sort links form one toolbar
     inside the table card. That toolbar and the header
     row are `position: sticky` under the app's sticky top bar. `useStickyOffsets()` measures both
     with a ResizeObserver into `--sticky-top`/`--thead-top`. The card has no `overflow-x`, which

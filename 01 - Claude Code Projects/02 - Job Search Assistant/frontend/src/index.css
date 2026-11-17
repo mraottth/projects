@@ -748,6 +748,13 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
   text-decoration: underline dotted var(--muted); text-underline-offset: 3px; overflow-wrap: break-word; }
 .cell-filter:hover { color: var(--accent-ink); text-decoration-color: currentColor; }
 .cell-filter.on { color: var(--accent-ink); font-weight: 600; }
+/* My Jobs' Status filter floats over the table rather than pushing the sticky toolbar taller. */
+.status-dropdown { position: relative; max-width: 260px; }
+.status-dropdown .ms-dropdown-options {
+  position: absolute; top: calc(100% + 4px); left: 0; z-index: 30; min-width: 220px; max-height: 280px;
+  background: var(--card); border: 1px solid var(--ring); border-radius: 8px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.12);
+}
 .table-filter-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px;
   border: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, white); color: var(--accent-ink);
   font-size: 0.82rem; cursor: pointer; }

@@ -29,6 +29,8 @@ class ResolveSourceRequest(BaseModel):
 
 
 class SourceUpdateRequest(BaseModel):
+    # A new address can change what reads it (a careers page that's really a Greenhouse board).
+    kind: str | None = None
     name: str | None = None
     company_name: str | None = None
     config: dict | None = None
@@ -162,8 +164,24 @@ def update_source(source_id: int, payload: SourceUpdateRequest):
     updates = {k: v for k, v in payload.model_dump().items() if v is not None}
     current = get_source(source_id)  # 404 unless you follow it
     enabled = updates.pop("enabled", None)
+    if "kind" in updates and updates["kind"] not in VALID_KINDS:
+        raise HTTPException(400, f"kind must be one of: {sorted(VALID_KINDS)}")
+    if "kind" in updates and updates["kind"] == current["kind"]:
+        updates.pop("kind")
+    # Edit (asked 2026-11-17): a new config replaces the old one whole, so a remembered embedded
+    # board (`embedded_ats`) from the old address goes with it.
+    moved = "kind" in updates or ("config" in updates and updates["config"] != current["config"])
     if "config" in updates:
         updates["config_json"] = json.dumps(updates.pop("config"))
+    if (
+        "name" in updates
+        and "company_name" not in updates
+        and current.get("company_name")
+        and current["company_name"] == current["name"]
+    ):
+        updates["company_name"] = updates["name"]  # an organization's employer name follows its name
+    if moved:
+        updates["last_error"] = None
     if updates:
         # Name, employer and config are shared by everyone following the source.
         if current["followers"] > 1 and not is_admin():
@@ -173,6 +191,8 @@ def update_source(source_id: int, payload: SourceUpdateRequest):
         set_clause = ", ".join(f"{k} = ?" for k in updates)
         with get_db() as conn:
             conn.execute(f"UPDATE sources SET {set_clause} WHERE id = ?", (*updates.values(), source_id))
+        if moved:
+            schedule_source_refresh(source_id)  # a new address: check it now, like a new source
     if enabled is not None:
         with get_db() as conn:
             conn.execute(

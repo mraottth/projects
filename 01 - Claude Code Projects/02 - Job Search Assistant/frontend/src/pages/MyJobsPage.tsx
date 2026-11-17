@@ -564,11 +564,64 @@ function useStickyOffsets(toolbar: React.RefObject<HTMLDivElement | null>, card:
   });
 }
 
+// One checkbox per status, narrowing the To-Do/Active/Closed/All view (asked 2026-11-17). Only
+// statuses with jobs in the current view are offered. It floats over the table (the toolbar has no
+// room to grow), so a click outside closes it.
+function StatusDropdown({
+  counts,
+  selected,
+  onChange,
+}: {
+  counts: Map<ApplicationStatus, number>;
+  selected: ApplicationStatus[];
+  onChange: (s: ApplicationStatus[]) => void;
+}) {
+  const ref = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const close = (e: MouseEvent) => {
+      if (ref.current?.open && !ref.current.contains(e.target as Node)) ref.current.open = false;
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
+  const options = APPLICATION_STATUSES.filter((s) => counts.has(s) || selected.includes(s));
+  const summary = selected.length
+    ? APPLICATION_STATUSES.filter((s) => selected.includes(s)).map((s) => APPLICATION_STATUS_LABELS[s]).join(", ")
+    : "any";
+  const toggle = (s: ApplicationStatus) =>
+    onChange(selected.includes(s) ? selected.filter((x) => x !== s) : [...selected, s]);
+  return (
+    <details className="ms-dropdown status-dropdown" ref={ref}>
+      <summary>
+        <span className="ms-dropdown-summary" title={`Status: ${summary}`}>
+          Status: {summary}
+        </span>
+      </summary>
+      <div className="ms-dropdown-options">
+        {options.map((s) => (
+          <label key={s} className="multiselect-option">
+            <input type="checkbox" checked={selected.includes(s)} onChange={() => toggle(s)} />
+            <span>
+              {APPLICATION_STATUS_LABELS[s]} <span className="chip-count">{counts.get(s) ?? 0}</span>
+            </span>
+          </label>
+        ))}
+        {selected.length > 0 && (
+          <button className="link small" onClick={() => onChange([])}>
+            Clear
+          </button>
+        )}
+      </div>
+    </details>
+  );
+}
+
 export default function MyJobsPage() {
   const [apps, setApps] = useState<Application[]>([]);
   const [pending, setPending] = useState<Job[]>([]);
   const [search, setSearch] = useState("");
   const [view, setView] = useState<StatusView>("active");
+  const [statuses, setStatuses] = useState<ApplicationStatus[]>([]);
   // Clicking an Organization or Location cell shows only those jobs; clicking it (or its pill) again clears it.
   const [cellFilter, setCellFilter] = useState<{ field: "company" | "location"; value: string } | null>(null);
   const toggleCellFilter = (field: "company" | "location", value: string) =>
@@ -611,6 +664,7 @@ export default function MyJobsPage() {
   const query = search.trim().toLowerCase();
   const matches = (app: Application) =>
     inView(app, view) &&
+    (!statuses.length || statuses.includes(app.status)) &&
     (!cellFilter || (app[cellFilter.field] ?? "") === cellFilter.value) &&
     (!query || `${app.company} ${app.title} ${app.location ?? ""}`.toLowerCase().includes(query));
 
@@ -622,6 +676,8 @@ export default function MyJobsPage() {
   const sorted = ordered.filter(matches);
   const outOfOrder = sortedIds(apps, sortKey, sortDir).join() !== ordered.map((a) => a.id).join();
   const viewCount = (v: StatusView) => apps.filter((a) => inView(a, v)).length;
+  const statusCounts = new Map<ApplicationStatus, number>();
+  for (const a of apps) if (inView(a, view)) statusCounts.set(a.status, (statusCounts.get(a.status) ?? 0) + 1);
   const VIEWS: { key: StatusView; label: string; title?: string }[] = [
     { key: "todo", label: "To-Do", title: "Drafting: not applied yet" },
     { key: "active", label: "Active", title: "Drafting, waiting, interviewing and offers" },
@@ -681,6 +737,7 @@ export default function MyJobsPage() {
                 </button>
               ))}
             </div>
+            <StatusDropdown counts={statusCounts} selected={statuses} onChange={setStatuses} />
             {cellFilter && (
               <button className="table-filter-pill" onClick={() => setCellFilter(null)} title="Show all again">
                 {cellFilter.field === "company" ? "Organization" : "Location"}: {cellFilter.value}
