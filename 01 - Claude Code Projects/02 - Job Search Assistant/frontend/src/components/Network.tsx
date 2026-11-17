@@ -411,6 +411,9 @@ export function NetworkSection({
     Record<string, "busy" | "added" | string>
   >({});
   const fileRef = useRef<HTMLInputElement>(null);
+  // Nothing that depends on whether there's an upload shows until we know: the how-to flashed
+  // up while the page loaded (asked 2026-11-17).
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     api
@@ -420,7 +423,8 @@ export function NetworkSection({
         const first = TIERS.find((t) => n.tiers[t].length > 0);
         if (first) setTier(first);
       })
-      .catch(() => setInfo(null));
+      .catch(() => setInfo(null))
+      .finally(() => setLoaded(true));
   }, []);
 
   const [showSteps, setShowSteps] = useState(false);
@@ -534,7 +538,8 @@ export function NetworkSection({
 
           {/* The how-to shows until a file is uploaded, and again when they go to upload a newer
               one or remove theirs (asked 2026-11-16). */}
-          {(!has || showSteps) && (
+          {!loaded && <p className="muted small">Loading…</p>}
+          {loaded && (!has || showSteps) && (
             <details className="network-steps" open>
               <summary>How to get your Connections.csv from LinkedIn</summary>
               {/* Matches LinkedIn's page as of 2026-11-16 (the owner's screenshot): Connections isn't in
@@ -575,7 +580,7 @@ export function NetworkSection({
             </details>
           )}
 
-          <div className="form-actions network-upload">
+          <div className="form-actions network-upload" hidden={!loaded}>
             <input
               ref={fileRef}
               type="file"

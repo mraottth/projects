@@ -296,7 +296,9 @@ def _to_postings(listings: list[JobListing], source: dict) -> list[dict]:
     default_company = source.get("company_name")
     postings = []
     for listing in listings:
-        company = listing.company or default_company or "unknown"
+        # A single organization's page (an employer name set) shows that name on every job, so
+        # renaming the organization sticks; a job board keeps each posting's own (asked 2026-11-17).
+        company = default_company or listing.company or "unknown"
         postings.append(
             {
                 "external_id": None,

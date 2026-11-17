@@ -262,7 +262,12 @@ function EditSourceDialog({
 }) {
   const original = sourceLink(source) ?? "";
   const hasUrl = source.kind === "custom_board" || source.kind.startsWith("ats_");
+  // An organization's jobs show its organization name (company_name), which can differ from the
+  // source's label; it's editable here too, and follows the label while they match (asked 2026-11-17).
+  const org = isOrganization(source);
+  const originalOrg = source.company_name || source.name;
   const [name, setName] = useState(source.name);
+  const [orgName, setOrgName] = useState(originalOrg);
   const [url, setUrl] = useState(original);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -270,6 +275,7 @@ function EditSourceDialog({
   useEffect(() => {
     if (open) {
       setName(source.name);
+      setOrgName(source.company_name || source.name);
       setUrl(sourceLink(source) ?? "");
       setError(null);
     }
@@ -280,6 +286,10 @@ function EditSourceDialog({
     const payload: Partial<Source> = {};
     if (!name.trim()) return setError("Give it a name.");
     if (name.trim() !== source.name) payload.name = name.trim();
+    if (org) {
+      if (!orgName.trim()) return setError("Give the organization a name.");
+      if (orgName.trim() !== (source.company_name ?? "")) payload.company_name = orgName.trim();
+    }
     if (hasUrl && url.trim() !== original) {
       const detected = detectSourceFromUrl(url);
       if (!detected) return setError("Enter a full address starting with http:// or https://.");
@@ -307,8 +317,31 @@ function EditSourceDialog({
           <label className="flabel" htmlFor={`edit-name-${source.id}`}>
             Name
           </label>
-          <input id={`edit-name-${source.id}`} value={name} onChange={(e) => setName(e.target.value)} style={{ width: "100%" }} />
+          <input
+            id={`edit-name-${source.id}`}
+            value={name}
+            onChange={(e) => {
+              // The organization name follows the label while the two still match.
+              if (org && orgName === name) setOrgName(e.target.value);
+              setName(e.target.value);
+            }}
+            style={{ width: "100%" }}
+          />
         </div>
+        {org && (
+          <div className="fsection">
+            <label className="flabel" htmlFor={`edit-org-${source.id}`}>
+              Organization name
+            </label>
+            <input
+              id={`edit-org-${source.id}`}
+              value={orgName}
+              onChange={(e) => setOrgName(e.target.value)}
+              style={{ width: "100%" }}
+            />
+            <p className="muted small">Shown on its jobs. Changing it renames the jobs already found.</p>
+          </div>
+        )}
         {hasUrl && (
           <div className="fsection">
             <label className="flabel" htmlFor={`edit-url-${source.id}`}>

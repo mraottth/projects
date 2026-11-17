@@ -120,3 +120,24 @@ def test_renaming_a_job_board_leaves_its_employers_alone():
         job = _saved_job(s["id"], "Analyst", "Civic Signal")
         out = http.patch(f"/api/sources/{s['id']}", json={"name": "Better Board"}).json()
     assert out["company_name"] is None and _company(job) == "Civic Signal"
+
+
+def test_setting_the_organization_name_directly_renames_its_jobs():
+    # A source labelled "OpenAI" whose employer name was still "OpenAI DC" (the label had been
+    # renamed on its own): fixing the organization name renames the jobs saved under it.
+    with TestClient(app) as http:
+        s = _add(http, name="OpenAI", config={"url": "https://openai.example/jobs"}, company_name="OpenAI DC")
+        job = _saved_job(s["id"], "Researcher", "OpenAI DC")
+        out = http.patch(f"/api/sources/{s['id']}", json={"company_name": "OpenAI"}).json()
+    assert out["company_name"] == "OpenAI" and _company(job) == "OpenAI"
+
+
+def test_a_check_brings_a_saved_jobs_organization_name_up_to_date():
+    from jobhunt.pipeline import daily_run
+
+    with TestClient(app) as http:
+        s = _add(http, name="OpenAI", config={"url": "https://openai.example/jobs"}, company_name="OpenAI")
+    posting = {"title": "Researcher", "company": "OpenAI DC", "url": "https://openai.example/jobs/1"}
+    job = daily_run._upsert_job(s["id"], posting)
+    daily_run._upsert_job(s["id"], {**posting, "company": "OpenAI"})  # seen again under the new name
+    assert _company(job) == "OpenAI"

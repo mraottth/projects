@@ -315,6 +315,13 @@ def _upsert_job(source_id: int, posting: dict) -> int:
                 "UPDATE jobs SET last_seen_at = datetime('now'), status = 'active' WHERE id = ?",
                 (existing["id"],),
             )
+            if posting.get("company"):
+                # The organization's name too (asked 2026-11-17): a renamed organization's jobs keep
+                # the name they were saved with until here, the next check that sees them.
+                conn.execute(
+                    "UPDATE jobs SET company = ? WHERE id = ? AND company IS NOT ?",
+                    (posting["company"], existing["id"], posting["company"]),
+                )
             if posting.get("description_text"):
                 # Keeps a re-seen job's description current, which is also how jobs saved before
                 # descriptions kept their formatting (core/html_extract.py) pick it up.

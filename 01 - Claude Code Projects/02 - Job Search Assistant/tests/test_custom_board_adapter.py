@@ -59,12 +59,17 @@ def test_fetch_extracts_multiple_postings(monkeypatch):
         custom_board, "get_client", lambda: FakeAnthropicClient(parse_result=FakeParseResponse(listings))
     )
 
-    postings = custom_board.fetch({"config": {"url": "https://x.com/jobs"}, "company_name": "X Corp"})
-
+    # A job board (no employer name) keeps the name each posting shows, or "unknown".
+    postings = custom_board.fetch({"config": {"url": "https://x.com/jobs"}})
     assert len(postings) == 2
     assert postings[0]["company"] == "NYC Office of Technology"
     assert postings[0]["description_text"] is None  # backfilled later, not here
-    assert postings[1]["company"] == "X Corp"  # falls back to the source's configured company name
+    assert postings[1]["company"] == "unknown"
+
+    # One organization's page (an employer name set) shows that name on every job, so renaming the
+    # organization sticks (asked 2026-11-17).
+    postings = custom_board.fetch({"config": {"url": "https://x.com/jobs"}, "company_name": "X Corp"})
+    assert [p["company"] for p in postings] == ["X Corp", "X Corp"]
 
 
 def test_fetch_caps_postings_per_fetch(monkeypatch):
