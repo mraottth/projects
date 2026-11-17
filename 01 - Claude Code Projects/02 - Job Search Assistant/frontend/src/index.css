@@ -977,6 +977,12 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 .usage-total strong { font-size: 1.15rem; }
 .usage-cats { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .usage-cats li { display: grid; grid-template-columns: 170px 1fr 110px 64px; align-items: center; gap: 10px; font-size: 0.92rem; }
+.usage-cats li { cursor: pointer; padding: 3px 6px; margin: 0 -6px; border-radius: 6px; }
+.usage-cats li:hover { background: var(--page); }
+.usage-cats li:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.usage-cats.filtered li:not(.on) { opacity: 0.5; }
+.usage-cats li.on { background: color-mix(in srgb, var(--accent) 10%, transparent); font-weight: 600; }
+.usage-only { margin: 0 0 8px; }
 .usage-cat-bar { height: 8px; border-radius: 999px; background: var(--page); overflow: hidden; }
 .usage-cat-bar span { display: block; height: 100%; border-radius: 999px; background: var(--accent); }
 .usage-cat-amount { text-align: right; }

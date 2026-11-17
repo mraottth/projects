@@ -533,12 +533,20 @@ function UsageLog() {
   const [cache, setCache] = useState<{ hit_rate: number; saved_usd: number } | null>(null);
   const [usage, setUsage] = useState<Me["usage"]>(null);
   const [open, setOpen] = useState<number | null>(null);
+  // Clicking a category in the chart shows only its activities; clicking it again shows all
+  // (asked 2026-11-17).
+  const [only, setOnly] = useState<string | null>(null);
+  const pick = (key: string) => {
+    setOnly((k) => (k === key ? null : key));
+    setOpen(null);
+  };
 
   useEffect(() => {
     api.getUsageLog(period).then((r) => {
       setSummary(r.summary);
       setCache(r.cache);
       setOpen(null);
+      setOnly((k) => (k && r.summary.categories.some((c) => c.key === k) ? k : null));
     });
   }, [period]);
   useEffect(() => {
@@ -548,6 +556,8 @@ function UsageLog() {
 
   const phrase = PERIODS.find((p) => p.key === period)!.phrase;
   const top = summary?.categories[0]?.cost ?? 0;
+  const activities = summary ? summary.activities.filter((a) => !only || a.category === only) : [];
+  const onlyLabel = summary?.categories.find((c) => c.key === only)?.label;
   return (
     <div className="card">
       <h2>Usage log</h2>
@@ -576,9 +586,23 @@ function UsageLog() {
       </div>
 
       {summary && summary.categories.length > 0 && (
-        <ul className="usage-cats">
+        <ul className={`usage-cats${only ? " filtered" : ""}`}>
           {summary.categories.map((c) => (
-            <li key={c.key}>
+            <li
+              key={c.key}
+              className={only === c.key ? "on" : ""}
+              role="button"
+              tabIndex={0}
+              aria-pressed={only === c.key}
+              title={only === c.key ? "Show every category" : `Show only ${c.label}`}
+              onClick={() => pick(c.key)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  pick(c.key);
+                }
+              }}
+            >
               <span className="usage-cat-name">{c.label}</span>
               <span className="usage-cat-bar" aria-hidden="true">
                 <span style={{ width: `${top ? Math.max(2, (c.cost / top) * 100) : 0}%` }} />
@@ -596,8 +620,17 @@ function UsageLog() {
         </p>
       )}
 
+      {onlyLabel && (
+        <p className="small usage-only">
+          Showing only <strong>{onlyLabel}</strong> ({activities.length}{" "}
+          {activities.length === 1 ? "activity" : "activities"}) ·{" "}
+          <button className="link small" onClick={() => setOnly(null)}>
+            Show all
+          </button>
+        </p>
+      )}
       {/* A fixed-height box that scrolls (asked 2026-11-06), with the header row kept in view. */}
-      {summary && summary.activities.length > 0 && (
+      {summary && activities.length > 0 && (
         <div className="usage-log-scroll">
           <table className="usage-activities">
             <thead>
@@ -609,7 +642,7 @@ function UsageLog() {
               </tr>
             </thead>
             <tbody>
-              {summary.activities.map((a, i) => (
+              {activities.map((a, i) => (
                 <ActivityRows
                   key={`${a.started_at}-${i}`}
                   activity={a}
