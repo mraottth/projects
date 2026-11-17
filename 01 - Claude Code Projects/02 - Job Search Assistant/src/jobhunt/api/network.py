@@ -4,6 +4,7 @@ and the people you know at a job's organization (core/network.py)."""
 import logging
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
+from pydantic import BaseModel
 
 from jobhunt.core import network
 from jobhunt.core.llm import LLMError
@@ -57,6 +58,20 @@ def _rate() -> None:
     except LLMError as exc:
         logger.warning("rating network organizations failed: %s", exc)
         update_settings({"network_orgs": {}, "network_orgs_error": str(exc)})
+
+
+class ReachedOutRequest(BaseModel):
+    id: int
+    reached: bool
+
+
+@router.post("/reached-out")
+def reached_out(body: ReachedOutRequest):
+    """The "Reached out" checkmark on My Network's table (asked 2026-11-17)."""
+    try:
+        return {"reached_out": network.set_reached_out(body.id, body.reached)}
+    except LookupError:
+        raise HTTPException(404, "connection not found") from None
 
 
 @router.delete("/connections")

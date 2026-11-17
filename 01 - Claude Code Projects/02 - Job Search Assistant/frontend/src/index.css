@@ -1044,6 +1044,15 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 .added-mark { color: var(--good); font-weight: 600; white-space: nowrap; }
 .network-filter { display: flex; justify-content: flex-start; align-items: center; gap: 12px; flex-wrap: wrap; margin: 8px 0 10px; }
 .network-filter input { width: 280px; max-width: 100%; }
+.network-table th.center, .network-table td.center { text-align: center; }
+.network-table td.center input[type="checkbox"] { width: 17px; height: 17px; cursor: pointer; }
+/* "Write outreach": Jobby's face as the button (asked 2026-11-17). */
+.outreach-icon {
+  display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; padding: 0; overflow: hidden;
+  border: 1px solid var(--ring); border-radius: 50%; background: var(--card); cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.outreach-icon:hover { border-color: var(--accent); transform: translateY(-1px); }
 .network-sources-wrap { max-height: 380px; overflow-y: auto; border: 1px solid var(--grid); border-radius: var(--radius); padding: 0 12px; }
 .network-org-tier { margin: 12px 0 2px; position: sticky; top: 0; background: var(--card); padding: 6px 0; z-index: 1; }
 .network-org-tier .network-tier { margin-left: 0; }

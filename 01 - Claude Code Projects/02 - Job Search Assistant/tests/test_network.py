@@ -119,7 +119,7 @@ def test_tiers_and_suggested_sources(monkeypatch):
         "High",
         "Good fit: Civic data group",
         "High",
-        "Hiring side",
+        "Hires for the team",
     )
     # Claude saw organization names only, and not ones already judged by your jobs.
     assert len(client.sent) == 1
@@ -426,3 +426,36 @@ def test_high_org_alignment_comes_only_from_the_organizations_own_fit(monkeypatc
         "D D": "High",  # Claude rated the organization a fit
     }
     assert [p["name"] for p in info["tiers"]["High"]] == ["D D"]
+
+
+def _everyone(info: dict) -> list[dict]:
+    return [p for t in ("High", "Medium", "Low") for p in info["tiers"][t]] + info["not_listed"]
+
+
+def test_reached_out_is_marked_kept_across_uploads_and_private(monkeypatch):
+    users.create_user("bea@example.com", "Bea", status="approved")
+    with TestClient(app) as http:
+        info, _ = _upload(http, monkeypatch)
+        ana = next(p for p in _everyone(info) if p["name"] == "Ana Lopez")
+        assert ana["reached_out"] is None
+        marked = http.post("/api/network/reached-out", json={"id": ana["id"], "reached": True}).json()
+        assert marked["reached_out"]
+        # Someone else can't mark your connection.
+        resp = http.post(
+            "/api/network/reached-out",
+            json={"id": ana["id"], "reached": True},
+            headers={"X-Dev-User": "bea@example.com"},
+        )
+        assert resp.status_code == 404
+        # A new upload replaces the rows; the mark follows the person's LinkedIn address.
+        info, _ = _upload(http, monkeypatch)
+        marks = {p["name"]: p["reached_out"] for p in _everyone(info)}
+        assert marks["Ana Lopez"] == marked["reached_out"] and marks["Ben Ng"] is None
+        ana = next(p for p in _everyone(info) if p["name"] == "Ana Lopez")
+        http.post("/api/network/reached-out", json={"id": ana["id"], "reached": False})
+        assert all(p["reached_out"] is None for p in _everyone(http.get("/api/network").json()))
+
+
+def test_organization_reasons_are_asked_for_in_the_second_person():
+    assert "second person" in network.PICK_PROMPT
+    assert network.RATINGS_VERSION == 3

@@ -116,6 +116,8 @@ export interface NetworkPerson {
   company: string | null;
   position: string | null;
   connected_on: string | null;
+  // When you ticked "Reached out" (asked 2026-11-17), kept across uploads.
+  reached_out: string | null;
   why: string;
   job_id: number | null;
   job_title: string | null;
@@ -877,6 +879,12 @@ export const api = {
 
   deleteConnections: () => request<NetworkOverview>("/api/network/connections", { method: "DELETE" }),
 
+  setReachedOut: (id: number, reached: boolean) =>
+    request<{ reached_out: string | null }>("/api/network/reached-out", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, reached }),
+    }),
   peopleAtJob: (jobId: number) => request<PersonAtJob[]>(`/api/network/job/${jobId}`),
 
   updateResume: (id: number, payload: { is_archived?: boolean; is_template?: boolean }) =>

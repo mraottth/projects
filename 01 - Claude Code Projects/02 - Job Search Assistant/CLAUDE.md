@@ -596,7 +596,9 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     "Upload a newer file" is clicked or the connections are removed; `showSteps`) (LinkedIn's "Download my data": the full archive, since
     Connections left the pick-a-file list; wait for LinkedIn's email; checked 2026-11-16)
     the file, the upload, "Remove them" (`DELETE /api/network/connections`), High/Medium/Low tabs
-    of a table (name linked, position, organization, connected, why, "Write outreach with Jobby"),
+    of a table (name linked, position, organization, Org/Title alignment, "Reached out" and "Write
+    outreach"; since 2026-11-17 no Connected column, and the outreach button is a round Jobby avatar,
+    `OutreachButton compact`),
     a "Not listed" tab and a search box, and "Organizations to consider tracking" (renamed from "adding" 2026-11-16; organizations with
     listed connections that no followed source names, each tiered by its best person; since
     2026-11-16 a small scrolling card at the top right, `OrgSuggestions`, beside the upload card,
@@ -604,6 +606,14 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     (`.org-suggestions-holder`); "+ Add" is `POST /api/sources/resolve`). The upload card has a stats
     row (`NetworkStats`, from the loaded data): connections, at good-fit orgs, in relevant roles,
     worth reaching out to (High + Medium; an "at aligned orgs" count was dropped as the same number).
+  - **Reached out** (asked 2026-11-17): a checkbox per row, saved at once (`POST
+    /api/network/reached-out` → `network.set_reached_out`), with an "Anyone · Reached out (N) · Not
+    yet" filter beside the search. A new upload replaces the `connections` rows, so marks live in the
+    `network_reached_out` setting keyed by `person_key()` (the LinkedIn profile URL, else name +
+    organization) and survive re-uploads; each row carries `reached_out` (the date).
+  - **Second person:** Claude's organization reasons are asked for in the second person ("fits your
+    civic data work"); `RATINGS_VERSION` 3 offers "Re-rate organizations" to rewrite saved ones. The
+    fixed title notes read "Hires for the team" and "A leader there".
   - **Jobby:** "Write outreach with Jobby" (`OutreachButton`, on the table and the job card's "People
     you know here") first asks a few quick questions in a `Modal` (asked 2026-11-16: a draft to a
     close friend read like a cold email): how well you know them, how, when you were last in touch,

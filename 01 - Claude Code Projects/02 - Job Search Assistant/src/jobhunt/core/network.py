@@ -17,7 +17,7 @@ for are suggested as sources.
 import csv
 import io
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 
 from typing import Literal
 
@@ -128,15 +128,17 @@ def replace_connections(rows: list[dict]) -> None:
 # ---------------------------------------------------------------------------------------------
 # Organizations Claude rates (names only; asked 2026-11-13: High is for good-fit organizations)
 
-RATINGS_VERSION = 2
+RATINGS_VERSION = 3  # 3: reasons written to you, in the second person (2026-11-17)
 PICK_PROMPT = """You help a job seeker decide which of their LinkedIn connections to reach out to. \
 You'll get who they are and what they want, then a numbered list of organizations their \
 connections work at. Rate the ones worth their attention:
 - "fit": somewhere they'd clearly want to work, given their background, the roles they're after, \
 their sectors and their own words;
 - "interest": plausible or adjacent: a related field or mission, or a likely stepping stone.
-Give a few words on why each. Leave out everything else, including organizations clearly in a \
-different field and anything you don't recognize well enough to judge."""
+Give a few words on why each, written to the job seeker in the second person ("fits your civic \
+data work", "close to the campaigns you've worked on"), never "they", "their" or their name. \
+Leave out everything else, including organizations clearly in a different field and anything you \
+don't recognize well enough to judge."""
 
 
 class Pick(BaseModel):
@@ -445,9 +447,9 @@ def assess(
     if aligned:
         title_level, title_note = "High", "Close to what you're after"
     elif hiring:
-        title_level, title_note = "High", "Hiring side"
+        title_level, title_note = "High", "Hires for the team"
     elif leader:
-        title_level, title_note = "High", "Leader"
+        title_level, title_note = "High", "A leader there"
     elif my_line or same_any:
         title_level, title_note = "Med", "Your line of work"
     else:
@@ -548,12 +550,42 @@ def current_org(conn, uid: int, people: list[dict], settings: dict) -> tuple[str
     return guess, bool(guess)
 
 
+def person_key(person: dict) -> str:
+    """Who a connection is across uploads (a new upload replaces the rows): their LinkedIn profile
+    address, else name and organization."""
+    if url := (person.get("url") or "").strip().lower().rstrip("/"):
+        return url
+    name = f"{person.get('first_name') or ''} {person.get('last_name') or ''}".strip().lower()
+    return f"{name}|{(person.get('company') or '').strip().lower()}"
+
+
+def set_reached_out(connection_id: int, reached: bool) -> str | None:
+    """Marks one of the person's connections as reached out to, or clears it (asked 2026-11-17).
+    Kept in the `network_reached_out` setting, by `person_key`, so it survives a new upload. Returns
+    the date, or None; raises LookupError for a connection that isn't theirs."""
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT * FROM connections WHERE id = ? AND user_id = ?", (connection_id, current_user_id())
+        ).fetchone()
+    if row is None:
+        raise LookupError(connection_id)
+    marks = dict(get_settings().get("network_reached_out") or {})
+    key = person_key(dict(row))
+    if reached:
+        marks[key] = marks.get(key) or datetime.now(timezone.utc).date().isoformat()
+    else:
+        marks.pop(key, None)
+    update_settings({"network_reached_out": marks})
+    return marks.get(key)
+
+
 def overview() -> dict:
     """Manage Sources' network section: the upload, the three tiers, who isn't listed and why, and
     organizations to consider adding."""
     uid = current_user_id()
     settings = get_settings()
     picks = settings.get("network_orgs") or {}
+    reached = settings.get("network_reached_out") or {}
     desired = _desired_titles()
     with get_db() as conn:
         people = [dict(r) for r in conn.execute("SELECT * FROM connections WHERE user_id = ?", (uid,))]
@@ -587,6 +619,7 @@ def overview() -> dict:
             "company": p["company"],
             "position": p["position"],
             "connected_on": p["connected_on"],
+            "reached_out": reached.get(person_key(p)),
             "why": why,
             "job_id": job["id"] if job else None,
             "job_title": job["title"] if job else None,

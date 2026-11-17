@@ -7,6 +7,7 @@ import {
   NetworkTier,
   PersonAtJob,
 } from "../api";
+import { JobbyLogo } from "./JobbyLogo";
 import { Modal } from "./Modal";
 import { Spinner } from "./Spinner";
 
@@ -159,7 +160,14 @@ const FORMATS: [string, string][] = [
 
 /** "Write outreach with Jobby": a few quick questions about the relationship and the ask, then
  * Jobby with the answers in its message box (asked 2026-11-16). */
-export function OutreachButton({ person }: { person: OutreachPerson }) {
+export function OutreachButton({
+  person,
+  compact = false,
+}: {
+  person: OutreachPerson;
+  /** My Network's table: just Jobby's face, under a "Write outreach" heading (asked 2026-11-17). */
+  compact?: boolean;
+}) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [a, setA] = useState<OutreachAnswers>({
@@ -224,9 +232,20 @@ export function OutreachButton({ person }: { person: OutreachPerson }) {
 
   return (
     <>
-      <button className="ghost small nowrap" onClick={() => setOpen(true)}>
-        Write outreach with Jobby
-      </button>
+      {compact ? (
+        <button
+          className="outreach-icon"
+          onClick={() => setOpen(true)}
+          title="Write outreach with Jobby"
+          aria-label={`Write outreach to ${person.name} with Jobby`}
+        >
+          <JobbyLogo size={32} title="" />
+        </button>
+      ) : (
+        <button className="ghost small nowrap" onClick={() => setOpen(true)}>
+          Write outreach with Jobby
+        </button>
+      )}
       <Modal
         open={open}
         onClose={() => setOpen(false)}
@@ -386,6 +405,8 @@ export function NetworkSection({
   const [error, setError] = useState<string | null>(null);
   const [tier, setTier] = useState<Tab>("High");
   const [search, setSearch] = useState("");
+  // "Reached out" filter (asked 2026-11-17).
+  const [reach, setReach] = useState<"any" | "yes" | "no">("any");
   const [adding, setAdding] = useState<
     Record<string, "busy" | "added" | string>
   >({});
@@ -458,13 +479,43 @@ export function NetworkSection({
       : info.tiers[tier]
     : [];
   const q = search.trim().toLowerCase();
-  const rows = q
+  const searched = q
     ? all.filter((p) =>
         [p.name, p.company, p.position].some((v) =>
           (v ?? "").toLowerCase().includes(q),
         ),
       )
     : all;
+  const reachedCount = searched.filter((p) => p.reached_out).length;
+  const rows = searched.filter((p) =>
+    reach === "any" ? true : reach === "yes" ? !!p.reached_out : !p.reached_out,
+  );
+
+  // Saved at once; the box flips back with an error if the save fails.
+  const markReached = async (id: number, reached: boolean) => {
+    const apply = (value: string | null) =>
+      setInfo((n) => {
+        if (!n) return n;
+        const fix = (list: typeof n.not_listed) =>
+          list.map((p) => (p.id === id ? { ...p, reached_out: value } : p));
+        return {
+          ...n,
+          not_listed: fix(n.not_listed),
+          tiers: {
+            High: fix(n.tiers.High),
+            Medium: fix(n.tiers.Medium),
+            Low: fix(n.tiers.Low),
+          },
+        };
+      });
+    apply(reached ? new Date().toISOString().slice(0, 10) : null);
+    try {
+      apply((await api.setReachedOut(id, reached)).reached_out);
+    } catch (e) {
+      apply(reached ? null : new Date().toISOString().slice(0, 10));
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
 
   return (
     <div className="network-page">
@@ -623,10 +674,32 @@ export function NetworkSection({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
+            <div className="seg small" role="group" aria-label="Reached out">
+              <button
+                className={reach === "any" ? "on" : ""}
+                onClick={() => setReach("any")}
+              >
+                Anyone
+              </button>
+              <button
+                className={reach === "yes" ? "on" : ""}
+                onClick={() => setReach("yes")}
+              >
+                Reached out ({reachedCount})
+              </button>
+              <button
+                className={reach === "no" ? "on" : ""}
+                onClick={() => setReach("no")}
+              >
+                Not yet
+              </button>
+            </div>
           </div>
           {rows.length === 0 ? (
             <p className="empty-state small">
-              {q ? "Nobody here matches that." : "Nobody in this tier."}
+              {q || reach !== "any"
+                ? "Nobody here matches that."
+                : "Nobody in this tier."}
             </p>
           ) : (
             <div className="network-table-wrap">
@@ -636,10 +709,10 @@ export function NetworkSection({
                     <th>Name</th>
                     <th>Position</th>
                     <th>Organization</th>
-                    <th>Connected</th>
                     <th>Org alignment</th>
                     <th>Title alignment</th>
-                    <th />
+                    <th className="center">Reached out</th>
+                    <th className="center">Write outreach</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -656,7 +729,6 @@ export function NetworkSection({
                       </td>
                       <td>{p.position}</td>
                       <td>{p.company}</td>
-                      <td className="nowrap">{since(p.connected_on)}</td>
                       <td className="align-cell">
                         <Alignment
                           level={p.org_align}
@@ -667,8 +739,23 @@ export function NetworkSection({
                       <td className="align-cell">
                         <Alignment level={p.title_align} note={p.title_note} />
                       </td>
-                      <td>
-                        {tier !== "Not listed" && <OutreachButton person={p} />}
+                      <td className="center">
+                        <input
+                          type="checkbox"
+                          checked={!!p.reached_out}
+                          onChange={(e) => markReached(p.id, e.target.checked)}
+                          title={
+                            p.reached_out
+                              ? `Reached out ${p.reached_out}`
+                              : "Mark as reached out"
+                          }
+                          aria-label={`Reached out to ${p.name}`}
+                        />
+                      </td>
+                      <td className="center">
+                        {tier !== "Not listed" && (
+                          <OutreachButton person={p} compact />
+                        )}
                       </td>
                     </tr>
                   ))}

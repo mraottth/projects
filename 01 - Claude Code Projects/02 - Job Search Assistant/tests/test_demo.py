@@ -19,6 +19,7 @@ NOT_RECORDED = {
     "/api/network",
     "/api/network/connections",
     "/api/network/rate",
+    "/api/network/reached-out",
     "/api/network/job/{}",
     "/api/access/request",
     "/api/admin/scoring-experiment",
