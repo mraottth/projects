@@ -1746,8 +1746,16 @@
    "time": "2026-11-17T17:56:05.627Z",
    "kind": "prompt",
    "text": "When a user navigates to All Jobs from the My Sources page by clicking on the jobs from a source, it should show all jobs for that source by default (i.e. by turning other filters off)",
-   "reply": null,
+   "reply": "Clicking a source's job count on Manage Sources now opens All Jobs with every filter off except that source. It's pushed to `claude/move-job-search-assistant`.\n\nThe link already cleared the interest and fit filters, but two filters stayed on: jobs hidden by your location or pay dealbreakers, and jobs the relevance check set aside. Both now show when you arrive this way. The filter sidebar lists them as removable chips (\"Showing dealbreaker jobs\", \"Showing low-relevance jobs\"), so you can switch either off again.\n\nThe run audit's source links use the same address, so they behave the same way. If you follow another source's link while All Jobs is already open, the page switches to the new source.\n\nI checked it in a browser on a local copy. The source link listed all 11 of that test board's jobs, including the one the relevance check had set aside, with no errors.\n\nTo deploy:\n\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge --no-edit origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com IAP_AUDIENCE=/projects/<project number>/locations/us-central1/services/jobhunt\n```",
    "id": "ab602548-242",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-17T18:00:13.751Z",
+   "kind": "prompt",
+   "text": "If a source is renamed in my sources, it should also be renamed in All Jobs / My Jobs / New & Noteworthy",
+   "reply": null,
+   "id": "ab602548-243",
    "session": "ab602548"
   }
  ]
