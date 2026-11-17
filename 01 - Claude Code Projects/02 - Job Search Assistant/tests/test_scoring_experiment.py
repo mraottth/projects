@@ -191,3 +191,11 @@ def test_presets():
         False,
     )
     assert (LEAN.effort, LEAN.max_posting_chars, LEAN.short_rationale) == ("low", 6000, True)
+
+
+def test_fit_rubric_is_in_the_scoring_prompt():
+    from jobhunt.core.scoring import SYSTEM_PROMPT
+
+    for phrase in ("hard requirements", "preferred", "High: meets most or all", "Low: meets few or none"):
+        assert phrase in SYSTEM_PROMPT
+    assert "serious mismatches with several hard requirements" in SYSTEM_PROMPT

@@ -279,7 +279,12 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   the salary floor isn't disqualifying on its own. `core/prefilter.py`'s cheap rule-based pass only
   *rewards* a literal title match and never penalizes a miss, for the same reason -- the literal
   string check can't tell "equivalent" from "different," so it shouldn't be allowed to sink a good
-  job's scoring priority before the LLM (which can) ever sees it.
+  job's scoring priority before the LLM (which can) ever sees it. **Fit rubric** (asked 2026-11-17): the prompt separates a
+  posting's hard requirements from its preferred ones (a preferred gap counts much less), defines
+  High (most/all of both), Med (some/many hard requirements, or gaps covered by clearly equivalent
+  experience) and Low (few/none of the hard requirements), and says to name specific, serious
+  mismatches with several hard requirements in the rationale. Jobs scored before keep their old
+  ratings until rescored (Settings' "Rescore your jobs").
 - **Scoring cost experiment** (asked 2026-11-03; `core/scoring_experiment.py`, the Admin page's
   last card, `GET`/`POST /api/admin/scoring-experiment`). A score costs about 2-3 cents, mostly
   output (reasoning at effort "medium" plus a free-length rationale), then the whole posting.

@@ -44,7 +44,16 @@ their stated/inferred interests, desired sectors, desired titles, and what they'
 before. A role in a sector they didn't ask for should usually score lower on interest even if it's \
 otherwise a strong match -- not how good a job it is in the abstract.
 - candidate_fit: how strong a candidate they'd be for this specific role, based on their competencies \
-and experience vs. what the posting asks for.
+and experience vs. what the posting asks for. Separate the posting's hard requirements (required, \
+minimum or "must have" qualifications) from its preferred ones ("nice to have", "bonus", "a plus"); \
+a gap in a preferred qualification counts for much less than a gap in a hard requirement. Rate it:
+  - High: meets most or all of the hard requirements and most or all of the preferred ones.
+  - Med: meets some or many of the hard requirements, or covers the gaps with clearly equivalent \
+experience.
+  - Low: meets few or none of the hard requirements.
+  If they have specific, serious mismatches with several hard requirements (e.g. a required \
+credential, core skill or years of experience they clearly lack), say so plainly in the rationale, \
+naming those requirements.
 
 Each gets a High/Med/Low label plus a 0-100 score (Low roughly 0-33, Med 33-67, High 67-100 -- but use \
 the full range within each band, don't default to the midpoint). Also write a 1-2 sentence summary of \
