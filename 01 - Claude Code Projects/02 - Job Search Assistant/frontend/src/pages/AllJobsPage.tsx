@@ -13,19 +13,28 @@ import {
 } from "../components/JobFilters";
 import { ScoredJobCard } from "../components/ScoredJobCard";
 
+function onlySource(source: string): JobFilterState {
+  return { ...NO_JOB_FILTERS, source: [source], includeDealbreakers: true, includeScreenedOut: true };
+}
+
 export default function AllJobsPage() {
   const [jobs, setJobs] = useState<RankedJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [params] = useSearchParams();
-  // ?source=<name> (the job count on Manage Sources links here): every job from that source,
-  // without the default fit filters, so the list matches the count it was opened from.
+  // ?source=<name> (the job count on Manage Sources, and the run audit, link here): every job from
+  // that source, with every other filter off, including the jobs your dealbreakers hide and those
+  // the relevance check set aside (asked 2026-11-17), so the list matches the count it came from.
+  const sourceParam = params.get("source");
   const [filters, setFilters] = useState<JobFilterState>(() => {
-    const source = params.get("source");
-    if (source) return { ...NO_JOB_FILTERS, source: [source] };
+    if (sourceParam) return onlySource(sourceParam);
     // ?set_aside=1 (Settings' Title screen card): just the jobs the title screen set aside.
     if (params.get("set_aside")) return { ...NO_JOB_FILTERS, includeScreenedOut: true, onlyScreenedOut: true };
     return DEFAULT_JOB_FILTERS;
   });
+  // Following another source's link while this page is already open.
+  useEffect(() => {
+    if (sourceParam) setFilters((f) => ({ ...onlySource(sourceParam), sort: f.sort }));
+  }, [sourceParam]);
 
   useEffect(() => {
     api

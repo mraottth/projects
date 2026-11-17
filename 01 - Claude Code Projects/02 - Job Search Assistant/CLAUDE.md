@@ -858,8 +858,10 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   `GET /api/settings/email-status` and shown on Settings' Daily email card ("Last check (...)").
 - **Filtering touches (asked 2026-11-06):**
   - Manage Sources' "N jobs · checked ..." links to `/all-jobs?source=<name>`; `AllJobsPage` reads
-    `?source=` once into its initial filters (`NO_JOB_FILTERS` plus that source, so the list
-    matches the count).
+    `?source=` into its filters (`onlySource()`: `NO_JOB_FILTERS` plus that source, with the
+    dealbreaker and set-aside jobs shown too, asked 2026-11-17, so every job from the source is
+    listed), again whenever the parameter changes while the page is open. The run audit's source
+    links use the same address.
   - The filter bar's "Clear all" applies `NO_JOB_FILTERS` (it used to restore the default High/Med
     fit filters, so it never cleared them), keeping the sort.
   - Dropdown arrows (`.select-wrap`, `.ms-dropdown` summaries) are one 14px SVG chevron, flipped when
