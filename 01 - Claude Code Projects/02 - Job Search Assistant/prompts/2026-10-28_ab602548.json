@@ -1690,8 +1690,16 @@
    "time": "2026-11-17T00:14:13.387Z",
    "kind": "answer",
    "text": "\"My Jobs already has a To-Do / Active / Closed / All toggle (groups of statuses). How should the new status filter work?\"=\"Add a status dropdown (Recommended)\".",
-   "reply": null,
+   "reply": "Both changes are done and pushed to `claude/move-job-search-assistant`.\n\n**Editing a source.** Each row on Manage Sources now has an **Edit** link. It opens a small dialog where you can change the name and the address.\n- The address is read the same way as \"Add by link\". Paste a Greenhouse, Lever or Ashby board link and the source switches to reading that board directly.\n- Changing the address clears the old error and checks the source again right away. Jobs already found at the old address stay until they close or age out.\n- Keyword searches (Adzuna/RemoteOK) don't have an address, so only their name can be edited.\n- If other people follow the same source, only the admin can edit it; anyone else gets the server's message in the dialog.\n- If the employer name was the same as the old source name, it changes along with the name.\n\n**Status filter on My Jobs.** A \"Status\" dropdown now sits next to the To-Do / Active / Closed / All toggle.\n- It has a checkbox and a count for each status in the current view. It narrows the table, shows \"Status: Waiting\" (or \"Status: any\"), has a Clear link, and closes when you click elsewhere.\n- I left out the separate \"Status: …\" pill I'd planned for the toolbar, because it just repeated the dropdown's own label.\n\nAll 611 tests pass, including the new source-edit tests. In a browser on a local copy, I renamed a web-page source and pointed it at a Greenhouse board, and filtered My Jobs to Waiting and cleared it.\n\nTo deploy:\n\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge --no-edit origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com IAP_AUDIENCE=/projects/<project number>/locations/us-central1/services/jobhunt\n```",
    "id": "ab602548-233",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-17T00:35:24.719Z",
+   "kind": "prompt",
+   "text": "On My Network, let's replace the 'Write outreach with Jobby' button with a small jobby logo and name the column 'WRITE OUTREACH'. Also descriptions should use the 2nd person rather than third. Let's also add a 'Reached Out' checkmark and allow for filtering by that mark. We can remove the Connected column",
+   "reply": null,
+   "id": "ab602548-234",
    "session": "ab602548"
   }
  ]
