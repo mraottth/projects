@@ -645,3 +645,20 @@ It runs when a source finds a new job, once at startup over existing duplicates,
 - **Read only at 10am, with 2pm just scoring:** saves little, since a page unchanged since the morning costs nothing to re-read, and the afternoon read catches the day's postings.
 
 **Why.** Reading is cheap: only a changed page costs a Claude call (about 0.6 cents), so a second read adds at most a few dollars a month, and the relevance check costs next to nothing. Scoring, the expensive step, still happens once a day at half price, unless the person chooses a job to score now. A fifth Scheduler job is about $0.10 a month (three are free).
+
+## D-038 · Ask why on "Not Interested", and give every score the reasons
+- **Date:** 2026-11-18
+- **Category:** ai
+- **Prompts:** e2f9082b-091
+- **Commits:** 49919bd
+
+**Decision.** "Not Interested" opens a short dialog: a few quick reasons to tick (not my line of work, too senior, too junior, pay too low, location, not this organization, not a sector I want, already applied or seen it) and a free-text box. The answer is saved as the feedback's note, and "Skip" is always there. The last 25 reasons go into every score's cached context, and the scoring prompt says to lower interest fit when a posting shares what was objected to. The preference profile weighs stated reasons heavily.
+
+**Context.** The owner asked that a "Not Interested" lead to a question about why, and that the answer improve future scoring. A bare "not interested" said nothing about what was wrong, and scoring saw only the ten latest marks of any kind; the `feedback.note` column existed but nothing filled it.
+
+**Alternatives considered.**
+- **Only through the preference profile:** it rebuilds after five new marks or a week, so a reason would take days to matter. Putting the reasons in the scoring context makes them count from the next score.
+- **Reasons only from a fixed list:** quick, but "I'm done with campaign work" is the kind of reason a list can't hold. The list plus a text box covers both.
+- **Using reasons in the relevance check too:** it could set aside more jobs early, but a wrong set-aside hides a job without a score. Left for later.
+
+**Why.** The person's own reasons are the most direct signal about what they don't want, alongside their free-text note. In the cached context they cost almost nothing (a cache read is a tenth of the price), and they reach the very next score.

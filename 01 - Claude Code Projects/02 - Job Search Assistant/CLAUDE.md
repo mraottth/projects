@@ -286,6 +286,19 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   experience) and Low (few/none of the hard requirements), and says to name specific, serious
   mismatches with several hard requirements in the rationale. Jobs scored before keep their old
   ratings until rescored (Settings' "Rescore your jobs").
+- **Reasons for passing** (D-038, asked 2026-11-18). "Not Interested" opens `WhyNotDialog`
+  (`ScoredJobCard.tsx`): quick reasons (`PASS_REASONS`, multi-select chips) and "Anything else?",
+  joined into the feedback's `note` ("Too senior; Location — I want a hands-on role"; trimmed, at
+  most 1,000 characters, `FeedbackRequest`). "Save and hide this job" needs an answer; "Skip" marks it
+  with no note; closing the dialog cancels and records nothing. Scoring reads them at once:
+  `_passed_reasons_text()` puts the last `PASSED_REASONS_LIMIT` (25) non-empty not_interested notes,
+  newest first (id breaks ties, so the cached block stays stable), in the cached candidate context
+  under "Why they passed on earlier jobs", and `SYSTEM_PROMPT` says to lower interest_fit when a
+  posting shares what they objected to (never candidate_fit; a reason about one organization or role
+  doesn't rule out others). A new reason changes the cached block once, so the next score rewrites
+  the cache. The preference profile's prompt weighs a not_interested note heavily and turns recurring
+  reasons into patterns; reasons count toward its rebuild threshold like any mark. Jobs already
+  scored keep their ratings until rescored. The relevance check doesn't read them (yet).
 - **Scoring cost experiment** (asked 2026-11-03; `core/scoring_experiment.py`, the Admin page's
   last card, `GET`/`POST /api/admin/scoring-experiment`). A score costs about 2-3 cents, mostly
   output (reasoning at effort "medium" plus a free-length rationale), then the whole posting.
@@ -1227,7 +1240,8 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   "Interested": feedback `interested` plus an `applications` row) and "Not Interested"; "Maybe" was
   dropped (old `maybe` feedback rows still read fine). A click anywhere on a `ScoredJobCard`
   (`.card-clickable`) opens the job's overlay like its title link (`JobLink.useOpenJobOnClick`),
-  except on its own links, buttons, chips and inputs, or after selecting text.
+  except on its own links, buttons, chips and inputs, inside a dialog it opened (Not Interested's
+  "why not", which sits inside the card in React's tree), or after selecting text.
 - On both `DigestPage` and `AllJobsPage`, marking a job "Interested" records the feedback *and*
   auto-creates an `applications` row the same way -- `components/ScoredJobCard.tsx` (`JobActions`)
   is the one shared implementation both pages use, so this only exists in one place. `JobDetailPage`

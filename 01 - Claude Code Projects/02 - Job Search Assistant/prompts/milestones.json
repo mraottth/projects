@@ -660,5 +660,22 @@
   "decisions": [
    "D-037"
   ]
+ },
+ {
+  "id": "M29",
+  "date": "2026-11-18",
+  "icon": "🤔",
+  "category": "ai",
+  "title": "Tell it why not",
+  "summary": "Marking a job Not Interested now asks why, with a few quick reasons to tick and room to say more. Every score from then on carries those reasons, so a posting that shares what you objected to rates lower on interest straight away, and the preference profile learns the patterns.",
+  "prompts": [
+   "e2f9082b-091"
+  ],
+  "commits": [
+   "49919bd"
+  ],
+  "decisions": [
+   "D-038"
+  ]
  }
 ]
