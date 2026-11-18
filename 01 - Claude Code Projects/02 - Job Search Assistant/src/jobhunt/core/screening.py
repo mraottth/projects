@@ -20,6 +20,7 @@ from jobhunt.core import dealbreakers
 from jobhunt.core.llm import LLMError, cache_tokens, get_client, llm_error_boundary, log_call
 from jobhunt.core.preference import get_current_preference_profile
 from jobhunt.core.profile import get_current_candidate_profile
+from jobhunt.core.queue import STILL_WANTED_SQL
 from jobhunt.core.settings import get_settings
 from jobhunt.core.users import carry, current_user_id
 from jobhunt.db.connection import get_db
@@ -62,7 +63,7 @@ def _split(source_ids: list[int], recheck: bool = False) -> tuple[list[dict], li
             f"""SELECT q.id AS queue_id, j.title, j.company, j.location, j.remote_type,
                        j.salary_min, j.salary_max, j.salary_currency, j.salary_period
                   FROM scoring_queue q JOIN jobs j ON j.id = q.job_id
-                 WHERE q.user_id = ? AND q.status = 'pending' {unscreened}
+                 WHERE q.user_id = ? AND q.status = 'pending' {unscreened} AND {STILL_WANTED_SQL}
                    AND j.source_id IN ({only})
                  ORDER BY q.priority DESC, q.id""",
             (current_user_id(),),

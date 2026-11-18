@@ -10,6 +10,14 @@ from jobhunt.db.connection import get_db
 from jobhunt.core.users import current_user_id
 
 AGE_BONUS_PER_DAY = 5.0
+# A waiting job is worth scoring only while its posting is open and the person hasn't passed on it
+# (asked 2026-11-18: closed and Not Interested jobs stayed queued, and could be paid for). Nothing is
+# deleted, so a job that reopens, or whose feedback changes, comes back by itself. Used by the queue,
+# the relevance check (core/screening.py) and the run audit's waiting list.
+STILL_WANTED_SQL = """j.status = 'active' AND NOT EXISTS (
+    SELECT 1 FROM feedback f
+     WHERE f.user_id = q.user_id AND f.job_id = q.job_id AND f.interested = 'not_interested'
+)"""
 
 
 def enqueue(job_id: int, prefilter_score: float, matched_rules: dict) -> None:
@@ -69,6 +77,7 @@ def select_batch(cap: int, source_ids: list[int] | None = None) -> list[int]:
                           ) AS source_rank
                      FROM scoring_queue q JOIN jobs j ON j.id = q.job_id
                     WHERE q.user_id = ? AND q.status = 'pending' {only_sources}
+                      AND {STILL_WANTED_SQL}
                       -- The title screen set it aside (core/screening.py): never scored.
                       AND (q.screen IS NULL OR q.screen != 'drop')
                )

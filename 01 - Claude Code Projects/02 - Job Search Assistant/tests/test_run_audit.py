@@ -246,3 +246,30 @@ def test_the_calendar_route_checks_its_month():
         assert http.get("/api/digest/run-calendar?month=2026-11&tz=America/New_York").status_code == 200
         assert http.get("/api/digest/run-calendar").json()["month"]
         assert http.get("/api/digest/run-calendar?month=nope").status_code == 400
+
+
+def test_closed_and_dismissed_jobs_leave_the_queue_until_they_come_back():
+    from jobhunt.core import queue, screening
+
+    board = _source("Board")
+    open_job, closed, passed = _job(board, "Open"), _job(board, "Closed"), _job(board, "Passed on")
+    for job in (open_job, closed, passed):
+        _queue(job, 50)
+    with get_db() as conn:
+        conn.execute("UPDATE jobs SET status = 'expired' WHERE id = ?", (closed,))
+        conn.execute(
+            "INSERT INTO feedback (user_id, job_id, interested, note) VALUES (1, ?, 'not_interested', 'Too senior')",
+            (passed,),
+        )
+
+    waiting = [j["title"] for j in run_audit.audit(DAY, "America/New_York")["queue"]["jobs"]]
+    assert waiting == ["Open"]
+    to_screen, _ = screening._split([board])
+    assert len(to_screen) == 1
+    assert queue.select_batch(10) == [open_job]
+
+    # The closed posting is listed again: it's waiting once more.
+    with get_db() as conn:
+        conn.execute("UPDATE jobs SET status = 'active' WHERE id = ?", (closed,))
+        conn.execute("UPDATE scoring_queue SET status = 'pending' WHERE job_id = ?", (open_job,))
+    assert sorted(queue.select_batch(10)) == sorted([open_job, closed])

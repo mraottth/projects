@@ -8,10 +8,13 @@ import {
   JobListHeader,
   JobFilterState,
   NO_JOB_FILTERS,
+  type SortKey,
   filterJobs,
   toggleFilterValue,
 } from "../components/JobFilters";
 import { ScoredJobCard } from "../components/ScoredJobCard";
+
+const SORT_KEYS: SortKey[] = ["best", "interest", "fit", "posted", "salary"];
 
 function onlySource(source: string): JobFilterState {
   return { ...NO_JOB_FILTERS, source: [source], includeDealbreakers: true, includeScreenedOut: true };
@@ -25,16 +28,18 @@ export default function AllJobsPage() {
   // that source, with every other filter off, including the jobs your dealbreakers hide and those
   // the relevance check set aside (asked 2026-11-17), so the list matches the count it came from.
   const sourceParam = params.get("source");
+  // ?sort=posted (the run audit's New jobs links, asked 2026-11-18): any of the Sort by choices.
+  const sortParam = SORT_KEYS.find((k) => k === params.get("sort"));
   const [filters, setFilters] = useState<JobFilterState>(() => {
-    if (sourceParam) return onlySource(sourceParam);
+    if (sourceParam) return { ...onlySource(sourceParam), ...(sortParam ? { sort: sortParam } : {}) };
     // ?set_aside=1 (Settings' Title screen card): just the jobs the title screen set aside.
     if (params.get("set_aside")) return { ...NO_JOB_FILTERS, includeScreenedOut: true, onlyScreenedOut: true };
     return DEFAULT_JOB_FILTERS;
   });
   // Following another source's link while this page is already open.
   useEffect(() => {
-    if (sourceParam) setFilters((f) => ({ ...onlySource(sourceParam), sort: f.sort }));
-  }, [sourceParam]);
+    if (sourceParam) setFilters((f) => ({ ...onlySource(sourceParam), sort: sortParam ?? f.sort }));
+  }, [sourceParam, sortParam]);
 
   useEffect(() => {
     api

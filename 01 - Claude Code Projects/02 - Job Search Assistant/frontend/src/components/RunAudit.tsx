@@ -7,7 +7,7 @@ import {
   type RunDayStatus,
 } from "../api";
 import { JobLink } from "./JobLink";
-import { FitBadge, ScoreButton } from "./ScoredJobCard";
+import { FitBadge, NotInterestedButton, ScoreButton } from "./ScoredJobCard";
 
 // The daily run audit (asked 2026-11-17, moved from Settings to under New & Noteworthy's list the
 // same day): GET /api/digest/run-audit, core/run_audit.py.
@@ -387,7 +387,9 @@ export function RunAuditCard({ reload = 0 }: { reload?: number }) {
             items={audit.new_jobs}
             render={(s) => (
               <li key={s.source} className="small audit-row">
-                <Link to={`/all-jobs?source=${encodeURIComponent(s.source)}`}>
+                <Link
+                  to={`/all-jobs?source=${encodeURIComponent(s.source)}&sort=posted`}
+                >
                   {s.source}
                 </Link>
                 <span className="muted">{s.jobs}</span>
@@ -467,6 +469,11 @@ export function RunAuditCard({ reload = 0 }: { reload?: number }) {
                         jobId={j.id}
                         label="Score this job now"
                         onScored={() => setScoredHere((n) => n + 1)}
+                      />
+                      {/* Passing on it takes it out of the queue (asked 2026-11-18). */}
+                      <NotInterestedButton
+                        job={j}
+                        onDone={() => setScoredHere((n) => n + 1)}
                       />
                     </span>
                   </li>

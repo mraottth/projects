@@ -20,6 +20,7 @@ from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from jobhunt.core import dealbreakers
+from jobhunt.core.queue import STILL_WANTED_SQL
 from jobhunt.core.digest import SOURCE_IS_BOARD_SQL
 from jobhunt.core.settings import get_settings
 from jobhunt.core.users import current_user_id, get_user, is_admin
@@ -167,12 +168,12 @@ def audit(day: date, tz: str | None = None) -> dict:
             (uid, start, end),
         ).fetchall()
         waiting = conn.execute(
-            """SELECT j.id, j.title, j.company, j.location, j.remote_type, j.salary_min, j.salary_max,
+            f"""SELECT j.id, j.title, j.company, j.location, j.remote_type, j.salary_min, j.salary_max,
                       j.salary_currency, j.salary_period, j.source_id, s.name AS source, q.screen
                  FROM scoring_queue q JOIN jobs j ON j.id = q.job_id
                  JOIN sources s ON s.id = j.source_id
                  JOIN source_follows f ON f.source_id = s.id AND f.user_id = q.user_id AND f.enabled = 1
-                WHERE q.user_id = ? AND q.status = 'pending'
+                WHERE q.user_id = ? AND q.status = 'pending' AND {STILL_WANTED_SQL}
                 ORDER BY q.priority DESC, q.id""",
             (uid,),
         ).fetchall()

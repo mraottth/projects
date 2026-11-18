@@ -170,7 +170,7 @@ export default function JobDetailPage({ jobId: shownId }: { jobId?: number } = {
         <div className="form-actions pursue-actions">
           {!application && (
             <button className="ghost" onClick={track} disabled={busy === "track"}>
-              {busy === "track" ? <Spinner label="Tracking..." /> : "Track application"}
+              {busy === "track" ? <Spinner label="Adding..." /> : "Add to My Jobs"}
             </button>
           )}
           <button className="ghost" onClick={() => generate("resume")} disabled={busy === "resume"}>

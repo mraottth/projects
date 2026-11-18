@@ -134,7 +134,7 @@ function WhyNotDialog({
   onCancel,
   onSubmit,
 }: {
-  job: ScoredJob;
+  job: Pick<ScoredJob, "title" | "company">;
   open: boolean;
   busy: boolean;
   error: string | null;
@@ -251,6 +251,48 @@ export function JobActions({
       {tracked && <span className="muted small">Added to My Jobs — generate docs from the job page.</span>}
       {error && <span className="error-text small">{error}</span>}
     </div>
+  );
+}
+
+/** Not Interested on its own, for lists that aren't job cards (the run audit's waiting jobs, asked
+ * 2026-11-18): the same "why" dialog, then the feedback, which also takes the job out of the queue. */
+export function NotInterestedButton({
+  job,
+  onDone,
+}: {
+  job: { id: number; title: string; company: string };
+  onDone: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const submit = async (note?: string) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.submitFeedback(job.id, "not_interested", note);
+      setOpen(false);
+      onDone();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <>
+      <button className="ghost small" disabled={busy} onClick={() => setOpen(true)}>
+        Not Interested
+      </button>
+      <WhyNotDialog
+        job={job}
+        open={open}
+        busy={busy}
+        error={error}
+        onCancel={() => setOpen(false)}
+        onSubmit={submit}
+      />
+    </>
   );
 }
 
