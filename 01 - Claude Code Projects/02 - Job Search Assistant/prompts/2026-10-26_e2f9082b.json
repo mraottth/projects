@@ -518,8 +518,16 @@
    "time": "2026-11-18T17:21:41.701Z",
    "kind": "prompt",
    "text": "If a user says \"Not interested\" for a job, we should ask them why not and use that information to improve future scoring",
-   "reply": null,
+   "reply": "Clicking \"Not Interested\" now asks why, and the next score uses the answer. It's pushed on `claude/not-interested-reason` but not merged or deployed.\n\n**What the person sees:** a \"Why isn't this one for you?\" dialog with:\n- Quick reasons to tick: not my line of work, too senior, too junior, pay too low, location, not this organization, not a sector I want, already applied or seen it.\n- An \"Anything else?\" box for their own words.\n- \"Save and hide this job\", which needs an answer, and \"Skip\", which still hides the job without a reason.\n- Closing the dialog cancels, so the job stays.\n\n**How it improves scoring:**\n- Every score now includes the last 25 reasons in its instructions to Claude, so a new reason counts from the very next score. Before this, scoring only saw the 10 most recent marks, with no reasons, and the preference profile took up to a week to catch up.\n- The scoring instructions now say to lower interest fit when a posting shares what the person objected to. Fit stays based on qualifications, and a reason about one organization or role doesn't rule out others.\n- The preference profile now weighs stated reasons heavily and turns repeated ones into patterns.\n- The extra cost is almost nothing, because the reasons sit in the cached part of the prompt, which is billed at a tenth of the price.\n\nJobs that were already scored keep their ratings until they're rescored. The relevance check doesn't use the reasons yet. It could set aside more jobs early, but a wrong call there hides a job without ever scoring it, so I left that for later.\n\nI recorded this as decision D-038, with a Product Timeline entry called \"Tell it why not\".\n\n**Checks:**\n- All 634 tests pass, including new ones confirming the reasons are stored and reach the scoring instructions.\n- On the throwaway local server, a saved reason was stored as \"Too senior — I want a hands-on role\", and a skipped one was stored with no reason.\n- In the demo, at desktop and phone widths, Escape cancels and clicking inside the dialog doesn't open the job behind it. The demo blocks the save itself because it's read-only.\n\nI built this branch on top of the 10am-read branch, which also isn't live yet. Merging it ships both, and the 10am read also needs `make scheduler-setup` to create its scheduled job. Want me to merge, deploy and run that?",
    "id": "e2f9082b-091",
+   "session": "e2f9082b"
+  },
+  {
+   "time": "2026-11-18T17:28:28.888Z",
+   "kind": "prompt",
+   "text": "The day's status should be yellow on the calendar if only the read-only run has completed. Once that change is made you can merge and deploy",
+   "reply": null,
+   "id": "e2f9082b-092",
    "session": "e2f9082b"
   }
  ]
