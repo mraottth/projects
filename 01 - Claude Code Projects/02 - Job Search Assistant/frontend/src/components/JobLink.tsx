@@ -30,7 +30,8 @@ export function useOpenJobOnClick(jobId: number) {
   return useCallback(
     (e: MouseEvent<HTMLElement>) => {
       const target = e.target as HTMLElement;
-      if (target.closest("a, button, input, select, textarea, label, summary, details")) return;
+      // A dialog opened from the card (e.g. Not Interested's "why not") sits inside it in React's tree.
+      if (target.closest("a, button, input, select, textarea, label, summary, details, dialog")) return;
       if (window.getSelection()?.toString()) return;
       navigate(`/jobs/${jobId}`, { state: { background: state?.background ?? location } });
     },

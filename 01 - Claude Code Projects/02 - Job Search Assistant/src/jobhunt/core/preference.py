@@ -9,7 +9,9 @@ far more about genuine fit than a bare "interested" mark. Statuses: saved (draft
 no response yet), interviewing, offer, rejected_no_interview (a weaker match on paper), \
 rejected_interviewed (got through screening, so not a fit problem on paper), withdrawn (they lost \
 interest). Distinguish "wasn't a good candidate fit" from "wasn't actually interested"), and their \
-raw interested/not_interested/maybe marks (weaker, faster signal).
+raw interested/not_interested/maybe marks (weaker, faster signal). A not_interested mark with a note \
+is different: the note is the person's own reason for passing on that job, so weigh it heavily and \
+turn reasons that recur into clear patterns of what to avoid.
 
 Write an updated profile (200-400 words): what roles/companies/locations/comp ranges they actually \
 respond to, patterns in what they reject even when "on paper" qualified, and anything the application \

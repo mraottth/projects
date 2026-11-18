@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from jobhunt.api.applications import CreateApplicationRequest, create_application
 from jobhunt.core.llm import LLMError
@@ -24,7 +24,8 @@ class ManualImportRequest(BaseModel):
 
 class FeedbackRequest(BaseModel):
     interested: str
-    note: str | None = None
+    # Why they passed, from the "Not Interested" dialog (asked 2026-11-18); scoring reads it.
+    note: str | None = Field(default=None, max_length=1000)
 
 
 class JobUpdateRequest(BaseModel):
@@ -325,6 +326,6 @@ def submit_feedback(job_id: int, payload: FeedbackRequest):
     with get_db() as conn:
         conn.execute(
             "INSERT INTO feedback (user_id, job_id, interested, note) VALUES (?, ?, ?, ?)",
-            (current_user_id(), job_id, payload.interested, payload.note),
+            (current_user_id(), job_id, payload.interested, (payload.note or "").strip() or None),
         )
     return {"ok": True}

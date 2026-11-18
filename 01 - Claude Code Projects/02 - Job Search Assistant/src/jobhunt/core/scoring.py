@@ -23,13 +23,19 @@ SYSTEM_PROMPT = """You are helping a job seeker triage incoming postings. You wi
 candidate profile (career history/competencies/interests), their current preference profile (what \
 they tend to respond to, learned from past feedback and application outcomes -- may be empty if they're \
 just getting started), their desired sectors/industries, their desired job titles, their minimum \
-salary, a free-text note in their own words about what they're looking for, a few of their most \
-recent raw feedback marks, and one job posting.
+salary, a free-text note in their own words about what they're looking for, the reasons they gave \
+for passing on earlier postings, a few of their most recent raw feedback marks, and one job posting.
 
 The free-text note is the most direct signal you have -- it's the candidate describing what they \
 want in their own words, not a structured field that forces them into a category. Weigh it heavily \
 alongside the structured fields, and let it override a generic reading of the structured fields \
 when the two seem to pull in different directions.
+
+The reasons they gave for passing on earlier postings are also their own words, about what they \
+don't want. When this posting shares what they objected to (the line of work, seniority, sector, \
+kind of organization, pay, location or anything else they named), lower interest_fit and say so in \
+the rationale. Read each reason for what it says: one about a single organization or role doesn't \
+rule out others unless it says so. These reasons bear on interest_fit, not candidate_fit.
 
 Desired titles and minimum salary are GUIDANCE, not a filter -- do not require a literal title match. \
 If they said "Analytics Director," a posting titled "VP of Analytics," "Director of Data," or "Head \
@@ -126,6 +132,27 @@ class ScoredPosting(JobScore):
     salary_max: float | None
     salary_currency: str | None
     salary_period: Literal["year", "hour"] | None
+
+
+# How many of their reasons for passing on a job the scoring prompt carries (asked 2026-11-18).
+PASSED_REASONS_LIMIT = 25
+
+
+def _passed_reasons_text(limit: int = PASSED_REASONS_LIMIT) -> str:
+    """The reasons they gave for "Not Interested" (feedback.note), newest first, so they reach
+    every score at once rather than waiting for the preference profile's next rebuild. Ordered by
+    id too, so the cached prompt stays the same between calls."""
+    with get_db() as conn:
+        rows = conn.execute(
+            """SELECT f.note, j.title, j.company
+               FROM feedback f JOIN jobs j ON j.id = f.job_id
+               WHERE f.user_id = ? AND f.interested = 'not_interested' AND TRIM(COALESCE(f.note, '')) != ''
+               ORDER BY f.created_at DESC, f.id DESC LIMIT ?""",
+            (current_user_id(), limit),
+        ).fetchall()
+    if not rows:
+        return "(none given yet)"
+    return "\n".join(f"- {row['title']} at {row['company']}: {row['note'].strip()}" for row in rows)
 
 
 def _recent_feedback_text(limit: int = 10) -> str:
@@ -253,6 +280,7 @@ def _request_parts(
         f"## Desired job titles (guidance, not a required exact match)\n{titles_text}\n\n"
         f"## Minimum salary (guidance, not a hard cutoff)\n{salary_text}\n\n"
         f"## In their own words, what they're looking for\n{notes_text}\n\n"
+        f"## Why they passed on earlier jobs (their own reasons, newest first)\n{_passed_reasons_text()}\n\n"
         f"## Recent feedback\n{_recent_feedback_text()}"
     )
     system = [

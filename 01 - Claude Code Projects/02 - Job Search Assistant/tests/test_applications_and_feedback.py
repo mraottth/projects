@@ -150,3 +150,53 @@ def test_delete_application_preserves_generated_documents_but_detaches_them():
         ).fetchone()
     assert doc is not None
     assert doc["application_id"] is None
+
+
+def test_a_reason_for_not_interested_reaches_the_scoring_prompt():
+    """Not Interested asks why (asked 2026-11-18); the reason is the feedback's note, and every
+    score reads the reasons, newest first, without waiting for a preference rebuild."""
+    from jobhunt.core import scoring
+    from jobhunt.core.users import acting_as
+
+    senior, sales, liked, skipped = (
+        _insert_job("VP of Data", "BigCo"),
+        _insert_job("Sales Analyst", "Shop"),
+        _insert_job("Data Lead", "Civic"),
+        _insert_job("Analyst", "Other"),
+    )
+    with TestClient(app) as client:
+        for job, value, note in (
+            (senior, "not_interested", "  Too senior — I want a hands-on role "),
+            (sales, "not_interested", "Not my line of work"),
+            (liked, "interested", "Great mission"),
+            (skipped, "not_interested", "   "),
+        ):
+            resp = client.post(f"/api/jobs/{job}/feedback", json={"interested": value, "note": note})
+            assert resp.status_code == 200
+        too_long = client.post(
+            f"/api/jobs/{senior}/feedback", json={"interested": "not_interested", "note": "x" * 1001}
+        )
+        assert too_long.status_code == 422
+
+    with get_db() as conn:
+        assert conn.execute("SELECT note FROM feedback WHERE job_id = ?", (skipped,)).fetchone()[0] is None
+    with acting_as(1):
+        reasons = scoring._passed_reasons_text()
+        assert reasons.splitlines() == [
+            "- Sales Analyst at Shop: Not my line of work",
+            "- VP of Data at BigCo: Too senior — I want a hands-on role",
+        ]
+        system, _ = scoring._request_parts(
+            {"title": "Director", "company": "X"}, "profile", None, None, None, None, None
+        )
+    context = system[1]["text"]
+    assert "## Why they passed on earlier jobs" in context and "Not my line of work" in context
+    assert "reasons they gave for passing" in system[0]["text"]
+
+
+def test_no_reasons_yet_reads_as_none():
+    from jobhunt.core import scoring
+    from jobhunt.core.users import acting_as
+
+    with acting_as(1):
+        assert scoring._passed_reasons_text() == "(none given yet)"

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { JobLink, useOpenJobOnClick } from "./JobLink";
 import { api, ApiError, APPLICATION_STATUS_LABELS, ApplicationStatus, ScoredJob } from "../api";
 import { Markdown } from "./Markdown";
+import { Modal } from "./Modal";
 import { Spinner } from "./Spinner";
 import { DEMO } from "../demo";
 
@@ -110,6 +111,79 @@ export function FitBadge({ label, value }: { label: string; value: string | null
   );
 }
 
+// Quick reasons for "Not Interested" (asked 2026-11-18). Picked ones and the free text become the
+// feedback's note, which scoring reads (core/scoring.py's _passed_reasons_text) and the preference
+// profile learns from.
+const PASS_REASONS = [
+  "Not my line of work",
+  "Too senior",
+  "Too junior",
+  "Pay too low",
+  "Location",
+  "Not this organization",
+  "Not a sector I want",
+  "Already applied or seen it",
+];
+
+/** Asks why a job isn't for them before it's marked Not Interested. Closing it cancels. */
+function WhyNotDialog({
+  job,
+  open,
+  busy,
+  error,
+  onCancel,
+  onSubmit,
+}: {
+  job: ScoredJob;
+  open: boolean;
+  busy: boolean;
+  error: string | null;
+  onCancel: () => void;
+  onSubmit: (note?: string) => void;
+}) {
+  const [picked, setPicked] = useState<string[]>([]);
+  const [text, setText] = useState("");
+  const toggle = (r: string) =>
+    setPicked((p) => (p.includes(r) ? p.filter((x) => x !== r) : [...p, r]));
+  const note = [picked.join("; "), text.trim()].filter(Boolean).join(" — ");
+  return (
+    <Modal open={open} onClose={onCancel} title="Why isn't this one for you?">
+      <div className="outreach-form why-not">
+        <p className="muted small">
+          {job.title} · {job.company}. Your answer shapes how future jobs are scored. Pick any that
+          apply, or skip.
+        </p>
+        <div className="chip-toggle-group">
+          {PASS_REASONS.map((r) => (
+            <button key={r} className={`chip-toggle${picked.includes(r) ? " on" : ""}`} onClick={() => toggle(r)}>
+              {r}
+            </button>
+          ))}
+        </div>
+        <label className="fsection">
+          <span className="flabel">Anything else?</span>
+          <textarea
+            rows={3}
+            maxLength={900}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="e.g. I'm done with campaign work; I want a smaller team"
+          />
+        </label>
+        <div className="form-actions">
+          <button className="primary" disabled={busy || !note} onClick={() => onSubmit(note)}>
+            {busy ? <Spinner label="Saving..." /> : "Save and hide this job"}
+          </button>
+          <button className="ghost" disabled={busy} onClick={() => onSubmit(undefined)}>
+            Skip
+          </button>
+          {error && <span className="error-text small">{error}</span>}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 export function JobActions({
   job,
   onDismissed,
@@ -123,13 +197,15 @@ export function JobActions({
   const [tracked, setTracked] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [askingWhy, setAskingWhy] = useState(false);
 
-  const sendFeedback = async (value: "interested" | "not_interested") => {
+  const sendFeedback = async (value: "interested" | "not_interested", note?: string) => {
     setBusy(true);
     setError(null);
     try {
-      await api.submitFeedback(job.id, value);
+      await api.submitFeedback(job.id, value, note);
       setFeedback(value);
+      setAskingWhy(false);
       if (value === "interested") {
         try {
           await api.createApplication(job.id);
@@ -160,10 +236,18 @@ export function JobActions({
       <button
         className="ghost small"
         disabled={busy || feedback === "not_interested"}
-        onClick={() => sendFeedback("not_interested")}
+        onClick={() => setAskingWhy(true)}
       >
         Not Interested
       </button>
+      <WhyNotDialog
+        job={job}
+        open={askingWhy}
+        busy={busy}
+        error={error}
+        onCancel={() => setAskingWhy(false)}
+        onSubmit={(note) => sendFeedback("not_interested", note)}
+      />
       {tracked && <span className="muted small">Added to My Jobs — generate docs from the job page.</span>}
       {error && <span className="error-text small">{error}</span>}
     </div>
