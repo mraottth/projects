@@ -127,5 +127,10 @@
   "e2f9082b-084": "operational: catching up on a cloud session's changes",
   "e2f9082b-086": "general question, no product change: cost of scoring only Mon/Wed/Fri",
   "e2f9082b-087": "operational: deploy request",
-  "e2f9082b-089": "operational: deploy request"
+  "e2f9082b-089": "operational: deploy request",
+  "ab602548-246": "general question, no product change: cost of a Mon/Wed/Fri scoring schedule",
+  "ab602548-247": "operational: resent duplicate of the previous question",
+  "ab602548-248": "general question, no product change: monthly cost per user at 10/15/20 jobs a day",
+  "ab602548-249": "general question, no product change: cost of a 10am read (built in another session)",
+  "ab602548-250": "operational: catching up with another session's commits"
 }
