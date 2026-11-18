@@ -510,8 +510,16 @@
    "time": "2026-11-18T17:12:58.269Z",
    "kind": "prompt",
    "text": "Let's set it up so that sources are read every morning at 10:00am ET. The relevance screen should run right afte. Jobs that pass the relevance screen should land in \"Waiting to be scored now\" (change text to \"Waiting to be scored\") on the \"Daily run audit\" and there should be a button for the user to \"Score this job now.\" These non-scoring runs should also be logged in the \"Daily run audit\"",
-   "reply": null,
+   "reply": "Sources will now be read every morning at 10:00am ET, with the relevance check right after and no scoring. It's built and pushed on `claude/morning-read`, but nothing is live yet.\n\n**The 10am read:**\n- A second scheduled job runs at 10am. It reads every source, queues new jobs and runs the relevance check.\n- It doesn't score, send the daily email or rebuild your preference profile.\n- The 2pm check still reads sources, scores, and sends the email as before.\n\n**Daily run audit:**\n- Each check is now listed with what it did, e.g. \"10:00 AM: read sources and ran the relevance check, no scoring\" and \"2:00 PM: read sources and scored 7 jobs\".\n- \"Waiting to be scored now\" is renamed \"Waiting to be scored\", and each job has a **Score this job now** button. A scored job moves to the Scored list.\n- The calendar counts a morning-only day as green.\n\nThe Admin page's Daily check card now names \"the 10am read\" and says it ran the relevance check rather than giving a scored count.\n\n**Cost:** the second read adds at most a few dollars a month, because only pages that changed since the last read cost anything (about 0.6¢ each). The relevance check costs a fraction of a cent a day. The new scheduled job is about $0.10 a month, since only three are free and this makes five. Scoring a job early with the button costs about 1.5¢, versus about 0.5¢ in the 2pm batch.\n\nI recorded this as decision D-037, with a Product Timeline entry called \"Morning reads\".\n\nAll 632 tests pass, including new ones confirming the 10am read never scores or emails. I checked the audit at desktop and phone widths on the throwaway local server. Clicking \"Score this job now\" there reached the scoring endpoint and failed only because that server has no API key.\n\n**Before you ship:**\n- **Last updated:** New & Noteworthy's \"Last updated\" will show the 10am read, since sources were checked then, even though scoring happens at 2pm.\n- **Shipping takes two steps:** merge, push and deploy as usual, then `make scheduler-setup` to create the 10am job in Cloud Scheduler. That second command also re-applies the existing scheduler permissions, which changes nothing that's already set.\n\nWant me to do both?",
    "id": "e2f9082b-090",
+   "session": "e2f9082b"
+  },
+  {
+   "time": "2026-11-18T17:21:41.701Z",
+   "kind": "prompt",
+   "text": "If a user says \"Not interested\" for a job, we should ask them why not and use that information to improve future scoring",
+   "reply": null,
+   "id": "e2f9082b-091",
    "session": "e2f9082b"
   }
  ]
