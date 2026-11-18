@@ -1122,7 +1122,15 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 .audit-error { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
 .audit-scroll { max-height: 360px; overflow-y: auto; }
 /* The audit's day picker (asked 2026-11-18): green ran, gray didn't, red failed. */
-.audit-cal { width: 252px; max-width: 100%; margin-bottom: 4px; }
+/* Hidden until the day button is clicked (asked 2026-11-18), floating over the card. */
+.audit-day-picker { position: relative; }
+.audit-day-label { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+.audit-day-popover {
+  position: absolute; top: calc(100% + 4px); right: 0; z-index: 30; padding: 12px;
+  background: var(--card); border: 1px solid var(--ring); border-radius: 10px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.12);
+}
+.audit-cal { width: 252px; max-width: calc(100vw - 64px); }
 .audit-cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; font-size: 0.9rem; }
 .audit-cal-head .link { font-size: 1.2rem; line-height: 1; padding: 0 6px; text-decoration: none; }
 .audit-cal-head .link:disabled { color: var(--grid); cursor: default; }

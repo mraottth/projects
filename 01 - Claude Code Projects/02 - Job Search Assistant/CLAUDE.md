@@ -805,7 +805,7 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     /api/digest/run-audit?date=&tz=`, registered before `/{digest_date}`; `components/RunAudit.tsx`).
     It sits in New & Noteworthy's job-card column, after the cards and a thin line (`.audit-divider`) (under the empty-day card when there are none; moved there from Settings the same day), reloads after
     a Refresh, and is hidden in the demo. For a day in the
-    browser's time zone, picked on a month calendar (`AuditCalendar`, `GET
+    browser's time zone, picked on a month calendar hidden until the header's day button is clicked (`DayPicker`: the day's name with its status dot; the calendar floats over the card and closes on a pick, an outside click or Escape; asked 2026-11-18) (`AuditCalendar`, `GET
     /api/digest/run-calendar?month=YYYY-MM&tz=` → `run_audit.calendar()`; asked 2026-11-18 in place
     of a dropdown of the last 14 days), whose days are green when a check of theirs ran, red when a
     daily check failed for them (this wins over green, so a failure stays visible after a later

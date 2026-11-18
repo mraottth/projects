@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   api,
@@ -64,15 +64,18 @@ function AuditCalendar({
   selected,
   onPick,
   reload,
+  open,
 }: {
   selected: string;
   onPick: (day: string) => void;
   reload: number;
+  open: boolean;
 }) {
   const [month, setMonth] = useState(selected.slice(0, 7));
   const [cal, setCal] = useState<RunCalendar | null>(null);
 
-  useEffect(() => setMonth(selected.slice(0, 7)), [selected]);
+  // Opens on the chosen day's month, wherever it was left.
+  useEffect(() => setMonth(selected.slice(0, 7)), [selected, open]);
   useEffect(() => {
     let live = true;
     api
@@ -164,6 +167,68 @@ function AuditCalendar({
   );
 }
 
+/**
+ * The chosen day, with its status color, as a button that opens the calendar (asked 2026-11-18:
+ * hidden until wanted). It floats over the card, and closes on a pick, an outside click or Escape.
+ */
+function DayPicker({
+  day,
+  status,
+  onPick,
+  reload,
+}: {
+  day: string;
+  status: RunDayStatus;
+  onPick: (day: string) => void;
+  reload: number;
+}) {
+  const ref = useRef<HTMLDetailsElement>(null);
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const close = (e: MouseEvent | KeyboardEvent) => {
+      const el = ref.current;
+      if (!el?.open) return;
+      if (
+        e instanceof KeyboardEvent
+          ? e.key === "Escape"
+          : !el.contains(e.target as Node)
+      )
+        el.open = false;
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, []);
+  return (
+    <details
+      className="ms-dropdown audit-day-picker"
+      ref={ref}
+      onToggle={(e) => setOpen(e.currentTarget.open)}
+    >
+      <summary title={`${dayName(day)}: ${DAY_STATUS[status]}`}>
+        <span className="audit-day-label">
+          <i className={`audit-cal-dot ${status}`} />
+          {dayName(day)}
+        </span>
+      </summary>
+      <div className="audit-day-popover">
+        <AuditCalendar
+          selected={day}
+          open={open}
+          reload={reload}
+          onPick={(d) => {
+            onPick(d);
+            if (ref.current) ref.current.open = false;
+          }}
+        />
+      </div>
+    </details>
+  );
+}
+
 /** A list that shows its first few rows, then "Show all N". */
 function ShortList<T>({
   items,
@@ -224,9 +289,20 @@ export function RunAuditCard({ reload = 0 }: { reload?: number }) {
     <div className="card run-audit">
       <div className="usage-head">
         <h2>Daily run audit</h2>
-        <span className="muted">{dayName(audit.date)}</span>
+        <DayPicker
+          day={audit.date}
+          // The calendar's rule (core/run_audit.calendar): a failure wins over a check that ran.
+          status={
+            audit.failures.length
+              ? "failed"
+              : audit.checks.length
+                ? "ran"
+                : "none"
+          }
+          onPick={setDay}
+          reload={reload}
+        />
       </div>
-      <AuditCalendar selected={audit.date} onPick={setDay} reload={reload} />
 
       <div className="audit-section">
         <h3>Checks</h3>
