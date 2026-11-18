@@ -453,7 +453,10 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   LLM scoring call, and the priority queue/daily-cap mechanism it feeds (unscored jobs carry over
   with an age bonus so a capped day doesn't starve the backlog). `select_batch()` takes jobs
   round-robin across sources (`ROW_NUMBER() OVER (PARTITION BY source_id)`): every source's best
-  job, then every source's second-best, and so on. A plain top-N by priority let one big board
+  job, then every source's second-best, and so on. Only jobs still worth scoring are taken
+  (`queue.STILL_WANTED_SQL`, asked 2026-11-18): the posting is open (`jobs.status = 'active'`) and the
+  person hasn't marked it Not Interested. The relevance check and the run audit's waiting list use the
+  same rule. Nothing is deleted, so a reopened posting or changed feedback brings a job back. A plain top-N by priority let one big board
   whose postings all matched the titles/sectors take every slot of onboarding's 20-job first run
   (caught live: only Civis jobs got scored, so All Jobs showed only Civis).
 - `src/jobhunt/core/page_fetch.py` + `core/browser_fetch.py` — fetch a page's readable text, trying
@@ -834,10 +837,11 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     "failed": {id: error}}`, a MIGRATIONS ALTER), from `_poll_sources`' `sources_read` (including
     sources reused from a read within the hour) and `sources_failed`. Older runs show "Not
     recorded". A new source's immediate check writes no `runs` row. The card also shows new jobs per
-    followed source (`first_seen_at` that day, counts above 0, linked to All Jobs), the jobs scored
+    followed source (`first_seen_at` that day, counts above 0, linked to All Jobs filtered to that source and sorted by date posted, `&sort=posted`), the jobs scored
     that day (`job_scores.scored_at`; a rescore is marked; best first by interest + fit score, as New & Noteworthy ranks), and the jobs **Waiting to be scored** (renamed from "Waiting to be scored now" 2026-11-18; each
     with "Score this job now", the shared `ScoreButton` → `POST /api/jobs/{id}/score`, live and outside
-    the daily cap, after which the audit reloads so it moves to Scored) in the order
+    the daily cap, after which the audit reloads so it moves to Scored) and **Not Interested** (asked 2026-11-18;
+    `NotInterestedButton`, the same "why" dialog as job cards, after which the job leaves the list) in the order
     they'd be scored (each source's best, then each one's second best, after leaving out jobs set
     aside or hidden by a dealbreaker, which are counted instead). The queue isn't kept per day.
   - **The Admin page's "Daily check" card.** `run_daily()` gives the everyone run (scheduled, or the
@@ -982,7 +986,7 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   `GET /api/jobs/ranked` (`api/jobs.py`, registered *before* `/{job_id}` since Starlette matches
   path templates in order -- a later `/ranked` would 404 as an invalid `job_id`) -- every active
   job from a tracked source (`source_id NOT NULL`), scored or not, ranked best-first, the uncapped
-  view the daily cap's 50-job limit would otherwise hide. `ManageSourcesPage` (route `/sources`, a
+  view the daily cap's 50-job limit would otherwise hide. It also reads `?sort=` (any Sort by choice), which the run audit's New jobs links set to `posted`. `ManageSourcesPage` (route `/sources`, a
   wide route) is purely source management, in two side-by-side `SourcePanel`s (`.sources-grid`;
   one column under 860px), each a fixed-height card whose list scrolls. A source is a compact
   `SourceRow` (each panel has a search box over name, employer, kind and config, showing "N of M"
@@ -1245,7 +1249,7 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
 - On both `DigestPage` and `AllJobsPage`, marking a job "Interested" records the feedback *and*
   auto-creates an `applications` row the same way -- `components/ScoredJobCard.tsx` (`JobActions`)
   is the one shared implementation both pages use, so this only exists in one place. `JobDetailPage`
-  keeps a manual "Track application" button as a fallback for reaching the tracker without going
+  keeps a manual "Add to My Jobs" button (renamed from "Track application" 2026-11-18) as a fallback for reaching the tracker without going
   through feedback first. Both job-listing pages are filterable client-side by interest fit /
   candidate fit, reusing the scores already on each entry. Marking "Not interested" on
   `DigestPage` additionally removes the card from view immediately (`JobActions` takes an optional

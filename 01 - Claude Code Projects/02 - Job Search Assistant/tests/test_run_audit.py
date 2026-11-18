@@ -258,7 +258,8 @@ def test_closed_and_dismissed_jobs_leave_the_queue_until_they_come_back():
     with get_db() as conn:
         conn.execute("UPDATE jobs SET status = 'expired' WHERE id = ?", (closed,))
         conn.execute(
-            "INSERT INTO feedback (user_id, job_id, interested, note) VALUES (1, ?, 'not_interested', 'Too senior')",
+            "INSERT INTO feedback (user_id, job_id, interested, note) "
+            "VALUES (1, ?, 'not_interested', 'Too senior')",
             (passed,),
         )
 
