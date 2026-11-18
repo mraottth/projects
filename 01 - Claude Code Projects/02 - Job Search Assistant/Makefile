@@ -208,7 +208,7 @@ IAP_CLIENT_ID ?= $(error set IAP_CLIENT_ID on the command line -- the OAuth clie
 # --attempt-deadline 1800s (Cloud Scheduler's maximum): a full run takes 5-25 minutes, and the
 # default 180s made every run show DEADLINE_EXCEEDED in the scheduler's log even when it succeeded,
 # hiding the real 500s (2026-11-02).
-scheduler-setup:  ## create/update the daily Cloud Scheduler job (M6) -- also grants the default
+scheduler-setup:  ## create/update the daily Cloud Scheduler jobs (2pm run-daily, 10am read-sources) -- also grants the default
                   ## compute service account IAP + Cloud Run invoker access, and grants Cloud
                   ## Scheduler's own service agent permission to mint tokens as it
 	gcloud run services add-iam-policy-binding jobhunt --project $(GCP_PROJECT) --region $(GCP_REGION) \
@@ -228,6 +228,16 @@ scheduler-setup:  ## create/update the daily Cloud Scheduler job (M6) -- also gr
 	       --uri "$$(gcloud run services describe jobhunt --project $(GCP_PROJECT) --region $(GCP_REGION) --format 'value(status.url)')/internal/run-daily" \
 	       --http-method POST --headers "X-Scheduler-Secret=$$(gcloud secrets versions access latest --secret=scheduler-secret --project $(GCP_PROJECT))" \
 	       --schedule "0 14 * * *" --time-zone "America/New_York" --attempt-deadline 1800s --oidc-service-account-email $(SCHEDULER_SA) --oidc-token-audience $(IAP_CLIENT_ID)
+	# The 10am read (asked 2026-11-18): read every source and run the relevance check, no scoring.
+	gcloud scheduler jobs describe read-sources --project $(GCP_PROJECT) --location $(GCP_REGION) >/dev/null 2>&1 \
+	  && gcloud scheduler jobs update http read-sources --project $(GCP_PROJECT) --location $(GCP_REGION) \
+	       --uri "$$(gcloud run services describe jobhunt --project $(GCP_PROJECT) --region $(GCP_REGION) --format 'value(status.url)')/internal/read-sources" \
+	       --http-method POST --update-headers "X-Scheduler-Secret=$$(gcloud secrets versions access latest --secret=scheduler-secret --project $(GCP_PROJECT))" \
+	       --schedule "0 10 * * *" --time-zone "America/New_York" --attempt-deadline 1800s --oidc-service-account-email $(SCHEDULER_SA) --oidc-token-audience $(IAP_CLIENT_ID) \
+	  || gcloud scheduler jobs create http read-sources --project $(GCP_PROJECT) --location $(GCP_REGION) \
+	       --uri "$$(gcloud run services describe jobhunt --project $(GCP_PROJECT) --region $(GCP_REGION) --format 'value(status.url)')/internal/read-sources" \
+	       --http-method POST --headers "X-Scheduler-Secret=$$(gcloud secrets versions access latest --secret=scheduler-secret --project $(GCP_PROJECT))" \
+	       --schedule "0 10 * * *" --time-zone "America/New_York" --attempt-deadline 1800s --oidc-service-account-email $(SCHEDULER_SA) --oidc-token-audience $(IAP_CLIENT_ID)
 
 # Keep the server warm 9:30am-8:30pm Eastern, every day (asked 2026-11-10, D-030): Cloud Scheduler
 # calls /internal/ping every 10 minutes, and a request keeps a Cloud Run instance up for about

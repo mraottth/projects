@@ -590,7 +590,13 @@ export interface RunCalendar {
 
 export interface RunAudit {
   date: string;
-  checks: { started_at: string; finished_at: string | null; errors: string[] }[];
+  checks: {
+    started_at: string;
+    finished_at: string | null;
+    errors: string[];
+    kind: "score" | "read";
+    scored: number;
+  }[];
   // Daily checks that failed for this person that day (core/run_audit.failures).
   failures: { started_at: string; message: string }[];
   sources: {
@@ -759,6 +765,8 @@ export interface DailyRunStatus {
   latest: {
     status: "running" | "ok" | "failed" | "unfinished";
     started_by: "scheduled" | "admin";
+    // 'read' = the 10am read (no scoring); NULL on runs from before it (asked 2026-11-18).
+    kind: "score" | "read" | null;
     started_at: string;
     finished_at: string | null;
     error: string | null;

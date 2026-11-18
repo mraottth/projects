@@ -647,8 +647,9 @@ def _record_run(summary: dict) -> None:
         conn.execute(
             """INSERT INTO runs
                (user_id, run_date, started_at, finished_at, sources_polled, jobs_fetched, jobs_deduped,
-                prefiltered_count, llm_scored_count, cap_used, carried_over_count, errors_json, audit_json)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                prefiltered_count, llm_scored_count, cap_used, carried_over_count, errors_json, audit_json,
+                kind)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 optional_user_id(),
                 date.today().isoformat(),
@@ -663,6 +664,7 @@ def _record_run(summary: dict) -> None:
                 summary["carried_over_count"],
                 json.dumps(summary["errors"]),
                 json.dumps(summary["audit"]) if summary.get("audit") else None,
+                summary.get("kind", "score"),
             ),
         )
 
@@ -674,10 +676,13 @@ def _run_for_person(
     cap: int | None,
     email: bool = True,
     batch_deadline: float | None = None,
+    score: bool = True,
 ) -> dict:
     """Everything after polling, for one person: queue the new jobs from sources they follow,
     score up to what's left of their daily cap, build their New & Noteworthy, refresh their
-    preference profile if due, and send their email."""
+    preference profile if due, and send their email. With `score` False (the 10am read, asked
+    2026-11-18) it stops after the relevance check: the jobs wait for the 2pm run or "Score this
+    job now", and there's no email or profile rebuild."""
     with acting_as(user_id):
         followed = _followed_source_ids(user_id)
         job_ids = [
@@ -692,8 +697,9 @@ def _run_for_person(
         allowed = remaining_cap(cap)
         has_profile = get_current_candidate_profile() is not None
         over_budget = budget.status(user_id)["over"]
-        if not has_profile:
-            # Nothing to score against until they've set up a profile (onboarding builds one).
+        if not has_profile or not score:
+            # Nothing to score against until they've set up a profile (onboarding builds one), or
+            # a read-only run.
             allowed = 0
         if allowed and over_budget:
             # This month's budget is used up: skip the batch rather than fail job by job.
@@ -711,13 +717,13 @@ def _run_for_person(
             scored_count, errors = _score_and_digest(batch, batch_deadline)
             scoring_errors.extend(errors)
         try:
-            preference_rebuilt = _maybe_rebuild_preference_profile()
+            preference_rebuilt = _maybe_rebuild_preference_profile() if score else False
         except Exception as exc:  # noqa: BLE001 - an optional step; the run carries on without it
             logger.exception("preference profile rebuild for user %s failed", user_id)
             scoring_errors.append(f"preference profile: {describe_error(exc)}")
 
         email_result = None
-        if email:
+        if email and score:
             # The email goes out once the digest is built. A mail failure must never fail the run.
             try:
                 email_result = send_new_jobs_email()
@@ -744,6 +750,7 @@ def _run_for_person(
             "preference_profile_rebuilt": preference_rebuilt,
             "screened": screened,
             "email": email_result,
+            "kind": "score" if score else "read",
             # Today's cap is used up: New & Noteworthy says scoring resumes tomorrow.
             "cap_reached": remaining_cap() == 0,
             # The sources this check covered for them, for Settings' run audit.
@@ -760,12 +767,16 @@ def _run_for_person(
         return summary
 
 
-def run_daily(cap: int | None = None, only_user: int | None = None, fresh_hours: float | None = None) -> dict:
+def run_daily(
+    cap: int | None = None, only_user: int | None = None, fresh_hours: float | None = None, score: bool = True
+) -> dict:
     """The daily check: every source anyone approved follows is read once, then each person's
     jobs are scored (up to what's left of their daily cap), digested and emailed. With
     `only_user`, just that person's sources and jobs ("Check my sources now", onboarding's last
     step). `cap` further limits scoring for this run only -- onboarding scores just the top few so
-    the user isn't kept waiting; the rest stay queued for the next run."""
+    the user isn't kept waiting; the rest stay queued for the next run. With `score` False, the
+    10am read (asked 2026-11-18, `POST /internal/read-sources`): read, queue and run the relevance
+    check, nothing more; its `runs` rows have `kind` 'read'."""
     # Pin this run's progress to whoever started it, before the run switches between people.
     progress_token = _run_progress.set(_current_progress())
     try:
@@ -775,9 +786,9 @@ def run_daily(cap: int | None = None, only_user: int | None = None, fresh_hours:
             # The everyone run (scheduled, or the admin's "Check every source now") gets a row of
             # its own, written as it starts, so a run that crashes, or whose server is shut down
             # mid-run, still shows on the Admin page (2026-11-02: three days of 500s went unseen).
-            system_run = _system_run_started(started_at) if only_user is None else None
+            system_run = _system_run_started(started_at, score) if only_user is None else None
             try:
-                summary = _run_daily(started_at, cap, only_user, fresh_hours)
+                summary = _run_daily(started_at, cap, only_user, fresh_hours, score)
             except Exception as exc:
                 logger.exception("daily run failed")
                 if system_run is not None:
@@ -927,7 +938,11 @@ def _refresh_sources(source_ids: list[int], cap: int) -> dict:
 
 
 def _run_daily(
-    started_at: str, cap: int | None, only_user: int | None = None, fresh_hours: float | None = None
+    started_at: str,
+    cap: int | None,
+    only_user: int | None = None,
+    fresh_hours: float | None = None,
+    score: bool = True,
 ) -> dict:
     everyone = only_user is None
     if everyone:
@@ -937,7 +952,7 @@ def _run_daily(
     # Everyone's run covers only people active in the last week (users.ACTIVE_DAYS); anyone who just
     # lapsed is told once that their matches are paused.
     people = [only_user] if only_user is not None else active_user_ids()
-    paused_emails = _send_paused_emails() if everyone else 0
+    paused_emails = _send_paused_emails() if everyone and score else 0
     # Reading the shared sources is nobody's own spend on the scheduled run (llm_calls.user_id NULL);
     # someone's own "check my sources" is theirs.
     with acting_as(only_user) if only_user is not None else _nobody():
@@ -950,7 +965,8 @@ def _run_daily(
     # budget. Someone's own check, waiting on the page, scores live.
     batch_deadline = time.monotonic() + BATCH_TIME_BUDGET_SECONDS if everyone else None
     per_person = [
-        _run_for_person_safely(user_id, poll_result, started_at, cap, batch_deadline) for user_id in people
+        _run_for_person_safely(user_id, poll_result, started_at, cap, batch_deadline, score)
+        for user_id in people
     ]
 
     summary = {
@@ -1003,12 +1019,17 @@ def _send_paused_emails() -> int:
     return sent
 
 
-def _system_run_started(started_at: str) -> int:
+def _system_run_started(started_at: str, score: bool = True) -> int:
     with get_db() as conn:
         return conn.execute(
-            "INSERT INTO runs (user_id, run_date, started_at, status, started_by) "
-            "VALUES (NULL, ?, ?, 'running', ?)",
-            (date.today().isoformat(), started_at, "scheduled" if optional_user_id() is None else "admin"),
+            "INSERT INTO runs (user_id, run_date, started_at, status, started_by, kind) "
+            "VALUES (NULL, ?, ?, 'running', ?, ?)",
+            (
+                date.today().isoformat(),
+                started_at,
+                "scheduled" if optional_user_id() is None else "admin",
+                "score" if score else "read",
+            ),
         ).lastrowid
 
 
@@ -1044,14 +1065,21 @@ def describe_error(exc: BaseException) -> str:
 
 
 def _run_for_person_safely(
-    user_id: int, poll_result: dict, started_at: str, cap: int | None, batch_deadline: float | None = None
+    user_id: int,
+    poll_result: dict,
+    started_at: str,
+    cap: int | None,
+    batch_deadline: float | None = None,
+    score: bool = True,
 ) -> dict:
     """One person's part of the run. If it fails, the error goes into the run's summary (and so
     onto the Admin page's Daily check card) and the run moves on to the next person, rather than
     one person's problem taking down everyone's run. No `runs` row is written for them: their
     "Last updated" must not claim a check that didn't happen."""
     try:
-        return _run_for_person(user_id, poll_result, started_at, cap, batch_deadline=batch_deadline)
+        return _run_for_person(
+            user_id, poll_result, started_at, cap, batch_deadline=batch_deadline, score=score
+        )
     except Exception as exc:  # noqa: BLE001
         logger.exception("daily run for user %s failed", user_id)
         error = f"user {user_id}: {describe_error(exc)}"

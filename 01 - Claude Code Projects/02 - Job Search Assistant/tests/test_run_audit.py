@@ -108,6 +108,21 @@ def test_the_audit_for_a_day():
     assert out["new_jobs"] == [{"source": "Big Board", "jobs": 3}, {"source": "Acme", "jobs": 1}]
     assert [(s["title"], s["rescored"]) for s in out["scored"]] == [("Analyst", False), ("Lead", True)]
     assert out["failures"] == []
+    assert [(c["kind"], c["scored"]) for c in out["checks"]] == [("score", 0), ("score", 0)]
+
+
+def test_the_audit_tells_the_morning_read_from_a_scoring_check():
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO runs (user_id, run_date, started_at, finished_at, kind, llm_scored_count) "
+            "VALUES (1, '2026-11-17', '2026-11-17T15:00:00+00:00', '2026-11-17T15:01:00+00:00', 'read', 0)"
+        )
+        conn.execute(
+            "INSERT INTO runs (user_id, run_date, started_at, finished_at, kind, llm_scored_count) "
+            "VALUES (1, '2026-11-17', '2026-11-17T19:00:00+00:00', '2026-11-17T19:05:00+00:00', 'score', 12)"
+        )
+    checks = run_audit.audit(DAY, "America/New_York")["checks"]
+    assert [(c["kind"], c["scored"]) for c in checks] == [("read", 0), ("score", 12)]
 
 
 def test_the_queue_is_in_scoring_order_and_counts_what_it_hides():

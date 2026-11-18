@@ -1121,6 +1121,7 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 .audit-badges { display: inline-flex; gap: 6px; flex: 0 0 auto; }
 .audit-error { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
 .audit-scroll { max-height: 360px; overflow-y: auto; }
+.audit-waiting-side { display: inline-flex; align-items: center; gap: 10px; flex: 0 0 auto; flex-wrap: wrap; }
 /* The audit's day picker (asked 2026-11-18): green ran, gray didn't, red failed. */
 /* Hidden until the day button is clicked (asked 2026-11-18), floating over the card. */
 .audit-day-picker { position: relative; }

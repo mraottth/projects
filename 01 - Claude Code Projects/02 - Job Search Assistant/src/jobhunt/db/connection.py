@@ -43,6 +43,8 @@ MIGRATIONS = [
     "ALTER TABLE runs ADD COLUMN error TEXT",
     # What a person's check read, for Settings' run audit (core/run_audit.py).
     "ALTER TABLE runs ADD COLUMN audit_json TEXT",
+    # 'score' (the 2pm run, a Refresh, a check) or 'read' (the 10am read: no scoring). NULL = 'score'.
+    "ALTER TABLE runs ADD COLUMN kind TEXT",
     # The title screen's verdict on a waiting job (core/screening.py): NULL, 'keep' or 'drop'.
     "ALTER TABLE scoring_queue ADD COLUMN screen TEXT",
     "ALTER TABLE scoring_queue ADD COLUMN screened_at TEXT",

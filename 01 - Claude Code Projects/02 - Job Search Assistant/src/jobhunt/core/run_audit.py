@@ -138,7 +138,8 @@ def audit(day: date, tz: str | None = None) -> dict:
         runs = [
             dict(r)
             for r in conn.execute(
-                "SELECT started_at, finished_at, errors_json, audit_json FROM runs WHERE user_id = ? "
+                "SELECT started_at, finished_at, errors_json, audit_json, kind, llm_scored_count "
+                "FROM runs WHERE user_id = ? "
                 "ORDER BY id",
                 (uid,),
             )
@@ -221,6 +222,9 @@ def audit(day: date, tz: str | None = None) -> dict:
                 "started_at": r["started_at"],
                 "finished_at": r["finished_at"],
                 "errors": json.loads(r["errors_json"] or "[]"),
+                # 'read' for the 10am read (no scoring), else 'score' (asked 2026-11-18).
+                "kind": r["kind"] or "score",
+                "scored": r["llm_scored_count"] or 0,
             }
             for r in runs
         ],

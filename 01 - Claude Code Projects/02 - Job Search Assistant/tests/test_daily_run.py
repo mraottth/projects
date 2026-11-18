@@ -279,3 +279,52 @@ def test_run_daily_marks_progress_failed_on_crash(monkeypatch):
     with pytest.raises(RuntimeError):
         daily_run.run_daily()
     assert daily_run.get_progress()["stage"] == "failed"
+
+
+def test_the_morning_read_screens_but_scores_and_emails_nothing(monkeypatch):
+    """The 10am read (asked 2026-11-18): read and queue every source's jobs and run the relevance
+    check; scoring, the profile rebuild and the email wait for the 2pm run."""
+    _add_source()
+    monkeypatch.setattr(
+        daily_run,
+        "ADAPTERS",
+        {"ats_greenhouse": lambda source: [_make_posting("Engineer A"), _make_posting("Engineer B")]},
+    )
+    from jobhunt.core import scoring
+
+    def no_scoring():
+        raise AssertionError("the 10am read must not score")
+
+    calls = {"screen": 0, "email": 0, "rebuild": 0}
+
+    def screen(source_ids):
+        calls["screen"] += 1
+        return {"screened": 2, "set_aside": 0, "errors": []}
+
+    def email():
+        calls["email"] += 1
+        return {"sent": True}
+
+    def rebuild():
+        calls["rebuild"] += 1
+        return False
+
+    monkeypatch.setattr(scoring, "get_client", no_scoring)
+    monkeypatch.setattr(daily_run, "screen_pending", screen)
+    monkeypatch.setattr(daily_run, "send_new_jobs_email", email)
+    monkeypatch.setattr(daily_run, "_maybe_rebuild_preference_profile", rebuild)
+
+    summary = daily_run.run_daily(score=False)
+    assert summary["prefiltered_count"] == 2 and summary["llm_scored_count"] == 0
+    assert summary["carried_over_count"] == 2
+    assert calls == {"screen": 1, "email": 0, "rebuild": 0}
+    with get_db() as conn:
+        kinds = conn.execute("SELECT user_id, kind, status FROM runs ORDER BY id").fetchall()
+    assert [tuple(r) for r in kinds] == [(None, "read", "ok"), (1, "read", None)]
+
+    # The 2pm run then scores what the morning found, and sends the email.
+    monkeypatch.setattr(scoring, "get_client", lambda: _fake_score_client())
+    assert daily_run.run_daily()["llm_scored_count"] == 2
+    assert calls["email"] == 1
+    with get_db() as conn:
+        assert conn.execute("SELECT kind FROM runs ORDER BY id DESC LIMIT 1").fetchone()[0] == "score"

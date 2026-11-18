@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 
+from jobhunt.api import internal
 from jobhunt.api.main import app
 from jobhunt.pipeline import daily_run
 
@@ -64,6 +65,18 @@ def test_internal_run_daily_rejects_bad_secret(monkeypatch):
 
         resp = client.post("/internal/run-daily", headers={"X-Scheduler-Secret": "s3cr3t"})
         assert resp.status_code == 200
+
+
+def test_internal_read_sources_reads_without_scoring_behind_the_secret(monkeypatch):
+    monkeypatch.setenv("SCHEDULER_SECRET", "s3cr3t")
+    calls = []
+    monkeypatch.setattr(internal, "run_daily", lambda **kw: calls.append(kw) or {"llm_scored_count": 0})
+
+    with TestClient(app) as client:
+        assert client.post("/internal/read-sources").status_code == 403
+        resp = client.post("/internal/read-sources", headers={"X-Scheduler-Secret": "s3cr3t"})
+        assert resp.status_code == 200
+    assert calls == [{"score": False}]
 
 
 def test_ui_run_daily_needs_no_scheduler_secret(monkeypatch):

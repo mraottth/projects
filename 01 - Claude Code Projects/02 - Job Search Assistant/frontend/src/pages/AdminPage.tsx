@@ -278,13 +278,14 @@ function DailyCheck({ status }: { status: DailyRunStatus }) {
     return (
       <section className="card">
         <h2>Daily check</h2>
-        <p className="muted small">No daily check has run yet. It runs every day at 2:00pm ET.</p>
+        <p className="muted small">No daily check has run yet. Sources are read every day at 10:00am ET, and read and scored at 2:00pm ET.</p>
       </section>
     );
   }
   const minutes = (from: string, to: string) =>
     Math.max(1, Math.round((new Date(to).getTime() - new Date(from).getTime()) / 60000));
-  const who = run.started_by === "scheduled" ? "the 2pm check" : "your check";
+  const read = run.kind === "read";
+  const who = run.started_by === "scheduled" ? (read ? "the 10am read" : "the 2pm check") : "your check";
   const bad = run.status === "failed" || run.status === "unfinished";
   let headline: string;
   if (run.status === "running") headline = `Running now: ${who} started ${at(run.started_at)}.`;
@@ -305,8 +306,9 @@ function DailyCheck({ status }: { status: DailyRunStatus }) {
       </p>
       {run.status === "ok" && (
         <p className="muted small">
-          Read {run.sources_polled ?? 0} sources, found {run.jobs_fetched ?? 0} postings, and scored{" "}
-          {run.llm_scored_count ?? 0} jobs for {run.people ?? 0} {run.people === 1 ? "person" : "people"}.
+          {read ? "The 10am read: read" : "Read"} {run.sources_polled ?? 0} sources, found {run.jobs_fetched ?? 0}{" "}
+          postings, and {read ? "ran the relevance check" : `scored ${run.llm_scored_count ?? 0} jobs`} for{" "}
+          {run.people ?? 0} {run.people === 1 ? "person" : "people"}.
           {run.source_errors.length > 0 &&
             ` ${run.source_errors.length} problem${run.source_errors.length === 1 ? "" : "s"} along the way.`}
         </p>

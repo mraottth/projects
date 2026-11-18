@@ -7,7 +7,7 @@ import {
   type RunDayStatus,
 } from "../api";
 import { JobLink } from "./JobLink";
-import { FitBadge } from "./ScoredJobCard";
+import { FitBadge, ScoreButton } from "./ScoredJobCard";
 
 // The daily run audit (asked 2026-11-17, moved from Settings to under New & Noteworthy's list the
 // same day): GET /api/digest/run-audit, core/run_audit.py.
@@ -261,6 +261,8 @@ export function RunAuditCard({ reload = 0 }: { reload?: number }) {
   const [day, setDay] = useState<string | undefined>(undefined);
   const [audit, setAudit] = useState<RunAudit | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Bumped when a waiting job is scored here, so it moves from Waiting to Scored.
+  const [scoredHere, setScoredHere] = useState(0);
 
   useEffect(() => {
     api
@@ -270,7 +272,7 @@ export function RunAuditCard({ reload = 0 }: { reload?: number }) {
         setError(null);
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
-  }, [day, reload]);
+  }, [day, reload, scoredHere]);
 
   if (error)
     return (
@@ -311,13 +313,25 @@ export function RunAuditCard({ reload = 0 }: { reload?: number }) {
             Failed at {clock(f.started_at)}: {f.message}
           </p>
         ))}
-        <p className="small">
-          {audit.checks.length === 0
-            ? "No check ran this day."
-            : `${audit.checks.length} ${audit.checks.length === 1 ? "check" : "checks"}: ${audit.checks
-                .map((c) => clock(c.started_at))
-                .join(", ")}`}
-        </p>
+        {audit.checks.length === 0 ? (
+          <p className="small">No check ran this day.</p>
+        ) : (
+          // The 10am read stops after the relevance check; other checks score too (asked 2026-11-18).
+          <ul className="audit-list">
+            {audit.checks.map((c) => (
+              <li key={c.started_at} className="small">
+                {clock(c.started_at)}:{" "}
+                {c.kind === "read" ? (
+                  <span className="muted">
+                    read sources and ran the relevance check, no scoring
+                  </span>
+                ) : (
+                  `read sources and scored ${c.scored} ${c.scored === 1 ? "job" : "jobs"}`
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       <div className="audit-section">
@@ -408,7 +422,7 @@ export function RunAuditCard({ reload = 0 }: { reload?: number }) {
 
       <div className="audit-section">
         <h3>
-          Waiting to be scored now{" "}
+          Waiting to be scored{" "}
           <span className="chip-count">{q.jobs.length}</span>
         </h3>
         {(q.set_aside > 0 || q.hidden > 0) && (
@@ -429,7 +443,8 @@ export function RunAuditCard({ reload = 0 }: { reload?: number }) {
         ) : (
           <>
             <p className="small muted">
-              In the order they'll be scored, up to your daily limit each day.
+              In the order the 2pm check scores them, up to your daily limit.
+              Score one now to see it sooner (about a cent each).
             </p>
             <div className="audit-scroll">
               <ShortList
@@ -440,7 +455,14 @@ export function RunAuditCard({ reload = 0 }: { reload?: number }) {
                       <JobLink jobId={j.id}>{j.title}</JobLink>{" "}
                       <span className="muted">· {j.company}</span>
                     </span>
-                    <span className="muted">{j.source}</span>
+                    <span className="audit-waiting-side">
+                      <span className="muted">{j.source}</span>
+                      <ScoreButton
+                        jobId={j.id}
+                        label="Score this job now"
+                        onScored={() => setScoredHere((n) => n + 1)}
+                      />
+                    </span>
                   </li>
                 )}
               />

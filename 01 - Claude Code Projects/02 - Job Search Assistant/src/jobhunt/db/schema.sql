@@ -244,7 +244,9 @@ CREATE TABLE IF NOT EXISTS runs (
     started_by TEXT,
     error TEXT,
     -- A person's check: {"checked": [source ids], "failed": {id: error}} (Settings' run audit).
-    audit_json TEXT
+    audit_json TEXT,
+    -- 'score', or 'read' for the 10am read that stops after the relevance check. NULL = 'score'.
+    kind TEXT
 );
 
 CREATE TABLE IF NOT EXISTS llm_calls (
