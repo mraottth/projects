@@ -1121,4 +1121,25 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 .audit-badges { display: inline-flex; gap: 6px; flex: 0 0 auto; }
 .audit-error { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
 .audit-scroll { max-height: 360px; overflow-y: auto; }
+/* The audit's day picker (asked 2026-11-18): green ran, gray didn't, red failed. */
+.audit-cal { width: 252px; max-width: 100%; margin-bottom: 4px; }
+.audit-cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; font-size: 0.9rem; }
+.audit-cal-head .link { font-size: 1.2rem; line-height: 1; padding: 0 6px; text-decoration: none; }
+.audit-cal-head .link:disabled { color: var(--grid); cursor: default; }
+.audit-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.audit-cal-weekday { text-align: center; font-size: 0.72rem; color: var(--muted); }
+.audit-cal-day {
+  aspect-ratio: 1; border: 0; border-radius: 6px; padding: 0; font: inherit; font-size: 0.8rem;
+  cursor: pointer; background: transparent; color: var(--muted);
+}
+.audit-cal-day.ran, .audit-cal-dot.ran { background: rgba(29, 122, 60, 0.22); color: var(--good); }
+.audit-cal-day.failed, .audit-cal-dot.failed { background: rgba(208, 59, 59, 0.22); color: var(--bad); }
+.audit-cal-day.none, .audit-cal-dot.none { background: rgba(11, 11, 11, 0.09); color: var(--ink-2); }
+.audit-cal-day.off { cursor: default; color: var(--grid); }
+.audit-cal-day:not(.off):hover { box-shadow: inset 0 0 0 1px var(--ring); }
+.audit-cal-day.today { font-weight: 700; }
+.audit-cal-day.selected { box-shadow: inset 0 0 0 2px var(--ink); }
+.audit-cal-legend { display: flex; gap: 12px; margin-top: 8px; }
+.audit-cal-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.audit-cal-dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; }
 @media (max-width: 640px) { .audit-row { flex-direction: column; align-items: flex-start; gap: 2px; } }

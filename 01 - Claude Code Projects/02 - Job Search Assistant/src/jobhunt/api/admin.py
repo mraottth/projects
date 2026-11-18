@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from jobhunt.core import scoring_experiment
 from jobhunt.core.email_digest import send_plain_email
 from jobhunt.core.reset import AdminAccountError, delete_account
+from jobhunt.core.run_audit import STUCK_AFTER_MINUTES
 from jobhunt.core.users import STATUSES, current_user_id, get_user, insert_default_settings, is_admin
 from jobhunt.db.connection import get_db
 
@@ -49,11 +50,6 @@ def list_users():
         "shared_spend_this_month": shared["spend"],
         "daily_run": _daily_run_status(),
     }
-
-
-# A run still 'running' after this long died without finishing (its server was shut down or
-# crashed), since the request's own limit is an hour (--timeout 3600).
-STUCK_AFTER_MINUTES = 70
 
 
 def _daily_run_status() -> dict:

@@ -578,10 +578,21 @@ export interface UsageSummary {
 }
 
 /** The daily run audit under New & Noteworthy (GET /api/digest/run-audit, core/run_audit.py). */
+export type RunDayStatus = "ran" | "failed" | "none";
+
+// The run audit's calendar: a month's days up to today, from the person's first day.
+export interface RunCalendar {
+  month: string;
+  first: string;
+  today: string;
+  days: Record<string, RunDayStatus>;
+}
+
 export interface RunAudit {
   date: string;
-  days: string[];
   checks: { started_at: string; finished_at: string | null; errors: string[] }[];
+  // Daily checks that failed for this person that day (core/run_audit.failures).
+  failures: { started_at: string; message: string }[];
   sources: {
     recorded: boolean;
     organizations: { checked: number; total: number };
@@ -1113,6 +1124,11 @@ export const api = {
     const params = new URLSearchParams({ tz: Intl.DateTimeFormat().resolvedOptions().timeZone });
     if (date) params.set("date", date);
     return request<RunAudit>(`/api/digest/run-audit?${params}`);
+  },
+  getRunCalendar: (month?: string) => {
+    const params = new URLSearchParams({ tz: Intl.DateTimeFormat().resolvedOptions().timeZone });
+    if (month) params.set("month", month);
+    return request<RunCalendar>(`/api/digest/run-calendar?${params}`);
   },
   getUsageLog: (period: UsagePeriod = "week") =>
     request<{

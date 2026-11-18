@@ -107,7 +107,7 @@ def test_the_audit_for_a_day():
     assert src["boards"] == {"checked": 1, "total": 1}
     assert out["new_jobs"] == [{"source": "Big Board", "jobs": 3}, {"source": "Acme", "jobs": 1}]
     assert [(s["title"], s["rescored"]) for s in out["scored"]] == [("Analyst", False), ("Lead", True)]
-    assert "2026-11-17" in out["days"] and "2026-11-16" in out["days"]
+    assert out["failures"] == []
 
 
 def test_the_queue_is_in_scoring_order_and_counts_what_it_hides():
@@ -156,3 +156,64 @@ def test_scored_jobs_come_best_first():
             )
     scored = run_audit.audit(DAY, "America/New_York")["scored"]
     assert [s["title"] for s in scored] == ["Best", "Okay", "Weak"]
+
+
+def _system_run(started, status="ok", error=None, errors=()):
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO runs (user_id, run_date, started_at, status, error, errors_json) "
+            "VALUES (NULL, ?, ?, ?, ?, ?)",
+            (started[:10], started, status, error, json.dumps({"errors": list(errors), "people": 2})),
+        )
+
+
+def _joined(day="2026-11-01 12:00:00", user_id=1):
+    with get_db() as conn:
+        conn.execute("UPDATE users SET created_at = ? WHERE id = ?", (day, user_id))
+
+
+def test_the_calendar_colors_days_ran_failed_or_not():
+    _joined()
+    # Nov 14: ran. Nov 15: their part of the daily check failed. Nov 16: the whole run failed
+    # before their part. Nov 17: the run failed after their part was recorded, so it ran for them.
+    # Nov 13: failed in the morning, then a Refresh ran; the failure still shows.
+    _run([], started="2026-11-14T19:00:00+00:00")
+    _system_run("2026-11-15T19:00:00+00:00", errors=["Acme: timed out", "user 1: KeyError: 'x'"])
+    _system_run("2026-11-16T19:00:00+00:00", status="failed", error="RuntimeError: boom")
+    _system_run("2026-11-17T19:00:00+00:00", status="failed", error="RuntimeError: late")
+    _run([], started="2026-11-17T19:00:00+00:00")
+    _system_run("2026-11-13T14:00:00+00:00", status="running")  # never finished
+    _run([], started="2026-11-13T20:00:00+00:00")
+    cal = run_audit.calendar(date(2026, 11, 1), "America/New_York")
+    days = cal["days"]
+    assert cal["first"] == "2026-11-01" and cal["month"] == "2026-11"
+    assert days["2026-11-12"] == "none" and days["2026-11-14"] == "ran"
+    assert days["2026-11-15"] == "failed" and days["2026-11-16"] == "failed"
+    assert days["2026-11-17"] == "ran" and days["2026-11-13"] == "failed"
+    assert "2026-10-31" not in days and max(days) == cal["today"]
+    # Before the account was made, nothing is colored.
+    assert run_audit.calendar(date(2026, 10, 1), "America/New_York")["days"] == {}
+
+
+def test_the_audit_says_why_a_day_failed_and_only_the_admin_sees_the_apps_error():
+    _joined()
+    bea = users.create_user("bea@example.com", "Bea", status="approved")["id"]
+    _joined(user_id=bea)
+    _system_run("2026-11-15T19:00:00+00:00", errors=[f"user {bea}: KeyError: 'x'"])
+    _system_run("2026-11-16T19:00:00+00:00", status="failed", error="RuntimeError: boom")
+    with users.acting_as(1):
+        assert run_audit.audit(date(2026, 11, 15), "America/New_York")["failures"] == []
+        mine = run_audit.audit(date(2026, 11, 16), "America/New_York")["failures"]
+        assert [f["message"] for f in mine] == ["The daily check failed: RuntimeError: boom"]
+    with users.acting_as(bea):
+        theirs = run_audit.audit(date(2026, 11, 15), "America/New_York")["failures"]
+        assert [f["message"] for f in theirs] == ["Your part failed: KeyError: 'x'"]
+        hidden = run_audit.audit(date(2026, 11, 16), "America/New_York")["failures"]
+        assert [f["message"] for f in hidden] == ["The daily check failed"]
+
+
+def test_the_calendar_route_checks_its_month():
+    with TestClient(app) as http:
+        assert http.get("/api/digest/run-calendar?month=2026-11&tz=America/New_York").status_code == 200
+        assert http.get("/api/digest/run-calendar").json()["month"]
+        assert http.get("/api/digest/run-calendar?month=nope").status_code == 400

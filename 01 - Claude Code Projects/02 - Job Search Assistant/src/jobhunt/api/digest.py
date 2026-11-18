@@ -85,6 +85,17 @@ def get_run_audit(date: str | None = None, tz: str | None = None):
     return run_audit.audit(day, tz)
 
 
+@router.get("/run-calendar")
+def get_run_calendar(month: str | None = None, tz: str | None = None):
+    """The run audit's calendar: each day of `month` (YYYY-MM, default this month in `tz`) as
+    "ran", "failed" or "none" (core/run_audit.calendar). Registered before /{digest_date}."""
+    try:
+        first = date_type.fromisoformat(f"{month}-01") if month else run_audit.today(tz)
+    except ValueError as exc:
+        raise HTTPException(400, "month must be YYYY-MM") from exc
+    return run_audit.calendar(first, tz)
+
+
 @router.get("/{digest_date}")
 def digest_by_date(digest_date: str):
     entries = get_digest(digest_date)

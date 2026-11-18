@@ -1,6 +1,11 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, type RunAudit } from "../api";
+import {
+  api,
+  type RunAudit,
+  type RunCalendar,
+  type RunDayStatus,
+} from "../api";
 import { JobLink } from "./JobLink";
 import { FitBadge } from "./ScoredJobCard";
 
@@ -33,6 +38,130 @@ function clock(value: string): string {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+const DAY_STATUS: Record<RunDayStatus, string> = {
+  ran: "a check ran",
+  failed: "a daily check failed",
+  none: "no check ran",
+};
+const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+
+// "YYYY-MM" moved by `by` months.
+function shiftMonth(month: string, by: number): string {
+  const [y, m] = month.split("-").map(Number);
+  const d = new Date(y, m - 1 + by, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/**
+ * The audit's day picker (asked 2026-11-18, in place of a dropdown of the last 14 days): a month
+ * of days colored by the person's checks, green when one ran, red when a daily check failed for
+ * them, gray when none ran (GET /api/digest/run-calendar). Days before their account and days to
+ * come can't be picked.
+ */
+function AuditCalendar({
+  selected,
+  onPick,
+  reload,
+}: {
+  selected: string;
+  onPick: (day: string) => void;
+  reload: number;
+}) {
+  const [month, setMonth] = useState(selected.slice(0, 7));
+  const [cal, setCal] = useState<RunCalendar | null>(null);
+
+  useEffect(() => setMonth(selected.slice(0, 7)), [selected]);
+  useEffect(() => {
+    let live = true;
+    api
+      .getRunCalendar(month)
+      .then((c) => live && setCal(c))
+      .catch(() => live && setCal(null));
+    return () => {
+      live = false;
+    };
+  }, [month, reload]);
+
+  const [y, m] = month.split("-").map(Number);
+  const lead = new Date(y, m - 1, 1).getDay();
+  const count = new Date(y, m, 0).getDate();
+  const days = cal?.month === month ? cal.days : {};
+  const title = new Date(y, m - 1, 1).toLocaleDateString(undefined, {
+    month: "long",
+    year: "numeric",
+  });
+
+  return (
+    <div className="audit-cal">
+      <div className="audit-cal-head">
+        <button
+          className="link"
+          onClick={() => setMonth(shiftMonth(month, -1))}
+          disabled={!cal || month <= cal.first.slice(0, 7)}
+          aria-label="Previous month"
+        >
+          ‹
+        </button>
+        <strong>{title}</strong>
+        <button
+          className="link"
+          onClick={() => setMonth(shiftMonth(month, 1))}
+          disabled={!cal || month >= cal.today.slice(0, 7)}
+          aria-label="Next month"
+        >
+          ›
+        </button>
+      </div>
+      <div className="audit-cal-grid">
+        {WEEKDAYS.map((w) => (
+          <span key={w} className="audit-cal-weekday">
+            {w}
+          </span>
+        ))}
+        {Array.from({ length: lead }, (_, i) => (
+          <span key={`lead-${i}`} />
+        ))}
+        {Array.from({ length: count }, (_, i) => {
+          const iso = `${month}-${String(i + 1).padStart(2, "0")}`;
+          const status = days[iso];
+          return (
+            <button
+              key={iso}
+              className={[
+                "audit-cal-day",
+                status ?? "off",
+                iso === selected && "selected",
+                iso === cal?.today && "today",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              disabled={!status}
+              onClick={() => onPick(iso)}
+              aria-pressed={iso === selected}
+              title={
+                status ? `${dayName(iso)}: ${DAY_STATUS[status]}` : undefined
+              }
+            >
+              {i + 1}
+            </button>
+          );
+        })}
+      </div>
+      <div className="audit-cal-legend small muted">
+        <span>
+          <i className="audit-cal-dot ran" /> Ran
+        </span>
+        <span>
+          <i className="audit-cal-dot none" /> Didn't run
+        </span>
+        <span>
+          <i className="audit-cal-dot failed" /> Failed
+        </span>
+      </div>
+    </div>
+  );
 }
 
 /** A list that shows its first few rows, then "Show all N". */
@@ -86,9 +215,6 @@ export function RunAuditCard({ reload = 0 }: { reload?: number }) {
       </div>
     );
   if (!audit) return null;
-  const days = audit.days.includes(audit.date)
-    ? audit.days
-    : [audit.date, ...audit.days];
   const newTotal = audit.new_jobs.reduce((n, s) => n + s.jobs, 0);
   const rescored = audit.scored.filter((s) => s.rescored).length;
   const { organizations: orgs, boards } = audit.sources;
@@ -98,23 +224,17 @@ export function RunAuditCard({ reload = 0 }: { reload?: number }) {
     <div className="card run-audit">
       <div className="usage-head">
         <h2>Daily run audit</h2>
-        <span className="select-wrap">
-          <select
-            value={audit.date}
-            onChange={(e) => setDay(e.target.value)}
-            aria-label="Day"
-          >
-            {days.map((d) => (
-              <option key={d} value={d}>
-                {dayName(d)}
-              </option>
-            ))}
-          </select>
-        </span>
+        <span className="muted">{dayName(audit.date)}</span>
       </div>
+      <AuditCalendar selected={audit.date} onPick={setDay} reload={reload} />
 
       <div className="audit-section">
         <h3>Checks</h3>
+        {audit.failures.map((f) => (
+          <p key={f.started_at} className="small error-text">
+            Failed at {clock(f.started_at)}: {f.message}
+          </p>
+        ))}
         <p className="small">
           {audit.checks.length === 0
             ? "No check ran this day."

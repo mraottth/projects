@@ -805,7 +805,16 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     /api/digest/run-audit?date=&tz=`, registered before `/{digest_date}`; `components/RunAudit.tsx`).
     It sits in New & Noteworthy's job-card column, after the cards and a thin line (`.audit-divider`) (under the empty-day card when there are none; moved there from Settings the same day), reloads after
     a Refresh, and is hidden in the demo. For a day in the
-    browser's time zone (a select of the last 14 days with activity), it shows the person's checks
+    browser's time zone, picked on a month calendar (`AuditCalendar`, `GET
+    /api/digest/run-calendar?month=YYYY-MM&tz=` → `run_audit.calendar()`; asked 2026-11-18 in place
+    of a dropdown of the last 14 days), whose days are green when a check of theirs ran, red when a
+    daily check failed for them (this wins over green, so a failure stays visible after a later
+    Refresh) and gray when none ran; days before their account (`users.created_at`) and days to come
+    can't be picked. A failure (`run_audit.failures()`) is an everyone run whose errors hold "user N:
+    ..." for them, or one that failed or stuck 'running' past `STUCK_AFTER_MINUTES` (now in
+    `run_audit`, imported by the Admin page) with no `runs` row of theirs at the same `started_at`;
+    the Checks section lists it in red, with the app's error shown only to the admin. A failed
+    Refresh leaves no record, so it isn't colored. The card shows the person's checks
     (`runs` rows) and the sources they covered: organizations and boards checked of those followed,
     plus failures (collapsed, "N couldn't be read"). Each `_run_for_person` records that as `runs.audit_json` (`{"checked": [ids],
     "failed": {id: error}}`, a MIGRATIONS ALTER), from `_poll_sources`' `sources_read` (including

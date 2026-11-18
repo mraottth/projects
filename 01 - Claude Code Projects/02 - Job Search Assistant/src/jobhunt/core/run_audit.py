@@ -1,13 +1,18 @@
 """Settings' daily run audit (asked 2026-11-17): for one day, what the person's checks did.
 
 - the checks that ran (their `runs` rows) and which sources they covered (`runs.audit_json`,
-  recorded by pipeline/daily_run.py's `_run_for_person` since this was added);
+  recorded by pipeline/daily_run.py's `_run_for_person` since this was added), and the daily
+  checks that failed for them (`failures()`);
 - new jobs per source (`jobs.first_seen_at` that day, sources they follow);
 - the jobs scored that day (`job_scores.scored_at`), with a rescore marked;
 - the jobs still waiting to be scored now, in the order they'd be taken (the queue isn't kept per
   day, so this is always the current list).
 
-A day is midnight to midnight in the person's time zone (the browser's), as UTC bounds."""
+A day is midnight to midnight in the person's time zone (the browser's), as UTC bounds.
+
+`calendar()` colors a month's days for the card's calendar (asked 2026-11-18): "ran" (a check of
+theirs ran), "failed" (a daily check failed for them; this wins over "ran", so a failure stays
+visible after a later Refresh) or "none"."""
 
 import json
 from datetime import date, datetime, time, timedelta
@@ -16,11 +21,13 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from jobhunt.core import dealbreakers
 from jobhunt.core.digest import SOURCE_IS_BOARD_SQL
 from jobhunt.core.settings import get_settings
-from jobhunt.core.users import current_user_id
+from jobhunt.core.users import current_user_id, get_user, is_admin
 from jobhunt.db.connection import get_db
 
 DEFAULT_TZ = "America/New_York"
-HISTORY_DAYS = 14
+# A run still 'running' after this long died without finishing (its server was shut down or
+# crashed), since the request's own limit is an hour (--timeout 3600). The Admin page uses it too.
+STUCK_AFTER_MINUTES = 70
 
 
 def _zone(tz: str | None) -> ZoneInfo:
@@ -49,6 +56,72 @@ def _utc(value: str) -> str:
 
 def today(tz: str | None) -> date:
     return datetime.now(_zone(tz)).date()
+
+
+def _local_day(stamp: str, zone: ZoneInfo) -> str:
+    return (
+        datetime.strptime(_utc(stamp), "%Y-%m-%d %H:%M:%S")
+        .replace(tzinfo=ZoneInfo("UTC"))
+        .astimezone(zone)
+        .date()
+        .isoformat()
+    )
+
+
+def failures(conn, uid: int) -> list[dict]:
+    """The everyone runs (`user_id` NULL) that failed this person, as {started_at, message}:
+    their own part failed (`_run_for_person_safely` puts "user N: ..." in the run's errors and
+    writes no `runs` row for them), or the whole run failed or never finished before their part
+    was recorded (a person's row shares the run's `started_at`). A person's own Refresh that fails
+    leaves no record, so it isn't here."""
+    own = {r[0] for r in conn.execute("SELECT started_at FROM runs WHERE user_id = ?", (uid,))}
+    prefix = f"user {uid}: "
+    stuck = datetime.now(ZoneInfo("UTC")) - timedelta(minutes=STUCK_AFTER_MINUTES)
+    out = []
+    for r in conn.execute(
+        "SELECT started_at, status, error, errors_json FROM runs "
+        "WHERE user_id IS NULL AND status IS NOT NULL ORDER BY id"
+    ):
+        details = json.loads(r["errors_json"] or "{}")
+        errors = details.get("errors", []) if isinstance(details, dict) else details
+        mine = [e[len(prefix) :] for e in errors if isinstance(e, str) and e.startswith(prefix)]
+        if mine:
+            out.append({"started_at": r["started_at"], "message": f"Your part failed: {mine[0]}"})
+        elif r["started_at"] in own:
+            continue
+        elif r["status"] == "failed":
+            # The error is about the app, not them; only the admin sees it.
+            message = "The daily check failed"
+            if is_admin() and r["error"]:
+                message += f": {r['error']}"
+            out.append({"started_at": r["started_at"], "message": message})
+        elif r["status"] == "running" and _utc(r["started_at"]) < stuck.strftime("%Y-%m-%d %H:%M:%S"):
+            out.append({"started_at": r["started_at"], "message": "The daily check didn't finish"})
+    return out
+
+
+def calendar(month: date, tz: str | None = None) -> dict:
+    """Each day of `month` up to today: "ran", "failed" or "none". Days before the person's
+    account and days still to come are left out, and `first` (their account's first day) bounds
+    the calendar's Back."""
+    zone = _zone(tz)
+    uid = current_user_id()
+    first = _local_day((get_user(uid) or {}).get("created_at") or "1970-01-01 00:00:00", zone)
+    with get_db() as conn:
+        ran = {
+            _local_day(r[0], zone)
+            for r in conn.execute("SELECT started_at FROM runs WHERE user_id = ?", (uid,))
+        }
+        failed = {_local_day(f["started_at"], zone) for f in failures(conn, uid)}
+    last = today(tz).isoformat()
+    days = {}
+    day = month.replace(day=1)
+    while day.month == month.month:
+        iso = day.isoformat()
+        if first <= iso <= last:
+            days[iso] = "failed" if iso in failed else "ran" if iso in ran else "none"
+        day += timedelta(days=1)
+    return {"month": month.strftime("%Y-%m"), "first": first, "today": last, "days": days}
 
 
 def audit(day: date, tz: str | None = None) -> dict:
@@ -100,7 +173,7 @@ def audit(day: date, tz: str | None = None) -> dict:
                 ORDER BY q.priority DESC, q.id""",
             (uid,),
         ).fetchall()
-        days = _active_days(conn, uid, zone)
+        failed_checks = [f for f in failures(conn, uid) if start <= _utc(f["started_at"]) < end]
 
     by_id = {r["id"]: r for r in follows}
     checked: set[int] = set()
@@ -143,7 +216,6 @@ def audit(day: date, tz: str | None = None) -> dict:
 
     return {
         "date": day.isoformat(),
-        "days": days,
         "checks": [
             {
                 "started_at": r["started_at"],
@@ -152,6 +224,7 @@ def audit(day: date, tz: str | None = None) -> dict:
             }
             for r in runs
         ],
+        "failures": failed_checks,
         "sources": {
             "recorded": recorded,
             "organizations": side(False),
@@ -174,34 +247,3 @@ def audit(day: date, tz: str | None = None) -> dict:
         ],
         "queue": {"jobs": queue, "set_aside": set_aside, "hidden": hidden},
     }
-
-
-def _active_days(conn, uid: int, zone: ZoneInfo) -> list[str]:
-    """The last HISTORY_DAYS days (in the person's zone) with a check, a new job or a score."""
-    since = (datetime.now(ZoneInfo("UTC")) - timedelta(days=HISTORY_DAYS + 1)).strftime("%Y-%m-%d %H:%M:%S")
-    stamps = [
-        _utc(r[0])
-        for r in conn.execute("SELECT started_at FROM runs WHERE user_id = ?", (uid,))
-        if _utc(r[0]) >= since
-    ]
-    stamps += [
-        r[0]
-        for r in conn.execute(
-            "SELECT scored_at FROM job_scores WHERE user_id = ? AND scored_at >= ?", (uid, since)
-        )
-    ]
-    stamps += [
-        r[0]
-        for r in conn.execute(
-            """SELECT j.first_seen_at FROM jobs j
-                 JOIN source_follows f ON f.source_id = j.source_id AND f.user_id = ?
-                WHERE j.first_seen_at >= ?""",
-            (uid, since),
-        )
-    ]
-    utc = ZoneInfo("UTC")
-    days = {
-        datetime.strptime(s, "%Y-%m-%d %H:%M:%S").replace(tzinfo=utc).astimezone(zone).date().isoformat()
-        for s in stamps
-    }
-    return sorted(days, reverse=True)[:HISTORY_DAYS]

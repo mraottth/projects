@@ -21,6 +21,7 @@ NOT_RECORDED = {
     "/api/network/rate",
     "/api/network/reached-out",
     "/api/digest/run-audit?{}",  # the card is hidden in the demo
+    "/api/digest/run-calendar?{}",  # its calendar, likewise
     "/api/network/job/{}",
     "/api/access/request",
     "/api/admin/scoring-experiment",
