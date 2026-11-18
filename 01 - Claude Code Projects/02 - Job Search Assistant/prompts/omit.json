@@ -121,5 +121,8 @@
   "ab602548-218": "feedback withdrawn: the owner refreshed and found the tiers looked right; nothing built",
   "ab602548-219": "general feedback, no product change: the tiers looked right after a refresh",
   "ab602548-235": "general question, no product change: how interest & fit scoring works",
-  "ab602548-239": "general question, no product change: cost of a second daily read"
+  "ab602548-239": "general question, no product change: cost of a second daily read",
+  "e2f9082b-082": "operational: deploy settings for the local deploy",
+  "e2f9082b-083": "operational: deploy request",
+  "e2f9082b-084": "operational: catching up on a cloud session's changes"
 }
