@@ -1,7 +1,7 @@
 {
  "session": "e2f9082b-bde8-4d88-bb2a-e437b19bca6a",
  "omitted_api_errors": 0,
- "omitted": 52,
+ "omitted": 53,
  "entries": [
   {
    "time": "2026-10-26T12:42:23.385Z",
@@ -502,8 +502,16 @@
    "time": "2026-11-18T17:02:43.279Z",
    "kind": "prompt",
    "text": "The calendar should be hidden by default and pop open when the user selects it",
-   "reply": null,
+   "reply": "The calendar is now hidden by default. A button at the top right of the card shows the selected day (\"Today\") with a small dot in that day's status color: green, gray or red.\n\nClicking it opens the calendar as a dropdown over the card. It closes when you pick a day, click outside it or press Escape, and it always opens on the month of the day you're viewing.\n\nAll 629 tests pass. I checked the open/close behaviour at desktop and phone widths on the throwaway local server.\n\nIt's pushed on `claude/run-audit-calendar-popover` but not merged or deployed. Say the word and I'll ship it like the last one.",
    "id": "e2f9082b-088",
+   "session": "e2f9082b"
+  },
+  {
+   "time": "2026-11-18T17:12:58.269Z",
+   "kind": "prompt",
+   "text": "Let's set it up so that sources are read every morning at 10:00am ET. The relevance screen should run right afte. Jobs that pass the relevance screen should land in \"Waiting to be scored now\" (change text to \"Waiting to be scored\") on the \"Daily run audit\" and there should be a button for the user to \"Score this job now.\" These non-scoring runs should also be logged in the \"Daily run audit\"",
+   "reply": null,
+   "id": "e2f9082b-090",
    "session": "e2f9082b"
   }
  ]
