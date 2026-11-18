@@ -42,6 +42,7 @@ function clock(value: string): string {
 
 const DAY_STATUS: Record<RunDayStatus, string> = {
   ran: "a check ran",
+  read: "only the 10am read ran, nothing scored yet",
   failed: "a daily check failed",
   none: "no check ran",
 };
@@ -155,6 +156,9 @@ function AuditCalendar({
       <div className="audit-cal-legend small muted">
         <span>
           <i className="audit-cal-dot ran" /> Ran
+        </span>
+        <span>
+          <i className="audit-cal-dot read" /> Read only
         </span>
         <span>
           <i className="audit-cal-dot none" /> Didn't run
@@ -293,13 +297,15 @@ export function RunAuditCard({ reload = 0 }: { reload?: number }) {
         <h2>Daily run audit</h2>
         <DayPicker
           day={audit.date}
-          // The calendar's rule (core/run_audit.calendar): a failure wins over a check that ran.
+          // The calendar's rule (core/run_audit.calendar): failed, then ran (scored), then read only.
           status={
             audit.failures.length
               ? "failed"
-              : audit.checks.length
+              : audit.checks.some((c) => c.kind !== "read")
                 ? "ran"
-                : "none"
+                : audit.checks.length
+                  ? "read"
+                  : "none"
           }
           onPick={setDay}
           reload={reload}

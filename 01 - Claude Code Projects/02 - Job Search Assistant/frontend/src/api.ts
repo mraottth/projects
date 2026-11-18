@@ -578,7 +578,8 @@ export interface UsageSummary {
 }
 
 /** The daily run audit under New & Noteworthy (GET /api/digest/run-audit, core/run_audit.py). */
-export type RunDayStatus = "ran" | "failed" | "none";
+// "read": only the 10am read ran that day, nothing scored yet.
+export type RunDayStatus = "ran" | "read" | "failed" | "none";
 
 // The run audit's calendar: a month's days up to today, from the person's first day.
 export interface RunCalendar {

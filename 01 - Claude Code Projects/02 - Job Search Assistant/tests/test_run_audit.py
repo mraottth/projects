@@ -206,6 +206,20 @@ def test_the_calendar_colors_days_ran_failed_or_not():
     assert days["2026-11-15"] == "failed" and days["2026-11-16"] == "failed"
     assert days["2026-11-17"] == "ran" and days["2026-11-13"] == "failed"
     assert "2026-10-31" not in days and max(days) == cal["today"]
+    # Nov 11: only the 10am read ran, so nothing was scored yet (asked 2026-11-18).
+    # Nov 10: the read, then the 2pm run, is a full day.
+    with get_db() as conn:
+        for started, kind in (
+            ("2026-11-11T15:00:00+00:00", "read"),
+            ("2026-11-10T15:00:00+00:00", "read"),
+            ("2026-11-10T19:00:00+00:00", "score"),
+        ):
+            conn.execute(
+                "INSERT INTO runs (user_id, run_date, started_at, kind) VALUES (1, ?, ?, ?)",
+                (started[:10], started, kind),
+            )
+    days = run_audit.calendar(date(2026, 11, 1), "America/New_York")["days"]
+    assert days["2026-11-11"] == "read" and days["2026-11-10"] == "ran"
     # Before the account was made, nothing is colored.
     assert run_audit.calendar(date(2026, 10, 1), "America/New_York")["days"] == {}
 

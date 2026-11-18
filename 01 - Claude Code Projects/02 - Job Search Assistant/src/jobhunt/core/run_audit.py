@@ -11,8 +11,9 @@
 A day is midnight to midnight in the person's time zone (the browser's), as UTC bounds.
 
 `calendar()` colors a month's days for the card's calendar (asked 2026-11-18): "ran" (a check of
-theirs ran), "failed" (a daily check failed for them; this wins over "ran", so a failure stays
-visible after a later Refresh) or "none"."""
+theirs that scores ran), "read" (only the 10am read ran, so nothing was scored yet), "failed" (a
+daily check failed for them; this wins over the others, so a failure stays visible after a later
+Refresh) or "none"."""
 
 import json
 from datetime import date, datetime, time, timedelta
@@ -101,17 +102,16 @@ def failures(conn, uid: int) -> list[dict]:
 
 
 def calendar(month: date, tz: str | None = None) -> dict:
-    """Each day of `month` up to today: "ran", "failed" or "none". Days before the person's
+    """Each day of `month` up to today: "ran", "read", "failed" or "none". Days before the person's
     account and days still to come are left out, and `first` (their account's first day) bounds
     the calendar's Back."""
     zone = _zone(tz)
     uid = current_user_id()
     first = _local_day((get_user(uid) or {}).get("created_at") or "1970-01-01 00:00:00", zone)
     with get_db() as conn:
-        ran = {
-            _local_day(r[0], zone)
-            for r in conn.execute("SELECT started_at FROM runs WHERE user_id = ?", (uid,))
-        }
+        ran, read = set(), set()
+        for r in conn.execute("SELECT started_at, kind FROM runs WHERE user_id = ?", (uid,)):
+            (read if r["kind"] == "read" else ran).add(_local_day(r["started_at"], zone))
         failed = {_local_day(f["started_at"], zone) for f in failures(conn, uid)}
     last = today(tz).isoformat()
     days = {}
@@ -119,7 +119,9 @@ def calendar(month: date, tz: str | None = None) -> dict:
     while day.month == month.month:
         iso = day.isoformat()
         if first <= iso <= last:
-            days[iso] = "failed" if iso in failed else "ran" if iso in ran else "none"
+            days[iso] = (
+                "failed" if iso in failed else "ran" if iso in ran else "read" if iso in read else "none"
+            )
         day += timedelta(days=1)
     return {"month": month.strftime("%Y-%m"), "first": first, "today": last, "days": days}
 

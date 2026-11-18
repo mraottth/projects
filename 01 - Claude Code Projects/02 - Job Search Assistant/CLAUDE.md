@@ -821,7 +821,7 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     scoring" for the 10am read, else "read sources and scored N jobs" (`checks[].kind`/`scored`). For a day in the
     browser's time zone, picked on a month calendar hidden until the header's day button is clicked (`DayPicker`: the day's name with its status dot; the calendar floats over the card and closes on a pick, an outside click or Escape; asked 2026-11-18) (`AuditCalendar`, `GET
     /api/digest/run-calendar?month=YYYY-MM&tz=` → `run_audit.calendar()`; asked 2026-11-18 in place
-    of a dropdown of the last 14 days), whose days are green when a check of theirs ran, red when a
+    of a dropdown of the last 14 days), whose days are green when a check of theirs that scores ran, yellow when only the 10am read ran (`read`, nothing scored yet; asked 2026-11-18), red when a
     daily check failed for them (this wins over green, so a failure stays visible after a later
     Refresh) and gray when none ran; days before their account (`users.created_at`) and days to come
     can't be picked. A failure (`run_audit.failures()`) is an everyone run whose errors hold "user N:
