@@ -124,5 +124,7 @@
   "ab602548-239": "general question, no product change: cost of a second daily read",
   "e2f9082b-082": "operational: deploy settings for the local deploy",
   "e2f9082b-083": "operational: deploy request",
-  "e2f9082b-084": "operational: catching up on a cloud session's changes"
+  "e2f9082b-084": "operational: catching up on a cloud session's changes",
+  "e2f9082b-086": "general question, no product change: cost of scoring only Mon/Wed/Fri",
+  "e2f9082b-087": "operational: deploy request"
 }
