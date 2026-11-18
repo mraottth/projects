@@ -643,5 +643,22 @@
   "decisions": [
    "D-036"
   ]
+ },
+ {
+  "id": "M28",
+  "date": "2026-11-18",
+  "icon": "🌅",
+  "category": "pipeline",
+  "title": "Morning reads",
+  "summary": "Sources used to be read only at the 2pm check, so a job posted overnight showed up in the afternoon. Now every source is also read at 10am and run through the relevance check, without scoring. The jobs that pass wait in the Daily run audit, where any of them can be scored on the spot, and the 2pm check still scores the rest at half price.",
+  "prompts": [
+   "e2f9082b-090"
+  ],
+  "commits": [
+   "c4a2d6f"
+  ],
+  "decisions": [
+   "D-037"
+  ]
  }
 ]

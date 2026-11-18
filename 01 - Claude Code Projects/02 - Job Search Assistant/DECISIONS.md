@@ -629,3 +629,19 @@ It runs when a source finds a new job, once at startup over existing duplicates,
 **Amended again 2026-11-13** (prompts ab602548-216, ab602548-217). High had become too inclusive (any leader at any organization in your sources). Now High needs a good-fit organization: Claude rates every connection's organization by name as `fit` or `interest` (the owner chose this over job ratings alone), or the organization has a job you'd want; and the role must fit too (the owner's choice). Medium is any organization in your sources or of interest, a good-fit organization in another role, or a closely aligned title. Low is looser matches. The rating call now covers every organization, about 1-3 cents per upload.
 
 **Why.** The export is the only sanctioned way in, and it's quick to get. Tiers are worked out on each read, so they follow the jobs as they change, at no cost. Other people's details stay in the uploader's account and reach Claude only when they ask Jobby to write to someone.
+
+## D-037 · Read every source at 10am, relevance check only; scoring stays at 2pm
+- **Date:** 2026-11-18
+- **Category:** pipeline
+- **Prompts:** e2f9082b-090
+- **Commits:** c4a2d6f
+
+**Decision.** A second Cloud Scheduler job reads every source at 10:00am ET and runs the relevance check, and stops there: no scoring, email or profile rebuild. The jobs that pass wait on the run audit's "Waiting to be scored", each with "Score this job now", for the person to score early or for the 2pm run, which is unchanged. Runs are tagged `read` or `score`, and the run audit lists each check by kind.
+
+**Context.** The owner wanted new jobs in front of them in the morning without paying to score them all at once. Before this, sources were read only at 2pm (or on a Refresh), so a job posted overnight wasn't seen until the afternoon. Usage from Nov 13-17 had board reads at about $0.18 a day and the relevance check at a fraction of a cent.
+
+**Alternatives considered.**
+- **Score at 10am too:** the morning batch would compete with the 2pm one for the same daily cap, and live scores cost about three times a batch's.
+- **Read only at 10am, with 2pm just scoring:** saves little, since a page unchanged since the morning costs nothing to re-read, and the afternoon read catches the day's postings.
+
+**Why.** Reading is cheap: only a changed page costs a Claude call (about 0.6 cents), so a second read adds at most a few dollars a month, and the relevance check costs next to nothing. Scoring, the expensive step, still happens once a day at half price, unless the person chooses a job to score now. A fifth Scheduler job is about $0.10 a month (three are free).

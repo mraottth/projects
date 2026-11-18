@@ -804,7 +804,8 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   - **The "Daily run audit"** (asked 2026-11-17; `core/run_audit.py`, `GET
     /api/digest/run-audit?date=&tz=`, registered before `/{digest_date}`; `components/RunAudit.tsx`).
     It sits in New & Noteworthy's job-card column, after the cards and a thin line (`.audit-divider`) (under the empty-day card when there are none; moved there from Settings the same day), reloads after
-    a Refresh, and is hidden in the demo. For a day in the
+    a Refresh, and is hidden in the demo. Each check is listed by kind (asked 2026-11-18): "read sources and ran the relevance check, no
+    scoring" for the 10am read, else "read sources and scored N jobs" (`checks[].kind`/`scored`). For a day in the
     browser's time zone, picked on a month calendar hidden until the header's day button is clicked (`DayPicker`: the day's name with its status dot; the calendar floats over the card and closes on a pick, an outside click or Escape; asked 2026-11-18) (`AuditCalendar`, `GET
     /api/digest/run-calendar?month=YYYY-MM&tz=` → `run_audit.calendar()`; asked 2026-11-18 in place
     of a dropdown of the last 14 days), whose days are green when a check of theirs ran, red when a
@@ -821,7 +822,9 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     sources reused from a read within the hour) and `sources_failed`. Older runs show "Not
     recorded". A new source's immediate check writes no `runs` row. The card also shows new jobs per
     followed source (`first_seen_at` that day, counts above 0, linked to All Jobs), the jobs scored
-    that day (`job_scores.scored_at`; a rescore is marked; best first by interest + fit score, as New & Noteworthy ranks), and the jobs waiting *now* in the order
+    that day (`job_scores.scored_at`; a rescore is marked; best first by interest + fit score, as New & Noteworthy ranks), and the jobs **Waiting to be scored** (renamed from "Waiting to be scored now" 2026-11-18; each
+    with "Score this job now", the shared `ScoreButton` → `POST /api/jobs/{id}/score`, live and outside
+    the daily cap, after which the audit reloads so it moves to Scored) in the order
     they'd be scored (each source's best, then each one's second best, after leaving out jobs set
     aside or hidden by a dealbreaker, which are counted instead). The queue isn't kept per day.
   - **The Admin page's "Daily check" card.** `run_daily()` gives the everyone run (scheduled, or the
@@ -842,7 +845,18 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   `resume_library_path` folder. With no resumes left, the next load goes through onboarding; the
   UI does a full page load to `/onboarding` so `App.tsx` re-checks status. Tables are listed from
   `sqlite_master` with foreign keys off, so the live DB's leftover tables are cleared too.
-- **Daily email** (`core/email_digest.py`): at the end of every `run_daily` (Cloud Scheduler
+- **The 10am read** (D-037, asked 2026-11-18): a second Cloud Scheduler job, `read-sources`
+  (`0 10 * * *` America/New_York, made by `scheduler-setup`), calls `POST /internal/read-sources`
+  (same `X-Scheduler-Secret` gate as `/internal/run-daily`, `internal._check_secret`), which is
+  `run_daily(score=False)`: every source read, new jobs queued, then the relevance check, and
+  nothing else (no scoring, preference rebuild, daily email or paused emails; `_expire_stale_jobs`,
+  `backfill_salaries` and the backup snapshot still run). Its `runs` rows, the everyone row and each
+  person's, have `kind` 'read' (a MIGRATIONS ALTER; other runs write 'score', and NULL reads as
+  'score'). The 2pm run is unchanged: it reads every source again (a page unchanged since 10am costs
+  nothing, `page_extractions`) and scores what's waiting. The warm window (D-030) starts at 9:30, so
+  10am never meets a cold start. The Admin page's Daily check card names "the 10am read" and says it
+  ran the relevance check instead of how many it scored.
+- **Daily email** (`core/email_digest.py`): at the end of every scoring `run_daily` (Cloud Scheduler
   now runs it at 2:00pm America/New_York, `0 14 * * *` with `--time-zone`), `send_new_jobs_email()`
   emails New & Noteworthy jobs from today's and yesterday's digest with High or Med interest and a
   High or Med fit (`GOOD_INTEREST`/`GOOD_FITS`; widened from High interest only on 2026-11-05 at
@@ -1699,6 +1713,6 @@ console. Deploy from this folder, either in a local checkout (see Working conven
 Cloud Shell's checkout of `mraottth/projects` (`cd ~/projects/"01 - Claude Code
 Projects/02 - Job Search Assistant"`); each needs its own git-ignored `.deploy.local.mk`. One-time setup order (see the Makefile): `apis-setup` → `bucket-setup` → `anthropic-secret`
 / `scheduler-secret` (/ `email-secret` for the daily email) → `deploy` → `iap-setup` →
-`scheduler-setup` (the daily run at 2:00pm ET), then `bucket-protect` once; after that, `make
+`scheduler-setup` (the daily run at 2:00pm ET and the 10am read; re-run it to add a new job), then `bucket-protect` once; after that, `make
 deploy` alone ships every update. Every one of these is real spend/real infrastructure, so don't run them from
 here without the user present.
