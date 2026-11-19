@@ -21,18 +21,27 @@ import { Spinner } from "../components/Spinner";
 function AddJobForm({ onAdded, onTracked }: { onAdded: (job: Job) => void; onTracked: () => void }) {
   const [mode, setMode] = useState<"url" | "text">("url");
   const [value, setValue] = useState("");
+  // With pasted text, the posting's link too, so the job card links to it (asked 2026-11-19).
+  const [link, setLink] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   const submit = async () => {
     if (!value.trim()) return;
+    if (mode === "text" && !/^https?:\/\/\S+$/i.test(link.trim())) {
+      setError("Add the link to the posting too (starting with https://), so the job links to it.");
+      return;
+    }
     setBusy(true);
     setError(null);
     setNotice(null);
     try {
-      const job = await api.createManualJob(mode === "url" ? { url: value } : { raw_text: value });
+      const job = await api.createManualJob(
+        mode === "url" ? { url: value } : { raw_text: value, url: link.trim() },
+      );
       setValue("");
+      setLink("");
       if (job.already_in_sources) {
         // A source already found it: that job is now on My Jobs, with no second copy (D-035).
         setNotice(`Already in your sources: added "${job.title}" to My Jobs.`);
@@ -69,6 +78,14 @@ function AddJobForm({ onAdded, onTracked }: { onAdded: (job: Job) => void; onTra
             value={value}
             onChange={(e) => setValue(e.target.value)}
             placeholder="Paste the job description here..."
+            style={{ width: "100%", display: "block", marginBottom: "6px" }}
+          />
+          <input
+            type="url"
+            value={link}
+            onChange={(e) => setLink(e.target.value)}
+            placeholder="Link to the posting (https://...)"
+            aria-label="Link to the posting"
             style={{ width: "100%", display: "block", marginBottom: "6px" }}
           />
           <div className="form-actions" style={{ marginTop: 0, marginBottom: "4px" }}>
@@ -123,6 +140,15 @@ function PendingReview({ job, onConfirmed }: { job: Job; onConfirmed: (job: Job)
           value={draft.location ?? ""}
           onChange={(e) => setDraft({ ...draft, location: e.target.value })}
           placeholder="Location"
+        />
+      </div>
+      <div className="field">
+        <span>Link</span>
+        <input
+          type="url"
+          value={draft.url ?? ""}
+          onChange={(e) => setDraft({ ...draft, url: e.target.value })}
+          placeholder="https://..."
         />
       </div>
       <button className="primary" onClick={confirm} disabled={busy}>

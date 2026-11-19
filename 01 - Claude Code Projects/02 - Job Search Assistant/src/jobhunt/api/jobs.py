@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from jobhunt.api.applications import CreateApplicationRequest, create_application
 from jobhunt.core.llm import LLMError
@@ -17,9 +17,25 @@ from jobhunt.core.users import VISIBLE_JOB_SQL, current_user_id, job_is_visible
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
 
 
+def _web_address(url: str | None) -> str | None:
+    """A job posting's link, trimmed; it must be a web address (http or https)."""
+    if url is None or not url.strip():
+        return None
+    url = url.strip()
+    if not url.lower().startswith(("http://", "https://")):
+        raise ValueError("the link must be a web address starting with http:// or https://")
+    return url
+
+
 class ManualImportRequest(BaseModel):
+    # With pasted text, the link is kept on the job too (asked 2026-11-19: the UI asks for both).
     url: str | None = None
     raw_text: str | None = None
+
+    @field_validator("url")
+    @classmethod
+    def _check_url(cls, url: str | None) -> str | None:
+        return _web_address(url)
 
 
 class FeedbackRequest(BaseModel):
@@ -38,6 +54,12 @@ class JobUpdateRequest(BaseModel):
     salary_currency: str | None = None
     salary_period: str | None = None
     description_text: str | None = None
+    url: str | None = None
+
+    @field_validator("url")
+    @classmethod
+    def _check_url(cls, url: str | None) -> str | None:
+        return _web_address(url)
 
 
 def _row_to_dict(row) -> dict:

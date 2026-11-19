@@ -91,3 +91,36 @@ def test_duplicate_manual_job_rejected(monkeypatch):
 
         second = client.post("/api/jobs/manual", json={"raw_text": "Engineer at Acme in NYC"})
         assert second.status_code == 409
+
+
+def test_pasted_text_keeps_the_postings_link(monkeypatch):
+    """Pasting the full text asks for the posting's link too, kept on the job (asked 2026-11-19)."""
+    parsed = ParsedJob(
+        title="Analyst",
+        company="Acme",
+        location="DC",
+        remote_type=None,
+        salary_min=None,
+        salary_max=None,
+        salary_currency=None,
+        salary_period=None,
+        description_text="desc",
+        posted_at=None,
+    )
+    monkeypatch.setattr(
+        manual_import, "get_client", lambda: FakeAnthropicClient(parse_result=FakeParseResponse(parsed))
+    )
+    with TestClient(app) as client:
+        bad = client.post("/api/jobs/manual", json={"raw_text": "Analyst at Acme", "url": "acme.com/jobs/1"})
+        assert bad.status_code == 422
+        resp = client.post(
+            "/api/jobs/manual", json={"raw_text": "Analyst at Acme", "url": " https://acme.com/jobs/1 "}
+        )
+        assert resp.status_code == 200
+        job = resp.json()
+        assert job["url"] == "https://acme.com/jobs/1"
+        # The review step can correct it, and a blank link leaves it as it was.
+        fixed = client.patch(f"/api/jobs/{job['id']}", json={"url": "https://acme.com/jobs/2"}).json()
+        assert fixed["url"] == "https://acme.com/jobs/2"
+        kept = client.patch(f"/api/jobs/{job['id']}", json={"url": "", "title": "Analyst II"}).json()
+        assert kept["url"] == "https://acme.com/jobs/2"

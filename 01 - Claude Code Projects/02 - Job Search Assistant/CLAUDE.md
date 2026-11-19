@@ -1036,6 +1036,12 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   `create_application` directly, swallowing a 409 so re-confirming is a no-op) rather than adding
   it to the digest, since pasting a job you already found *is* the interest signal, not a "new and
   noteworthy" discovery.
+  "Paste the full text instead" also asks for the posting's link (required in the form, asked
+  2026-11-19), sent as `url` with `raw_text`: the text is what's read, the link is kept on the job
+  (so its card links to the posting) and is checked against your sources before the paid read,
+  like a pasted URL. `_web_address()` in `api/jobs.py` requires http(s) (422 otherwise); the
+  review card ("Review before scoring") shows the link, editable (`JobUpdateRequest.url`; blank
+  leaves it as it was). The API still takes text alone, for scripts and tests.
 - **Onboarding** (`pages/OnboardingPage.tsx`, route `/onboarding`) is a 7-step wizard: current
   resume (required) → "What are you looking for?" → recent cover letter (upload, or "Write one for
   me") → older docs (multi-file, uploaded as archived, kind guessed by the same "cover"-in-filename
