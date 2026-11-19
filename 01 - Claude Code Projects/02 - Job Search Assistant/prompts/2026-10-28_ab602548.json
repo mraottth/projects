@@ -1,7 +1,7 @@
 {
  "session": "ab602548-13cf-5dd6-933c-6e698e563853",
  "omitted_api_errors": 0,
- "omitted": 81,
+ "omitted": 82,
  "entries": [
   {
    "time": "2026-10-28T14:37:31.396Z",
@@ -1818,8 +1818,16 @@
    "time": "2026-11-19T15:52:14.917Z",
    "kind": "answer",
    "text": "\"Where should someone be able to change a job's Interest and Fit ratings?\"=\"Click the chips (Recommended)\", \"If a job you re-rated is later rescored (Settings' 'Rescore your jobs'), what should happen to your rating?\"=\"Your rating stays (Recommended)\".",
-   "reply": null,
+   "reply": "You can now change a job's Interest and Fit ratings yourself, and future scoring learns from what you change. It's pushed to `claude/move-job-search-assistant`. All tests pass and the frontend builds. I also tried it in a browser on a local copy.\n\n**Changing a rating**\n- Click the Interest or Fit chip on any job card, or on the expanded job. A dialog opens with High / Med / Low for each and an optional \"Why?\" box.\n- Your rating replaces ours everywhere: All Jobs, its filters and sort order, the expanded job, and the daily email.\n- A job you rate Low on either one leaves New & Noteworthy straight away, which matches the High/Med-only rule there.\n- Chips you've set show a small dot, and hovering says \"(yours)\".\n- In the browser, a saved rating updated the card in place, and rating a job Low removed its card.\n- Jobs that haven't been scored yet still show \"Score this job\" instead. The chips on My Jobs and in the demo can't be clicked.\n\n**How scoring learns from it**\n- Every new score sees your 25 most recent changes, under \"Where they corrected our ratings\". For example: \"Data Manager at Open Ballot Lab: rated interest High, fit Med; they said interest Low, fit Med (too much people management)\".\n- The scoring instructions say to follow the pattern: an interest change is about what you want, and a fit change is about how you judge your own qualifications.\n- If you pick the same rating we gave, it's recorded as agreeing with us.\n- The preference profile also treats your changes as a strong signal, and they count toward its automatic rebuild.\n\n**Your rating stays**\n- \"Rescore your jobs\" skips jobs you've rated, and its job count and cost estimate leave them out.\n- \"Score this job\" won't rescore them either.\n- You can change a rating again at any time.\n\nI recorded this as decision D-039 and milestone M30 (\"Rate it yourself\").\n\nTo deploy:\n\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge --no-edit origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com IAP_AUDIENCE=/projects/<project number>/locations/us-central1/services/jobhunt\n```",
    "id": "ab602548-254",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-19T19:58:24.285Z",
+   "kind": "prompt",
+   "text": "if a user adds a role to My Jobs from the full text we should also have them input the URL so it can be attached to the job card\nif a user adds a role to My Jobs from the full text we should also have them input the URL so it can be attached to the job card",
+   "reply": null,
+   "id": "ab602548-256",
    "session": "ab602548"
   }
  ]
