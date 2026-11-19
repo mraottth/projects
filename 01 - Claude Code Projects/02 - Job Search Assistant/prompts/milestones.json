@@ -680,5 +680,23 @@
   "decisions": [
    "D-038"
   ]
+ },
+ {
+  "id": "M30",
+  "date": "2026-11-19",
+  "icon": "✍️",
+  "category": "ai",
+  "title": "Rate it yourself",
+  "summary": "Click a job's Interest or Fit chip to give your own rating, with a reason if you like. It shows everywhere at once, a job you rate Low leaves New & Noteworthy, and every score from then on learns from where you disagreed. Rescores leave your rating alone.",
+  "prompts": [
+   "ab602548-253",
+   "ab602548-254"
+  ],
+  "commits": [
+   "96d3b40"
+  ],
+  "decisions": [
+   "D-039"
+  ]
  }
 ]

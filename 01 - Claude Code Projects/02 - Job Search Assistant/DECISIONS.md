@@ -666,8 +666,8 @@ It runs when a source finds a new job, once at startup over existing duplicates,
 ## D-039 · People can change Interest and Fit, and scoring learns from it
 - **Date:** 2026-11-19
 - **Category:** ai
-- **Prompts:** ab602548-253
-- **Commits:** (this change)
+- **Prompts:** ab602548-253, ab602548-254
+- **Commits:** 96d3b40
 
 **Decision.** Clicking a job's Interest or Fit chip opens High/Med/Low for each and an optional "why". The person's rating is stored as a new score (`model = 'you'`), so every page, filter, New & Noteworthy and the email follow it, and as a correction record (what it was, what they said, why). The last 25 corrections go into every score's cached context, the preference profile reads them as a strong signal, and rescores leave a job they rated alone.
 
