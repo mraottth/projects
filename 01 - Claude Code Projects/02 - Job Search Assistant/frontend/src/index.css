@@ -1154,3 +1154,14 @@ a.source-row-name:hover { color: var(--accent-ink); text-decoration: underline; 
 .audit-cal-legend span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 .audit-cal-dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; }
 @media (max-width: 640px) { .audit-row { flex-direction: column; align-items: flex-start; gap: 2px; } }
+
+/* ---------- your own rating (asked 2026-11-19): the Interest/Fit chips are buttons */
+button.rating-chip { border: 0; cursor: pointer; font-family: inherit; line-height: inherit; }
+button.rating-chip:hover { box-shadow: inset 0 0 0 1px currentColor; }
+.rating-edit { font-size: 0.72rem; opacity: 0; transition: opacity 0.12s; }
+button.rating-chip:hover .rating-edit, button.rating-chip:focus-visible .rating-edit { opacity: 0.8; }
+/* A rating the person set: a small dot before the label. */
+button.rating-chip.yours::before {
+  content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; margin-right: 2px;
+}
+.rate-seg { margin-top: 6px; align-self: flex-start; }

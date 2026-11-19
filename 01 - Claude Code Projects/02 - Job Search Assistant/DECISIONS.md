@@ -662,3 +662,21 @@ It runs when a source finds a new job, once at startup over existing duplicates,
 - **Using reasons in the relevance check too:** it could set aside more jobs early, but a wrong set-aside hides a job without a score. Left for later.
 
 **Why.** The person's own reasons are the most direct signal about what they don't want, alongside their free-text note. In the cached context they cost almost nothing (a cache read is a tenth of the price), and they reach the very next score.
+
+## D-039 · People can change Interest and Fit, and scoring learns from it
+- **Date:** 2026-11-19
+- **Category:** ai
+- **Prompts:** ab602548-253
+- **Commits:** (this change)
+
+**Decision.** Clicking a job's Interest or Fit chip opens High/Med/Low for each and an optional "why". The person's rating is stored as a new score (`model = 'you'`), so every page, filter, New & Noteworthy and the email follow it, and as a correction record (what it was, what they said, why). The last 25 corrections go into every score's cached context, the preference profile reads them as a strong signal, and rescores leave a job they rated alone.
+
+**Context.** The owner asked that a person be able to change their interest and fit ratings, and that the signal improve future scoring. Ratings came only from Claude; a wrong one could only be dismissed or tracked. They chose clicking the chips (over a separate control on the expanded card) and that their rating stays through rescores.
+
+**Alternatives considered.**
+- **Store only an override column:** every read (digest, ranked, email, filters, network tiers) would need to prefer it. A score row is what they all read already.
+- **Rescores replace the person's rating:** a rescore after a profile change would quietly undo what they said. Kept instead; they can change it again anytime.
+- **Learn only through the preference profile:** it rebuilds after five new signals or a week. In the scoring context a correction counts from the next score, at cache-read prices.
+
+**Why.** A correction says exactly where the ratings and the person disagree, on which dimension, which is the most direct calibration scoring can get. Keeping it as a score makes it show everywhere with no new read paths.
+

@@ -288,6 +288,22 @@ CREATE TABLE IF NOT EXISTS jobby_messages (
 );
 CREATE INDEX IF NOT EXISTS idx_jobby_messages_thread ON jobby_messages(thread_id, id);
 
+-- Where the person changed a job's Interest or Fit (asked 2026-11-19; core/ratings.py). The new
+-- rating itself is a job_scores row with model 'you'; this keeps what it was changed from, and why,
+-- which scoring and the preference profile learn from.
+CREATE TABLE IF NOT EXISTS rating_corrections (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    job_id INTEGER NOT NULL REFERENCES jobs(id),
+    from_interest TEXT,
+    from_fit TEXT,
+    to_interest TEXT NOT NULL CHECK(to_interest IN ('High', 'Med', 'Low')),
+    to_fit TEXT NOT NULL CHECK(to_fit IN ('High', 'Med', 'Low')),
+    note TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_rating_corrections_user ON rating_corrections(user_id, id);
+
 -- Your LinkedIn connections, from LinkedIn's own data export (Connections.csv; D-036). Private to
 -- the person who uploaded them; a new upload replaces the set. org_key is job_merge.norm_org(company).
 CREATE TABLE IF NOT EXISTS connections (

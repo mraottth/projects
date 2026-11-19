@@ -105,7 +105,8 @@ def get_digest(digest_date: str) -> list[dict]:
     with get_db() as conn:
         rows = conn.execute(
             f"""SELECT j.*, js.interest_fit, js.interest_score, js.candidate_fit, js.candidate_fit_score,
-                      js.summary_text, js.rationale_text, de.rank, de.emailed_at,
+                      js.summary_text, js.rationale_text, js.model = 'you' AS rated_by_you,
+                      de.rank, de.emailed_at,
                       de.digest_date, s.name AS source_name,
                       {SOURCE_IS_BOARD_SQL} AS source_is_board
                FROM digest_entries de
@@ -128,7 +129,10 @@ def get_digest(digest_date: str) -> list[dict]:
         and not is_generic_posting(row["title"])
         and not dealbreakers.blocks(dict(row), settings)
     ]
-    return [dict(row) for row in sorted(rows, key=_rank_key, reverse=True)]
+    return [
+        {**dict(row), "rated_by_you": bool(row["rated_by_you"])}
+        for row in sorted(rows, key=_rank_key, reverse=True)
+    ]
 
 
 def get_digest_dates() -> list[str]:

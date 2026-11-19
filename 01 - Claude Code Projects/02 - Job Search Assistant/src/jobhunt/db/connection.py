@@ -142,6 +142,7 @@ PER_USER_TABLES = (
     "llm_calls",
     "runs",
     "connections",
+    "rating_corrections",
 )
 ADMIN_ID = 1
 PLACEHOLDER_ADMIN_EMAIL = "admin@localhost"

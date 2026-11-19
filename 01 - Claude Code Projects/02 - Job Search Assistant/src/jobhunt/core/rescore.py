@@ -14,7 +14,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
-from jobhunt.core import budget, dealbreakers, queue
+from jobhunt.core import budget, dealbreakers, queue, ratings
 from jobhunt.core.generic_postings import is_generic_posting
 from jobhunt.core.llm import BudgetExceeded
 from jobhunt.core.scoring import score_job, store_score
@@ -68,10 +68,14 @@ def job_ids(scope: str) -> list[int]:
     # All Jobs hides jobs a dealbreaker rules out by default, so they aren't paid for.
     # My Jobs is never filtered.
     settings = get_settings() if scope == "all_jobs" else {}
+    # A job the person rated themselves keeps their rating (core/ratings.py), so it isn't rescored.
+    rated = ratings.rated_job_ids()
     return [
         r["id"]
         for r in rows
-        if not is_generic_posting(r["title"]) and not dealbreakers.blocks(dict(r), settings)
+        if r["id"] not in rated
+        and not is_generic_posting(r["title"])
+        and not dealbreakers.blocks(dict(r), settings)
     ]
 
 

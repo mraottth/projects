@@ -235,6 +235,8 @@ export interface ScoredJob extends Job {
   source_is_board?: number | boolean | null;
   // All Jobs only: its status on My Jobs, or null when it isn't there.
   application_status?: ApplicationStatus | null;
+  // Its Interest and Fit are the person's own rating (core/ratings.py).
+  rated_by_you?: boolean;
 }
 
 export interface DigestEntry extends ScoredJob {
@@ -849,6 +851,18 @@ export const api = {
         "interest_fit" | "interest_score" | "candidate_fit" | "candidate_fit_score" | "summary_text" | "rationale_text"
       >
     >(`/api/jobs/${id}/score`, { method: "POST" }),
+
+  // The person's own Interest and Fit for a job (asked 2026-11-19).
+  rateJob: (id: number, interest_fit: string, candidate_fit: string, note?: string) =>
+    request<
+      Pick<ScoredJob, "interest_fit" | "interest_score" | "candidate_fit" | "candidate_fit_score"> & {
+        rated_by_you: boolean;
+      }
+    >(`/api/jobs/${id}/rating`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ interest_fit, candidate_fit, note }),
+    }),
 
   getRankedJobs: () => request<RankedJob[]>("/api/jobs/ranked"),
   // {job id: description}, loaded after the list for All Jobs' search box.

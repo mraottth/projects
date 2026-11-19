@@ -37,6 +37,12 @@ kind of organization, pay, location or anything else they named), lower interest
 the rationale. Read each reason for what it says: one about a single organization or role doesn't \
 rule out others unless it says so. These reasons bear on interest_fit, not candidate_fit.
 
+They have also corrected some earlier ratings themselves: what was rated, what they changed it to, \
+and sometimes why. Treat these as the truest calibration you have. When this posting resembles one \
+they rated down (or up) on a dimension, rate it the way they would. An interest correction says \
+what they want; a fit correction says how they judge their own qualifications for that kind of role \
+(for example, that they count experience you underrated). Follow the pattern, not just the one job.
+
 Desired titles and minimum salary are GUIDANCE, not a filter -- do not require a literal title match. \
 If they said "Analytics Director," a posting titled "VP of Analytics," "Director of Data," or "Head \
 of Analytics" can be just as strong a match if the role's actual scope and seniority line up; judge \
@@ -153,6 +159,35 @@ def _passed_reasons_text(limit: int = PASSED_REASONS_LIMIT) -> str:
     if not rows:
         return "(none given yet)"
     return "\n".join(f"- {row['title']} at {row['company']}: {row['note'].strip()}" for row in rows)
+
+
+CORRECTIONS_LIMIT = 25
+
+
+def _corrections_text(limit: int = CORRECTIONS_LIMIT) -> str:
+    """Where they changed a job's ratings themselves (core/ratings.py, asked 2026-11-19), newest
+    first, so every score learns from them at once. Ordered by id, so the cached prompt stays the
+    same between calls."""
+    with get_db() as conn:
+        rows = conn.execute(
+            """SELECT c.from_interest, c.from_fit, c.to_interest, c.to_fit, c.note, j.title, j.company
+               FROM rating_corrections c JOIN jobs j ON j.id = c.job_id
+               WHERE c.user_id = ? ORDER BY c.id DESC LIMIT ?""",
+            (current_user_id(), limit),
+        ).fetchall()
+    if not rows:
+        return "(none yet)"
+    return "\n".join(_correction_line(row) for row in rows)
+
+
+def _correction_line(row) -> str:
+    said = f"rated interest {row['from_interest']}, fit {row['from_fit']}"
+    if (row["from_interest"], row["from_fit"]) == (row["to_interest"], row["to_fit"]):
+        mine = "they agreed"
+    else:
+        mine = f"they said interest {row['to_interest']}, fit {row['to_fit']}"
+    why = f" ({row['note'].strip()})" if row["note"] and row["note"].strip() else ""
+    return f"- {row['title']} at {row['company']}: {said}; {mine}{why}"
 
 
 def _recent_feedback_text(limit: int = 10) -> str:
@@ -281,6 +316,7 @@ def _request_parts(
         f"## Minimum salary (guidance, not a hard cutoff)\n{salary_text}\n\n"
         f"## In their own words, what they're looking for\n{notes_text}\n\n"
         f"## Why they passed on earlier jobs (their own reasons, newest first)\n{_passed_reasons_text()}\n\n"
+        f"## Where they corrected our ratings (newest first)\n{_corrections_text()}\n\n"
         f"## Recent feedback\n{_recent_feedback_text()}"
     )
     system = [

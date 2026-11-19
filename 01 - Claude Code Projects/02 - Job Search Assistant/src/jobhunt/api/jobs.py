@@ -6,7 +6,7 @@ from jobhunt.core.llm import LLMError
 from jobhunt.core.preference import get_current_preference_profile
 from jobhunt.core.profile import get_current_candidate_profile
 from jobhunt.core.scoring import score_job, store_score
-from jobhunt.core import dealbreakers, job_merge, network
+from jobhunt.core import dealbreakers, job_merge, network, ratings
 from jobhunt.core.digest import SOURCE_IS_BOARD_SQL
 from jobhunt.core.settings import get_setting, get_settings
 from jobhunt.db.connection import get_db
@@ -91,6 +91,7 @@ def list_ranked_jobs(status: str = "active"):
             f"""SELECT {RANKED_JOB_COLUMNS},
                        js.interest_fit, js.interest_score, js.candidate_fit, js.candidate_fit_score,
                        js.summary_text, js.rationale_text, s.name AS source_name,
+                       js.model = '{ratings.USER_MODEL}' AS rated_by_you,
                        {SOURCE_IS_BOARD_SQL} AS source_is_board,
                        a.status AS application_status,
                        q.screen = 'drop' AS screened_out
@@ -116,6 +117,7 @@ def list_ranked_jobs(status: str = "active"):
     for job in jobs:
         job["dealbreakers"] = dealbreakers.reasons(job, settings)
         job["screened_out"] = bool(job.get("screened_out"))
+        job["rated_by_you"] = bool(job.get("rated_by_you"))
         job["description_text"] = None  # sent by /ranked/descriptions, after the list
     network.add_counts(jobs)  # "2 connections" on the cards (D-036)
     return jobs
@@ -149,6 +151,7 @@ def get_job(job_id: int):
         ).fetchall()
     job = _row_to_dict(row)
     job["scores"] = [_row_to_dict(s) for s in scores]
+    job["rated_by_you"] = bool(scores) and scores[0]["model"] == ratings.USER_MODEL
     return job
 
 
@@ -290,6 +293,9 @@ def score_one_job(job_id: int):
 
     if not job_is_visible(job_id):
         raise HTTPException(404, "job not found")
+    if ratings.rated_by_person(job_id):
+        # Their own rating stays (asked 2026-11-19); the button isn't shown for a rated job anyway.
+        raise HTTPException(409, "You rated this job yourself, so it isn't rescored")
     with get_db() as conn:
         job = _row_to_dict(conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone())
     job = _backfill_description(job)  # a web-board job's posting is fetched before its first score
@@ -315,6 +321,26 @@ def score_one_job(job_id: int):
         "summary_text": score.summary_text,
         "rationale_text": score.rationale_text,
     }
+
+
+class RatingRequest(BaseModel):
+    interest_fit: str
+    candidate_fit: str
+    note: str | None = Field(default=None, max_length=ratings.NOTE_LIMIT)
+
+
+@router.put("/{job_id}/rating")
+def rate_job(job_id: int, payload: RatingRequest):
+    """The person's own Interest and Fit for a job (asked 2026-11-19; core/ratings.py). Every page
+    follows it at once, and future scoring and the preference profile learn from it."""
+    try:
+        return ratings.correct(job_id, payload.interest_fit, payload.candidate_fit, payload.note)
+    except ratings.NotVisible:
+        raise HTTPException(404, "job not found") from None
+    except ratings.NotScored:
+        raise HTTPException(400, "This job hasn't been rated yet: score it first") from None
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
 
 
 @router.post("/{job_id}/feedback")

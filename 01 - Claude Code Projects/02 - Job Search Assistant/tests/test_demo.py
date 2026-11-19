@@ -21,6 +21,7 @@ NOT_RECORDED = {
     "/api/network/rate",
     "/api/network/reached-out",
     "/api/digest/run-audit?{}",  # the card is hidden in the demo
+    "/api/jobs/{}/rating",  # write-only: the demo shows plain badges
     "/api/digest/run-calendar?{}",  # its calendar, likewise
     "/api/network/job/{}",
     "/api/access/request",

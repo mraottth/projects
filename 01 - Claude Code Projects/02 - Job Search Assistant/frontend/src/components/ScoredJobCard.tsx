@@ -111,6 +111,135 @@ export function FitBadge({ label, value }: { label: string; value: string | null
   );
 }
 
+type Level = "High" | "Med" | "Low";
+const LEVELS: Level[] = ["High", "Med", "Low"];
+export type RatingResult = Pick<
+  ScoredJob,
+  "interest_fit" | "interest_score" | "candidate_fit" | "candidate_fit_score"
+> & { rated_by_you: boolean };
+
+/** The Interest and Fit chips, which the person can click to change (asked 2026-11-19): a small
+ * dialog with High/Med/Low for each and an optional "why". Their rating then shows everywhere, and
+ * scoring and the preference profile learn from it (core/ratings.py). Plain badges in the demo. */
+export function RatingChips({
+  job,
+  onRated,
+}: {
+  job: Pick<ScoredJob, "id" | "title" | "company" | "interest_fit" | "candidate_fit"> & { rated_by_you?: boolean };
+  onRated: (result: RatingResult) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  if (!job.interest_fit || !job.candidate_fit) return null;
+  if (DEMO) {
+    return (
+      <>
+        <FitBadge label="Interest" value={job.interest_fit} />
+        <FitBadge label="Fit" value={job.candidate_fit} />
+      </>
+    );
+  }
+  const yours = !!job.rated_by_you;
+  const chip = (label: string, value: string) => (
+    <button
+      type="button"
+      className={`badge badge-${value.toLowerCase()} rating-chip${yours ? " yours" : ""}`}
+      title={`${label}: ${value}${yours ? " (yours)" : ""}. Click to change your rating.`}
+      onClick={() => setOpen(true)}
+    >
+      {label}: {value}
+      <span className="rating-edit" aria-hidden="true">
+        ✎
+      </span>
+    </button>
+  );
+  return (
+    <>
+      {chip("Interest", job.interest_fit)}
+      {chip("Fit", job.candidate_fit)}
+      {open && (
+        <RateDialog
+          job={job}
+          onClose={() => setOpen(false)}
+          onSaved={(r) => {
+            setOpen(false);
+            onRated(r);
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+function RateDialog({
+  job,
+  onClose,
+  onSaved,
+}: {
+  job: Pick<ScoredJob, "id" | "title" | "company" | "interest_fit" | "candidate_fit">;
+  onClose: () => void;
+  onSaved: (result: RatingResult) => void;
+}) {
+  const [interest, setInterest] = useState<Level>((job.interest_fit as Level) ?? "Med");
+  const [fit, setFit] = useState<Level>((job.candidate_fit as Level) ?? "Med");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const save = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      onSaved(await api.rateJob(job.id, interest, fit, note.trim() || undefined));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setBusy(false);
+    }
+  };
+  const row = (label: string, hint: string, value: Level, set: (l: Level) => void) => (
+    <div className="fsection">
+      <span className="flabel">{label}</span>
+      <span className="muted small">{hint}</span>
+      <div className="seg rate-seg">
+        {LEVELS.map((l) => (
+          <button key={l} type="button" className={value === l ? "on" : ""} onClick={() => set(l)}>
+            {l}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+  return (
+    <Modal open onClose={onClose} title="Your rating">
+      <div className="outreach-form">
+        <p className="muted small">
+          {job.title} · {job.company}. Your rating replaces ours here and everywhere else, and future jobs
+          are scored with it in mind.
+        </p>
+        {row("Interest", "How much you'd want this job", interest, setInterest)}
+        {row("Fit", "How well your background matches what it asks for", fit, setFit)}
+        <label className="fsection">
+          <span className="flabel">Why? (optional)</span>
+          <textarea
+            rows={3}
+            maxLength={1000}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="e.g. My campaign analytics work covers their data requirements"
+          />
+        </label>
+        <div className="form-actions">
+          <button className="primary" disabled={busy} onClick={save}>
+            {busy ? <Spinner label="Saving..." /> : "Save"}
+          </button>
+          <button className="ghost" disabled={busy} onClick={onClose}>
+            Cancel
+          </button>
+          {error && <span className="error-text small">{error}</span>}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 // Quick reasons for "Not Interested" (asked 2026-11-18). Picked ones and the free text become the
 // feedback's note, which scoring reads (core/scoring.py's _passed_reasons_text) and the preference
 // profile learns from.
@@ -376,11 +505,13 @@ export function ScoreButton({
 export function ScoredJobCard({
   job: given,
   onDismissed,
+  onRatedLow,
   onFilter,
   activeFilters,
 }: {
   job: ScoredJob;
   onDismissed?: () => void;
+  onRatedLow?: () => void;
   onFilter?: (key: ChipFilterKey, value: string) => void;
   activeFilters?: { location: string[]; organization: string[] };
 }) {
@@ -442,8 +573,14 @@ export function ScoredJobCard({
       {job.summary_text && <p>{job.summary_text}</p>}
 
       <div className="badge-row">
-        <FitBadge label="Interest" value={job.interest_fit} />
-        <FitBadge label="Fit" value={job.candidate_fit} />
+        <RatingChips
+          job={job}
+          onRated={(r) => {
+            setScore((s) => ({ ...s, ...r }));
+            // New & Noteworthy only holds High/Med (D-038), so a job rated down to Low leaves it.
+            if (r.interest_fit === "Low" || r.candidate_fit === "Low") onRatedLow?.();
+          }}
+        />
         {!job.interest_fit && !job.candidate_fit && (
           <>
             <span className="muted small">

@@ -3,12 +3,13 @@ import { PeopleYouKnow } from "../components/Network";
 import { Link, useParams } from "react-router-dom";
 import { api, Application, APPLICATION_STATUS_LABELS, GeneratedDoc, Job } from "../api";
 import { Markdown } from "../components/Markdown";
-import { daysAgo, rationaleClass, ScoreButton } from "../components/ScoredJobCard";
+import { daysAgo, rationaleClass, RatingChips, ScoreButton } from "../components/ScoredJobCard";
 import { DEMO } from "../demo";
 import { Spinner } from "../components/Spinner";
 import { tidyDescription } from "../descriptionText";
 
 interface JobWithScores extends Job {
+  rated_by_you?: boolean;
   scores: {
     interest_fit: string | null;
     candidate_fit: string | null;
@@ -16,16 +17,6 @@ interface JobWithScores extends Job {
     rationale_text: string | null;
     scored_at: string;
   }[];
-}
-
-function FitBadge({ label, value }: { label: string; value: string | null }) {
-  if (!value) return null;
-  const cls = value === "High" ? "badge-high" : value === "Med" ? "badge-med" : "badge-low";
-  return (
-    <span className={`badge ${cls}`}>
-      {label}: {value}
-    </span>
-  );
 }
 
 // A page at /jobs/<id>, or (given `jobId`) the card JobModal shows over the list it was opened from.
@@ -133,8 +124,17 @@ export default function JobDetailPage({ jobId: shownId }: { jobId?: number } = {
         <div className="card">
           <h2>Scoring</h2>
           <div className="badge-row">
-            <FitBadge label="Interest" value={latestScore.interest_fit} />
-            <FitBadge label="Fit" value={latestScore.candidate_fit} />
+            <RatingChips
+              job={{
+                id: job.id,
+                title: job.title,
+                company: job.company,
+                interest_fit: latestScore.interest_fit as "High" | "Med" | "Low" | null,
+                candidate_fit: latestScore.candidate_fit as "High" | "Med" | "Low" | null,
+                rated_by_you: job.rated_by_you,
+              }}
+              onRated={() => refresh()}
+            />
           </div>
           {latestScore.summary_text && <p>{latestScore.summary_text}</p>}
           {latestScore.rationale_text && (

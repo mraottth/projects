@@ -286,6 +286,25 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
   experience) and Low (few/none of the hard requirements), and says to name specific, serious
   mismatches with several hard requirements in the rationale. Jobs scored before keep their old
   ratings until rescored (Settings' "Rescore your jobs").
+- **Your ratings** (D-039, asked 2026-11-19; `core/ratings.py`). The Interest and Fit chips on job
+  cards and the expanded card are buttons (`RatingChips` in `ScoredJobCard.tsx`, a "✎" on hover):
+  a click opens `RateDialog`, High/Med/Low for each plus an optional "Why?", saved by
+  `PUT /api/jobs/{id}/rating`.
+  - `ratings.correct()` writes a new `job_scores` row with `model = 'you'` (`USER_MODEL`), copying
+    the latest score's summary and rationale. A label left as it was keeps its 0-100 number; a
+    changed one gets its band's middle (`BAND_MIDDLE`: 83/50/17). It also writes a
+    `rating_corrections` row (from/to labels, note; in `PER_USER_TABLES`). An unscored job is a 400,
+    another person's a 404.
+  - Every page reads the latest score, so all follow at once: a rating to Low takes a job off New &
+    Noteworthy (the card leaves too, `onRatedLow`) and the email. `rated_by_you` comes back on the
+    digest, `/api/jobs/ranked` and the job route; a chip of yours has a dot and "(yours)".
+  - Learning: `scoring._corrections_text()` puts the last 25 corrections (newest first, by id) in the
+    cached context under "Where they corrected our ratings", and `SYSTEM_PROMPT` says to follow the
+    pattern (interest = what they want, fit = how they judge their qualifications). Re-picking our
+    own rating is recorded as "they agreed". The preference profile reads them as a strong signal,
+    and they count toward its rebuild threshold.
+  - Their rating stays: rescores skip those jobs (`ratings.rated_job_ids()`, also out of the count
+    and estimate), and "Score this job" is a 409. My Jobs' table chips and the demo stay plain badges.
 - **Reasons for passing** (D-038, asked 2026-11-18). "Not Interested" opens `WhyNotDialog`
   (`ScoredJobCard.tsx`): quick reasons (`PASS_REASONS`, multi-select chips) and "Anything else?",
   joined into the feedback's `note` ("Too senior; Location — I want a hands-on role"; trimmed, at

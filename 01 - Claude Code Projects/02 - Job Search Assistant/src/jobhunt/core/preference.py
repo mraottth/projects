@@ -11,7 +11,9 @@ rejected_interviewed (got through screening, so not a fit problem on paper), wit
 interest). Distinguish "wasn't a good candidate fit" from "wasn't actually interested"), and their \
 raw interested/not_interested/maybe marks (weaker, faster signal). A not_interested mark with a note \
 is different: the note is the person's own reason for passing on that job, so weigh it heavily and \
-turn reasons that recur into clear patterns of what to avoid.
+turn reasons that recur into clear patterns of what to avoid. Where they changed a job's Interest \
+or Fit rating themselves, that's as strong a signal as an application outcome: say what kinds of \
+roles they rate higher or lower than the ratings did, and why when they said.
 
 Write an updated profile (200-400 words): what roles/companies/locations/comp ranges they actually \
 respond to, patterns in what they reject even when "on paper" qualified, and anything the application \
@@ -47,6 +49,12 @@ def _signal_text() -> tuple[str, int, int]:
                ORDER BY f.created_at DESC LIMIT 50""",
             (user_id,),
         ).fetchall()
+        corrections = conn.execute(
+            """SELECT c.from_interest, c.from_fit, c.to_interest, c.to_fit, c.note, j.title, j.company
+               FROM rating_corrections c JOIN jobs j ON j.id = c.job_id
+               WHERE c.user_id = ? ORDER BY c.id DESC LIMIT 50""",
+            (user_id,),
+        ).fetchall()
 
     app_lines = [
         f"- {row['title']} at {row['company']}: {row['history'] or row['status']}"
@@ -58,13 +66,18 @@ def _signal_text() -> tuple[str, int, int]:
         + (f" (note: {row['note']})" if row["note"] else "")
         for row in feedback
     ]
+    from jobhunt.core.scoring import _correction_line
+
     text = (
         "## Application history (strongest signal)\n"
         + ("\n".join(app_lines) if app_lines else "(none yet)")
+        + "\n\n## Ratings they corrected themselves (strong signal)\n"
+        + ("\n".join(_correction_line(row) for row in corrections) if corrections else "(none yet)")
         + "\n\n## Raw feedback marks (weaker signal)\n"
         + ("\n".join(feedback_lines) if feedback_lines else "(none yet)")
     )
-    return text, len(feedback), len(applications)
+    # Corrections count toward the rebuild threshold like feedback marks (daily_run).
+    return text, len(feedback) + len(corrections), len(applications)
 
 
 def rebuild_preference_profile() -> str:

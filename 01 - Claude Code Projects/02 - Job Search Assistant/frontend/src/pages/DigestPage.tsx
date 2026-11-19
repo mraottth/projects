@@ -104,6 +104,7 @@ export default function DigestPage() {
                 key={entry.id}
                 job={entry}
                 onDismissed={() => setEntries((prev) => prev.filter((e) => e.id !== entry.id))}
+                onRatedLow={() => setEntries((prev) => prev.filter((e) => e.id !== entry.id))}
                 onFilter={(key, value) => setFilters((f) => toggleFilterValue(f, key, value))}
                 activeFilters={filters}
               />

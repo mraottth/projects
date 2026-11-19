@@ -495,8 +495,11 @@ def _maybe_rebuild_preference_profile() -> bool:
             "FROM preference_profile WHERE user_id = ? ORDER BY id DESC LIMIT 1",
             (user_id,),
         ).fetchone()
+        # Rating corrections (core/ratings.py) count like feedback marks.
         feedback_count = conn.execute(
-            "SELECT COUNT(*) AS n FROM feedback WHERE user_id = ?", (user_id,)
+            "SELECT (SELECT COUNT(*) FROM feedback WHERE user_id = :u) "
+            "+ (SELECT COUNT(*) FROM rating_corrections WHERE user_id = :u) AS n",
+            {"u": user_id},
         ).fetchone()["n"]
         app_events = conn.execute(
             "SELECT COUNT(*) AS n FROM application_status_history h JOIN applications a "
