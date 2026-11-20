@@ -16,6 +16,7 @@ SCHEMA_PATH = Path(__file__).resolve().parent / "schema.sql"
 # `favorite_companies` table were removed from schema.sql; databases created before that still have
 # them, unused and harmless.)
 MIGRATIONS = [
+    "ALTER TABLE connections ADD COLUMN manual INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE jobby_threads ADD COLUMN title TEXT",
     "ALTER TABLE resumes ADD COLUMN source_path TEXT",
     "ALTER TABLE resumes ADD COLUMN source_modified_at TEXT",

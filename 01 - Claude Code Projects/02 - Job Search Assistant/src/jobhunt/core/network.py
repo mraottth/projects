@@ -16,6 +16,7 @@ for are suggested as sources.
 
 import csv
 import io
+import logging
 import re
 from datetime import datetime, timezone
 
@@ -29,6 +30,8 @@ from jobhunt.core.profile import get_current_candidate_profile
 from jobhunt.core.settings import get_settings, update_settings
 from jobhunt.core.users import current_user_id
 from jobhunt.db.connection import get_db
+
+logger = logging.getLogger(__name__)
 
 PICK_MODEL = "claude-haiku-5-5"
 CHUNK = 200
@@ -108,10 +111,17 @@ def _date(value: str | None) -> str | None:
 
 
 def replace_connections(rows: list[dict]) -> None:
+    """A new upload replaces the uploaded connections. People added by hand stay, unless the file
+    has them too: then the file's row (with its connected-since date) takes their place."""
     uid = current_user_id()
+    uploaded = {person_key(r) for r in rows}
     with get_db() as conn:
         conn.execute("BEGIN IMMEDIATE")
-        conn.execute("DELETE FROM connections WHERE user_id = ?", (uid,))
+        conn.execute("DELETE FROM connections WHERE user_id = ? AND manual = 0", (uid,))
+        added = conn.execute("SELECT * FROM connections WHERE user_id = ? AND manual = 1", (uid,))
+        for m in added.fetchall():
+            if person_key(dict(m)) in uploaded:
+                conn.execute("DELETE FROM connections WHERE id = ?", (m["id"],))
         conn.executemany(
             "INSERT INTO connections (user_id, first_name, last_name, url, company, position, "
             "connected_on, org_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -559,6 +569,100 @@ def person_key(person: dict) -> str:
     return f"{name}|{(person.get('company') or '').strip().lower()}"
 
 
+# ---- added by hand, and your own priority (asked 2026-11-20)
+
+TIERS = ("High", "Medium", "Low")
+NOT_LISTED = "Not listed"
+
+
+class ContactError(ValueError):
+    pass
+
+
+def add_contact(name: str, url: str, position: str | None, company: str | None) -> dict:
+    """Adds one person to the network by hand, without a new Connections.csv. Their organization is
+    rated by Claude (its name only, a fraction of a cent) when it hasn't been yet, so they're tiered
+    like everyone else; a failure there just leaves it unrated. Raises ContactError."""
+    name, url = (name or "").strip(), (url or "").strip()
+    position, company = (position or "").strip() or None, (company or "").strip() or None
+    if not name:
+        raise ContactError("Add their name.")
+    if not url.lower().startswith(("http://", "https://")):
+        raise ContactError("Add the link to their LinkedIn profile, starting with https://")
+    first, _, last = name.partition(" ")
+    person = {"first_name": first, "last_name": last.strip(), "url": url, "company": company}
+    uid = current_user_id()
+    with get_db() as conn:
+        for row in conn.execute("SELECT * FROM connections WHERE user_id = ?", (uid,)).fetchall():
+            if person_key(dict(row)) == person_key(person):
+                raise ContactError(f"{name} is already in your network.")
+        new_id = conn.execute(
+            "INSERT INTO connections (user_id, first_name, last_name, url, company, position, org_key, "
+            "manual) VALUES (?, ?, ?, ?, ?, ?, ?, 1)",
+            (uid, person["first_name"], person["last_name"], url, company, position, org_key(company)),
+        ).lastrowid
+    _rate_one(company)
+    return {"id": new_id}
+
+
+def _rate_one(company: str | None) -> None:
+    key = org_key(company)
+    picks = dict(get_settings().get("network_orgs") or {})
+    if not key or key in picks:
+        return
+    try:
+        rated = _pick_chunk(_context(), [company])
+    except LLMError as exc:
+        logger.warning("rating %s failed: %s", company, exc)
+        return
+    if 1 in rated:
+        rating, why = rated[1]
+        picks[key] = {"name": company, "why": why, "rating": rating}
+        update_settings({"network_orgs": picks})
+
+
+def remove_contact(connection_id: int) -> None:
+    """Removes someone added by hand (uploaded people go with "Remove them" or a new upload)."""
+    with get_db() as conn:
+        gone = conn.execute(
+            "DELETE FROM connections WHERE id = ? AND user_id = ? AND manual = 1",
+            (connection_id, current_user_id()),
+        ).rowcount
+    if not gone:
+        raise LookupError(connection_id)
+
+
+def set_priority(connection_id: int, level: str | None) -> None:
+    """Your own tier for a person ("High"/"Medium"/"Low"/"Not listed"), or None to go back to ours.
+    Kept in the `network_priority` setting by `person_key`, so it survives a new upload."""
+    if level is not None and level not in (*TIERS, NOT_LISTED):
+        raise ContactError("Pick High, Medium, Low or Not listed.")
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT * FROM connections WHERE id = ? AND user_id = ?", (connection_id, current_user_id())
+        ).fetchone()
+    if row is None:
+        raise LookupError(connection_id)
+    marks = dict(get_settings().get("network_priority") or {})
+    key = person_key(dict(row))
+    if level is None:
+        marks.pop(key, None)
+    else:
+        marks[key] = level
+    update_settings({"network_priority": marks})
+
+
+def _with_priority(level: str | None, why: str, override: str | None) -> tuple[str | None, str]:
+    """The tier shown, after the person's own choice: (tier or None for not listed, why)."""
+    if override is None:
+        return level, why
+    chosen = None if override == NOT_LISTED else override
+    ours = level or NOT_LISTED
+    if override == ours:
+        return level, why
+    return chosen, f"You set this to {override} (we'd say {ours}: {why})"
+
+
 def set_reached_out(connection_id: int, reached: bool) -> str | None:
     """Marks one of the person's connections as reached out to, or clears it (asked 2026-11-17).
     Kept in the `network_reached_out` setting, by `person_key`, so it survives a new upload. Returns
@@ -586,6 +690,7 @@ def overview() -> dict:
     settings = get_settings()
     picks = settings.get("network_orgs") or {}
     reached = settings.get("network_reached_out") or {}
+    priority = settings.get("network_priority") or {}
     desired = _desired_titles()
     with get_db() as conn:
         people = [dict(r) for r in conn.execute("SELECT * FROM connections WHERE user_id = ?", (uid,))]
@@ -599,15 +704,23 @@ def overview() -> dict:
     mine_key, colleagues = org_key(mine), 0
     for p in people:
         key = org_key(p["company"])
-        if mine_key and _same_org(key, mine_key):  # your colleagues aren't outreach leads
+        override = priority.get(person_key(p))
+        # Your colleagues aren't outreach leads, unless you gave one a priority yourself.
+        if mine_key and _same_org(key, mine_key) and override is None:
             colleagues += 1
             continue
         jobs = [j for k in jobs_index.matches(key) for j in by_org[k]]
         pick = next((picks[k] for k in pick_index.matches(key)), None)
         is_followed = bool(followed_index.matches(key))
         result = assess(p, jobs, pick, is_followed, desired)
-        level, why, job = result["tier"], result["why"], result["job"]
+        auto = result["tier"]
+        level, why = _with_priority(auto, result["why"], override)
+        job = result["job"]
         row = {
+            "tier": level,
+            "auto_tier": auto,
+            "priority": override,
+            "manual": bool(p.get("manual")),
             "org_align": result["org"]["level"],
             "org_note": result["org"]["note"],
             "org_tracked": result["org"]["tracked"],
@@ -718,7 +831,9 @@ def people_at(company: str | None) -> list[dict]:
     if not key:
         return []
     uid = current_user_id()
-    picks = get_settings().get("network_orgs") or {}
+    settings = get_settings()
+    picks = settings.get("network_orgs") or {}
+    priority = settings.get("network_priority") or {}
     desired = _desired_titles()
     with get_db() as conn:
         everyone = [dict(r) for r in conn.execute("SELECT * FROM connections WHERE user_id = ?", (uid,))]
@@ -731,7 +846,8 @@ def people_at(company: str | None) -> list[dict]:
         pkey = org_key(p["company"])
         jobs = [j for k in jobs_index.matches(pkey) for j in by_org[k]]
         pick = next((picks[k] for k in pick_index.matches(pkey)), None)
-        level, _, _ = tier(p, jobs, pick, bool(followed.matches(pkey)), desired)
+        level, why, _ = tier(p, jobs, pick, bool(followed.matches(pkey)), desired)
+        level, _ = _with_priority(level, why, priority.get(person_key(p)))
         out.append(
             {
                 "id": p["id"],

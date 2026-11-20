@@ -4,7 +4,7 @@ and the people you know at a job's organization (core/network.py)."""
 import logging
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from jobhunt.core import network
 from jobhunt.core.llm import LLMError
@@ -74,10 +74,55 @@ def reached_out(body: ReachedOutRequest):
         raise HTTPException(404, "connection not found") from None
 
 
+class ContactRequest(BaseModel):
+    name: str = Field(max_length=200)
+    url: str = Field(max_length=500)
+    position: str | None = Field(default=None, max_length=300)
+    company: str | None = Field(default=None, max_length=300)
+
+
+@router.post("/contacts")
+def add_contact(body: ContactRequest):
+    """Adds one person by hand, without a new Connections.csv (asked 2026-11-20)."""
+    try:
+        added = network.add_contact(body.name, body.url, body.position, body.company)
+    except network.ContactError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return {**network.overview(), "added_id": added["id"]}
+
+
+@router.delete("/contacts/{connection_id}")
+def remove_contact(connection_id: int):
+    try:
+        network.remove_contact(connection_id)
+    except LookupError:
+        raise HTTPException(404, "contact not found") from None
+    return network.overview()
+
+
+class PriorityRequest(BaseModel):
+    id: int
+    # "High" / "Medium" / "Low" / "Not listed", or null to go back to the automatic tier.
+    priority: str | None = None
+
+
+@router.post("/priority")
+def set_priority(body: PriorityRequest):
+    """Your own priority for a person (asked 2026-11-20), over the automatic tier."""
+    try:
+        network.set_priority(body.id, body.priority)
+    except network.ContactError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except LookupError:
+        raise HTTPException(404, "connection not found") from None
+    return network.overview()
+
+
 @router.delete("/connections")
 def delete_connections():
     with get_db() as conn:
-        conn.execute("DELETE FROM connections WHERE user_id = ?", (current_user_id(),))
+        # The uploaded ones; people added by hand stay until removed one by one.
+        conn.execute("DELETE FROM connections WHERE user_id = ? AND manual = 0", (current_user_id(),))
     update_settings(
         {
             "network_orgs": {},

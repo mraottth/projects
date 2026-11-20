@@ -1165,3 +1165,9 @@ button.rating-chip.yours::before {
   content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; margin-right: 2px;
 }
 .rate-seg { margin-top: 6px; align-self: flex-start; }
+
+/* ---------- My Network: add a contact, your own priority (asked 2026-11-20) */
+.network-reach-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.priority-select { font-size: 0.82rem; padding: 3px 6px; field-sizing: content; }
+.priority-select.yours { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.remove-contact { margin-left: 6px; text-decoration: none; color: var(--ink-2); }

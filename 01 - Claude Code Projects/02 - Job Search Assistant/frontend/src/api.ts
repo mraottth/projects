@@ -111,6 +111,12 @@ export interface Job {
 export type NetworkTier = "High" | "Medium" | "Low";
 export interface NetworkPerson {
   id: number;
+  // The tier shown (null: not listed), ours before your own choice, and your choice (asked 2026-11-20).
+  tier: NetworkTier | null;
+  auto_tier: NetworkTier | null;
+  priority: NetworkTier | "Not listed" | null;
+  // Added by hand on My Network, not from Connections.csv.
+  manual: boolean;
   name: string;
   url: string | null;
   company: string | null;
@@ -947,6 +953,21 @@ export const api = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, reached }),
+    }),
+  // Add one person by hand, without a new upload (asked 2026-11-20).
+  addContact: (body: { name: string; url: string; position?: string; company?: string }) =>
+    request<NetworkOverview & { added_id: number }>("/api/network/contacts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  removeContact: (id: number) => request<NetworkOverview>(`/api/network/contacts/${id}`, { method: "DELETE" }),
+  // Your own priority for a person; null goes back to the automatic tier.
+  setNetworkPriority: (id: number, priority: NetworkTier | "Not listed" | null) =>
+    request<NetworkOverview>("/api/network/priority", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, priority }),
     }),
   peopleAtJob: (jobId: number) => request<PersonAtJob[]>(`/api/network/job/${jobId}`),
 

@@ -652,6 +652,24 @@ PYTHONPATH=src uv run uvicorn jobhunt.api.main:app --reload --port 8000
     yet" filter beside the search. A new upload replaces the `connections` rows, so marks live in the
     `network_reached_out` setting keyed by `person_key()` (the LinkedIn profile URL, else name +
     organization) and survive re-uploads; each row carries `reached_out` (the date).
+  - **Add a contact, your own priority, search everywhere** (asked 2026-11-20).
+    - "+ Add a contact" (`AddContact`, a blue button at the top right of "Who to reach out to")
+      asks for name, LinkedIn link (required, http(s)), title and organization. `POST
+      /api/network/contacts` → `network.add_contact()` inserts a `connections` row with `manual = 1`
+      (a MIGRATIONS ALTER); a person already there (by `person_key`) is a 400. If their organization
+      isn't rated yet, `_rate_one()` rates just its name with the same Haiku call (a fraction of a
+      cent); a failure leaves it unrated. The card shows once loaded even with no upload.
+    - A new upload (`replace_connections`) and "Remove them" delete only uploaded rows. A hand-added
+      person the file also has (same `person_key`) is replaced by the file's row. Hand-added people
+      have a "×" (`DELETE /api/network/contacts/{id}`, 404 for an uploaded one).
+    - **Priority** column: `PrioritySelect`, "Auto: <our tier>" or High / Medium / Low / Not
+      listed. `POST /api/network/priority` keeps it in the `network_priority` setting by
+      `person_key`, so it survives uploads. `overview()` and `people_at()` apply it
+      (`_with_priority`); rows carry `tier`, `auto_tier`, `priority`, `manual`, and an overridden
+      row's why reads "You set this to High (we'd say Medium: ...)". A colleague with a priority
+      set is listed. An organization suggestion's tier follows its best person, overrides included.
+    - Typing in the search looks in every tier, Not listed included ("Searching every tier"); the
+      outreach button follows each row's own tier.
   - **Second person:** Claude's organization reasons are asked for in the second person ("fits your
     civic data work"); `RATINGS_VERSION` 3 offers "Re-rate organizations" to rewrite saved ones. The
     fixed title notes read "Hires for the team" and "A leader there".

@@ -21,6 +21,105 @@ import { Spinner } from "./Spinner";
 const TIERS: NetworkTier[] = ["High", "Medium", "Low"];
 type Tab = NetworkTier | "Not listed";
 
+/** "+ Add a contact" (asked 2026-11-20): one person by hand, without a new Connections.csv. */
+function AddContact({ onAdded }: { onAdded: (n: NetworkOverview & { added_id: number }) => void }) {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ name: "", url: "", position: "", company: "" });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm({ ...form, [k]: e.target.value });
+  const save = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      onAdded(await api.addContact(form));
+      setForm({ name: "", url: "", position: "", company: "" });
+      setOpen(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <>
+      <button className="primary small" onClick={() => setOpen(true)}>
+        + Add a contact
+      </button>
+      <Modal open={open} onClose={() => setOpen(false)} title="Add a contact">
+        <div className="outreach-form">
+          <p className="muted small">
+            Someone you know who isn't in your last Connections.csv. They're kept when you upload a
+            newer file.
+          </p>
+          <label className="fsection">
+            <span className="flabel">Name</span>
+            <input value={form.name} onChange={set("name")} placeholder="Jordan Rivera" />
+          </label>
+          <label className="fsection">
+            <span className="flabel">LinkedIn link</span>
+            <input
+              type="url"
+              value={form.url}
+              onChange={set("url")}
+              placeholder="https://www.linkedin.com/in/..."
+            />
+          </label>
+          <label className="fsection">
+            <span className="flabel">Title</span>
+            <input value={form.position} onChange={set("position")} placeholder="Director of Analytics" />
+          </label>
+          <label className="fsection">
+            <span className="flabel">Organization</span>
+            <input value={form.company} onChange={set("company")} placeholder="Civic Signal" />
+          </label>
+          <div className="form-actions">
+            <button
+              className="primary"
+              disabled={busy || !form.name.trim() || !form.url.trim()}
+              onClick={save}
+            >
+              {busy ? <Spinner label="Adding..." /> : "Add"}
+            </button>
+            <button className="ghost" disabled={busy} onClick={() => setOpen(false)}>
+              Cancel
+            </button>
+            {error && <span className="error-text small">{error}</span>}
+          </div>
+        </div>
+      </Modal>
+    </>
+  );
+}
+
+/** Your own priority for a person (asked 2026-11-20); "Auto" is our tier. */
+function PrioritySelect({
+  person,
+  onChange,
+}: {
+  person: { name: string; tier: NetworkTier | null; auto_tier: NetworkTier | null; priority: string | null };
+  onChange: (priority: NetworkTier | "Not listed" | null) => void;
+}) {
+  const auto = person.auto_tier ?? "Not listed";
+  return (
+    <select
+      className={`priority-select${person.priority ? " yours" : ""}`}
+      value={person.priority ?? ""}
+      aria-label={`Priority for ${person.name}`}
+      title={person.priority ? `You set this (we'd say ${auto})` : "Our tier; pick one to set your own"}
+      onChange={(e) => onChange((e.target.value || null) as NetworkTier | "Not listed" | null)}
+    >
+      <option value="">Auto: {auto}</option>
+      {[...TIERS, "Not listed"].map((t) => (
+        <option key={t} value={t}>
+          {t}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 /** A High / Med / Low rating with a short note (asked 2026-11-16), colored like the job cards'. */
 function Alignment({
   level,
@@ -477,12 +576,15 @@ export function NetworkSection({
   };
 
   const has = !!info && info.count > 0;
-  const all = info
-    ? tier === "Not listed"
-      ? info.not_listed
-      : info.tiers[tier]
-    : [];
   const q = search.trim().toLowerCase();
+  // A search looks in every tier, Not listed included (asked 2026-11-20); otherwise the tab's tier.
+  const all = info
+    ? q
+      ? [...TIERS.flatMap((t) => info.tiers[t]), ...info.not_listed]
+      : tier === "Not listed"
+        ? info.not_listed
+        : info.tiers[tier]
+    : [];
   const searched = q
     ? all.filter((p) =>
         [p.name, p.company, p.position].some((v) =>
@@ -518,6 +620,32 @@ export function NetworkSection({
     } catch (e) {
       apply(reached ? null : new Date().toISOString().slice(0, 10));
       setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const [notice, setNotice] = useState<string | null>(null);
+  const changePriority = async (id: number, priority: NetworkTier | "Not listed" | null) => {
+    setError(null);
+    try {
+      setInfo(await api.setNetworkPriority(id, priority));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+  const removeContact = async (id: number) => {
+    setError(null);
+    try {
+      setInfo(await api.removeContact(id));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+  const added = (n: NetworkOverview & { added_id: number }) => {
+    setInfo(n);
+    const person = [...TIERS.flatMap((t) => n.tiers[t]), ...n.not_listed].find((p) => p.id === n.added_id);
+    if (person) {
+      setTier(person.tier ?? "Not listed");
+      setNotice(`Added ${person.name} (${person.tier ?? "not listed"}).`);
     }
   };
 
@@ -651,9 +779,14 @@ export function NetworkSection({
         )}
       </div>
 
-      {has && (
+      {/* Shown once loaded even before an upload, so someone can be added by hand (asked 2026-11-20). */}
+      {loaded && info && (
         <div className="card network">
-          <h3 className="network-heading first">Who to reach out to</h3>
+          <div className="network-reach-head">
+            <h3 className="network-heading first">Who to reach out to</h3>
+            <AddContact onAdded={added} />
+          </div>
+          {notice && <p className="muted small">{notice}</p>}
           <div className="seg network-tiers" role="tablist">
             {TIERS.map((t) => (
               <button
@@ -700,11 +833,14 @@ export function NetworkSection({
               </button>
             </div>
           </div>
+          {q && <p className="muted small">Searching every tier.</p>}
           {rows.length === 0 ? (
             <p className="empty-state small">
               {q || reach !== "any"
                 ? "Nobody here matches that."
-                : "Nobody in this tier."}
+                : has
+                  ? "Nobody in this tier."
+                  : "Nobody yet: upload your Connections.csv above, or add someone with + Add a contact."}
             </p>
           ) : (
             <div className="network-table-wrap">
@@ -716,6 +852,7 @@ export function NetworkSection({
                     <th>Organization</th>
                     <th>Org alignment</th>
                     <th>Title alignment</th>
+                    <th>Priority</th>
                     <th className="center">Reached out</th>
                     <th className="center">Write outreach</th>
                   </tr>
@@ -731,6 +868,16 @@ export function NetworkSection({
                         ) : (
                           p.name
                         )}
+                        {p.manual && (
+                          <button
+                            className="link small remove-contact"
+                            title="Remove this contact (added by you)"
+                            aria-label={`Remove ${p.name}`}
+                            onClick={() => removeContact(p.id)}
+                          >
+                            ×
+                          </button>
+                        )}
                       </td>
                       <td>{p.position}</td>
                       <td>{p.company}</td>
@@ -743,6 +890,9 @@ export function NetworkSection({
                       </td>
                       <td className="align-cell">
                         <Alignment level={p.title_align} note={p.title_note} />
+                      </td>
+                      <td>
+                        <PrioritySelect person={p} onChange={(v) => changePriority(p.id, v)} />
                       </td>
                       <td className="center">
                         <input
@@ -758,9 +908,7 @@ export function NetworkSection({
                         />
                       </td>
                       <td className="center">
-                        {tier !== "Not listed" && (
-                          <OutreachButton person={p} compact />
-                        )}
+                        {p.tier && <OutreachButton person={p} compact />}
                       </td>
                     </tr>
                   ))}

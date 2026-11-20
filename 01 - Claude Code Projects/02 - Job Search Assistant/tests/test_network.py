@@ -459,3 +459,95 @@ def test_reached_out_is_marked_kept_across_uploads_and_private(monkeypatch):
 def test_organization_reasons_are_asked_for_in_the_second_person():
     assert "second person" in network.PICK_PROMPT
     assert network.RATINGS_VERSION == 3
+
+
+def _find(info: dict, name: str) -> dict:
+    return next(p for p in _everyone(info) if p["name"] == name)
+
+
+def test_adding_a_contact_by_hand_survives_a_new_upload(monkeypatch):
+    """Adding a contact by hand on My Network (asked 2026-11-20): no new Connections.csv needed."""
+    client = Recorder({"Civic Signal": ("fit", "civic data work you'd want")})
+    monkeypatch.setattr(network, "get_client", lambda: client)
+    with TestClient(app) as http:
+        # Before any upload, and their organization is rated (its name only) so they get a tier.
+        resp = http.post(
+            "/api/network/contacts",
+            json={
+                "name": "Gia Mendez",
+                "url": "https://www.linkedin.com/in/gia/",
+                "position": "Head of Data",
+                "company": "Civic Signal",
+            },
+        )
+        assert resp.status_code == 200, resp.text
+        info = resp.json()
+        gia = _find(info, "Gia Mendez")
+        assert gia["id"] == info["added_id"] and gia["manual"] is True
+        assert gia["tier"] == "High" and gia["position"] == "Head of Data"
+        assert client.sent == ["## Organizations\n1. Civic Signal"]
+        # The same person again, or without a proper link, is refused.
+        dup = {"name": "Gia Mendez", "url": "https://www.linkedin.com/in/gia"}
+        assert http.post("/api/network/contacts", json=dup).status_code == 400
+        assert http.post("/api/network/contacts", json={"name": "X", "url": "gia"}).status_code == 400
+
+        # A new upload keeps them; "Remove them" (the uploaded people) too.
+        info, _ = _upload(http, monkeypatch)
+        assert _find(info, "Gia Mendez")["manual"] is True
+        info = http.delete("/api/network/connections").json()
+        assert [p["name"] for p in _everyone(info)] == ["Gia Mendez"]
+        # Removing them one by one works only for people added by hand.
+        info = http.delete(f"/api/network/contacts/{gia['id']}").json()
+        assert _everyone(info) == []
+
+
+def test_an_upload_naming_someone_added_by_hand_takes_their_place(monkeypatch):
+    with TestClient(app) as http:
+        _upload(http, monkeypatch)  # the Recorder rates nothing
+        http.post("/api/network/contacts", json={"name": "Ana Lopez", "url": "https://linkedin.com/in/x"})
+        http.delete("/api/network/connections")
+        http.post(
+            "/api/network/contacts", json={"name": "Ana Lopez", "url": "https://www.linkedin.com/in/ana"}
+        )
+        info, _ = _upload(http, monkeypatch)
+        anas = [p for p in _everyone(info) if p["name"] == "Ana Lopez"]
+        # The one matching the file by LinkedIn address became the file's; the other stays.
+        assert sorted(p["manual"] for p in anas) == [False, True]
+        assert len(anas) == 2
+        uploaded = next(p for p in anas if not p["manual"])
+        assert uploaded["connected_on"] == "2021-03-12"
+        manual_ids = [p["id"] for p in anas if p["manual"]]
+        assert http.delete(f"/api/network/contacts/{uploaded['id']}").status_code == 404
+        assert http.delete(f"/api/network/contacts/{manual_ids[0]}").status_code == 200
+
+
+def test_your_own_priority_overrides_the_tier_and_survives_uploads(monkeypatch):
+    users.create_user("bea@example.com", "Bea", status="approved")
+    with TestClient(app) as http:
+        info, _ = _upload(http, monkeypatch)
+        ed = _find(info, "Ed Fox")
+        assert ed["tier"] is None and ed["priority"] is None  # Pizza Palace: not listed
+        info = http.post("/api/network/priority", json={"id": ed["id"], "priority": "High"}).json()
+        ed = _find(info, "Ed Fox")
+        assert (ed["tier"], ed["auto_tier"], ed["priority"]) == ("High", None, "High")
+        assert ed in info["tiers"]["High"] and ed["why"].startswith("You set this to High")
+        # Hiding someone works too.
+        ana = _find(info, "Ana Lopez")
+        info = http.post("/api/network/priority", json={"id": ana["id"], "priority": "Not listed"}).json()
+        assert _find(info, "Ana Lopez") in info["not_listed"]
+        # It follows the person across a new upload, and on the job card's list.
+        info, _ = _upload(http, monkeypatch)
+        assert _find(info, "Ed Fox")["tier"] == "High"
+        assert [p["tier"] for p in network.people_at("Pizza Palace")] == ["High"]
+        # Back to automatic; a bad value, or someone else's connection, is refused.
+        ed = _find(info, "Ed Fox")
+        bad = http.post("/api/network/priority", json={"id": ed["id"], "priority": "Top"})
+        assert bad.status_code == 400
+        other = http.post(
+            "/api/network/priority",
+            json={"id": ed["id"], "priority": "Low"},
+            headers={"X-Dev-User": "bea@example.com"},
+        )
+        assert other.status_code == 404
+        info = http.post("/api/network/priority", json={"id": ed["id"], "priority": None}).json()
+        assert _find(info, "Ed Fox")["tier"] is None

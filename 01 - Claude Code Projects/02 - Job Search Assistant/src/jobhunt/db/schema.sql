@@ -315,6 +315,8 @@ CREATE TABLE IF NOT EXISTS connections (
     company TEXT,
     position TEXT,
     connected_on TEXT,
-    org_key TEXT
+    org_key TEXT,
+    -- Added by hand on My Network (asked 2026-11-20), not from Connections.csv: kept across uploads.
+    manual INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_connections_user_org ON connections(user_id, org_key);
