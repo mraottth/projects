@@ -1826,8 +1826,16 @@
    "time": "2026-11-19T19:58:24.285Z",
    "kind": "prompt",
    "text": "if a user adds a role to My Jobs from the full text we should also have them input the URL so it can be attached to the job card\nif a user adds a role to My Jobs from the full text we should also have them input the URL so it can be attached to the job card",
-   "reply": null,
+   "reply": "When someone adds a job to My Jobs by pasting the full text, the form now also asks for a link to the posting, and that link is attached to the job card. It's pushed to `claude/move-job-search-assistant`. All tests pass, and I tried the form in a browser on a local copy.\n\n- **The link is required in the form.** It has to start with `http://` or `https://`. If it's missing, the form says so and nothing is sent.\n- **The review step shows it.** \"Review before scoring\" now has a Link field, so it can be fixed before confirming.\n- **It avoids duplicate jobs.** If the posting is already in your sources, that job is added to My Jobs instead of a second copy, before any paid read. This already happened when you pasted a URL; it now applies to pasted text too.\n- **Jobs you pasted before** have no link, and there's no way to add one to them now. Tell me if you want that.\n\nTo deploy:\n\n```bash\ncd ~/projects/\"01 - Claude Code Projects/02 - Job Search Assistant\" && git checkout main && git pull && git merge --no-edit origin/claude/move-job-search-assistant && git push && make deploy ADMIN_EMAIL=you@example.com IAP_AUDIENCE=/projects/<project number>/locations/us-central1/services/jobhunt\n```\n\nI haven't found the cause of the new-user sign-up error yet. I read the sign-in and request-access code and found nothing that would fail for a first-time user. The error is probably coming from Google's sign-in step before the app runs, and it depends on how sign-in is set up for the app, which I can't check from here. Could you send me the exact error text or a screenshot, and say whether it appears on a Google page or inside the app?",
    "id": "ab602548-256",
+   "session": "ab602548"
+  },
+  {
+   "time": "2026-11-20T16:40:51.699Z",
+   "kind": "prompt",
+   "text": "let's add a feature to manually add somebody's LinkedIn to My Network (i.e. without needing to reupload a whole csv). It should be a blue button in the top right of \"Who to reach out to\" that asks for name, link, title, and organization. We should also have a way to override the prioritization rating. Finally, the search should pull up contacts from across all tiers - not just the one you're toggled to.",
+   "reply": null,
+   "id": "ab602548-257",
    "session": "ab602548"
   }
  ]
