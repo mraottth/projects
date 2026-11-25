@@ -58,6 +58,9 @@ IMAGE        = $(GCP_REGION)-docker.pkg.dev/$(GCP_PROJECT)/goodrec/app
 deploy:          ## build the image in Cloud Build and deploy to Cloud Run (uploads artifacts/)
 	@if [ -n "$$GOODREC_ARTIFACTS$$GOODREC_DATA$$GOODREC_CONFIG$$GOODREC_EVAL$$GOODREC_ROOT" ]; then \
 	  echo "deploy: refusing to deploy with experiment settings in the environment (GOODREC_*); unset them first."; exit 1; fi
+	@if grep -rlq '^version https://git-lfs' demo config; then \
+	  echo "deploy: these files are Git LFS placeholders, not the real files:"; grep -rl '^version https://git-lfs' demo config; \
+	  echo "run 'git lfs install && git lfs pull' first."; exit 1; fi
 	@python3 -c "import json; m = json.load(open('artifacts/manifest.json')); print('deploy: shipping artifacts/ built', m.get('created'), '-', m.get('counts', {}))"
 	python3 scripts/code_links.py
 	python3 scripts/build_changelog.py
