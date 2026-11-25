@@ -48,7 +48,7 @@ dev:             ## frontend dev server with API proxy (run `make serve` in anot
 docker:
 	docker build -t goodrec .
 
-# ---- Cloud Run (one warm instance to avoid cold starts). Needs `gcloud auth login`; builds remotely with Cloud Build, no local Docker.
+# ---- Cloud Run (scales to zero when idle; a cold start shows a loading screen, D-058). Needs `gcloud auth login`; builds remotely with Cloud Build, no local Docker.
 # The GCP project id lives in .deploy.local.mk (git-ignored), e.g. `GCP_PROJECT := my-project`, so it isn't published.
 -include .deploy.local.mk
 GCP_PROJECT ?= $(error set GCP_PROJECT in .deploy.local.mk or on the command line)
@@ -64,7 +64,7 @@ deploy:          ## build the image in Cloud Build and deploy to Cloud Run (uplo
 	python3 scripts/build_evaluations.py
 	gcloud builds submit --project $(GCP_PROJECT) --region $(GCP_REGION) --tag $(IMAGE) .
 	gcloud run deploy goodrec --project $(GCP_PROJECT) --region $(GCP_REGION) --image $(IMAGE) \
-	  --memory 1Gi --cpu 1 --cpu-boost --min-instances 1 --max-instances 3 --concurrency 20 \
+	  --memory 1Gi --cpu 1 --cpu-boost --min-instances 0 --max-instances 3 --concurrency 20 \
 	  --allow-unauthenticated $(CHAT_SECRET_FLAG)
 
 # Assistant tab: the Anthropic key lives in Secret Manager; deploy mounts it only if the secret exists.
