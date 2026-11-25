@@ -111,11 +111,17 @@ def parse(transcript: Path) -> list[dict]:
                 d = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            if d.get("isSidechain") or d.get("isMeta") or d.get("isCompactSummary"):
-                continue
             kind = d.get("type")
             msg = d.get("message") or {}
             content = msg.get("content")
+            if kind == "user" and d.get("isMeta") and _is_stop_hook_feedback(content):
+                # A Stop hook sent Claude back to work (e.g. "commit and push"): the answer the user saw is the reply
+                # so far, not whatever Claude says while doing the hook's chore.
+                close()
+                reply = []
+                continue
+            if d.get("isSidechain") or d.get("isMeta") or d.get("isCompactSummary"):
+                continue
             if kind == "user":
                 approved = approved_plan(content)
                 if approved and entries:
@@ -152,6 +158,12 @@ def parse(transcript: Path) -> list[dict]:
                         reply.append(block["text"])
         close()
     return entries
+
+
+def _is_stop_hook_feedback(content) -> bool:
+    if isinstance(content, list):
+        content = " ".join(b.get("text", "") for b in content if isinstance(b, dict))
+    return isinstance(content, str) and content.lstrip().startswith("Stop hook feedback")
 
 
 def approved_plan(content) -> str | None:

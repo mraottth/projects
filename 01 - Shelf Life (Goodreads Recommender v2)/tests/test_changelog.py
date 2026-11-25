@@ -138,6 +138,25 @@ def test_messages_sent_mid_turn_are_logged_without_renumbering(tmp_path):
     assert [e["id"] for e in entries] == ["abcdef12-001", "abcdef12-001a", "abcdef12-002"]
 
 
+def test_stop_hook_chores_dont_replace_the_answer(tmp_path):
+    hook = "Stop hook feedback:\n[command hook 2]: There are uncommitted changes. Please commit and push.\n"
+    lines = [
+        _line(type="user", timestamp="2026-10-01T10:00:00.000Z", message={"content": "How would a loading screen work?"}),
+        _line(type="assistant", message={"content": [{"type": "text", "text": "Here's how it would work."}]}),
+        _line(type="user", timestamp="2026-10-01T10:01:00.000Z", isMeta=True, message={"content": hook}),
+        _line(type="assistant", message={"content": [{"type": "tool_use", "id": "t1", "name": "Bash", "input": {}}]}),
+        _line(type="user", message={"content": [{"type": "tool_result", "tool_use_id": "t1", "content": "pushed"}]}),
+        _line(type="assistant", message={"content": [{"type": "text", "text": "I committed and pushed the export."}]}),
+        _line(type="user", timestamp="2026-10-01T11:00:00.000Z", message={"content": "Next request"}),
+        _line(type="assistant", message={"content": [{"type": "text", "text": "Done."}]}),
+    ]
+    t = tmp_path / "session-abcdef12.jsonl"
+    t.write_text("".join(lines))
+    entries = export_prompts.parse(t)
+    assert [e["text"] for e in entries] == ["How would a loading screen work?", "Next request"]
+    assert [e["reply"] for e in entries] == ["Here's how it would work.", "Done."]
+
+
 def test_redaction_scrubs_session_links_usernames_and_local_values(tmp_path, monkeypatch):
     """scripts/redact.py: built-in rules, plus literal values from the git-ignored .redact.local.json."""
     import importlib.util
