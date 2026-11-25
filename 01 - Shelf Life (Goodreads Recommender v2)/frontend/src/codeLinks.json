@@ -39,7 +39,7 @@
   "eval_reports": "eval/reports",
   "package": "src/goodrec/pipeline/s10_package.py#L146",
   "load_artifacts": "src/goodrec/core/artifacts.py#L87",
-  "api_recommend": "src/goodrec/api/main.py#L382",
+  "api_recommend": "src/goodrec/api/main.py#L437",
   "api_search": "src/goodrec/api/catalog.py#L87",
   "csv_matching": "src/goodrec/api/matching.py#L48",
   "shelf_store": "frontend/src/store.tsx#L80",

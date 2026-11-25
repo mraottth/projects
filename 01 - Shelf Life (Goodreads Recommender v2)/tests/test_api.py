@@ -14,9 +14,10 @@ FIXTURE = Path(__file__).parent / "fixtures" / "goodreads_library_export.csv"
 def client():
     from fastapi.testclient import TestClient
 
-    from goodrec.api.main import app
+    from goodrec.api import main
 
-    with TestClient(app) as c:
+    with TestClient(main.app) as c:
+        assert main.startup.ready.wait(300) and main.startup.status == "ready", main.startup.error
         yield c
 
 

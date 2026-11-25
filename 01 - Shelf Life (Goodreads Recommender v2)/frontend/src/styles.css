@@ -1158,3 +1158,16 @@ button.chip:hover { background: #f1f0eb; }
 /* Changelog intro: the prompt / commit / decision counts */
 .cl-stat { white-space: nowrap; font-weight: 700; color: var(--ink); padding: 1px 4px; border-radius: 4px; box-decoration-break: clone;
   -webkit-box-decoration-break: clone; background: color-mix(in srgb, var(--star) 20%, transparent); }
+
+/* ---------- cold-start loading screen (components/Warmup.tsx) */
+.warmup { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 24px 16px;
+  background: var(--page); }
+.warmup-card { max-width: 420px; text-align: center; }
+.warmup-card h1 { font-size: 1.5rem; margin: 22px 0 8px; }
+.warmup-card p { margin: 0 0 16px; line-height: 1.5; }
+.warmup-bar { position: relative; height: 4px; margin: 22px auto 16px; max-width: 240px; overflow: hidden;
+  border-radius: 4px; background: #e4e2dc; }
+.warmup-bar span { position: absolute; inset: 0; width: 40%; border-radius: 4px; background: var(--accent);
+  animation: warmup-slide 1.4s ease-in-out infinite; }
+@keyframes warmup-slide { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+@media (prefers-reduced-motion: reduce) { .warmup-bar span { animation: none; width: 100%; opacity: 0.5; } }

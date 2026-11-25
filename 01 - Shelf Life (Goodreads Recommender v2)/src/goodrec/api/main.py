@@ -3,7 +3,9 @@
 Serves the built frontend (frontend/dist) at / when present.
 """
 
+import asyncio
 import hashlib
+import threading
 import time
 from collections import OrderedDict
 from contextlib import asynccontextmanager
@@ -11,8 +13,8 @@ from contextlib import asynccontextmanager
 import numpy as np
 import orjson
 import yaml
-from fastapi import FastAPI, File, HTTPException, Query, UploadFile
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, File, HTTPException, Query, Request, UploadFile
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from goodrec.api.catalog import Catalog
@@ -49,8 +51,7 @@ class RawCache:
             self.d.popitem(last=False)
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
+def _load_state():
     t = time.time()
     art = load_artifacts(ARTIFACTS_DIR)
     state.update(art=art, cat=Catalog(art.db_path), params=Params.from_config(), cache=RawCache(),
@@ -60,11 +61,54 @@ async def lifespan(app: FastAPI):
                  population=orjson.loads((ARTIFACTS_DIR / "population_stats.json").read_bytes()))
     state["home_wall"] = _home_wall()
     print(f"artifacts loaded in {time.time() - t:.1f}s: {art.meta.n:,} books")
+
+
+class Startup:
+    """Artifacts load in a background thread so the server answers (and serves the page) within a second or two of a
+    cold start; until they're in, /api/* routes answer 503 "warming" and the frontend shows a loading screen."""
+
+    def __init__(self):
+        self.ready = threading.Event()
+        self.error: str | None = None
+
+    def run(self):
+        try:
+            _load_state()
+        except Exception as e:  # noqa: BLE001  (reported by /api/health instead of killing the server)
+            self.error = f"{type(e).__name__}: {e}"
+            print(f"startup failed: {self.error}")
+        finally:
+            self.ready.set()
+
+    @property
+    def status(self) -> str:
+        return "warming" if not self.ready.is_set() else "error" if self.error else "ready"
+
+
+startup = Startup()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global startup
+    startup = Startup()
+    threading.Thread(target=startup.run, name="load-artifacts", daemon=True).start()
     yield
     state.clear()
 
 
 app = FastAPI(title="Goodreads Recommender", lifespan=lifespan)
+
+
+@app.middleware("http")
+async def wait_for_startup(request: Request, call_next):
+    """API routes need the artifacts: answer 503 until they're loaded (the page itself is served right away)."""
+    path = request.url.path
+    if path.startswith("/api/") and path != "/api/health" and startup.status != "ready":
+        warming = startup.status == "warming"
+        return JSONResponse({"detail": "Shelf Life is starting up" if warming else "Shelf Life failed to start",
+                             "status": startup.status}, status_code=503, headers={"Retry-After": "2"} if warming else None)
+    return await call_next(request)
 
 
 # ------------------------------------------------------------------ helpers
@@ -156,10 +200,21 @@ def _your_avg(user: UserInput) -> tuple[float | None, float | None]:
 
 # ------------------------------------------------------------------ routes
 
+HEALTH_MAX_WAIT = 20   # seconds
+
+
 @app.get("/api/health")
-def health():
+async def health(wait: float = Query(0, ge=0)):
+    """`status`: warming | ready | error. With `wait`, a warming server holds the answer up to that many seconds
+    (max HEALTH_MAX_WAIT) until it's ready: the loading screen long-polls this, which also keeps Cloud Run giving the
+    instance CPU while it loads (CPU is only allocated while a request is in flight)."""
+    if wait and startup.status == "warming":
+        await asyncio.to_thread(startup.ready.wait, min(wait, HEALTH_MAX_WAIT))
+    if startup.status != "ready":
+        return {"ok": False, "status": startup.status}     # the error itself is only in the server log
     art = state["art"]
-    return {"ok": True, "books": art.meta.n, "neighbor_users": 0 if art.user_factors is None else len(art.user_factors)}
+    return {"ok": True, "status": "ready", "books": art.meta.n,
+            "neighbor_users": 0 if art.user_factors is None else len(art.user_factors)}
 
 
 @app.get("/api/search")
