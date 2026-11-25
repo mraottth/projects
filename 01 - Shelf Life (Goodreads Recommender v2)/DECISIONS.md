@@ -792,8 +792,8 @@ Absolute popularity is now plain reach. The old Popular score divided reach by t
 ## D-058 · A loading screen for cold starts
 - **Date:** 2026-11-25
 - **Category:** infra
-- **Prompts:** 81e316a2-009, 81e316a2-010, 81e316a2-011
-- **Commits:** d4c40bc
+- **Prompts:** 81e316a2-009, 81e316a2-010, 81e316a2-011, 81e316a2-012
+- **Commits:** d4c40bc, 3bde3f9
 
 **Decision.** The server loads its models and catalog in a background thread instead of before it starts listening. It serves the page straight away, and the API answers "starting up" (503) until loading finishes. When the frontend sees that, it covers the app with a "Waking up Shelf Life…" screen and long-polls `/api/health` until the server is ready, then re-mounts the app. A warm server shows nothing; the only cost is one extra `/api/health` call per page load.
 
@@ -801,5 +801,5 @@ Absolute popularity is now plain reach. The old Popular score divided reach by t
 
 **Alternatives considered.** Hosting the frontend separately (Firebase Hosting or a Cloud Storage bucket behind a CDN) so the page loads instantly even from cold; more robust, but more setup and a different deploy. Polling `/api/health` with short requests; on Cloud Run with CPU allocated only during requests, background loading would crawl between polls, so the screen long-polls instead.
 
-**Why.** The user chose the in-app option. The warm instance itself is unchanged (`--min-instances 1` in the Makefile); this only makes turning it off reasonable. The long-poll keeping CPU allocated follows from Cloud Run's documented CPU allocation and was not measured on a real cold start.
+**Why.** The user chose the in-app option, then turned the warm instance off: `make deploy` now sets `--min-instances 0`, so the service scales to zero when idle. The long-poll keeping CPU allocated follows from Cloud Run's documented CPU allocation and was not measured on a real cold start.
 
