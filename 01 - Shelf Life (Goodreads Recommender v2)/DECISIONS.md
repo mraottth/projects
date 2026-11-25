@@ -793,6 +793,7 @@ Absolute popularity is now plain reach. The old Popular score divided reach by t
 - **Date:** 2026-11-25
 - **Category:** infra
 - **Prompts:** 81e316a2-009, 81e316a2-010, 81e316a2-011
+- **Commits:** d4c40bc
 
 **Decision.** The server loads its models and catalog in a background thread instead of before it starts listening. It serves the page straight away, and the API answers "starting up" (503) until loading finishes. When the frontend sees that, it covers the app with a "Waking up Shelf Life…" screen and long-polls `/api/health` until the server is ready, then re-mounts the app. A warm server shows nothing; the only cost is one extra `/api/health` call per page load.
 
